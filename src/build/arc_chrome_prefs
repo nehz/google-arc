@@ -1,0 +1,20 @@
+{
+   "profile": {
+      "content_settings": {
+         "pattern_pairs": {
+            "*,*": {
+               "per_plugin": {
+                  "libppapi_arc.so": 1
+               }
+            }
+         },
+         "plugin_whitelist": {
+            "libppapi_arc": {
+               "so": true
+            }
+         },
+         "pref_version": 1
+      },
+      "name": "First user"
+   }
+}

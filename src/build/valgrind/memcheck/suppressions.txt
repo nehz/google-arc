@@ -1,0 +1,70 @@
+{
+   gtest_invalid_read_1
+   Memcheck:Addr4
+   obj:*
+   fun:_ZN7testing8internal16BoolFromGTestEnvEPKcb
+   fun:_Z41__static_initialization_and_destruction_0ii
+   fun:_GLOBAL__sub_I_gtest_all.cc
+   fun:__libc_csu_init
+}
+{
+   gtest_invalid_read_2
+   Memcheck:Addr4
+   obj:*
+   fun:_ZN7testing8internal18StringFromGTestEnvEPKcS2_
+   fun:_Z41__static_initialization_and_destruction_0ii
+   fun:_GLOBAL__sub_I_gtest_all.cc
+   fun:__libc_csu_init
+}
+{
+   gtest_invalid_read_3
+   Memcheck:Addr4
+   obj:*
+   fun:_ZN7testing8internal17Int32FromGTestEnvEPKci
+   fun:_Z41__static_initialization_and_destruction_0ii
+   fun:_GLOBAL__sub_I_gtest_all.cc
+   fun:__libc_csu_init
+}
+{
+   libchromium_base_test_TimeTest_1
+   Memcheck:Cond
+   obj:/lib/i386-linux-gnu/libc-2.15.so
+}
+{
+   libchromium_base_test_TimeTest_2
+   Memcheck:Addr4
+   ...
+   obj:/lib/i386-linux-gnu/libc-2.15.so
+   fun:mktime
+}
+{
+   pthread_join_in_test_doesnt_free_resources_flake
+   Memcheck:Leak
+   fun:calloc
+   obj:/lib/i386-linux-gnu/ld-2.15.so
+   fun:_dl_allocate_tls
+   fun:pthread_create@@GLIBC_2.1
+   fun:_ZN3arcL24call_real_pthread_createEPmPK14pthread_attr_tPFPvS4_ES4_
+   fun:__wrap_pthread_create
+   ...
+   fun:_ZN7testing8TestInfo3RunEv
+}
+{
+   allocation_inside_attribute_constructor_function
+   Memcheck:Leak
+   fun:malloc
+   fun:_ZN7android12SharedBuffer5allocEj
+   fun:_ZN7android10VectorImpl5_growEjj
+   fun:_ZN7android10VectorImpl8insertAtEPKvjj
+   fun:_ZN7android10VectorImpl3addEPKv
+   fun:_ZN7android6VectorINS_28sysprop_change_callback_infoEE3addERKS1_
+   fun:_ZN7android27add_sysprop_change_callbackEPFvvEi
+   fun:_ZL9traceInitv
+   obj:/lib/i386-linux-gnu/ld-2.15.so
+}
+{
+   conditional_jump_on_uninitialized_value_inside_dlopen
+   Memcheck:Cond
+   obj:/lib/i386-linux-gnu/ld-2.15.so
+}
+
