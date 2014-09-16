@@ -59,7 +59,9 @@ def _check_out_matching_branch(dest):
 
 def _test_changes(dest):
   logging.info('Testing changes in open source tree')
-  subprocess.check_call(['./configure'], cwd=dest)
+  configure_options_file = 'out/configure.options'
+  with open(configure_options_file) as f:
+    subprocess.check_call(['./configure'] + f.read().split(), cwd=dest)
   subprocess.check_call(['ninja', 'all', '-j50'], cwd=dest)
 
 
@@ -85,9 +87,12 @@ def _push_changes(dest):
   subprocess.check_call(['git', 'push', '--tags'], cwd=dest)
 
 
-def _reset_repo(dest):
+def _reset_and_clean_repo(dest):
   logging.info('Resetting local open source repository')
   subprocess.check_call(['git', 'reset', '--hard'], cwd=dest)
+  logging.info('Clearing untracked files from repository')
+  # -f -f is intentional, this will get rid of untracked modules left behind.
+  subprocess.check_call(['git', 'clean', '-f', '-f', '-d'], cwd=dest)
 
 
 # Updates or clones from scratch the open source repository at the location
@@ -111,13 +116,14 @@ def main():
     logging.getLogger().setLevel(logging.INFO)
   _update_local_repository(args)
 
-  # If we are pushing changes, we need to be on the correct tracking branch,
-  # otherwise it's ok to just clobber the current directory, which will be reset
-  # later.
-  if args.push_changes:
-    if (args.force and util.git.get_uncommitted_files(cwd=args.dest)):
-      _reset_repo(args.dest)
-    _check_out_matching_branch(args.dest)
+  if (util.git.get_uncommitted_files(cwd=args.dest) and not args.force):
+    logging.error('%s has uncommitted files, use --force to override')
+    return 1
+  _reset_and_clean_repo(args.dest)
+  _check_out_matching_branch(args.dest)
+  # Submodules abandoned between branches will still leave their directories
+  # around which can confuse prepare_open_source_commit, so we clean them out.
+  _reset_and_clean_repo(args.dest)
 
   prepare_open_source_commit.run(args.dest, args.force)
 
@@ -128,7 +134,7 @@ def main():
     _sync_head_tags(args.dest, '.')
     _push_changes(args.dest)
   else:
-    _reset_repo(args.dest)
+    _reset_and_clean_repo(args.dest)
   return 0
 
 
