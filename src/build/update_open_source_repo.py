@@ -24,25 +24,23 @@ def _update_submodules(dest):
   subprocess.check_call(['git', 'submodule', 'update', '--init'], cwd=dest)
 
 
-def _update_local_repository(args):
-  if os.path.exists(args.dest):
-    if not util.git.is_git_dir(args.dest):
-      sys.exit('directory "%s" is not a valid git repo' % args.dest)
-    if util.git.get_uncommitted_files(cwd=args.dest):
-      if not args.force:
-        sys.exit('directory "%s" has uncommitted changes, reset or use --force'
-                 % args.dest)
-      subprocess.check_call(['git', 'reset', '--hard'], cwd=args.dest)
-    logging.info('Updating open source repo at "%s"' % args.dest)
-    subprocess.check_call(['git', 'pull'], cwd=args.dest)
-  else:
-    logging.info('Cloning open source repo to "%s"' % args.dest)
+def _clone_repo_if_needed(dest):
+  if not os.path.exists(dest):
+    logging.info('Cloning open source repo to "%s"' % dest)
     subprocess.check_call(['git', 'clone', '--recursive', _OPEN_SOURCE_URL,
-                           args.dest])
-  _update_submodules(args.dest)
+                           dest])
+
+
+def _validate_local_repository(dest):
+  if not util.git.is_git_dir(dest):
+    sys.exit('directory "%s" is not a valid git repo' % dest)
 
 
 def _check_out_matching_branch(dest):
+  # We have to update all the remotes to make sure we can find the remote branch
+  # this checkout comes from.  On buildbots, only master and tags are fetched by
+  # default.
+  subprocess.check_call(['git', 'remote', 'update'])
   subprocess.check_call(['git', 'remote', 'update'], cwd=dest)
   remote_branch = util.git.get_remote_branch(util.git.get_last_landed_commit())
   if not util.git.has_remote_branch(remote_branch, cwd=dest):
@@ -114,8 +112,9 @@ def main():
   args = parser.parse_args(sys.argv[1:])
   if args.verbose:
     logging.getLogger().setLevel(logging.INFO)
-  _update_local_repository(args)
 
+  _clone_repo_if_needed(args.dest)
+  _validate_local_repository(args.dest)
   if (util.git.get_uncommitted_files(cwd=args.dest) and not args.force):
     logging.error('%s has uncommitted files, use --force to override')
     return 1
