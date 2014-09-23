@@ -7,7 +7,7 @@
 # mods/android/frameworks/native/arc/binder/driver.cc __cxa_atexit@plt [registers a dtor to run at exit]
 # mods/android/frameworks/native/arc/binder/driver.cc pthread_mutex_init@plt
 # src/wrap/file_wrap.cc (anonymous namespace)::g_wrap_write_nest_count
-# src/wrap/file_wrap.cc ndk_translation::(anonymous namespace)::kDataAppLib+0x9c6
+# src/wrap/file_wrap.cc ndk_translation::(anonymous namespace)::kDataAppLib+0x88b
 # src/wrap/file_wrap.cc arc::ThreadLocal<int>::~ThreadLocal()
 # src/wrap/file_wrap.cc __bss_start
 # src/wrap/file_wrap.cc __cxa_atexit@plt [registers a dtor to run at exit]
@@ -31,7 +31,7 @@
 # proxy_binder.cc __cxa_atexit@plt [registers a dtor to run at exit]
 # proxy_binder.cc pthread_mutex_init@plt
 # src/ndk_translation/android_api/pwd_thunks.cc (anonymous namespace)::g_thunks_state
-# src/ndk_translation/android_api/pwd_thunks.cc ndk_translation::(anonymous namespace)::kDataAppLib+0x9c6
+# src/ndk_translation/android_api/pwd_thunks.cc ndk_translation::(anonymous namespace)::kDataAppLib+0x88b
 # src/ndk_translation/android_api/pwd_thunks.cc arc::ThreadLocal<(anonymous namespace)::thunks_state_t*>::~ThreadLocal()
 # src/ndk_translation/android_api/pwd_thunks.cc __bss_start
 # src/ndk_translation/android_api/pwd_thunks.cc __cxa_atexit@plt [registers a dtor to run at exit]
