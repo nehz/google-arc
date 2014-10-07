@@ -344,10 +344,15 @@ class PluginUtilInterface {
   virtual bool IsMainThread() = 0;
   virtual bool IsRendererThread() = 0;
 
-  // Sets JavScript message handler and returns message sender interface. Caller
-  // must free |handler| and returned object.
+  // Sets JavaScript message handler and returns message sender interface.
+  // Caller must free |handler| and returned object.
   virtual ArcMessageBridgeMessageSender* InitializeArcMessageBridge(
       AndroidMessageHandler* handler) = 0;
+
+  // Report an unhandled exception.
+  virtual void ReportApplicationCrash(const char* log_message,
+                                      const char* stack_trace) = 0;
+
   virtual int RunAndWaitForChildPlugin(const char* const argv[],
                                        const char* preopened_fd_args[],
                                        const char* preopened_fd_names[]) = 0;
