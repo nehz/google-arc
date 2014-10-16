@@ -3136,7 +3136,8 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
 
 class ApkNinjaGenerator(JavaNinjaGenerator):
   def __init__(self, module_name, base_path=None, source_subdirectories=None,
-               install_path=None, canned_classes_apk=None, **kwargs):
+               install_path=None, canned_classes_apk=None, install_lazily=False,
+               **kwargs):
     # Set the most common defaults for APKs.
     if source_subdirectories is None:
       source_subdirectories = ['src']
@@ -3170,6 +3171,7 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
           subpath='package.odex', is_target=True)
 
     self._canned_classes_apk = canned_classes_apk
+    self._install_lazily = install_lazily
 
   @staticmethod
   def emit_common_rules(n):
@@ -3303,6 +3305,16 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
       super(ApkNinjaGenerator, self).install_to_root_dir(
           JavaNinjaGenerator._change_extension(install_to, '.odex', '.apk'),
           self._output_odex_file)
+
+    if self._install_lazily:
+      # To retrieve intent-filter and provider in bootstrap, copy
+      # AndroidManifest.xml as <module name>.xml.
+      manifest_path = staging.as_staging(
+          os.path.join(self._base_path, 'AndroidManifest.xml'))
+      install_manifest_path = os.path.join(self._install_path,
+                                           '%s.xml' % self._module_name)
+      super(ApkNinjaGenerator, self).install_to_root_dir(
+          install_manifest_path, manifest_path)
     return self
 
 
