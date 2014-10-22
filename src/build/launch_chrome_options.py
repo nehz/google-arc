@@ -180,13 +180,6 @@ def _validate_timeout(parser, args):
     parser.error("--timeout  only valid in 'perftest' or 'atftest' mode")
 
 
-def _validate_arc_strace(parser, args):
-  if args.enable_arc_strace:
-    if not OPTIONS.is_debug_code_enabled():
-      parser.error("./configure --disable-debug-code is not compatible "
-                   "with --enable-arc-strace")
-
-
 def _setup_filterspec_from_args(args):
   if args.silent:
     args.stderr_log = 'S'
@@ -517,6 +510,12 @@ Native Client Debugging
                       'directory, which contains the unpacked CRX files, is '
                       'also removed.')
 
+  parser.add_argument('--use-all-play-services', action='store_true',
+                      help='Enable all available Play Services APIs')
+
+  parser.add_argument('--use-test-app', action='store_true',
+                      help='Use the ARC Test App ID with enabled APIs')
+
   parser.add_argument('--user-data-dir', metavar='<path>',
                       help='Specify user data dir for Chrome to run')
 
@@ -548,7 +547,6 @@ Native Client Debugging
   _validate_system_settings(parser, args)
   _validate_debug_modes(parser, args)
   _validate_timeout(parser, args)
-  _validate_arc_strace(parser, args)
 
   _resolve_perf_test_mode(args)
   _setup_filterspec_from_args(args)
