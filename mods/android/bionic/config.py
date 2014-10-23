@@ -197,6 +197,7 @@ def _filter_libc_common(vars):
       'android/bionic/libc/arch-nacl/syscalls/lseek.c',
       'android/bionic/libc/arch-nacl/syscalls/lseek64.c',
       'android/bionic/libc/arch-nacl/syscalls/lstat.c',
+      'android/bionic/libc/arch-nacl/syscalls/mkdir.c',
       'android/bionic/libc/arch-nacl/syscalls/mmap.c',
       'android/bionic/libc/arch-nacl/syscalls/mprotect.c',
       'android/bionic/libc/arch-nacl/syscalls/munmap.c',

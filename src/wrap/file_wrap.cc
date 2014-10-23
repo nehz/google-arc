@@ -102,9 +102,6 @@ void* __wrap_dlopen(const char* filename, int flag);
 void* __wrap_dlsym(const void* handle, const char* symbol);
 DIR* __wrap_fdopendir(int fd);
 char* __wrap_getcwd(char* buf, size_t size);
-int __wrap_getdents(
-    unsigned int fd, struct dirent* dirp, unsigned int count);
-int __wrap_mkdir(const char* pathname, mode_t mode);
 char* __wrap_mkdtemp(char* tmpl);
 int __wrap_mkstemp(char* tmpl);
 int __wrap_mkstemps(char* tmpl, int suffix_len);
@@ -123,7 +120,6 @@ int __wrap_scandir(
     const char* dirp, struct dirent*** namelist,
     int (*filter)(const struct dirent*),
     int (*compar)(const struct dirent**, const struct dirent**));
-int __wrap_stat(const char* filename, struct stat* buf);
 int __wrap_statfs(const char* path, struct statfs* stat);
 int __wrap_statvfs(const char* path, struct statvfs* stat);
 int __wrap_symlink(const char* oldp, const char* newp);
@@ -222,8 +218,6 @@ extern mode_t __real_umask(mode_t mask);
 extern ssize_t __real_write(int fd, const void* buf, size_t count);
 extern ssize_t __real_writev(int fd, const struct iovec* iov, int count);
 
-int __wrap_lstat(const char* path, struct stat* buf);
-int __wrap_stat(const char* filename, struct stat* buf);
 extern int __real_lstat(const char* path, struct stat* buf);
 extern int __real_stat(const char* filename, struct stat* buf);
 }  // extern "C"
@@ -453,27 +447,30 @@ IRT_WRAPPER(getcwd, char* buf, size_t size) {
 }
 }  // extern "C"
 
-int __wrap_lstat(const char* path, struct stat* buf) {
+IRT_WRAPPER(lstat, const char* path, struct nacl_abi_stat* buf) {
   ARC_STRACE_ENTER("lstat", "\"%s\", %p",
                    SAFE_CSTR(path), buf);
   int result;
+  struct stat st;
   VirtualFileSystemInterface* file_system = GetFileSystem();
   if (file_system) {
-    result = file_system->lstat(path, buf);
+    result = file_system->lstat(path, &st);
   } else {
     std::string newpath(path);
-    result = __real_lstat(newpath.c_str(), buf);
+    result = __real_lstat(newpath.c_str(), &st);
   }
-  if (result == -1 && errno != ENOENT) {
-    DANGERF("path=%s: %s",
-            SAFE_CSTR(path), safe_strerror(errno).c_str());
+  if (result == -1) {
+    if (errno != ENOENT) {
+      DANGERF("path=%s: %s", SAFE_CSTR(path), safe_strerror(errno).c_str());
+    }
+  } else {
+    StatToNaClAbiStat(&st, buf);
+    ARC_STRACE_REPORT("buf=%s", arc::GetNaClAbiStatStr(buf).c_str());
   }
-  if (!result)
-    ARC_STRACE_REPORT("buf=%s", arc::GetStatStr(buf).c_str());
-  ARC_STRACE_RETURN(result);
+  ARC_STRACE_RETURN_IRT_WRAPPER(result == 0 ? 0 : errno);
 }
 
-int __wrap_mkdir(const char* pathname, mode_t mode) {
+IRT_WRAPPER(mkdir, const char* pathname, mode_t mode) {
   ARC_STRACE_ENTER("mkdir", "\"%s\", 0%o", SAFE_CSTR(pathname), mode);
   int result;
   VirtualFileSystemInterface* file_system = GetFileSystem();
@@ -485,7 +482,7 @@ int __wrap_mkdir(const char* pathname, mode_t mode) {
     DANGERF("path=%s mode=%d: %s",
             SAFE_CSTR(pathname), mode, safe_strerror(errno).c_str());
   }
-  ARC_STRACE_RETURN(result);
+  ARC_STRACE_RETURN_IRT_WRAPPER(result == 0 ? 0 : errno);
 }
 
 static const ssize_t kPlaceholderLen = 6;
@@ -902,19 +899,24 @@ int __wrap_utimes(const char* filename, const struct timeval times[2]) {
   ARC_STRACE_RETURN(result);
 }
 
-int __wrap_stat(const char* pathname, struct stat* buf) {
+IRT_WRAPPER(stat, const char* pathname, struct nacl_abi_stat* buf) {
   ARC_STRACE_ENTER("stat", "\"%s\", %p", SAFE_CSTR(pathname), buf);
   int result;
+  struct stat st;
   VirtualFileSystemInterface* file_system = GetFileSystem();
   if (file_system)
-    result = file_system->stat(pathname, buf);
+    result = file_system->stat(pathname, &st);
   else
-    result = __real_stat(pathname, buf);
-  if (result == -1 && errno != ENOENT)
-    DANGERF("path=%s: %s", SAFE_CSTR(pathname), safe_strerror(errno).c_str());
-  if (!result)
-    ARC_STRACE_REPORT("buf=%s", arc::GetStatStr(buf).c_str());
-  ARC_STRACE_RETURN(result);
+    result = __real_stat(pathname, &st);
+  if (result == -1) {
+    if (errno != ENOENT) {
+      DANGERF("path=%s: %s", SAFE_CSTR(pathname), safe_strerror(errno).c_str());
+    }
+  } else {
+    StatToNaClAbiStat(&st, buf);
+    ARC_STRACE_REPORT("buf=%s", arc::GetNaClAbiStatStr(buf).c_str());
+  }
+  ARC_STRACE_RETURN_IRT_WRAPPER(result == 0 ? 0 : errno);
 }
 
 int __wrap_close(int fd) {
@@ -1546,6 +1548,28 @@ char* __real_getcwd(char *buf, size_t size) {
   return NULL;
 }
 
+int __real_lstat(const char *pathname, struct stat *buf) {
+  ALOG_ASSERT(__nacl_irt_lstat_real);
+  struct nacl_abi_stat nacl_buf;
+  int result = __nacl_irt_lstat_real(pathname, &nacl_buf);
+  if (result) {
+    errno = result;
+    return -1;
+  }
+  NaClAbiStatToStat(&nacl_buf, buf);
+  return 0;
+}
+
+int __real_mkdir(const char *pathname, mode_t mode) {
+  ALOG_ASSERT(__nacl_irt_mkdir_real);
+  int result = __nacl_irt_mkdir_real(pathname, mode);
+  if (result) {
+    errno = result;
+    return -1;
+  }
+  return 0;
+}
+
 int __real_open(const char *pathname, int oflag, mode_t cmode) {
   ALOG_ASSERT(__nacl_irt_open_real);
   int newfd;
@@ -1573,6 +1597,18 @@ ssize_t __real_read(int fd, void *buf, size_t count) {
     return -1;
   }
   return nread;
+}
+
+int __real_stat(const char *pathname, struct stat *buf) {
+  ALOG_ASSERT(__nacl_irt_stat_real);
+  struct nacl_abi_stat nacl_buf;
+  int result = __nacl_irt_stat_real(pathname, &nacl_buf);
+  if (result) {
+    errno = result;
+    return -1;
+  }
+  NaClAbiStatToStat(&nacl_buf, buf);
+  return 0;
 }
 
 off64_t __real_lseek64(int fd, off64_t offset, int whence) {
@@ -1620,9 +1656,12 @@ void InitIRTHooks() {
   DO_WRAP(fstat);
   DO_WRAP(getcwd);
   DO_WRAP(getdents);
+  DO_WRAP(lstat);
+  DO_WRAP(mkdir);
   DO_WRAP(open);
   DO_WRAP(read);
   DO_WRAP(seek);
+  DO_WRAP(stat);
   DO_WRAP(write);
 
   // We have replaced __nacl_irt_* above. Then, we need to inject them

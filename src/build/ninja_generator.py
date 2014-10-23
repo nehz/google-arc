@@ -1220,12 +1220,6 @@ class CNinjaGenerator(NinjaGenerator):
     flags = ['-Wheader-hygiene', '-Wstring-conversion']
     if OPTIONS.is_arm():
       flags.extend(['-target', 'arm-linux-gnueabi'])
-    if OPTIONS.is_nacl_i686():
-      flags.extend(['-target', 'i686-unknown-nacl', '-arch', 'x86-32',
-                    '--pnacl-allow-translate'])
-    if OPTIONS.is_nacl_x86_64():
-      flags.extend(['-target', 'x86_64-unknown-nacl', '-arch', 'x86-64',
-                    '--pnacl-allow-translate'])
     return flags
 
   @staticmethod

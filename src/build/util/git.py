@@ -208,3 +208,8 @@ def is_file_git_controlled(path, cwd=None):
     return subprocess.call(cmd, cwd=cwd,
                            stdout=devnull,
                            stderr=devnull) == 0
+
+
+def reset_to_revision(revision, cwd=None):
+  subprocess.check_call(['git', 'fetch'], cwd=cwd)
+  subprocess.check_call(['git', 'reset', '--hard', revision], cwd=cwd)

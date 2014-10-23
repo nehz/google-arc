@@ -138,7 +138,6 @@ DEFINE_ENOSYS_SYSCALL(int, madvise, const void *addr, size_t length,
                       int advice)
 DEFINE_ENOSYS_SYSCALL(int, mincore, void *addr, size_t length,
                       unsigned char *vec)
-DEFINE_ENOSYS_SYSCALL(int, mkdir, const char *pathname, mode_t mode)
 DEFINE_ENOSYS_SYSCALL(int, mkdirat,
                       int dirfd, const char *pathname, mode_t mode)
 DEFINE_ENOSYS_SYSCALL(int, mlock, const void *addr, size_t len)

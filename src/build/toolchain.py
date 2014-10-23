@@ -241,8 +241,8 @@ def _get_tool_map():
           'deps': [_NACL_DEPS_PATH],
           'llvm_tblgen': build_common.get_build_path_for_executable(
               'tblgen', is_host=True),
-          'clangxx': os.path.join(_PNACL_BIN_PATH, 'pnacl-clang++'),
-          'clang': os.path.join(_PNACL_BIN_PATH, 'pnacl-clang'),
+          'clangxx': os.path.join(_PNACL_BIN_PATH, 'i686-nacl-clang++'),
+          'clang': os.path.join(_PNACL_BIN_PATH, 'i686-nacl-clang'),
       },
       'nacl_x86_64': {
           'cxx': os.path.join(get_nacl_toolchain_path(), 'x86_64-nacl-g++'),
@@ -266,8 +266,8 @@ def _get_tool_map():
           'deps': [_NACL_DEPS_PATH],
           'llvm_tblgen': build_common.get_build_path_for_executable(
               'tblgen', is_host=True),
-          'clangxx': os.path.join(_PNACL_BIN_PATH, 'pnacl-clang++'),
-          'clang': os.path.join(_PNACL_BIN_PATH, 'pnacl-clang'),
+          'clangxx': os.path.join(_PNACL_BIN_PATH, 'x86_64-nacl-clang++'),
+          'clang': os.path.join(_PNACL_BIN_PATH, 'x86_64-nacl-clang'),
       },
       'bare_metal_i686': {
           'cxx': os.getenv('TARGETCXX', 'g++'),

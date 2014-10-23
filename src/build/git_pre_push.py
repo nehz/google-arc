@@ -4,6 +4,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import fnmatch
 import md5
 import os.path
 import subprocess
@@ -103,7 +104,7 @@ def _check_docs(push_files):
   Ensure that files in 'docs' are named and formatted correctly.
   """
 
-  doc_files = [x for x in push_files if x.startswith('docs/')]
+  doc_files = fnmatch.filter(push_files, 'docs/*.*')
   if not convert_docs.validate_docs(doc_files):
     print ''
     print 'convert_docs.py reports there are issues with the docs you are '

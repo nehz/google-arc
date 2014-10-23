@@ -14,12 +14,10 @@ import subprocess
 import sys
 import util.git
 
-from build_common import StampFile
-
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _ARC_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))
 _ARC_INTERNAL_DIR = os.path.join(_ARC_ROOT, 'internal')
-_STAMP_FILE = os.path.join(_ARC_ROOT, 'src', 'build', 'DEPS.arc-int')
+_DEPS_FILE = os.path.join(_ARC_ROOT, 'src', 'build', 'DEPS.arc-int')
 
 
 def _get_current_arc_int_revision():
@@ -34,16 +32,8 @@ def _git_has_local_modification():
   return False
 
 
-def sync_repo():
-  with file(_STAMP_FILE) as f:
-    target_revision = f.read().rstrip()
-
-  # TODO(yusukes|victorhsieh): Move them to util/git.py.
-  subprocess.check_call(['git', 'fetch'],
-                        cwd=_ARC_INTERNAL_DIR)
-  subprocess.check_call(['git', 'reset', '--hard', target_revision],
-                        cwd=_ARC_INTERNAL_DIR)
-
+def sync_repo(target_revision):
+  util.git.reset_to_revision(target_revision, cwd=_ARC_INTERNAL_DIR)
   logging.info('Reset to arc-int to ' + target_revision)
 
 
@@ -57,10 +47,10 @@ def run():
                     'change(s) in internal/ and/or checkout master if you '
                     'need to sync the internal directory.')
   else:
-    sync_stamp_file = StampFile(_get_current_arc_int_revision(), _STAMP_FILE)
-    if not sync_stamp_file.is_up_to_date():
-      sync_repo()
-      sync_stamp_file.update()
+    with file(_DEPS_FILE) as f:
+      target_revision = f.read().rstrip()
+    if target_revision != _get_current_arc_int_revision():
+      sync_repo(target_revision)
 
   subprocess.check_call('build/configure.py', cwd=_ARC_INTERNAL_DIR)
   return 0
