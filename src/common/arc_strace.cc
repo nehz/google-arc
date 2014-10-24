@@ -251,9 +251,7 @@ class ArcStrace {
 
   void UnregisterFD(int fd) {
     base::AutoLock lock(mu_);
-    if (!fd_to_name_.erase(fd)) {
-      STRACE_WARN("%sUnregister unknown FD! fd=%d", g_plugin_type_prefix, fd);
-    }
+    UnregisterFDLocked(fd);
   }
 
   void DupFD(int oldfd, int newfd) {
@@ -263,6 +261,9 @@ class ArcStrace {
       STRACE_WARN("%sDup unknown FD! oldfd=%d newfd=%d",
                   g_plugin_type_prefix, oldfd, newfd);
     } else {
+      if (fd_to_name_.find(newfd) != fd_to_name_.end()) {
+        UnregisterFDLocked(newfd);
+      }
       RegisterFDLocked(newfd, found->second.c_str());
     }
   }
@@ -339,6 +340,12 @@ class ArcStrace {
       STRACE_WARN("%sRegister the same FD twice! fd=%d orig=%s name=%s",
                   g_plugin_type_prefix, fd, p.first->second.c_str(), name);
       p.first->second = name;
+    }
+  }
+
+  void UnregisterFDLocked(int fd) {
+    if (!fd_to_name_.erase(fd)) {
+      STRACE_WARN("%sUnregister unknown FD! fd=%d", g_plugin_type_prefix, fd);
     }
   }
 

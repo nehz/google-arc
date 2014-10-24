@@ -65,8 +65,9 @@ _EMUGL_DECODER_LOGGING = 'emugl-decoder'
 _EMUGL_GL_ERROR = 'emugl-gl-error'
 _EMUGL_TRACING = 'emugl-tracing'
 _GLES_API_LOGGING = 'gles-api'
-_GLES_PASSTHROUGH_LOGGING = 'gles-passthrough'
 _GLES_API_TRACING = 'gles-api-tracing'
+_GLES_PASSTHROUGH_LOGGING = 'gles-passthrough'
+_GLES_PASSTHROUGH_TRACING = 'gles-passthrough-tracing'
 _JAVA_METHODS_LOGGING = 'java-methods'
 _LIBDVM_DEBUG = 'libdvm-debug'
 _MAKE_TO_NINJA_LOGGING = 'make-to-ninja'
@@ -84,8 +85,9 @@ _ALLOWED_LOGGING = [_ANSI_FB_LOGGING,
                     _EMUGL_GL_ERROR,
                     _EMUGL_TRACING,
                     _GLES_API_LOGGING,
-                    _GLES_PASSTHROUGH_LOGGING,
                     _GLES_API_TRACING,
+                    _GLES_PASSTHROUGH_LOGGING,
+                    _GLES_PASSTHROUGH_TRACING,
                     _LIBDVM_DEBUG,
                     _JAVA_METHODS_LOGGING,
                     _MAKE_TO_NINJA_LOGGING,
@@ -196,11 +198,14 @@ class _Options(object):
   def is_gles_api_logging(self):
     return _GLES_API_LOGGING in self._loggers
 
+  def is_gles_api_tracing(self):
+    return _GLES_API_TRACING in self._loggers
+
   def is_gles_passthrough_logging(self):
     return _GLES_PASSTHROUGH_LOGGING in self._loggers
 
-  def is_gles_api_tracing(self):
-    return _GLES_API_TRACING in self._loggers
+  def is_gles_passthrough_tracing(self):
+    return _GLES_PASSTHROUGH_TRACING in self._loggers
 
   def is_java_methods_logging(self):
     return _JAVA_METHODS_LOGGING in self._loggers
