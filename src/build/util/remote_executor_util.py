@@ -58,11 +58,11 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     # already generated so that we don't need to send APK to remote,
     # for package.apk, HelloAndroid.apk, glowhockey.apk, and
     # perf_tests_codec.apk
-    'out/target/common/obj/APPS/GlowhockeyTest_intermediates/package.apk',
+    'out/target/common/obj/APPS/opaque.glowhockey_intermediates/package.apk',
     'out/target/common/obj/APPS/HelloAndroid_intermediates/HelloAndroid.apk',
     'out/target/common/obj/APPS/ndk_translation_tests_intermediates/work/libs/*',  # NOQA
     'out/target/common/obj/APPS/perf_tests_codec_intermediates/perf_tests_codec.apk',  # NOQA
-    'out/target/common/opaque/examples/opaque/glowhockey.apk',
+    'out/target/common/opaque/glowhockey-unsigned.apk',
     'out/target/common/vmHostTests',
     'run_integration_tests',
     'src/integration_tests',

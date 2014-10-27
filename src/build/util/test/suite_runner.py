@@ -6,15 +6,19 @@
 
 import filtered_subprocess
 import fnmatch
+import glob
+import imp
 import json
 import os
 import subprocess
+import sys
 import threading
 import types
 
 import build_common
 from util import launch_chrome_util
 from util.test.scoreboard import Scoreboard
+from util.test.suite_runner_config import SuiteExpectationsLoader
 from util.test.suite_runner_config import default_run_configuration
 from util.test.suite_runner_config_flags import FAIL
 from util.test.suite_runner_config_flags import PASS
@@ -125,13 +129,18 @@ class SuiteRunnerBase(object):
             '--server-args', '-screen 0 640x480x24',
             '--error-file', output_filename]
 
-  def __init__(self, name, **config):
+  def __init__(self, name, expectations_loader=None, **config):
+    # TODO(crbug.com/384028): expectation_loader will become mandatory.
+    if expectations_loader:
+      assert len(config) == 0, 'Unexpected entries in config: %s' % config
+      merged_config = expectations_loader.get(name)
+    else:
+      merged_config = default_run_configuration()
+      merged_config.update(config)
+
     self._lock = threading.Lock()
     self._name = name
     self._terminated = False
-
-    merged_config = default_run_configuration()
-    merged_config.update(config)
     self._flags = merged_config.pop('flags')
     self._set_suite_test_expectations(
         merged_config.pop('suite_test_expectations'))
@@ -512,3 +521,18 @@ class SuiteRunnerBase(object):
 
     self._scoreboard.update([result])
     return raw_output, {test_name: result}
+
+
+def load_from_suite_definitions(definitions_base_path, expectations_base_path):
+  expectations_loader = SuiteExpectationsLoader(expectations_base_path)
+  runners = []
+
+  for suite_filename in glob.glob(os.path.join(definitions_base_path, '*.py')):
+    with open(suite_filename) as suite_definitions:
+      sys.dont_write_bytecode = True
+      definitions_module = imp.load_source('', definitions_base_path,
+                                           suite_definitions)
+      sys.dont_write_bytecode = False
+      runners += definitions_module.get_integration_test_runners(
+          expectations_loader)
+  return runners

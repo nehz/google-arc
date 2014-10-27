@@ -3361,9 +3361,9 @@ class AtfNinjaGenerator(ApkNinjaGenerator):
 
   @staticmethod
   def emit_common_rules(n):
-    n.rule('unsign_apk',
+    n.rule('strip_apk_signature',
            'cp $in $out && zip -q -d $out META-INF/*',
-           description='unsign apk $out')
+           description='strip_apk_signature $out')
 
   def build_default_all_test_sources(self):
     return self.build_default_all_sources(include_tests=True)

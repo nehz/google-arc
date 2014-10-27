@@ -20,8 +20,6 @@ def get_wrapped_functions():
                        'dlclose',
                        'dlopen',
                        'dlsym',
-                       'dup',
-                       'dup2',
                        'epoll_create',
                        'epoll_ctl',
                        'epoll_wait',

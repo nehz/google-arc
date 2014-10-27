@@ -211,18 +211,18 @@ class OpaqueDriver(BaseDriver):
 
   def __init__(self, args):
     super(OpaqueDriver, self).__init__(args)
+    self._runners = run_integration_tests.get_all_suite_runners()
 
-  def _run_opaque(self, app_name):
-    opaque_run_configuration = list(
-        config_loader.find_name('opaque_run_configuration'))[0]
-    OpaqueAtfSuite = list(config_loader.find_name('OpaqueAtfSuite'))[0]
-    inst = OpaqueAtfSuite(app_name,
-                          opaque_run_configuration()[app_name])
-    args = _prepare_integration_tests_args(10000)
+  def _run_opaque(self, test_name):
+    fqn = 'opaque.' + test_name
+    for runner in self._runners:
+      if runner.name == fqn:
+        args = _prepare_integration_tests_args(10000)
 
-    inst.prepare_to_run([], args)
-    output, _ = inst.run_with_setup([], args)
-    return output
+        runner.prepare_to_run([], args)
+        output, _ = runner.run_with_setup([], args)
+        return output
+    assert False, 'Did not find a test named %s' % fqn
 
   def _parse_output(self, output, app_name):
     data = {}
@@ -293,8 +293,8 @@ class GLPerfDriver(BaseDriver):
       'PepperGL: BufferLoadTest10000::BufferDataLoad': 'pp-vbo',
       'PepperGL: BufferLoadTest10000::BufferDataLoad2': 'pp-vbo-elem',
       # TODO(victorhsieh): is it possible to benchmark page flip on Android?
-      #'PepperGL: PageflipBenchmarkTest::RenderAsOnlyApp': 'pp-flip',
-      #'PepperGL: PageflipBenchmarkTest::RenderAsAppWithFrameworkCompositing':
+      # 'PepperGL: PageflipBenchmarkTest::RenderAsOnlyApp': 'pp-flip',
+      # 'PepperGL: PageflipBenchmarkTest::RenderAsAppWithFrameworkCompositing':
       #    'pp-flip-comp',
   }
 

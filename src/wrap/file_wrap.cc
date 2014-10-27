@@ -184,8 +184,6 @@ extern ssize_t __real_pwrite64(
 // sorted by syscall name.
 int __wrap_close(int fd);
 int __wrap_creat(const char* pathname, mode_t mode);
-int __wrap_dup(int oldfd);
-int __wrap_dup2(int oldfd, int newfd);
 int __wrap_fcntl(int fd, int cmd, ...);
 FILE* __wrap_fdopen(int fildes, const char* mode);
 int __wrap_flock(int fd, int operation);
@@ -959,7 +957,7 @@ int __wrap_creat(const char* pathname, mode_t mode) {
   ARC_STRACE_RETURN(result);
 }
 
-int __wrap_dup(int oldfd) {
+IRT_WRAPPER(dup, int oldfd, int* newfd) {
   ARC_STRACE_ENTER_FD("dup", "%d", oldfd);
   int fd = -1;
   VirtualFileSystemInterface* file_system = GetFileSystem();
@@ -970,10 +968,11 @@ int __wrap_dup(int oldfd) {
   }
   if (fd == -1)
     DANGERF("oldfd=%d: %s", oldfd, safe_strerror(errno).c_str());
-  ARC_STRACE_RETURN(fd);
+  *newfd = fd;
+  ARC_STRACE_RETURN_IRT_WRAPPER(fd >= 0 ? 0 : errno);
 }
 
-int __wrap_dup2(int oldfd, int newfd) {
+IRT_WRAPPER(dup2, int oldfd, int newfd) {
   ARC_STRACE_ENTER_FD("dup2", "%d, %d", oldfd, newfd);
   int fd = -1;
   VirtualFileSystemInterface* file_system = GetFileSystem();
@@ -983,11 +982,11 @@ int __wrap_dup2(int oldfd, int newfd) {
     DANGERF("oldfd=%d newfd=%d", oldfd, newfd);
     errno = EBADF;
   }
-  if (fd== -1) {
+  if (fd == -1) {
     DANGERF("oldfd=%d newfd=%d: %s",
             oldfd, newfd, safe_strerror(errno).c_str());
   }
-  ARC_STRACE_RETURN(fd);
+  ARC_STRACE_RETURN_IRT_WRAPPER(fd >= 0 ? 0 : errno);
 }
 
 // Although Linux has fcntl64 syscall, user code does not use it directly.
@@ -1527,6 +1526,17 @@ int __real_close(int fd) {
   return 0;
 }
 
+int __real_dup(int oldfd) {
+  ALOG_ASSERT(__nacl_irt_dup_real);
+  int newfd;
+  int result = __nacl_irt_dup_real(oldfd, &newfd);
+  if (result) {
+    errno = result;
+    return -1;
+  }
+  return newfd;
+}
+
 int __real_fstat(int fd, struct stat *buf) {
   ALOG_ASSERT(__nacl_irt_fstat_real);
   struct nacl_abi_stat nacl_buf;
@@ -1653,6 +1663,8 @@ __attribute__((constructor))
 #endif
 void InitIRTHooks() {
   DO_WRAP(close);
+  DO_WRAP(dup);
+  DO_WRAP(dup2);
   DO_WRAP(fstat);
   DO_WRAP(getcwd);
   DO_WRAP(getdents);

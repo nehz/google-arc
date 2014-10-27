@@ -45,9 +45,9 @@ def _get_archived_file_paths():
   """Returns the file paths to be archived."""
   paths = _collect_descendants(
       remote_executor_util.get_integration_test_files_and_directories())
+  paths |= set(run_integration_tests.get_dependencies_for_integration_tests())
   paths.add(os.path.relpath(toolchain.get_adb_path_for_chromeos(),
                             build_common.get_arc_root()))
-  paths |= set(run_integration_tests.get_configs_for_integration_tests())
   return paths
 
 

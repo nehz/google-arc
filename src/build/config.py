@@ -205,7 +205,11 @@ def generate_binaries_depending_ninjas(_):
       # of static initializers differ depending on the debug-code option.
       OPTIONS.is_debug_code_enabled() or
       # The checker only works with debug symbols.
-      not OPTIONS.is_debug_info_enabled()):
+      not OPTIONS.is_debug_info_enabled() or
+      # Clang generates very different symbols.
+      # TODO(crbug.com/427391): Update this when we start using PNaCl
+      # clang by default.
+      OPTIONS.enable_pnacl_clang()):
     # The static analysis tool's output varies between debug and non-debug
     # builds, so we pick non-debug as the default.
     return

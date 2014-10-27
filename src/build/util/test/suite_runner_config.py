@@ -4,7 +4,10 @@
 
 import collections
 import copy
+import imp
+import os.path
 import re
+import sys
 
 from build_options import OPTIONS
 from util import platform_util
@@ -238,3 +241,38 @@ def make_suite_run_configs(raw_config):
     return configs
 
   return _deferred  # Defer to pick up runtime configuration options properly.
+
+
+# TODO(crbug.com/384028): The class will eventually eliminate the need for
+# make_suite_run_configs and default_run_configuration above, and make it
+# easier to clean up _SuiteRunConfiguration too.
+class SuiteExpectationsLoader(object):
+  def __init__(self, base_path):
+    self._base_path = base_path
+    self._cache = {}
+
+  def _get_raw_expectations_dict(self, suite_name):
+    suite_expectations_path = os.path.join(self._base_path, suite_name + '.py')
+    if not os.path.exists(suite_expectations_path):
+      return {}
+    with open(suite_expectations_path) as suite_expectations:
+      sys.dont_write_bytecode = True
+      config_module = imp.load_source('', suite_expectations_path,
+                                      suite_expectations)
+      sys.dont_write_bytecode = False
+      return config_module.get_expectations()
+
+  def get(self, suite_name):
+    parent_config = None
+    components = suite_name.split('.')
+    for i in xrange(1 + len(components)):
+      partial_name = '.'.join(components[:i]) if i else 'defaults'
+      config = self._cache.get(partial_name)
+      if config is None:
+        raw_expectations_dict = self._get_raw_expectations_dict(partial_name)
+        config = _SuiteRunConfiguration(
+            partial_name,
+            config=raw_expectations_dict).evaluate(defaults=parent_config)
+        self._cache[partial_name] = config
+      parent_config = config
+    return config

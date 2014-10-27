@@ -18,15 +18,17 @@ running that test suite.
 """
 
 import argparse
+import fnmatch
 import logging
 import multiprocessing
 import os
 import shutil
 import subprocess
 import sys
-from fnmatch import fnmatch
 
 import build_common
+# TODO(crbug.com/384028): Remove this import once all test code is out of
+# configs.
 import config_loader
 import dashboard_submit
 import util.test.suite_results
@@ -50,9 +52,10 @@ from util.test.suite_runner_config_flags import TIMEOUT
 from util.test.test_options import TEST_OPTIONS
 
 
-BOT_TEST_SUITE_MAX_RETRY_COUNT = 5
-TEST_METHOD_MAX_RETRY_COUNT = 5
-
+_BOT_TEST_SUITE_MAX_RETRY_COUNT = 5
+_DEFINITIONS_ROOT = 'src/integration_tests/definitions'
+_EXPECTATIONS_ROOT = 'src/integration_tests/expectations'
+_TEST_METHOD_MAX_RETRY_COUNT = 5
 
 _REPORT_COLOR_FOR_SUITE_EXPECTATION = {
     scoreboard_constants.SKIPPED: color.MAGENTA,
@@ -62,7 +65,12 @@ _REPORT_COLOR_FOR_SUITE_EXPECTATION = {
 }
 
 
-def _get_all_suite_runners():
+def _get_all_suite_runners_from_defs():
+  return util.test.suite_runner.load_from_suite_definitions(
+      _DEFINITIONS_ROOT, _EXPECTATIONS_ROOT)
+
+
+def get_all_suite_runners():
   """Gets all the suites defined in the various config.py files."""
   all_suite_runners = []
   used_names = set()
@@ -73,6 +81,7 @@ def _get_all_suite_runners():
   get_runners_list = list(
       config_loader.find_name('get_integration_test_runners'))
   get_runners_list.append(generate_cts_runners.get_integration_test_runners)
+  get_runners_list.append(_get_all_suite_runners_from_defs)
 
   for get_runners in get_runners_list:
     for suite_runner in get_runners():
@@ -84,34 +93,42 @@ def _get_all_suite_runners():
   return sorted(all_suite_runners, key=lambda suite_runner: suite_runner.name)
 
 
-def get_configs_for_integration_tests():
-  """Gets the paths of config.py that are needed to run integration tests."""
-  configs = []
-  # All config files that define 'get_integration_test_runners' are needed to
-  # run integration tests.
-  for config_module in config_loader.find_config_modules(
-      'get_integration_test_runners'):
-    config_file = os.path.relpath(config_module.__file__,
-                                  build_common.get_arc_root())
-    # config_file can be '*.pyc'. In this case, use the corresponding .py file.
-    root, ext = os.path.splitext(config_file)
-    if ext == '.pyc':
-      config_file = root + '.py'
-    configs.append(config_file)
-  # These do not define get_integration_test_runners but used by other scripts.
-  configs.extend(['mods/android/external/stlport/config.py',
-                  'src/posix_translation/config.py'])
-  return configs
+def get_dependencies_for_integration_tests():
+  """Gets the paths of all python files needed for the integration tests."""
+  deps = []
+  root_path = build_common.get_arc_root()
+
+  # We assume that the currently loaded modules is the set needed to run
+  # the integration tests. We just narrow the list down to the set of files
+  # contained in the project root directory.
+  for module in sys.modules.itervalues():
+    # Filter out built-ins and other special cases
+    if not module or not hasattr(module, '__file__'):
+      continue
+
+    module_path = module.__file__
+
+    # Filter out modules external to the project
+    if not module_path or not module_path.startswith(root_path):
+      continue
+
+    # Convert references to .pyc files to .py files.
+    if module_path.endswith('.pyc'):
+      module_path = module_path[:-1]
+
+    deps.append(module_path[len(root_path) + 1:])
+
+  return deps
 
 
 def _should_include_test_method(name, expectation, args):
   if not args.include_patterns:
     result = expectation.should_include_by_default
   else:
-    result = any(fnmatch(name, pattern)
+    result = any(fnmatch.fnmatch(name, pattern)
                  for pattern in args.include_patterns)
 
-  return result and all(not fnmatch(name, pattern)
+  return result and all(not fnmatch.fnmatch(name, pattern)
                         for pattern in args.exclude_patterns)
 
 
@@ -151,7 +168,7 @@ def _select_tests_to_run(all_suite_runners, args):
     # Create TestDriver to run the test suite with setting test expectations.
     test_driver_list.append(test_driver.TestDriver(
         suite_runner, updated_suite_test_expectations, tests_to_run,
-        TEST_METHOD_MAX_RETRY_COUNT if not args.keep_running else sys.maxint,
+        _TEST_METHOD_MAX_RETRY_COUNT if not args.keep_running else sys.maxint,
         stop_on_unexpected_failures=not args.keep_running))
 
   def sort_keys(driver):
@@ -164,7 +181,7 @@ def _select_tests_to_run(all_suite_runners, args):
 
 
 def _get_test_driver_list(args):
-  all_suite_runners = _get_all_suite_runners()
+  all_suite_runners = get_all_suite_runners()
   return _select_tests_to_run(all_suite_runners, args)
 
 
@@ -394,7 +411,7 @@ def set_test_global_state(args):
   # itself to be tested.
   retry_count = 0
   if TEST_OPTIONS.is_buildbot:
-    retry_count = BOT_TEST_SUITE_MAX_RETRY_COUNT
+    retry_count = _BOT_TEST_SUITE_MAX_RETRY_COUNT
   if args.keep_running:
     retry_count = sys.maxint
   test_driver.TestDriver.set_global_retry_timeout_run_count(retry_count)
@@ -420,7 +437,7 @@ def _run_suites_and_output_results_remote(args, raw_args):
     return 1
   raw_args.append('--noprepare')
   return remote_executor.run_remote_integration_tests(
-      args, raw_args, get_configs_for_integration_tests())
+      args, raw_args, get_dependencies_for_integration_tests())
 
 
 def _run_suites_and_output_results_local(test_driver_list, args):
