@@ -102,9 +102,6 @@ void* __wrap_dlopen(const char* filename, int flag);
 void* __wrap_dlsym(const void* handle, const char* symbol);
 DIR* __wrap_fdopendir(int fd);
 char* __wrap_getcwd(char* buf, size_t size);
-char* __wrap_mkdtemp(char* tmpl);
-int __wrap_mkstemp(char* tmpl);
-int __wrap_mkstemps(char* tmpl, int suffix_len);
 int __wrap_open(const char* pathname, int flags, ...);
 DIR* __wrap_opendir(const char* name);
 struct dirent* __wrap_readdir(DIR* dirp);
@@ -481,129 +478,6 @@ IRT_WRAPPER(mkdir, const char* pathname, mode_t mode) {
             SAFE_CSTR(pathname), mode, safe_strerror(errno).c_str());
   }
   ARC_STRACE_RETURN_IRT_WRAPPER(result == 0 ? 0 : errno);
-}
-
-static const ssize_t kPlaceholderLen = 6;
-
-static char* GetTemplatePlaceholder(char* tmpl, size_t size) {
-  LOG_FATAL_IF(size > strlen(tmpl),
-               "GetTemplateSuffix: size is too large: tmpl=\"%s\" size=%zu",
-               tmpl, size);
-  if (!EndsWith(std::string(tmpl, size),
-                std::string(kPlaceholderLen, 'X'), true))
-    return NULL;
-  return tmpl + size - kPlaceholderLen;
-}
-
-static bool GenerateRandomName(char* tmpl_placeholder, int rfd) {
-  static const char kFsSafeChars[] =
-    "0123456789abcdefghijklmnopqrstuvwxyzxABCDEFGHIJKLMNOPQRSTUVWXYZ-_";
-  static const size_t kFsSafeCharsLen = sizeof(kFsSafeChars) - 1;
-  unsigned char buf[kPlaceholderLen];
-  if (read(rfd, buf, kPlaceholderLen) != kPlaceholderLen)
-    return false;
-  for (ssize_t i = 0; i < kPlaceholderLen; ++i) {
-    tmpl_placeholder[i] = kFsSafeChars[buf[i] % kFsSafeCharsLen];
-  }
-  return true;
-}
-
-// TODO(crbug.com/339717): We should do either of the following: (1) Use IRT
-// hooks more and stop wrapping this function, or (2) reuse Bionic's almost
-// as-is like opendir().
-static int MkostempsImpl(char* tmpl, int suffix_len, int flags) {
-  size_t tmpl_size = strlen(tmpl);
-  if (suffix_len < 0 || tmpl_size < static_cast<size_t>(suffix_len)) {
-    DANGERF("mkostemps: invalid template - %s %d",
-            SAFE_CSTR(tmpl), suffix_len);
-    errno = EINVAL;
-    return -1;
-  }
-  static const size_t kMaxTrial = 128;
-  char* tmpl_placeholder =
-      GetTemplatePlaceholder(tmpl, tmpl_size - suffix_len);
-  if (!tmpl_placeholder) {
-    DANGERF("mkostemps: invalid template - %s %d",
-            SAFE_CSTR(tmpl), suffix_len);
-    errno = EINVAL;
-    return -1;
-  }
-  int rfd = open("/dev/urandom", O_RDONLY);
-  if (rfd == -1) {
-    DANGERF("mkostemps: no random device");
-    errno = EEXIST;
-    return -1;
-  }
-
-  for (size_t n = 0; n < kMaxTrial; ++n) {
-    if (!GenerateRandomName(tmpl_placeholder, rfd))
-      continue;
-    int fd = open(tmpl, O_RDWR | O_CREAT | O_EXCL | flags, 0600);
-    if (fd < 0)
-      continue;
-    close(rfd);
-    // No ARC_STRACE_REGISTER_FD because it was already done in open.
-    return fd;
-  }
-
-  DANGERF("mkostemps: cannot create a file - %s %d", SAFE_CSTR(tmpl),
-          suffix_len);
-  close(rfd);
-  errno = EEXIST;
-  return -1;
-}
-
-// TODO(crbug.com/339717): We should do either of the following: (1) Use IRT
-// hooks more and stop wrapping this function, or (2) reuse Bionic's almost
-// as-is like opendir().
-char* __wrap_mkdtemp(char* tmpl) {
-  ARC_STRACE_ENTER("mkdtemp", "\"%s\"", SAFE_CSTR(tmpl));
-  static const size_t kMaxTrial = 128;
-  char* tmpl_suffix = GetTemplatePlaceholder(tmpl, strlen(tmpl));
-  if (!tmpl_suffix) {
-    DANGERF("mkdtemp: invalid template - %s", SAFE_CSTR(tmpl));
-    errno = EINVAL;
-    ARC_STRACE_RETURN_PTR(NULL, true);
-  }
-  int rfd = open("/dev/urandom", O_RDONLY);
-  if (rfd == -1) {
-    DANGERF("mkdtemp: no random device - %s", SAFE_CSTR(tmpl));
-    errno = EEXIST;
-    ARC_STRACE_RETURN_PTR(NULL, true);
-  }
-
-  for (size_t n = 0; n < kMaxTrial; ++n) {
-    if (!GenerateRandomName(tmpl_suffix, rfd))
-      continue;
-    // NB: pepper_file.cc does not return -1 even when |tmpl| already exists.
-    // See crbug.com/314879
-    int res = mkdir(tmpl, 0700);
-    if (res < 0)
-      continue;
-    close(rfd);
-    ARC_STRACE_RETURN_PTR(tmpl, false);
-  }
-
-  DANGERF("mkdtemp: cannot create a directory - %s", SAFE_CSTR(tmpl));
-  close(rfd);
-  // This is not POSIX compliant. We should probably loop endlessly instead.
-  errno = EEXIST;
-  ARC_STRACE_RETURN_PTR(NULL, true);
-}
-
-// TODO(crbug.com/339717): We should do either of the following: (1) Use IRT
-// hooks more and stop wrapping this function, or (2) reuse Bionic's almost
-// as-is like opendir().
-int __wrap_mkstemp(char* tmpl) {
-  ARC_STRACE_ENTER("mkstemp", "\"%s\"", SAFE_CSTR(tmpl));
-  int fd = MkostempsImpl(tmpl, 0, 0);
-  ARC_STRACE_RETURN(fd);
-}
-
-int __wrap_mkstemps(char* tmpl, int suffix_len) {
-  ARC_STRACE_ENTER("mkstemps", "\"%s\" %d", SAFE_CSTR(tmpl), suffix_len);
-  int fd = MkostempsImpl(tmpl, suffix_len, 0);
-  ARC_STRACE_RETURN(fd);
 }
 
 int __wrap_open(const char* pathname, int flags, ...) {

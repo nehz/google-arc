@@ -69,6 +69,7 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     'third_party/android-cts/android-cts/repository/plans/CTS.xml',
     'third_party/android-cts/android-cts/repository/testcases/bionic-unit-tests-cts',  # NOQA
     'third_party/android-cts/android-cts/repository/testcases/*.xml',
+    'third_party/android-cts/android-cts/repository/testcases/CtsUiAutomator*',
     # Java files are needed by VMHostTestRunner, which parses java files to
     # obtain the information of the test methods at testing time.
     'third_party/android/cts/tools/vm-tests-tf/src/dot/junit/format/*/*.java',

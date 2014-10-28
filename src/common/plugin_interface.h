@@ -363,9 +363,6 @@ class PluginUtilInterface {
                                       const char* stack_trace,
                                       const char* stack_signature) = 0;
 
-  virtual int RunAndWaitForChildPlugin(const char* const argv[],
-                                       const char* preopened_fd_args[],
-                                       const char* preopened_fd_names[]) = 0;
   virtual void HistogramShortTime(const std::string& name, int64_t time_ms) = 0;
   virtual void HistogramLongTime(const std::string& name, int64_t time_ms) = 0;
   virtual void HistogramBoolean(const std::string& name, bool value) = 0;
@@ -374,6 +371,15 @@ class PluginUtilInterface {
 
   // Start shut down of environment.
   virtual void ShutDown() = 0;
+};
+
+class ChildPluginSpawnerInterface {
+ public:
+  virtual ~ChildPluginSpawnerInterface() {}
+
+  virtual int RunAndWait(const char* const argv[],
+                         const char* preopened_fd_args[],
+                         const char* preopened_fd_names[]) = 0;
 };
 
 class PluginInterface {
@@ -387,6 +393,7 @@ class PluginInterface {
   virtual CameraManagerInterface* GetCameraManager() = 0;
   virtual VideoDecoderInterface* GetVideoDecoder() = 0;
   virtual PluginUtilInterface* GetPluginUtil() = 0;
+  virtual ChildPluginSpawnerInterface* GetChildPluginSpawner() = 0;
 
  protected:
   PluginInterface();

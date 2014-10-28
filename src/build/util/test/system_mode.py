@@ -41,8 +41,10 @@ class SystemModeLogs:
     self._adb_logs.append(message)
 
   def get_log(self):
-    separator = '\n' + '=' * 30 + ' adb command logs ' + '=' * 30 + '\n'
-    return ''.join(self._adb_logs) + separator + ''.join(self._chrome_logs)
+    def separator(title):
+      return '\n' + '=' * 30 + ' ' + title + ' ' + '=' * 30 + '\n'
+    return (separator('adb command logs') + ''.join(self._adb_logs) +
+            separator('Chrome logs') + ''.join(self._chrome_logs))
 
 
 class SystemModeThread(threading.Thread):
@@ -288,9 +290,11 @@ class SystemMode:
       result = self._suite_runner.run_subprocess(args, omit_xvfb=True)
       self._logs.add_to_adb_log(result + '\n')
       return result
-    except:
+    except BaseException as e:
       self._logs.add_to_adb_log('run_subprocess failed: ' +
                                 traceback.format_exc())
+      if hasattr(e, 'output'):
+        self._logs.add_to_adb_log(e.output)
       raise
 
   def get_log(self):

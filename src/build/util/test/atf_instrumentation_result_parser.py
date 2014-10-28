@@ -50,7 +50,7 @@ class ATFInstrumentationResultParser(object):
   _RESULT_CANCELED = 0
   _RESULT_FIRST_USER = 1
 
-  def __init__(self):
+  def __init__(self, ignore_status_codes_before_class=False):
     self._suite_code = None
     self._suite_message = None
     self._tests_total = None
@@ -63,6 +63,9 @@ class ATFInstrumentationResultParser(object):
     self._test_fqn_to_result_map = {}
     self._multiline_stream = False
     self._recognized = False
+    # TODO(crbug.com/423988) uiautomator tests have a trailing status code that
+    # cause assertions to fail.  This flag causes the line to be ignored.
+    self._ignore_status_codes_before_class = ignore_status_codes_before_class
 
     self._clear_current_values()
 
@@ -93,6 +96,8 @@ class ATFInstrumentationResultParser(object):
     self._suite_message = self._get_current_stream_message()
 
   def _handle_status_code(self, match):
+    if self._current_class is None and self._ignore_status_codes_before_class:
+      return
     assert self._current_class is not None
     assert self._current_test is not None
     code = int(match.group(1))

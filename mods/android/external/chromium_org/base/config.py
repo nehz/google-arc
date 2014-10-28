@@ -14,7 +14,19 @@ import ninja_generator
 
 def _add_chromium_base_compiler_flags(n):
   n.add_libchromium_base_compile_flags()
-  n.add_compiler_flags('-Wno-sign-compare', '-Werror')
+  n.add_compiler_flags('-Werror',
+                       # Upstream Chrome also sets this in build/common.gypi.
+                       '-Wno-char-subscripts',
+                       # Upstream Chrome also sets this in build/common.gypi.
+                       # See also http://crbug.com/255186.
+                       '-Wno-deprecated-register',
+                       # Upstream Chrome also sets this in base/base.gyp.
+                       '-Wno-sign-compare',
+                       # Some of these kind of warnings are fixed in
+                       # the upstream Chrome and the others are due to
+                       # our config (OS_NACL+OS_ANDROID).
+                       '-Wno-unused-const-variable',
+                       '-Wno-unused-function')
   # This is needed because the sources related to message loop include jni.h.
   n.add_include_paths('android/libnativehelper/include/nativehelper',
                       'android/system/core/include')
@@ -23,7 +35,7 @@ def _add_chromium_base_compiler_flags(n):
 def _generate_chromium_base_ninja():
   base_path = 'android/external/chromium_org/base'
   n = ninja_generator.ArchiveNinjaGenerator(
-      'libchromium_base', base_path=base_path, instances=2)
+      'libchromium_base', base_path=base_path, instances=2, enable_clang=True)
   n.add_compiler_flags('-fvisibility=hidden')  # for libposix_translation.so
   _add_chromium_base_compiler_flags(n)
 
@@ -109,7 +121,8 @@ def _generate_chromium_base_ninja():
 def _generate_chromium_base_test_ninja():
   base_path = 'android/external/chromium_org'
   n = ninja_generator.TestNinjaGenerator('libchromium_base_test',
-                                         base_path=base_path)
+                                         base_path=base_path,
+                                         enable_clang=True)
   _add_chromium_base_compiler_flags(n)
 
   # For third_party/testing/gmock. chromium_org/base/*_test.cc include gmock

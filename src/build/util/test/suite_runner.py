@@ -469,7 +469,8 @@ class SuiteRunnerBase(object):
       # We emulate subprocess.check_call() here, as the callers expect to catch
       # a CalledProcessError when there is a problem.
       if returncode:
-        raise subprocess.CalledProcessError(returncode, args)
+        output = handler.get_output()
+        raise subprocess.CalledProcessError(returncode, args, output)
     output = handler.get_output()
     xvfb_output = self._get_xvfb_output()
     if xvfb_output and self._args.output == 'verbose':

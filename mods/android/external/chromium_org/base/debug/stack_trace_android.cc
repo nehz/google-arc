@@ -34,7 +34,13 @@ struct StackCrawlState {
 
 // Clang's unwind.h doesn't provide _Unwind_GetIP on ARM, refer to
 // http://llvm.org/bugs/show_bug.cgi?id=16564 for details.
-#if defined(__clang__)
+// ARC MOD BEGIN
+// The clang we are using does not have this issue.
+// TODO(crbug.com/414569): Remove this MOD. This code does not exist
+// in L's Chrome.
+// #if defined(__clang__)
+#if 0
+// ARC MOD END
 uintptr_t _Unwind_GetIP(_Unwind_Context* context) {
   uintptr_t ip = 0;
   _Unwind_VRS_Get(context, _UVRSC_CORE, 15, _UVRSD_UINT32, &ip);

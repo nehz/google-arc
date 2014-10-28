@@ -59,6 +59,10 @@ class PluginHandle {
     }
     return plugin_->GetPluginUtil();
   }
+  ChildPluginSpawnerInterface* GetChildPluginSpawner() const {
+    LOG_ALWAYS_FATAL_IF(!plugin_);
+    return plugin_->GetChildPluginSpawner();
+  }
 
   // Sets the current plugin for the process. This function must be called
   // from the main thread only once before the first pthread_create() call

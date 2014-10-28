@@ -18,6 +18,8 @@ import time
 import build_common
 import toolchain
 from build_options import OPTIONS
+from util import platform_util
+
 
 # Note: DISPLAY may be overwritten in the main() of launch_chrome.py.
 __DISPLAY = os.getenv('DISPLAY')
@@ -72,6 +74,14 @@ def maybe_launch_gdb(
   """
   if 'browser' in gdb_target_list:
     _launch_gdb('browser', str(chrome_pid), gdb_type)
+
+  if 'plugin' in gdb_target_list:
+    if OPTIONS.is_bare_metal_build():
+      if platform_util.is_running_on_chromeos():
+        _launch_bare_metal_gdbserver_on_chromeos(chrome_pid)
+      else:
+        _launch_bare_metal_gdbserver(chrome_pid)
+        _attach_bare_metal_gdb(None, [], nacl_helper_path, gdb_type)
 
 
 def _get_xterm_gdb_startup(title, gdb):
