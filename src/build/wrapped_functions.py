@@ -113,7 +113,6 @@ def get_wrapped_functions():
                        'syscall',
                        'tgkill',
                        'tkill',
-                       'tmpfile',
                        'truncate',
                        'truncate64',
                        'umask',

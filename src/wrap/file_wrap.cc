@@ -120,7 +120,6 @@ int __wrap_scandir(
 int __wrap_statfs(const char* path, struct statfs* stat);
 int __wrap_statvfs(const char* path, struct statvfs* stat);
 int __wrap_symlink(const char* oldp, const char* newp);
-FILE* __wrap_tmpfile();
 mode_t __wrap_umask(mode_t mask);
 int __wrap_unlink(const char* pathname);
 int __wrap_utime(const char* filename, const struct utimbuf* times);
@@ -692,27 +691,6 @@ int __wrap_symlink(const char* oldp, const char* newp) {
   if (!result)
     ALOGE("Added a non-persistent symlink from %s to %s", newp, oldp);
   ARC_STRACE_RETURN(result);
-}
-
-// TODO(crbug.com/350800): Reenable 'tmpfile_fileno_fprintf_rewind_fgets' Bionic
-// CTS to test this function.
-// TODO(crbug.com/339717): We should do either of the following: (1) Use IRT
-// hooks more and stop wrapping tmpfile, or (2) reuse Bionic's tmpfile almost
-// as-is like opendir().
-FILE* __wrap_tmpfile() {
-  ARC_STRACE_ENTER("tmpfile", "%s", "");
-  // As shown in plugin/file_system_manager.cc, /tmp/arc-provider is world-
-  // writable.
-  char filename[] = "/tmp/arc-provider/tmpfile-XXXXXX";
-  int fd = mkstemp(filename);
-  if (fd < 0)
-    ARC_STRACE_RETURN_PTR(NULL, true);
-
-  unlink(filename);
-  FILE* fp = fdopen(fd, "w+b");
-  if (!fp)
-    close(fd);
-  ARC_STRACE_RETURN_PTR(fp, !fp);
 }
 
 template <typename OffsetType>
