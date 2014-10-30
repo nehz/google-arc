@@ -75,6 +75,7 @@ void StraceResetStats();
 std::string GetAccessModeStr(int mode);
 std::string GetOpenFlagStr(int flag);
 std::string GetDlopenFlagStr(int flag);
+std::string GetMadviseAdviceStr(int advice);
 std::string GetMmapProtStr(int prot);
 std::string GetMmapFlagStr(int flag);
 std::string GetSocketDomainStr(int domain);

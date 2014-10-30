@@ -159,3 +159,26 @@
    fun:_ZN7testing8UnitTest3RunEv
    fun:main
 }
+{
+   # This leak is intentional. CreateContextGPUOnRT calls
+   # Options::GetInstance() which creates a singleton instance.
+   options_singleton_instance_leak
+   Memcheck:Cond
+   fun:_ZN3arc11GPURenderer20CreateContextGPUOnRTEPKSt6vectorIiSaIiEEPNS_10ContextGPUE
+   fun:_ZN4base8internal15RunnableAdapterIMN3arc11GPURendererEFPNS2_10ContextGPUEPKSt6vectorIiSaIiEES5_EE3RunEPS3_RKSA_RKS5_
+   fun:_ZN4base8internal12InvokeHelperILb0EPN3arc10ContextGPUENS0_15RunnableAdapterIMNS2_11GPURendererEFS4_PKSt6vectorIiSaIiEES4_EEEFvPS6_RKSB_RKS4_EE8MakeItSoESE_SF_SH_SJ_
+   fun:_ZN4base8internal7InvokerILi3ENS0_9BindStateINS0_15RunnableAdapterIMN3arc11GPURendererEFPNS4_10ContextGPUEPKSt6vectorIiSaIiEES7_EEEFS7_PS5_SC_S7_EFvNS0_17UnretainedWrapperIS5_EESC_S7_EEESH_E3RunEPNS0_13BindStateBaseE
+   fun:_ZNK4base8CallbackIFPN3arc10ContextGPUEvEE3RunEv
+   fun:_ZN3arc17MessageLoopThread11RunInThreadIPNS_10ContextGPUEE11RunOnThreadEPvi
+   fun:_ZN4base8internal15RunnableAdapterIPFvPviEE3RunERKS2_RKi
+   fun:_ZN4base8internal12InvokeHelperILb0EvNS0_15RunnableAdapterIPFvPviEEEFvRKS3_RKiEE8MakeItSoES6_S8_SA_
+   fun:_ZN4base8internal7InvokerILi2ENS0_9BindStateINS0_15RunnableAdapterIPFvPviEEES5_S5_EES5_E3RunEPNS0_13BindStateBaseE
+   fun:_ZNK4base8CallbackIFvvEE3RunEv
+   fun:_ZN3arc22MessageLoopThread_Fake18ThreadLoopInternalEv
+   fun:_ZN3arc22MessageLoopThread_Fake10ThreadLoopEPv
+   fun:__thread_entry
+   fun:run_thread
+   fun:_ZN12_GLOBAL__N_19RunThreadEPv
+   fun:start_thread
+   fun:clone
+}

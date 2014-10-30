@@ -360,7 +360,8 @@ class SuiteRunnerBase(object):
     name = name_override if name_override else self._name
     args.extend(['--crx-name-override=' + name,
                  '--noninja',
-                 '--disable-sleep-on-blur'])
+                 '--disable-sleep-on-blur',
+                 '--enable-gl-fixed-attribs'])
     if self._user_data_dir:
       args.append('--user-data-dir=' + self._user_data_dir)
     else:

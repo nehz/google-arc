@@ -87,6 +87,7 @@ class VirtualFileSystemInterface {
   virtual int listen(int sockfd, int backlog) = 0;
   virtual off64_t lseek(int fd, off64_t offset, int whence) = 0;
   virtual int lstat(const std::string& path, struct stat* buf) = 0;
+  virtual int madvise(void* addr, size_t length, int advice) = 0;
   virtual int mkdir(const std::string& pathname, mode_t mode) = 0;
   virtual void* mmap(
       void* addr, size_t length, int prot, int flags, int fd, off_t offset) = 0;
@@ -96,7 +97,7 @@ class VirtualFileSystemInterface {
   // that case, caller should call libc's ::mprotect or ::munmap with the same
   // parameters as a fallback.
   // TODO(crbug.com/362862): Remove the comment once crbug.com/362862 is fixed.
-  virtual int mprotect(const void* addr, size_t length, int prot) = 0;
+  virtual int mprotect(void* addr, size_t length, int prot) = 0;
   virtual int munmap(void* addr, size_t length) = 0;
 
   virtual int open(const std::string& pathname, int oflag,

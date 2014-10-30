@@ -13,14 +13,9 @@ namespace arc {
 // Actual libc function pointers for the corresponding functions.
 struct LibcDispatchTable {
   int (*libc_close)(int fd);
-  int (*libc_fdatasync)(int fd);
   int (*libc_fstat)(int fd, struct stat* buf);
-  int (*libc_fsync)(int fd);
   off64_t (*libc_lseek)(int fd, off64_t offset, int whence);
-  void* (*libc_mmap)(
-      void* addr, size_t length, int prot, int flags, int fd, off_t offset);
   int (*libc_mprotect)(const void* addr, size_t length, int prot);
-  int (*libc_munmap)(void* addr, size_t length);
   int (*libc_open)(const char* pathname, int flags, mode_t mode);
   ssize_t (*libc_read)(int fd, void* buf, size_t count);
   ssize_t (*libc_write)(int fd, const void* buf, size_t count);

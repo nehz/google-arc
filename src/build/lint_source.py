@@ -75,6 +75,7 @@ class Linter(object):
   def register(cls, linter):
     assert getattr(linter, 'NAME'), '%s needs a NAME attribute' % linter
     cls._linters.append(linter)
+    return linter
 
   @classmethod
   def all_linters(cls):
@@ -188,7 +189,7 @@ class PyLinter(Linter):
     return ['src/build/flake8', filename]
 
 
-# Class is registered to Linter below
+@Linter.register
 class CopyrightLinter(Linter):
   NAME = 'copyright'
   _EXTENSION_GROUPS = [_GROUP_PY, _GROUP_CPP, _GROUP_JS, _GROUP_ASM,
@@ -209,13 +210,6 @@ class CopyrightLinter(Linter):
   @classmethod
   def _lint_cmd(cls, filename):
     return ['src/build/check_copyright.py', filename]
-
-
-# CopyrightLinter overrides should_ignore but we still want to use the base
-# class's (Linter's) functionality of only checking files with extensions
-# listed in _EXTENSION_GROUPS. Unfortunately a subclass can not access its
-# superclass with super if it has been decorated.
-Linter.register(CopyrightLinter)
 
 
 @Linter.register

@@ -182,8 +182,11 @@ int __wrap_close(int fd);
 int __wrap_creat(const char* pathname, mode_t mode);
 int __wrap_fcntl(int fd, int cmd, ...);
 FILE* __wrap_fdopen(int fildes, const char* mode);
+int __wrap_fdatasync(int fd);
 int __wrap_flock(int fd, int operation);
+int __wrap_fsync(int fd);
 int __wrap_ioctl(int fd, int request, ...);
+int __wrap_madvise(void* addr, size_t length, int advice);
 void* __wrap_mmap(
     void* addr, size_t length, int prot, int flags, int fd, off_t offset);
 int __wrap_mprotect(const void* addr, size_t length, int prot);
@@ -196,9 +199,7 @@ ssize_t __wrap_writev(int fd, const struct iovec* iov, int iovcnt);
 
 extern int __real_close(int fd);
 extern int __real_dup(int oldfd);
-extern int __real_fdatasync(int fd);
 extern int __real_fstat(int fd, struct stat *buf);
-extern int __real_fsync(int fd);
 extern void* __real_mmap(
     void* addr, size_t length, int prot, int flags, int fd, off_t offset);
 extern int __real_mprotect(const void* addr, size_t length, int prot);
@@ -865,7 +866,7 @@ int __wrap_fcntl(int fd, int cmd, ...) {
   ARC_STRACE_RETURN(result);
 }
 
-extern "C" int __wrap_fdatasync(int fd) {
+int __wrap_fdatasync(int fd) {
   ARC_STRACE_ENTER_FD("fdatasync", "%d", fd);
   int result = 0;
   VirtualFileSystemInterface* file_system = GetFileSystem();
@@ -874,25 +875,13 @@ extern "C" int __wrap_fdatasync(int fd) {
   ARC_STRACE_RETURN(result);
 }
 
-extern "C" int __wrap_fsync(int fd) {
+int __wrap_fsync(int fd) {
   ARC_STRACE_ENTER_FD("fsync", "%d", fd);
   int result = 0;
   VirtualFileSystemInterface* file_system = GetFileSystem();
   if (file_system)
     result = file_system->fsync(fd);
   ARC_STRACE_RETURN(result);
-}
-
-int __wrap_flock(int fd, int operation) {
-  // We do not have to implement flock() and similar functions because:
-  // - Each app has its own file system tree.
-  // - Two instances of the same app do not run at the same time.
-  // - App instance and Dexopt instance of an app do not access the file system
-  //   at the same time.
-  ARC_STRACE_ENTER_FD("flock", "%d, %s",
-                      fd, arc::GetFlockOperationStr(operation).c_str());
-  ARC_STRACE_REPORT("not implemented, always succeeds");
-  ARC_STRACE_RETURN(0);
 }
 
 IRT_WRAPPER(fstat, int fd, struct nacl_abi_stat *buf) {
@@ -978,6 +967,29 @@ static OffsetType LseekImpl(int fd, OffsetType offset, int whence) {
 
 off64_t __wrap_lseek64(int fd, off64_t offset, int whence) {
   return LseekImpl(fd, offset, whence);
+}
+
+int __wrap_madvise(void* addr, size_t length, int advice) {
+  ARC_STRACE_ENTER("madvise", "%p, %zu, %s", addr, length,
+                   arc::GetMadviseAdviceStr(advice).c_str());
+  int result = -1;
+  int saved_errno = errno;
+  VirtualFileSystemInterface* file_system = GetFileSystem();
+  if (file_system)
+    result = file_system->madvise(addr, length, advice);
+  if (result != 0) {
+    DANGERF("errno=%d addr=%p length=%zu advice=%d: %s",
+            errno, addr, length, advice, safe_strerror(errno).c_str());
+    if (!file_system || (errno == ENOSYS && advice != MADV_REMOVE)) {
+      // TODO(crbug.com/362862): Stop special-casing ENOSYS once the bug is
+      // fixed.
+      // Note: We should call mprotect IRT here once the IRT is supported and
+      // crbug.com/36282 is still open.
+      errno = saved_errno;
+      result = 0;
+    }
+  }
+  ARC_STRACE_RETURN(result);
 }
 
 // NB: Do NOT use off64_t for |offset|. It is not compatible with Bionic.
@@ -1083,8 +1095,11 @@ int __wrap_mprotect(const void* addr, size_t len, int prot) {
   int result = -1;
   VirtualFileSystemInterface* file_system = GetFileSystem();
   const int errno_orig = errno;
+  // mprotect in Bionic defines the first argument is const void*, but
+  // POSIX does it as void*. We use const void* for wrap, and use void* for
+  // posix_translation.
   if (file_system)
-    result = file_system->mprotect(addr, len, prot);
+    result = file_system->mprotect(const_cast<void*>(addr), len, prot);
   if (!file_system || (result != 0 && errno == ENOSYS)) {
     // TODO(crbug.com/362862): Stop falling back to __real on ENOSYS and
     // do this only for unit tests.
@@ -1539,13 +1554,9 @@ void InitIRTHooks() {
 // through to libc.
 const LibcDispatchTable g_libc_dispatch_table = {
   __real_close,
-  __real_fdatasync,  // no IRT hook
   __real_fstat,
-  __real_fsync,  // no IRT hook
   __real_lseek64,
-  __real_mmap,  //  no IRT hook
   __real_mprotect,
-  __real_munmap,  //  no IRT hook
   __real_open,
   __real_read,
   __real_write,

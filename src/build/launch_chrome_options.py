@@ -351,6 +351,9 @@ Native Client Debugging
   parser.add_argument('--enable-fake-video-source', action='store_true',
                       help='Enable a fake video source for testing')
 
+  parser.add_argument('--enable-gl-fixed-attribs', action='store_true',
+                      default=None, help='Enable the GL_FIXED attribs support.')
+
   parser.add_argument('--enable-nacl-list-mappings', action='store_true',
                       help='Enable the nacl_list_mappings call.')
 

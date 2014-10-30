@@ -209,24 +209,9 @@ int __wrap_kill(pid_t pid, int sig) {
   // uses a buffer returned by pthread_getspecific, and hence thread-safe
   // even when |sig| is out-of-range.
   ARC_STRACE_ENTER("kill", "%d, \"%s\"",
-                     static_cast<int>(pid), strsignal(sig));
+                   static_cast<int>(pid), strsignal(sig));
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
-}
-
-/* Android uses madvise to hint to the kernel about what ashmem regions can be
- * deleted, and TcMalloc uses it to hint about returned system memory.  We won't
- * have this functionality in NaCl and errors returned from this function result
- * in useless debug spew, so just stub it out and ignore the advice.
- */
-int __wrap_madvise(void* addr, size_t length, int advice) {
-  ARC_STRACE_ENTER("madvise", "%p, %zu, %d", addr, length, advice);
-  /* TODO(elijahtaylor): Eventually we should be tracking mmap calls and will
-   * know which regions are file backed or not, so we could at that point zero
-   * out non-file backed regions when MADV_DONTNEED is passed in, or potentially
-   * follow other advice (e.g., MADV_REMOVE).
-   */
-  ARC_STRACE_RETURN(0);
 }
 
 int __wrap_pthread_kill(pthread_t thread, int sig) {
@@ -267,7 +252,7 @@ int __wrap_setrlimit(int resource, const struct rlimit *rlim) {
 int __wrap_sigaction(int signum, const struct sigaction *act,
                      struct sigaction *oldact) {
   ARC_STRACE_ENTER("sigaction", "\"%s\", %p, %p",
-                     strsignal(signum), act, oldact);
+                   strsignal(signum), act, oldact);
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }
@@ -312,15 +297,15 @@ pid_t __wrap_wait(int *status) {
 
 pid_t __wrap_waitpid(pid_t pid, int *status, int options) {
   ARC_STRACE_ENTER("waitpid", "%d, %p, %d",
-                     static_cast<int>(pid), status, options);
+                   static_cast<int>(pid), status, options);
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }
 
 int __wrap_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options) {
   ARC_STRACE_ENTER("waitid", "%d, %d, %p, %d",
-                     static_cast<int>(idtype), static_cast<int>(id),
-                     infop, options);
+                   static_cast<int>(idtype), static_cast<int>(id),
+                   infop, options);
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }
@@ -333,7 +318,7 @@ pid_t __wrap_wait3(int *status, int options, struct rusage *rusage) {
 
 pid_t __wrap_wait4(pid_t pid, int *status, int options, struct rusage *rusage) {
   ARC_STRACE_ENTER("wait4", "%d, %p, %d, %p",
-                     static_cast<int>(pid), status, options, rusage);
+                   static_cast<int>(pid), status, options, rusage);
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }

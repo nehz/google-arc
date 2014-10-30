@@ -37,6 +37,18 @@ extern "C" int __wrap_fchdir(int fd) {
   ARC_STRACE_RETURN(-1);
 }
 
+extern "C" int __wrap_flock(int fd, int operation) {
+  // We do not have to implement flock() and similar functions because:
+  // - Each app has its own file system tree.
+  // - Two instances of the same app do not run at the same time.
+  // - App instance and Dexopt instance of an app do not access the file system
+  //   at the same time.
+  ARC_STRACE_ENTER_FD("flock", "%d, %s",
+                      fd, arc::GetFlockOperationStr(operation).c_str());
+  ARC_STRACE_REPORT("not implemented, always succeeds");
+  ARC_STRACE_RETURN(0);
+}
+
 extern "C" int __wrap_fstatfs(int fd, struct statfs* buf) {
   ARC_STRACE_ENTER_FD("fstatfs", "%d, %p", fd, buf);
   DANGERF("fstatfs: fd=%d buf=%p", fd, buf);
@@ -47,7 +59,7 @@ extern "C" int __wrap_fstatfs(int fd, struct statfs* buf) {
 
 extern "C" int __wrap_lchown(const char* path, uid_t owner, gid_t group) {
   ARC_STRACE_ENTER("lchown", "\"%s\", %u, %u",
-                     SAFE_CSTR(path), owner, group);
+                   SAFE_CSTR(path), owner, group);
   DANGERF("lchown: path=%s owner=%u group=%u",
           SAFE_CSTR(path), owner, group);
   ALOG_ASSERT(0);
@@ -77,8 +89,8 @@ extern "C" int __wrap_mount(const char* source, const char* target,
                             const void* data) {
   // TODO(crbug.com/241955): Stringify |mountflags|?
   ARC_STRACE_ENTER("mount", "\"%s\", \"%s\", \"%s\", %lu, %p",
-                     SAFE_CSTR(source), SAFE_CSTR(target),
-                     SAFE_CSTR(filesystemtype), mountflags, data);
+                   SAFE_CSTR(source), SAFE_CSTR(target),
+                   SAFE_CSTR(filesystemtype), mountflags, data);
   DANGERF("mount: source=%s target=%s "
           "filesystemtype=%s mountflags=%lu data=%p",
           SAFE_CSTR(source), SAFE_CSTR(target),
@@ -91,8 +103,8 @@ extern "C" int __wrap_mount(const char* source, const char* target,
 extern "C" void* __wrap_mremap(void* old_address, size_t old_size,
                                size_t new_size, int flags,  ...) {
   ARC_STRACE_ENTER("mremap", "%p, %zu, %zu, %s",
-                     old_address, old_size, new_size,
-                     arc::GetMremapFlagStr(flags).c_str());
+                   old_address, old_size, new_size,
+                   arc::GetMremapFlagStr(flags).c_str());
   DANGERF("mremap: old_address=%p old_size=%zu new_size=%zu flags=%d",
           old_address, old_size, new_size, flags);
   ALOG_ASSERT(0);
@@ -174,7 +186,7 @@ extern "C" int __wrap_futimens(int fd, const struct timespec times[2]) {
 extern "C" int __wrap_inotify_add_watch(int fd, const char* pathname,
                                         uint32_t mask) {
   ARC_STRACE_ENTER_FD("inotify_add_watch", "%d, \"%s\", %u",
-                        fd, SAFE_CSTR(pathname), mask);
+                      fd, SAFE_CSTR(pathname), mask);
   // TODO(crbug.com/236903): Implement this.
   DANGERF("inotify_add_watch: fd=%d pathname=%s mask=%u",
           fd, SAFE_CSTR(pathname), mask);

@@ -221,11 +221,10 @@ class ArcStrace {
       delta = zero;
     const int64_t delta_msec = delta.InMilliseconds();
     if (frame.should_print) {
-      STRACE_LOG("%s%5d %*s<- %s = %s%s <%lld.%03lld>",
+      STRACE_LOG("%s%5d %*s<- %s = %s%s <%lldms>",
                  g_plugin_type_prefix, tid, call_stack->size() - 1, "",
                  frame.call.c_str(),
-                 retval.c_str(), err.c_str(), delta_msec / 1000,
-                 delta_msec % 1000);
+                 retval.c_str(), err.c_str(), delta_msec);
     }
 
     if (call_stack->size() == 1) {
@@ -629,6 +628,26 @@ std::string GetDlopenFlagStr(int flag) {
     AppendResult("RTLD_LOCAL", &result);
   if (flag)
     AppendResult(base::StringPrintf("%d???", flag), &result);
+  return result;
+}
+
+std::string GetMadviseAdviceStr(int advice) {
+  std::string result;
+  switch (advice) {
+    CASE_APPEND_ENUM_STR(MADV_NORMAL, result);
+    CASE_APPEND_ENUM_STR(MADV_RANDOM, result);
+    CASE_APPEND_ENUM_STR(MADV_SEQUENTIAL, result);
+    CASE_APPEND_ENUM_STR(MADV_WILLNEED, result);
+    CASE_APPEND_ENUM_STR(MADV_SOFT_OFFLINE, result);
+    CASE_APPEND_ENUM_STR(MADV_MERGEABLE, result);
+    CASE_APPEND_ENUM_STR(MADV_UNMERGEABLE, result);
+    CASE_APPEND_ENUM_STR(MADV_NOHUGEPAGE, result);
+    CASE_APPEND_ENUM_STR(MADV_DONTNEED, result);
+    CASE_APPEND_ENUM_STR(MADV_REMOVE, result);
+    CASE_APPEND_ENUM_STR(MADV_DONTFORK, result);
+    CASE_APPEND_ENUM_STR(MADV_DOFORK, result);
+    default: AppendResult(base::StringPrintf("%d???", advice), &result);
+  }
   return result;
 }
 

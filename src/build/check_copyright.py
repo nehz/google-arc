@@ -96,6 +96,13 @@ def main():
           file_name.startswith('mods/examples/')):
       # Ignore this directory since we will not be open sourcing it.
       return 0
+    elif (file_name.startswith('third_party/android/bionic-aosp/') or
+          file_name.startswith('third_party/freebsd/') or
+          file_name.startswith('third_party/openbsd/')):
+      # They are used for Bionic and only <20 reviewed files exist.
+      # TODO(crbug.com/406226): Remove this whitelist once ARC is
+      # rebased to L.
+      return 0
     else:
       print 'Unknown license pattern for', file_name
       return 1

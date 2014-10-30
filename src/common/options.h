@@ -61,6 +61,9 @@ struct Options {
   // glCheckFramebufferStatus always returns GL_FRAMEBUFFER_COMPLETE.
   bool enable_gl_error_check;
 
+  // If true, Pepper GL fixed attribs support will be enabled.
+  bool enable_gl_fixed_attribs;
+
   // If true, /storage/sdcard will be bound to external directory.
   bool enable_mount_external_directory;
 
