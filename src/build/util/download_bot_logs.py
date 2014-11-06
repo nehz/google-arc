@@ -12,7 +12,7 @@ Simply run the script with no argument.
   $ src/build/util/download_bot_logs.py
 
 This will download the the latest 20 logs of the builders listed in the builders
-page (http://chromegw.corp.google.com/i/client.alloy/builders) into
+page (http://chromegw.corp.google.com/i/client.arc/builders) into
 botlogs/<builder name> directories.
 
 You can also tweak the behavior of the script by specifying arguments.
@@ -36,7 +36,7 @@ sys.path.insert(0, 'src/build')
 import build_common
 import util.concurrent
 
-_BUILDBOT_URL = 'https://chromegw.corp.google.com/i/client.alloy'
+_BUILDBOT_URL = 'https://chromegw.corp.google.com/i/client.arc'
 _LOG_URL_TMPL = ('%(buildbot_url)s/builders/%(builder)s/builds/'
                  '%(build_number)d/steps/steps/logs/stdio/text')
 
@@ -81,7 +81,7 @@ def get_json_data(path):
 
   path is appended to the API entry point (/json/).
   See JSON API help to know what is supported.
-  https://chromegw.corp.google.com/i/client.alloy/json/help
+  https://chromegw.corp.google.com/i/client.arc/json/help
   """
   url = '%s/json/%s' % (_BUILDBOT_URL, path)
   try:

@@ -80,9 +80,10 @@ def generate_test_ninjas():
   n = ninja_generator.TestNinjaGenerator('libcommon_test',
                                          enable_clang=True,
                                          base_path='src/common')
-  n.emit_ld_wrap_flags()
+  # We need these wraps for process_emulator.
+  n.add_ld_flags('-Wl,--wrap=getpid,--wrap=getuid,--wrap=pthread_create')
   n.build_default_all_test_sources()
   n.add_compiler_flags('-Werror')
-  n.add_library_deps('libgccdemangle.a', 'libwrap_for_test.a')
+  n.add_library_deps('libgccdemangle.a')
   _add_compile_flags(n)
   n.run(n.link())

@@ -39,7 +39,7 @@ COMMON_EDITOR_TMP_FILE_PATTERNS = ['.*.swp', '*~', '.#*', '#*#']
 COMMON_EDITOR_TMP_FILE_REG = re.compile(
     '|'.join('(?:' + fnmatch.translate(pattern) + ')'
              for pattern in COMMON_EDITOR_TMP_FILE_PATTERNS))
-CHROME_USER_DATA_DIR_PREFIX = 'arc-test-profile-pepper'
+CHROME_USER_DATA_DIR_PREFIX = 'arc-test-profile'
 
 # If test succeeds, $out will be written and there will be no terminal
 # output. If the test fails, this shows the test output in the
@@ -293,7 +293,8 @@ def _get_opt_suffix():
   return '_opt' if OPTIONS.is_optimized_build() else '_dbg'
 
 
-def get_target_dir_name(target):
+def get_target_dir_name(target_override=None):
+  target = target_override or OPTIONS.target()
   return target + _get_opt_suffix()
 
 

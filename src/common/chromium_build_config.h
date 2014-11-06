@@ -5,7 +5,8 @@
 
 // This file adds defines about the platform we're currently building on.
 //  Operating System:
-//    OS_WIN / OS_MACOSX / OS_LINUX / OS_POSIX (MACOSX or LINUX) / OS_NACL
+//    OS_WIN / OS_MACOSX / OS_LINUX / OS_POSIX (MACOSX or LINUX) /
+//    OS_NACL (NACL_SFI or NACL_NONSFI) / OS_NACL_SFI / OS_NACL_NONSFI
 //  Compiler:
 //    COMPILER_MSVC / COMPILER_GCC
 //  Processor:
@@ -28,6 +29,14 @@
 #elif defined(__native_client__)
 // ARC MOD END
 #define OS_NACL 1
+// OS_NACL comes in two sandboxing technology flavors, SFI or Non-SFI.
+// PNaCl toolchain defines __native_client_nonsfi__ macro in Non-SFI build
+// mode, while it does not in SFI build mode.
+#if defined(__native_client_nonsfi__)
+#define OS_NACL_NONSFI
+#else
+#define OS_NACL_SFI
+#endif
 #elif defined(ANDROID)
 #define OS_ANDROID 1
 #elif defined(__APPLE__)
@@ -82,6 +91,11 @@
 // When upstreaming, we should consider setting OS_NACL in its own #ifdef
 // section so we can simultanseously define OS_ANDROID and OS_NACL.
 #define OS_NACL 1
+#if defined(__native_client_nonsfi__)
+#define OS_NACL_NONSFI
+#else
+#define OS_NACL_SFI
+#endif
 #endif
 
 // ARC MOD END

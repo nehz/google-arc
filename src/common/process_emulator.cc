@@ -390,80 +390,6 @@ static void* thread_start_wrapper(void* arg) {
   return result;
 }
 
-// Bionic's thread stack size default is 1MB.
-#define DEFAULT_STACK_SIZE  1024 * 1024
-
-#define CHECK_PTHREAD(call)  { \
-    int result = call; \
-    LOG_ALWAYS_FATAL_IF(result != 0, "pthread call failed: %d (%s)\n", \
-                        result, #call); }
-
-static bool update_default_stack_size(
-    pthread_attr_t const* src_attr, pthread_attr_t* dst_attr) {
-  size_t stack_size = 0;
-  if (src_attr != NULL) {
-    void* stack_addr = NULL;
-    CHECK_PTHREAD(pthread_attr_getstack(src_attr, &stack_addr, &stack_size));
-
-    if (stack_addr != NULL) {
-      ALOGW("Thread creator has set stack address=%p, size=%d. "
-            "Note that this is not safe.", stack_addr, stack_size);
-      return false;
-    }
-
-    if (stack_size != 0) {
-      // Thread creator requested a specific stack size.
-      // Use the original thread creation attributes.
-      return false;
-    }
-
-    // Ignoring pthread_attr_setaffinity_np as it is not supported in NaCl.
-
-    int detachstate = PTHREAD_CREATE_JOINABLE;
-    if (pthread_attr_getdetachstate(src_attr, &detachstate) == 0) {
-      CHECK_PTHREAD(pthread_attr_setdetachstate(dst_attr, detachstate));
-    }
-
-    struct sched_param schedparam = {};
-    if (pthread_attr_getschedparam(src_attr, &schedparam) == 0) {
-      CHECK_PTHREAD(pthread_attr_setschedparam(dst_attr, &schedparam));
-    }
-
-    int schedpolicy = SCHED_OTHER;
-    if (pthread_attr_getschedpolicy(src_attr, &schedpolicy) == 0) {
-      CHECK_PTHREAD(pthread_attr_setschedpolicy(dst_attr, schedpolicy));
-    }
-
-    size_t guardsize = 0;
-    if (pthread_attr_getguardsize(src_attr, &guardsize) == 0) {
-      CHECK_PTHREAD(pthread_attr_setguardsize(dst_attr, guardsize));
-    }
-  }
-
-  CHECK_PTHREAD(pthread_attr_setstacksize(dst_attr, DEFAULT_STACK_SIZE));
-  return true;
-}
-
-static int call_real_pthread_create(
-    pthread_t* thread_out,
-    pthread_attr_t const* attr,
-    void* (*start_routine)(void*),  // NOLINT(readability/casting)
-    void* arg) {
-  int result;
-  ProcessEmulatorThreadState* state = GetThreadState();
-  if (state == NULL) {
-    result = real_pthread_create_func(
-        thread_out, attr, start_routine, arg);
-  } else {
-    EmulatedProcessInfo process = state->GetAndClearThreadCreationProcess();
-    ThreadCreateArg* wrapped_arg =
-        new ThreadCreateArg(process, start_routine, arg);
-    result = real_pthread_create_func(
-        thread_out, attr, &thread_start_wrapper, wrapped_arg);
-  }
-  return result;
-}
-
 // Intercept all pthread_create() calls and set up emulated uid and pid
 // values of the created thread.
 extern "C" int wrap_pthread_create_func(
@@ -483,17 +409,19 @@ extern "C" int wrap_pthread_create_func(
   // without a lock.
   s_is_multi_threaded = true;
 
-  pthread_attr_t thread_attr;
-  pthread_attr_init(&thread_attr);
   int result;
-  if (update_default_stack_size(attr, &thread_attr)) {
-    result = call_real_pthread_create(
-        thread_out, &thread_attr, start_routine, arg);
-  } else {
-    result = call_real_pthread_create(
+  ProcessEmulatorThreadState* state = GetThreadState();
+  if (state == NULL) {
+    result = real_pthread_create_func(
         thread_out, attr, start_routine, arg);
+  } else {
+    EmulatedProcessInfo process = state->GetAndClearThreadCreationProcess();
+    ThreadCreateArg* wrapped_arg =
+        new ThreadCreateArg(process, start_routine, arg);
+    result = real_pthread_create_func(
+        thread_out, attr, &thread_start_wrapper, wrapped_arg);
   }
-  pthread_attr_destroy(&thread_attr);
+
   ARC_STRACE_RETURN(result);
 }
 

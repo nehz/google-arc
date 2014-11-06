@@ -87,16 +87,19 @@ class VirtualFileSystemInterface {
   virtual int listen(int sockfd, int backlog) = 0;
   virtual off64_t lseek(int fd, off64_t offset, int whence) = 0;
   virtual int lstat(const std::string& path, struct stat* buf) = 0;
+  // See the ENOSYS comment below.
   virtual int madvise(void* addr, size_t length, int advice) = 0;
   virtual int mkdir(const std::string& pathname, mode_t mode) = 0;
   virtual void* mmap(
       void* addr, size_t length, int prot, int flags, int fd, off_t offset) = 0;
 
-  // In addition to the standard error numbers, these two functions set ENOSYS
-  // in errno when [addr, addr+length) is not managed by posix_translation. In
-  // that case, caller should call libc's ::mprotect or ::munmap with the same
-  // parameters as a fallback.
-  // TODO(crbug.com/362862): Remove the comment once crbug.com/362862 is fixed.
+  // In addition to the standard error numbers, these two functions as well as
+  // madvise() set ENOSYS in errno when [addr, addr+length) is not managed by
+  // posix_translation. In that case, caller should call libc's ::mprotect etc
+  // with the same parameters as a fallback. Also note that the type of |addr|
+  // for mprotect() in Bionic is 'const void*' but VFS uses 'void*'.
+  // TODO(crbug.com/362862): Remove the ENOSYS comment once crbug.com/362862 is
+  // fixed.
   virtual int mprotect(void* addr, size_t length, int prot) = 0;
   virtual int munmap(void* addr, size_t length) = 0;
 

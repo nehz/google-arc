@@ -12,7 +12,9 @@
 #ifndef NATIVE_CLIENT_SRC_TRUSTED_SERVICE_RUNTIME_INCLUDE_SYS_FCNTL_H_
 #define NATIVE_CLIENT_SRC_TRUSTED_SERVICE_RUNTIME_INCLUDE_SYS_FCNTL_H_
 
+/* ARC MOD BEGIN */
 #ifdef __native_client__
+/* ARC MOD END */
 #include <sys/types.h>
 #endif
 
@@ -67,9 +69,9 @@
 #define NACL_ABI_F_UNLKSYS 4 /* remove remote locks for a given system */
 #endif  /* !_POSIX_SOURCE */
 
+/* ARC MOD BEGIN */
 #ifdef __native_client__
 /* file segment locking set data type - information passed to system by user */
-/* ARC MOD BEGIN */
 /* Rename to nacl_abi_flock to preventl conflict with struct flock in Bionic. */
 #ifdef __BIONIC__
 struct nacl_abi_flock {
@@ -95,6 +97,8 @@ extern int fcntl(int, int, ...);
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif  /* __cplusplus */
+/* ARC MOD BEGIN */
 #endif  /* __native_client__ */
+/* ARC MOD END */
 
 #endif

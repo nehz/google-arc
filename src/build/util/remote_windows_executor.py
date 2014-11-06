@@ -70,7 +70,7 @@ def _set_nacl_resource_permission(executor):
   # On Windows, NaCl cannot open resources without executable bit.
   # So, here, we manually set it regardless of the original permissions.
   resource_path = 'out/target/%s/runtime/_platform_specific/%s/' % (
-      build_common.get_target_dir_name(OPTIONS.target()),
+      build_common.get_target_dir_name(),
       OPTIONS.target())
   executor.run(' '.join([
       'cd', executor.get_remote_arc_root(), '&&',

@@ -17,7 +17,6 @@ import tempfile
 
 import build_common
 import filtered_subprocess
-from build_options import OPTIONS
 from util.minidump_filter import MinidumpFilter
 from util.test import unittest_util
 
@@ -378,7 +377,7 @@ def _expand_target_and_glob(file_patterns):
   convert a directory path into a list of files under the directory.
   """
   format_args = {
-      'target': build_common.get_target_dir_name(OPTIONS.target())
+      'target': build_common.get_target_dir_name()
   }
   file_patterns = [pattern % format_args for pattern in file_patterns]
   paths = []

@@ -16,34 +16,34 @@ def _generate_libutils_arc_tests_ninja():
   n.build_default_all_test_sources()
   n.emit_framework_common_flags()
   n.add_compiler_flags('-Werror')
-  n.emit_ld_wrap_flags()
   library_deps = ['libchromium_base.a',  # for libcommon.a etc.
                   'libcommon.a',
                   'libcorkscrew.a',
                   'libcutils.a',
                   'libgccdemangle.a',
                   'libpluginhandle.a',
-                  'libutils.so',
-                  'libwrap_for_test.a']
+                  'libutils_static.a']
   n.add_library_deps(*library_deps)
   n.run(n.link())
 
 
 def _generate_libutils_ninja():
+  # We generate both static library and shared library because arc_tests needs
+  # to compile without --wrap flags. See crbug.com/423063.
   def _filter(vars):
     if vars.is_host():
       return False
-    # libutils.so is built as a --whole-library shared object of libutils.a.  We
-    # do not build both the archive and shared objects for any module because we
-    # only use one or the other.
-    if vars.get_module_name() == 'libutils' and vars.is_shared():
+    if vars.get_module_name() != 'libutils':
       return False
-    if vars.get_module_name() == 'libutils' and not vars.is_shared():
-      make_to_ninja.Filters.convert_to_shared_lib(vars)
-    # TODO(crbug.com/364344): Once Renderscript is built from source, this
-    # canned install can be removed.
-    if not build_common.use_ndk_direct_execution():
-      vars.set_canned(True)
+    if vars.is_shared():
+      vars.get_whole_archive_deps().remove('libutils')
+      vars.get_whole_archive_deps().append('libutils_static')
+      # TODO(crbug.com/364344): Once Renderscript is built from source, this
+      # canned install can be removed.
+      if not build_common.use_ndk_direct_execution():
+        vars.set_canned(True)
+    else:
+      vars.set_module_name('libutils_static')
     return True
   make_to_ninja.MakefileNinjaTranslator(
       'android/system/core/libutils').generate(_filter)
