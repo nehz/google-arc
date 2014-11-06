@@ -24,12 +24,6 @@
 #include "common/plugin_handle.h"
 #include "common/scoped_pthread_mutex_locker.h"
 
-#define real_getpid_func __real_getpid
-#define wrap_getpid_func __wrap_getpid
-#define wrap_getuid_func __wrap_getuid
-#define real_pthread_create_func __real_pthread_create
-#define wrap_pthread_create_func __wrap_pthread_create
-
 static pthread_mutex_t s_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_key_t s_tls = 0;
 static pthread_once_t s_tls_init = PTHREAD_ONCE_INIT;
@@ -238,10 +232,15 @@ pid_t ProcessEmulator::PrepareNewEmulatedProcess(uid_t uid) {
   return process.pid;
 }
 
-extern "C" pid_t real_getpid_func();
-
-pid_t ProcessEmulator::GetRealPid() {
-  return real_getpid_func();
+// static
+pid_t ProcessEmulator::GetPid() {
+  ProcessEmulatorThreadState* state = GetThreadState();
+  pid_t result;
+  if (!state)
+    result = arc::kInitPid;
+  else
+    result = state->GetCurrentPid();
+  return result;
 }
 
 // static
@@ -261,7 +260,7 @@ static void GetCurrentPidAndUid(
     *pid = state->GetCurrentPid();
     *uid = state->GetCurrentUid();
   } else {
-    *pid = real_getpid_func();
+    *pid = arc::kInitPid;
     *uid = s_fallback_uid;
   }
 }
@@ -333,29 +332,6 @@ void ProcessEmulator::ExitBinderCall() {
   }
 }
 
-extern "C" int real_pthread_create_func(
-    pthread_t* thread_out,
-    pthread_attr_t const* attr,
-    void* (*start_routine)(void*),  // NOLINT(readability/casting)
-    void* arg);
-
-extern "C" pid_t wrap_getpid_func() {
-  ARC_STRACE_ENTER("getpid", "%s", "");
-  ProcessEmulatorThreadState* state = GetThreadState();
-  pid_t result;
-  if (!state)
-    result = real_getpid_func();
-  else
-    result = state->GetCurrentPid();
-  ARC_STRACE_RETURN(result);
-}
-
-extern "C" uid_t wrap_getuid_func() {
-  ARC_STRACE_ENTER("getuid", "%s", "");
-  const uid_t result = ProcessEmulator::GetUid();
-  ARC_STRACE_RETURN(result);
-}
-
 class ThreadCreateArg {
  public:
   ThreadCreateArg(EmulatedProcessInfo process,
@@ -368,7 +344,7 @@ class ThreadCreateArg {
   void* arg_;
 };
 
-static void* thread_start_wrapper(void* arg) {
+static void* ThreadStartWrapper(void* arg) {
   ThreadCreateArg* wrapped_arg = reinterpret_cast<ThreadCreateArg*>(arg);
   InitThreadInternal(wrapped_arg->process_);
   void* (*original_start_routine)(void*) =  // NOLINT
@@ -379,28 +355,21 @@ static void* thread_start_wrapper(void* arg) {
   static int estimated_threads = 0;
   ++estimated_threads;
   ARC_STRACE_REPORT("Approximately %d threads (new thread) func=%p arg=%p",
-                      estimated_threads, original_start_routine, original_arg);
+                    estimated_threads, original_start_routine, original_arg);
   ALOGI("Approximately %d threads (new thread)", estimated_threads);
   void* result = original_start_routine(original_arg);
   ALOGI("Approximately %d threads (thread done)", estimated_threads);
   ARC_STRACE_REPORT("Approximately %d threads (thread done) result=%p",
-                      estimated_threads, result);
+                    estimated_threads, result);
   --estimated_threads;
 
   return result;
 }
 
-// Intercept all pthread_create() calls and set up emulated uid and pid
-// values of the created thread.
-extern "C" int wrap_pthread_create_func(
-    pthread_t* thread_out,
-    pthread_attr_t const* attr,
-    void* (*start_routine)(void*),  // NOLINT(readability/casting)
-    void* arg) {
-  // TODO(crbug.com/241955): Stringify |attr|?
-  ARC_STRACE_ENTER("pthread_create", "%p, %p, %p, %p",
-                     thread_out, attr, start_routine, arg);
-
+// static
+void ProcessEmulator::FilterPthreadCreate(
+    void* (**start_routine)(void*),  // NOLINT(readability/casting)
+    void** arg) {
   // A mutex lock is not necessary here since real_pthread_create_func() itself
   // is a memory barrier. It is ensured by real_pthread_create_func() that the
   // |start_routine| can always see the new |s_is_multi_threaded| value. Note
@@ -409,20 +378,33 @@ extern "C" int wrap_pthread_create_func(
   // without a lock.
   s_is_multi_threaded = true;
 
-  int result;
   ProcessEmulatorThreadState* state = GetThreadState();
-  if (state == NULL) {
-    result = real_pthread_create_func(
-        thread_out, attr, start_routine, arg);
-  } else {
+  if (state != NULL) {
     EmulatedProcessInfo process = state->GetAndClearThreadCreationProcess();
     ThreadCreateArg* wrapped_arg =
-        new ThreadCreateArg(process, start_routine, arg);
-    result = real_pthread_create_func(
-        thread_out, attr, &thread_start_wrapper, wrapped_arg);
+        new ThreadCreateArg(process, *start_routine, *arg);
+    *start_routine = &ThreadStartWrapper;
+    *arg = wrapped_arg;
   }
+}
 
-  ARC_STRACE_RETURN(result);
+// static
+void ProcessEmulator::SetFakeThreadStateForTest(pid_t pid, uid_t uid) {
+  InitThreadInternal(EmulatedProcessInfo(pid, uid));
+}
+
+// static
+void ProcessEmulator::UnsetThreadStateForTest() {
+  ThreadDestroyed(GetThreadState());
+}
+
+// static
+void ProcessEmulator::UnfilterPthreadCreateForTest(
+    void* (*start_routine)(void*),  // NOLINT(readability/casting)
+    void* arg) {
+  if (start_routine == &ThreadStartWrapper) {
+    delete reinterpret_cast<ThreadCreateArg*>(arg);
+  }
 }
 
 }  // namespace arc

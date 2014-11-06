@@ -24,6 +24,7 @@
 #include "common/backtrace.h"
 #include "common/danger.h"
 #include "common/plugin_handle.h"
+#include "common/process_emulator.h"
 
 template <typename T> struct DefaultSingletonTraits;
 
@@ -50,8 +51,21 @@ int __wrap_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
 pid_t __wrap_wait3(int *status, int options, struct rusage *rusage);
 pid_t __wrap_wait4(pid_t pid, int *status, int options, struct rusage *rusage);
 
+pid_t __wrap_getpid();
+uid_t __wrap_getuid();
+int __wrap_pthread_create(
+    pthread_t* thread_out,
+    pthread_attr_t const* attr,
+    void* (*start_routine)(void*),  // NOLINT(readability/casting)
+    void* arg);
+
 extern void __real_abort();
 extern void __real_exit(int status);
+extern int __real_pthread_create(
+    pthread_t* thread_out,
+    const pthread_attr_t* attr,
+    void* (*start_routine)(void*),  // NOLINT(readability/casting)
+    void* arg);
 }  // extern "C"
 
 namespace {
@@ -321,4 +335,32 @@ pid_t __wrap_wait4(pid_t pid, int *status, int options, struct rusage *rusage) {
                    static_cast<int>(pid), status, options, rusage);
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
+}
+
+pid_t __wrap_getpid() {
+  ARC_STRACE_ENTER("getpid", "%s", "");
+  const pid_t result = arc::ProcessEmulator::GetPid();
+  ARC_STRACE_RETURN(result);
+}
+
+uid_t __wrap_getuid() {
+  ARC_STRACE_ENTER("getuid", "%s", "");
+  const uid_t result = arc::ProcessEmulator::GetUid();
+  ARC_STRACE_RETURN(result);
+}
+
+int __wrap_pthread_create(
+    pthread_t* thread_out,
+    const pthread_attr_t* attr,
+    void* (*start_routine)(void*),  // NOLINT(readability/casting)
+    void* arg) {
+  // TODO(crbug.com/241955): Stringify |attr|?
+  ARC_STRACE_ENTER("pthread_create", "%p, %p, %p, %p",
+                   thread_out, attr, start_routine, arg);
+
+  arc::ProcessEmulator::FilterPthreadCreate(&start_routine, &arg);
+
+  int result = __real_pthread_create(thread_out, attr, start_routine, arg);
+
+  ARC_STRACE_RETURN(result);
 }

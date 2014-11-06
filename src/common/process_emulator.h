@@ -21,6 +21,7 @@ class ScopedUidSetter;
 
 namespace arc {
 
+const pid_t kInitPid = 1;
 const uid_t kRootUid = 0;
 const uid_t kSystemUid = 1000;  // == Process.SYSTEM_UID
 const uid_t kFirstAppUid = 10000;  // == Process.FIRST_APPLICATION_UID
@@ -52,12 +53,20 @@ class ProcessEmulator {
   // Returns the new PID.
   pid_t PrepareNewEmulatedProcess(uid_t uid);
 
-  static pid_t GetRealPid();
+  // Returns PID. Unlike ::getpid() in libc, this functions does not
+  // output to arc_strace.
+  static pid_t GetPid();
 
   // Returns UID. Unlike ::getuid() in libc, this functions does not
   // output to arc_strace and is supposed to be used from inside
   // arc_strace.
   static uid_t GetUid();
+
+  // Intercepts all pthread_create() calls and set up emulated uid and pid
+  // values of the created thread.
+  static void FilterPthreadCreate(
+      void* (**start_routine)(void*),  // NOLINT(readability/casting)
+      void** arg);
 
   // "Enter" function is called before any invocation of a Binder method
   // where pid or uid has changed its value. Both functions are
@@ -82,6 +91,7 @@ class ProcessEmulator {
   friend class ChildPluginInstanceTest;
   friend struct DefaultSingletonTraits<ProcessEmulator>;
   friend class MockPlugin;
+  friend class ProcessEmulatorTest;
   friend class posix_translation::ScopedUidSetter;
 
   ProcessEmulator();
@@ -92,6 +102,18 @@ class ProcessEmulator {
 
   // For testing. Do not call.
   static void SetFallbackUidForTest(uid_t uid);
+
+  // For testing. Do not call.
+  static void SetFakeThreadStateForTest(pid_t pid, uid_t uid);
+  static void UnsetThreadStateForTest();
+
+  // For testing. Do not call.
+  // In unit tests where |start_routine| is not acutally started after
+  // FilterPthreadCreate(), we need to call this function with rewritten
+  // |start_routine| and |arg| to delete allocated memory.
+  static void UnfilterPthreadCreateForTest(
+      void* (*start_routine)(void*),  // NOLINT(readability/casting)
+      void* arg);
 
   static volatile EnterBinderFunc binder_enter_function_;
   static volatile ExitBinderFunc binder_exit_function_;
