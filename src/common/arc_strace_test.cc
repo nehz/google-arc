@@ -50,14 +50,6 @@ TEST(ArcStrace, GetMmapFlagStr) {
             GetMmapFlagStr(MAP_PRIVATE|MAP_FIXED|MAP_FILE));
 }
 
-TEST(ArcStrace, GetDlsymHandleStr) {
-  static const uintptr_t kPtr = 0x12345678;
-  EXPECT_EQ("RTLD_DEFAULT", GetDlsymHandleStr(RTLD_DEFAULT));
-  EXPECT_EQ("RTLD_NEXT", GetDlsymHandleStr(RTLD_NEXT));
-  EXPECT_EQ("0x12345678",  // assume 32bit pointer.
-            GetDlsymHandleStr(reinterpret_cast<const void*>(kPtr)));
-}
-
 TEST(ArcStrace, GetRWBufStr) {
   std::string input;
   input = "foobar";

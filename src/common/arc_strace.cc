@@ -96,6 +96,10 @@ class ThreadIDManager {
 class ArcStrace {
  public:
   ArcStrace() {
+    handle_to_name_.insert(
+        std::make_pair(RTLD_DEFAULT, std::make_pair("RTLD_DEFAULT", 1)));
+    handle_to_name_.insert(
+        std::make_pair(RTLD_NEXT, std::make_pair("RTLD_NEXT", 1)));
     BuildIgnoredCallPrefixes();
   }
 
@@ -243,6 +247,7 @@ class ArcStrace {
     call_stack->pop();
   }
 
+  // TODO(crbug.com/430716): Test register/unregister fd/handle functions.
   void RegisterFD(int fd, const char* name) {
     base::AutoLock lock(mu_);
     RegisterFDLocked(fd, name);
@@ -251,6 +256,21 @@ class ArcStrace {
   void UnregisterFD(int fd) {
     base::AutoLock lock(mu_);
     UnregisterFDLocked(fd);
+  }
+
+  void RegisterDsoHandle(const void* handle, const char* name) {
+    base::AutoLock lock(mu_);
+    RegisterDsoHandleLocked(handle, name);
+  }
+
+  void UnregisterDsoHandle(const void* handle) {
+    base::AutoLock lock(mu_);
+    UnregisterDsoHandleLocked(handle);
+  }
+
+  std::string GetDsoHandleString(const void* handle) {
+    base::AutoLock lock(mu_);
+    return GetDsoHandleStringLocked(handle);
   }
 
   void DupFD(int oldfd, int newfd) {
@@ -328,6 +348,9 @@ class ArcStrace {
   };
   typedef std::stack<CallStackFrame> CallStackType;
   typedef std::map<int, std::string> FDToNameMap;
+  typedef std::map<const void*,
+                   // A pair of a DSO name and its reference count.
+                   std::pair<std::string, size_t> > DsoHandleToNameMap;
   // A map from (handler, func) to an array of elapsed time in us.
   typedef std::map<std::pair<std::string, std::string>,
                    std::vector<int64_t> > CallStatsType;
@@ -346,6 +369,57 @@ class ArcStrace {
     if (!fd_to_name_.erase(fd)) {
       STRACE_WARN("%sUnregister unknown FD! fd=%d", g_plugin_type_prefix, fd);
     }
+  }
+
+  void RegisterDsoHandleLocked(const void* handle, const char* name) {
+    if (handle == RTLD_DEFAULT || handle == RTLD_NEXT) {
+      STRACE_WARN("%sRegister the special DSO handle \"%s\"!",
+                  g_plugin_type_prefix,
+                  GetDsoHandleStringLocked(handle).c_str());
+      return;
+    }
+
+    ALOG_ASSERT(name);
+    std::pair<DsoHandleToNameMap::iterator, bool> p =
+        handle_to_name_.insert(std::make_pair(handle, std::make_pair(name, 1)));
+    if (!p.second) {
+      // |handle| is already in the map.
+      DsoHandleToNameMap::iterator it = p.first;
+      ++(it->second.second);  // increase the reference count.
+      if (it->second.first != name) {
+        // TODO(yusukes): If this is too noisy, we should normalize the two
+        // names before comparison so that both "arc.nexe" != "(null)" and
+        // "/path/to/libX.so" != "libX.so" evaluate to false, for example.
+        STRACE_WARN("%sRegister the same DSO handle with a different name! "
+                    "handle=%p orig=%s name=%s",
+                    g_plugin_type_prefix,
+                    handle, it->second.first.c_str(), name);
+        it->second.first = name;
+      }
+    }
+  }
+
+  void UnregisterDsoHandleLocked(const void* handle) {
+    if (handle == RTLD_DEFAULT || handle == RTLD_NEXT) {
+      STRACE_WARN("%sUnregister the special DSO handle \"%s\"!",
+                  g_plugin_type_prefix,
+                  GetDsoHandleStringLocked(handle).c_str());
+      return;
+    }
+
+    DsoHandleToNameMap::iterator it = handle_to_name_.find(handle);
+    if (it == handle_to_name_.end()) {
+      STRACE_WARN("%sUnregister unknown DSO handle %p!",
+                  g_plugin_type_prefix, handle);
+      return;
+    }
+    if (--(it->second.second) == 0)
+      handle_to_name_.erase(it);
+  }
+
+  std::string GetDsoHandleStringLocked(const void* handle) {
+    DsoHandleToNameMap::const_iterator it = handle_to_name_.find(handle);
+    return (it != handle_to_name_.end()) ? it->second.first : std::string();
   }
 
   CallStackType* GetCallStackForThreadID(ThreadID tid) {
@@ -413,6 +487,7 @@ class ArcStrace {
   // Per-thread call stack.
   std::map<ThreadID, CallStackType> tid_to_call_stack_;
   FDToNameMap fd_to_name_;
+  DsoHandleToNameMap handle_to_name_;
   CallStatsType stats_;
   std::vector<std::string> ignored_file_path_prefixes_;
   std::vector<std::string> ignored_call_prefixes_;
@@ -537,6 +612,19 @@ void StraceUnregisterFD(int fd) {
   ALOG_ASSERT(g_arc_strace);
 
   g_arc_strace->UnregisterFD(fd);
+}
+
+void StraceRegisterDsoHandle(const void* handle, const char* name) {
+  ALOG_ASSERT(g_arc_strace);
+
+  if (handle)
+    g_arc_strace->RegisterDsoHandle(handle, name ? name : "(null)");
+}
+
+void StraceUnregisterDsoHandle(const void* handle) {
+  ALOG_ASSERT(g_arc_strace);
+
+  g_arc_strace->UnregisterDsoHandle(handle);
 }
 
 void StraceDupFD(int oldfd, int newfd) {
@@ -1066,11 +1154,10 @@ std::string GetPPErrorStr(int32_t err) {
 }
 
 std::string GetDlsymHandleStr(const void* handle) {
-  if (handle == RTLD_DEFAULT)
-    return "RTLD_DEFAULT";
-  if (handle == RTLD_NEXT)
-    return "RTLD_NEXT";
-  return base::StringPrintf("%p", handle);
+  ALOG_ASSERT(g_arc_strace);
+  const std::string result = g_arc_strace->GetDsoHandleString(handle);
+  return result.empty() ? "???" : result;
 }
+
 
 }  // namespace arc

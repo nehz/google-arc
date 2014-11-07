@@ -358,6 +358,8 @@ int __wrap_dlclose(const void* handle) {
   // TODO(crbug.com/241955): Decipher |handle|
   ARC_STRACE_ENTER("dlclose", "%p", handle);
   int result = __real_dlclose(handle);
+  if (!result)
+    ARC_STRACE_UNREGISTER_DSO_HANDLE(handle);
   // false since dlclose never sets errno.
   ARC_STRACE_RETURN_INT(result, false);
 }
@@ -366,7 +368,6 @@ void* __wrap_dlopen(const char* filename, int flag) {
   ARC_STRACE_ENTER("dlopen", "\"%s\", %s",
                    SAFE_CSTR(filename),
                    arc::GetDlopenFlagStr(flag).c_str());
-  void* result = NULL;
   // __real_dlopen is known to be slow under NaCl.
   TRACE_EVENT2(ARC_TRACE_CATEGORY, "wrap_dlopen",
                "filename", TRACE_STR_COPY(SAFE_CSTR(filename)),
@@ -380,10 +381,11 @@ void* __wrap_dlopen(const char* filename, int flag) {
     // handle of the main binary so that apps can find symbols.
     // TODO(crbug.com/400947): Remove this temporary hack once we have stopped
     //                         converting shared objects to archives.
-    result = __real_dlopen(NULL, flag);
-  } else {
-    result = __real_dlopen(filename, flag);
+    filename = NULL;
   }
+  void* result = __real_dlopen(filename, flag);
+  if (result)
+    ARC_STRACE_REGISTER_DSO_HANDLE(result, filename);
 
   // false since dlopen never sets errno.
   ARC_STRACE_RETURN_PTR(result, false);
@@ -391,7 +393,8 @@ void* __wrap_dlopen(const char* filename, int flag) {
 
 void* __wrap_dlsym(const void* handle, const char* symbol) {
   // TODO(crbug.com/241955): Decipher |handle|
-  ARC_STRACE_ENTER("dlsym", "%s, \"%s\"",
+  ARC_STRACE_ENTER("dlsym", "%p \"%s\", \"%s\"",
+                   handle,
                    arc::GetDlsymHandleStr(handle).c_str(),
                    SAFE_CSTR(symbol));
   void* result = __real_dlsym(handle, symbol);

@@ -67,6 +67,8 @@ void StraceReturnPtr(void* retval, bool needs_strerror);
 void StraceReturnInt(ssize_t retval, bool needs_strerror);
 void StraceRegisterFD(int fd, const char* name);
 void StraceUnregisterFD(int fd);
+void StraceRegisterDsoHandle(const void* handle, const char* name);
+void StraceUnregisterDsoHandle(const void* handle);
 void StraceDupFD(int oldfd, int newfd);
 void StraceDumpStats(const std::string& user_str);
 void StraceResetStats();
@@ -218,6 +220,24 @@ int64_t GetMedian(std::vector<int64_t>* samples);
 # define ARC_STRACE_UNREGISTER_FD(...) do {   \
     if (arc::StraceEnabled())                 \
       arc::StraceUnregisterFD(__VA_ARGS__);   \
+  } while (0)
+
+// ARC_STRACE_REGISTER_DSO_HANDLE(const void* handle, const char* name)
+//
+// Registers a new DSO handle returned from dlopen(). This |name| will be used
+// to prettyprint handles passed to dlsym(). |name| can be NULL since dlopen()
+// allows that.
+# define ARC_STRACE_REGISTER_DSO_HANDLE(...) do {     \
+    if (arc::StraceEnabled())                         \
+      arc::StraceRegisterDsoHandle(__VA_ARGS__);      \
+  } while (0)
+
+// ARC_STRACE_UNREGISTER_DSO_HANDLE(const void* handle)
+//
+// Unregisters the |handle|.
+# define ARC_STRACE_UNREGISTER_DSO_HANDLE(...) do {   \
+    if (arc::StraceEnabled())                         \
+      arc::StraceUnregisterDsoHandle(__VA_ARGS__);    \
   } while (0)
 
 // ARC_STRACE_DUP_FD(int oldfd, int newfd)
