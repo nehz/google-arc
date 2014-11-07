@@ -41,13 +41,13 @@
 #include "common/memory_state.h"
 #include "common/options.h"
 #include "common/plugin_handle.h"
+#include "common/process_emulator.h"
 #include "common/thread_local.h"
 #include "common/trace_event.h"
 #include "common/virtual_file_system_interface.h"
 #include "wrap/file_wrap_private.h"
 #include "wrap/libc_dispatch_table.h"
 
-#if !defined(LIBWRAP_FOR_TEST)
 // A macro to wrap an IRT function. Note that the macro does not wrap IRT
 // calls made by the Bionic loader. For example, wrapping mmap with DO_WRAP
 // does not hook the mmap IRT calls in phdr_table_load_segments() in
@@ -57,11 +57,6 @@
 #define DO_WRAP(name)                                   \
   __nacl_irt_ ## name ## _real = __nacl_irt_ ## name;   \
   __nacl_irt_ ## name  = __nacl_irt_ ## name ## _wrap
-#else
-// For testing, just set up the _real variables.
-#define DO_WRAP(name)                                   \
-  __nacl_irt_ ## name ## _real = __nacl_irt_ ## name;
-#endif
 
 // A macro to define an IRT wrapper and a function pointer to store
 // the real IRT function. Note that initializing __nacl_irt_<name>_real
@@ -270,6 +265,18 @@ const char* StripSystemLibPrefix(const char* path) {
 
 namespace arc {
 
+// Controls syscall interception. If set to true, file syscalls are just passed
+// through to libc.
+//
+// A mutex lock is not necessary here since |g_pass_through_enabled| is set by
+// the main thread before the first pthread_create() call is made. It is ensured
+// that a non-main thread can see correct |g_pass_through_enabled| value because
+// pthread_create() call to create the thread itself is a memory barrier.
+//
+// TODO(crbug.com/423063): We should be able to remove this after
+// libwrap/libposix_translation merge is finished.
+static bool g_pass_through_enabled = false;
+
 /* Android libraries often try to load files from /system, but that does not
  * exist on our host systems.  Since we don't want to modify Android libraries,
  * instead intercept the open calls and redirect them to ANDROID_ROOT where all
@@ -280,14 +287,13 @@ std::string GetAndroidRoot() {
 }
 
 VirtualFileSystemInterface* GetFileSystem() {
-#if !defined(LIBWRAP_FOR_TEST)
+  if (g_pass_through_enabled) {
+    return NULL;
+  }
   arc::PluginHandle handle;
   VirtualFileSystemInterface* file_system = handle.GetVirtualFileSystem();
   ALOG_ASSERT(file_system);
   return file_system;
-#else
-  return NULL;
-#endif
 }
 
 }  // namespace arc
@@ -1528,10 +1534,12 @@ namespace arc {
 
 // The call stack gets complicated when IRT is hooked. See the comment near
 // IRT_WRAPPER(close) for more details.
-#if defined(LIBWRAP_FOR_TEST)
-__attribute__((constructor))
-#endif
-void InitIRTHooks() {
+void InitIRTHooks(bool pass_through) {
+  // This function must be called by the main thread before the first
+  // pthread_create() call is made. See the comment for g_pass_through_enabled
+  // above.
+  ALOG_ASSERT(!arc::ProcessEmulator::IsMultiThreaded());
+
   DO_WRAP(close);
   DO_WRAP(dup);
   DO_WRAP(dup2);
@@ -1545,6 +1553,8 @@ void InitIRTHooks() {
   DO_WRAP(seek);
   DO_WRAP(stat);
   DO_WRAP(write);
+
+  g_pass_through_enabled = pass_through;
 
   // We have replaced __nacl_irt_* above. Then, we need to inject them
   // to the Bionic loader.

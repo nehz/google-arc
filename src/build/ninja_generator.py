@@ -1220,6 +1220,12 @@ class CNinjaGenerator(NinjaGenerator):
     flags = ['-Wheader-hygiene', '-Wstring-conversion']
     if OPTIONS.is_arm():
       flags.extend(['-target', 'arm-linux-gnueabi'])
+    if OPTIONS.is_nacl_i686():
+      # PNaCl clang ensures the stack pointer is aligned to 16 byte
+      # boundaries and assumes other objects do the same. Dalvik for
+      # i686 violates this assumption so we need to re-align the stack
+      # at the beginning of all functions built by PNaCl clang.
+      flags.append('-mstackrealign')
     return flags
 
   @staticmethod

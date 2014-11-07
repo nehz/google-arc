@@ -279,6 +279,7 @@ class _Options(object):
     if args.weird:
       if _Options._is_nacl_target(args.target):
         args.enable_emugl = True
+        args.enable_pnacl_clang = True
         args.enable_touch_overlay = True
         args.logging.extend([
             _EMUGL_DEBUG_LOGGING,

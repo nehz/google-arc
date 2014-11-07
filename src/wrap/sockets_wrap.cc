@@ -74,9 +74,6 @@ int __wrap_socket(int domain, int type, int protocol);
 int __wrap_socketpair(int domain, int type, int protocol, int sv[2]);
 }  // extern "C"
 
-// This file does not have special cases for LIBWRAP_FOR_TEST because our unit
-// tests do not call these socket functions at all.
-
 int __wrap_accept(int sockfd, struct sockaddr* addr, socklen_t* addrlen) {
   ARC_STRACE_ENTER_FD("accept", "%d, %p, %p", sockfd, addr, addrlen);
   arc::PluginHandle handle;

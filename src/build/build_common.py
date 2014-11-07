@@ -361,6 +361,9 @@ def get_build_path_for_apk(apk_name, subpath=None, is_target=False):
 
 
 def get_build_tag(commit='HEAD'):
+  if not os.path.exists(os.path.join(get_arc_root(), '.git')):
+    # This ARC tree should be a stashed copy. Return a fake version.
+    return '0'
   return subprocess.check_output(
       ['git', 'describe', '--match', 'arc-runtime-*', commit]).strip()
 

@@ -182,8 +182,10 @@ def _setup_filterspec_from_args(args):
 
 def _resolve_perf_test_mode(args):
   if args.mode == 'perftest':
-    # Use clean profile for performance test.
-    args.use_temporary_data_dirs = True
+    # Use clean profile for performance test unless --user-data-dir is
+    # explicitly set.
+    if not args.user_data_dir:
+      args.use_temporary_data_dirs = True
     if args.minimum_launch_delay is not None:
       return
     if args.remote:
