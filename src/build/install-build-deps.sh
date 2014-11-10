@@ -18,7 +18,7 @@ g++-arm-linux-gnueabihf
 gcc-arm-linux-gnueabihf
 libc6-dev-i386
 libcap-dev:amd64
-libgl1-mesa-dev:i386
+libgl1-mesa-dev
 linux-libc-dev:i386
 openjdk-6-jdk
 pbzip2

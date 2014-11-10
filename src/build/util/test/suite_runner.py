@@ -490,7 +490,7 @@ class SuiteRunnerBase(object):
     # ALL_TESTS_DUMMY_NAME, both of which do not track 'incompletes' properly in
     # the scoreboard.  Keep our own count here.
     chrome_flake_retry = LAUNCH_CHROME_FLAKE_RETRY_COUNT
-    self.get_scoreboard().start_test(test_name)
+    self._scoreboard.start_test(test_name)
     while True:
       try:
         raw_output = self.run_subprocess(args, env=env, cwd=cwd)

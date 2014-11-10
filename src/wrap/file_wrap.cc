@@ -361,8 +361,8 @@ int __wrap_dirfd(DIR* dirp) {
 }
 
 int __wrap_dlclose(const void* handle) {
-  // TODO(crbug.com/241955): Decipher |handle|
-  ARC_STRACE_ENTER("dlclose", "%p", handle);
+  ARC_STRACE_ENTER("dlclose", "%p \"%s\"",
+                   handle, arc::GetDlsymHandleStr(handle).c_str());
   int result = __real_dlclose(handle);
   if (!result)
     ARC_STRACE_UNREGISTER_DSO_HANDLE(handle);
@@ -398,7 +398,6 @@ void* __wrap_dlopen(const char* filename, int flag) {
 }
 
 void* __wrap_dlsym(const void* handle, const char* symbol) {
-  // TODO(crbug.com/241955): Decipher |handle|
   ARC_STRACE_ENTER("dlsym", "%p \"%s\", \"%s\"",
                    handle,
                    arc::GetDlsymHandleStr(handle).c_str(),

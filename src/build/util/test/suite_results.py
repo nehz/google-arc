@@ -134,7 +134,8 @@ def _pretty_time(time):
 
 
 def _pretty_progress(index, total):
-  return '%s/%s' % (str(index).rjust(len(str(total)), '0'), str(total))
+  max_total = max(index, total)
+  return '%s/%s' % (str(index).rjust(len(str(max_total)), '0'), str(max_total))
 
 
 def _pretty_label(name):
