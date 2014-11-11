@@ -14,6 +14,7 @@ import logging
 import re
 import os
 import StringIO
+import subprocess
 import sys
 
 import analyze_diffs
@@ -818,8 +819,7 @@ class CNinjaGenerator(NinjaGenerator):
   def prioritize_ctors(self, input, priority):
     if priority < 101:
       # GNU ld docs say priorities less than 101 are reserved.
-      print 'Illegal priority %d' % priority
-      sys.exit(1)
+      raise Exception('Illegal priority %d' % priority)
     output = os.path.join(os.path.dirname(input),
                           '%s.prio%d.o' % (os.path.basename(input), priority))
     # Recent GNU gcc/ld put global constructor function pointers in
@@ -3326,6 +3326,12 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
     if not self._canned_classes_apk:
       self._build_classes_apk()
     else:
+      if subprocess.call([toolchain.get_tool('java', 'zipalign'), '-c', '4',
+                          self._canned_classes_apk]) != 0:
+        # An un-zipaligned apk can cause some performance issue.  See
+        # crbug.com/420295.
+        raise Exception('Canned APK is not zipaligned: ' +
+                        self._canned_classes_apk)
       self.build(self._aligned_apk_archive, 'cp', self._canned_classes_apk)
 
     # We differ from upstream in the apk packaging names.  Upstream
