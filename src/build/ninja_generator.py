@@ -3093,6 +3093,12 @@ class JarNinjaGenerator(JavaNinjaGenerator):
 
     return self._build_javalib_jar_from_classes_jar()
 
+  @staticmethod
+  def get_javalib_jar_path(module_name):
+    # javalib.jar is created by |archive()|
+    return os.path.join(build_common.get_build_path_for_jar(module_name),
+                        'javalib.jar')
+
   def archive(self):
     """Builds JAR, dex code, and optional odex and classes jar."""
     classes = self._build_classes_jar()

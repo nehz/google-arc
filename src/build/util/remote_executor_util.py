@@ -42,7 +42,6 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     'out/data_roots/graphics.*',
     'out/data_roots/jstests.*',
     'out/data_roots/ndk.*',
-    'out/data_roots/opaque.*',
     'out/data_roots/posix_translation.*',
     'out/data_roots/system_mode.*',
     'out/staging/android/dalvik/tests/*/expected.txt',
@@ -50,6 +49,7 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     # The following two files are needed only for 401-perf test.
     'out/staging/android/dalvik/tests/401-perf/README.benchmark',
     'out/staging/android/dalvik/tests/401-perf/test_cases',
+    'out/staging/examples/apk/*/*.apk',
     'out/target/%(target)s/integration_tests',
     'out/target/%(target)s/root/system/usr/icu/icudt48l.dat',
     'out/target/common/dalvik_tests/*/expected.txt',
@@ -58,11 +58,10 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     # already generated so that we don't need to send APK to remote,
     # for package.apk, HelloAndroid.apk, glowhockey.apk, and
     # perf_tests_codec.apk
-    'out/target/common/obj/APPS/opaque.glowhockey_intermediates/package.apk',
     'out/target/common/obj/APPS/HelloAndroid_intermediates/HelloAndroid.apk',
     'out/target/common/obj/APPS/ndk_translation_tests_intermediates/work/libs/*',  # NOQA
     'out/target/common/obj/APPS/perf_tests_codec_intermediates/perf_tests_codec.apk',  # NOQA
-    'out/target/common/opaque/glowhockey-unsigned.apk',
+    'out/target/common/obj/JAVA_LIBRARIES/uiautomator.*/javalib.jar',
     'out/target/common/vmHostTests',
     'run_integration_tests',
     'src/integration_tests',

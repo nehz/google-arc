@@ -23,7 +23,7 @@ import launch_chrome_options
 
 from build_options import OPTIONS
 
-_DOGFOOD_METADATA_PATH = 'third_party/examples/opaque/dogfood.meta'
+_DOGFOOD_METADATA_PATH = 'third_party/examples/apk/dogfood.meta'
 _ROOT_DIR = build_common.get_arc_root()
 sys.path.append(os.path.join(_ROOT_DIR, 'src', 'packaging'))
 import apk_to_crx

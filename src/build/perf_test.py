@@ -16,9 +16,6 @@ Example to run supported tests:
 
   # Standard perftest:
   $ perf_test.py standard
-
-  # Opaque test:
-  $ perf_test.py opaque
 """
 
 import argparse
@@ -200,51 +197,6 @@ class PerfDriver(BaseDriver):
 class PerfDriverWithPlayServices(PerfDriver):
   def __init__(self, args):
     super(PerfDriverWithPlayServices, self).__init__(args, True)
-
-
-class OpaqueDriver(BaseDriver):
-  # This line is printed by android.test.InstrumentationTestRunner.  It shows
-  # the time needed to execute the test.  Since Dalvik VM must be fully loaded
-  # before the test run, this time doesn't include Dalvik VM and ARC
-  # loading time.
-  _TIME_RE = re.compile('^Time: (?P<time>[0-9.]+)', re.MULTILINE)
-
-  def __init__(self, args):
-    super(OpaqueDriver, self).__init__(args)
-    self._runners = run_integration_tests.get_all_suite_runners()
-
-  def _run_opaque(self, test_name):
-    fqn = 'opaque.' + test_name
-    for runner in self._runners:
-      if runner.name == fqn:
-        args = _prepare_integration_tests_args(10000)
-
-        runner.prepare_to_run([], args)
-        output, _ = runner.run_with_setup([], args)
-        return output
-    assert False, 'Did not find a test named %s' % fqn
-
-  def _parse_output(self, output, app_name):
-    data = {}
-    all = OpaqueDriver._TIME_RE.search(output)
-    if all:
-      data[app_name] = int(float(all.group('time')) * 1000)
-    return data
-
-  def _post(self, data):
-    _queue_data(self._args, 'ndk_perf', 'ms', data)
-
-  def main(self):
-    if self._args.test_mode:
-      output = self._load_output()
-    else:
-      self._run_opaque('glowhockey')  # Warm up.
-      output = self._run_opaque('glowhockey')
-      logging.debug(output)
-
-    data = self._parse_output(output, 'glowhockey')
-    if data:
-      self._post(data)
 
 
 class Run(filtered_subprocess.Popen):
@@ -432,7 +384,6 @@ class ApkBenchDriver(BaseDriver):
 _TEST_CLASS_MAP = {
     'standard': PerfDriver,
     'standard+play': PerfDriverWithPlayServices,
-    'opaque': OpaqueDriver,
     'gl': GLPerfDriver,
     'vm': VMPerfDriver,
     'apkbench': ApkBenchDriver,
@@ -446,7 +397,7 @@ def create_test_class(name):
 
 
 def main():
-  # We reuse scripts for integration tests in opaque and vm, and they expect
+  # We reuse scripts for integration tests in vm tests, and they expect
   # that out/integration_tests exists. It is true if integration tests ran
   # before calling perf_test.py, but not true for perf builders.
   # Let's create it if it does not exist.

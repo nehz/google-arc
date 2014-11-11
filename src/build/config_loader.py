@@ -115,7 +115,6 @@ paths = [
     os.path.join(get_arc_root(), 'mods', 'examples'),
     os.path.join(get_arc_root(), 'mods', 'graphics_translation'),
     os.path.join(get_arc_root(), 'src'),
-    os.path.join(get_arc_root(), 'third_party', 'examples'),
 ]
 
 internal = os.path.join(get_arc_root(), 'internal', 'mods')

@@ -16,6 +16,7 @@ import sys
 import build_common
 import config_loader
 import download_cts_files
+import download_naclports_files
 import download_sdk_and_ndk
 import open_source
 import staging
@@ -143,6 +144,9 @@ def _ensure_downloads_up_to_date():
     sys.exit(1)
 
   if download_cts_files.check_and_perform_updates():
+    sys.exit(1)
+
+  if download_naclports_files.check_and_perform_updates():
     sys.exit(1)
 
 
