@@ -287,10 +287,10 @@ def list_fully_qualified_test_names(scoreboards, args):
     for test_name, expectation in scoreboard.get_expectations().iteritems():
       output.append(('%s:%s' % (suite_name, test_name), expectation))
   output.sort()
-  for fqn, expectation in output:
+  for qualified_test_name, expectation in output:
     color.write_ansi_escape(
         sys.stdout, _REPORT_COLOR_FOR_SUITE_EXPECTATION[expectation],
-        fqn + '\n')
+        qualified_test_name + '\n')
 
 
 def print_chrome_version():

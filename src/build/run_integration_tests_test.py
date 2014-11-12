@@ -235,6 +235,9 @@ def _stub_parse_configure_file():
 @patch('subprocess.check_output', _stub_return_empty_string)
 # We patch sys.stdout.write to hide all output.
 @patch('sys.stdout', _FakeStream())
+# We make dashboard_submit.queue_data no-op to avoid sending test data to the
+# real dashboard server.
+@patch('dashboard_submit.queue_data', _stub_return_none)
 # We stub out build_crx and update_shell_command to do nothing.
 # TODO(lpique): Look into making them work without stubbing them out.
 @patch('apk_to_crx.build_crx', _stub_return_none)

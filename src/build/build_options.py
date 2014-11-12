@@ -279,7 +279,6 @@ class _Options(object):
     if args.weird:
       if _Options._is_nacl_target(args.target):
         args.enable_emugl = True
-        args.enable_pnacl_clang = True
         args.enable_touch_overlay = True
         args.logging.extend([
             _EMUGL_DEBUG_LOGGING,
@@ -347,13 +346,6 @@ class _Options(object):
 
     parser.add_argument('--enable-binder', action='store_true', help='Enable '
                         'Binder calls for all services.')
-
-    # TODO(crbug.com/411271): Remove this option once PNaCl clang has
-    # become ready.
-    parser.add_argument('--enable-pnacl-clang', action='store_true',
-                        help='Use PNaCl clang for clang ready components. '
-                        'This is an experimental flag and exists only for '
-                        'identifying issues in PNaCl clang.')
 
     parser.add_argument('--enable-dalvik-jit', action='store_true', help='Run '
                         'Dalvik VM with JIT mode enabled.')
@@ -493,10 +485,6 @@ class _Options(object):
 
     if args.enable_valgrind and not self.is_bare_metal_i686():
       return '--enable-valgrind works only on Bare Metal i686 target.'
-
-    # TODO(crbug.com/411271): Remove this check.
-    if args.enable_pnacl_clang and not self.is_nacl_build():
-      return '--enable-pnacl-clang works only with NaCl targets.'
 
     return (self._check_bare_metal_arm_args(args) or
             self._check_enable_dalvik_jit_args(args))

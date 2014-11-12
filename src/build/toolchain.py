@@ -377,10 +377,6 @@ def get_gcc_version(target):
 def has_clang(target, is_host=False):
   if is_host:
     target = 'host'
-  # TODO(crbug.com/411271): Remove this check. For now, we only use
-  # PNaCl clang when --enable-pnacl-clang is explicitly specified.
-  if target.startswith('nacl_') and not OPTIONS.enable_pnacl_clang():
-    return False
   tools = _get_tool_map()[target]
   result = 'clang' in tools
   assert result == ('clangxx' in tools)

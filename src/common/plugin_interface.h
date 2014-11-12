@@ -226,6 +226,19 @@ class VideoDecoderInterface {
  public:
   virtual ~VideoDecoderInterface() {}
 
+  // Describes one decoded video frame.
+  struct DecodedTexture {
+    uint32_t decode_id;
+    uint32_t texture_target;
+    uint32_t texture_name;
+    uint32_t texture_width;
+    uint32_t texture_height;
+    uint32_t visible_left;
+    uint32_t visible_top;
+    uint32_t visible_width;
+    uint32_t visible_height;
+  };
+
   // Accelerated video decoding callback interface. The decoder invokes these
   // functions sequentially, from a single thread, without recursion
   // from a decoder call.
@@ -252,9 +265,7 @@ class VideoDecoderInterface {
     // rendered, so that it can be reused for another frame. Resetting or
     // destroying the decoder will automatically recycle all textures.
     // The pixel format of the texture is GL_RGBA.
-    virtual void OnTextureReady(
-        uint32_t decode_id, uint32_t texture_target, uint32_t texture_id,
-        uint32_t width, uint32_t height) = 0;
+    virtual void OnTextureReady(const DecodedTexture& texture) = 0;
 
     // Invoked once Flush() call has completed processing all data.
     virtual void FlushCompleted() = 0;
