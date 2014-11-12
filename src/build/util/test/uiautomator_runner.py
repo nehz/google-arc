@@ -28,11 +28,13 @@ _DEVICE_TMP_PATH = '/data/local/tmp'
 
 
 class UiAutomatorRunner(SuiteRunnerBase):
-  def __init__(self, name, apk_path, jar_path, main_activity, **kwargs):
+  def __init__(self, name, apk_path, jar_path, main_activity,
+               additional_launch_chrome_opts=None, **kwargs):
     super(UiAutomatorRunner, self).__init__(name, **kwargs)
     self._apk_path = apk_path
     self._jar_path = jar_path
     self._main_activity = main_activity
+    self._additional_launch_chrome_opts = additional_launch_chrome_opts
 
     self._result_parser = None
     self._scoreboard_updater = None
@@ -70,7 +72,9 @@ class UiAutomatorRunner(SuiteRunnerBase):
   def prepare(self, test_methods_to_run):
     self._print('Preparing %d uiAutomator tests of suite %s' %
                 (len(test_methods_to_run), self._name))
-    args = self.get_system_mode_launch_chrome_command(self._name)
+    args = self.get_system_mode_launch_chrome_command(
+        self._name,
+        additional_args=self._additional_launch_chrome_opts)
     prep_launch_chrome.prepare_crx_with_raw_args(args)
 
   def _push_file_using_adb(self, arc, file_path, directory=_DEVICE_TMP_PATH):
@@ -102,7 +106,10 @@ class UiAutomatorRunner(SuiteRunnerBase):
     self._print('Running %d uiAutomator tests of suite %s' %
                 (len(test_methods_to_run), self._name))
 
-    with SystemMode(self) as arc:
+    with SystemMode(
+        self,
+        additional_launch_chrome_opts=self._additional_launch_chrome_opts
+    ) as arc:
       self._install_apk(arc)
       self._launch_main_activity(arc)
       self._push_file_using_adb(arc, self._jar_path)
