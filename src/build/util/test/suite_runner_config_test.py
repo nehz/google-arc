@@ -25,13 +25,6 @@ from util.test.suite_runner_config_flags import TIMEOUT
 from util.test.test_options import TEST_OPTIONS
 
 
-def _set_default_flag_settings():
-  TIMEOUT.set_should_include_by_default(False)
-  LARGE.set_should_include_by_default(False)
-  NOT_SUPPORTED.set_should_not_run(True)
-  REQUIRES_OPENGL.set_should_not_run(False)
-
-
 def ones_count(x):
   """Returns the count of 1 bits in the input."""
   return bin(x).count("1")  # More efficient than a python loop.
@@ -182,7 +175,6 @@ class SuiteRunConfigIntegrationTests(unittest.TestCase):
   }))
 
   def setUp(self):
-    _set_default_flag_settings()
     TEST_OPTIONS.reset()
 
   def _make_suite_runner(self, name):

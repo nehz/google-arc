@@ -182,11 +182,6 @@ class SuiteRunnerBase(object):
     return self._deadline
 
   @property
-  def should_include_by_default(self):
-    """Returns whether the suite should run by default."""
-    return self._flags.should_include_by_default
-
-  @property
   def suite_expectation(self):
     """Returns the expected result of the whole suite."""
     return self._flags
@@ -254,9 +249,7 @@ class SuiteRunnerBase(object):
     """Returns the bug url(s) associated with this suite."""
     return self._bug
 
-  def check_test_runnable(self):
-    if self._flags.should_not_run:
-      return False
+  def is_runnable(self):
     return True
 
   def prepare(self, test_methods_to_run):

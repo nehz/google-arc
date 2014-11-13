@@ -257,8 +257,8 @@ void StatToNaClAbiStat(struct stat* st, struct nacl_abi_stat* nacl_stat) {
 // Helper function for stripping "/system/lib/" prefix from |path| if exists.
 const char* StripSystemLibPrefix(const char* path) {
   const char kSystemLib[] = "/system/lib/";
-  return StartsWithASCII(path, kSystemLib, true)?
-      path : path + sizeof(kSystemLib) -1;
+  return !StartsWithASCII(path, kSystemLib, true) ?
+      path : path + sizeof(kSystemLib) - 1;
 }
 
 }  // namespace

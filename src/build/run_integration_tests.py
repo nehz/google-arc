@@ -42,13 +42,9 @@ from util import platform_util
 from util import remote_executor
 from util.test import scoreboard_constants
 from util.test import test_driver
+from util.test import test_filter
 from util.test.suite_results import report_expected_results
 from util.test.suite_runner import SuiteRunnerBase
-from util.test.suite_runner_config_flags import FAIL
-from util.test.suite_runner_config_flags import LARGE
-from util.test.suite_runner_config_flags import NOT_SUPPORTED
-from util.test.suite_runner_config_flags import REQUIRES_OPENGL
-from util.test.suite_runner_config_flags import TIMEOUT
 from util.test.test_options import TEST_OPTIONS
 
 
@@ -121,18 +117,15 @@ def get_dependencies_for_integration_tests():
   return deps
 
 
-def _should_include_test_method(name, expectation, args):
-  if not args.include_patterns:
-    result = expectation.should_include_by_default
-  else:
-    result = any(fnmatch.fnmatch(name, pattern)
-                 for pattern in args.include_patterns)
-
-  return result and all(not fnmatch.fnmatch(name, pattern)
-                        for pattern in args.exclude_patterns)
-
-
 def _select_tests_to_run(all_suite_runners, args):
+  test_filter_instance = test_filter.TestFilter(
+      include_pattern_list=args.include_patterns,
+      exclude_pattern_list=args.exclude_patterns,
+      include_fail=args.include_failing,
+      include_large=args.include_large,
+      include_timeout=args.include_timeouts,
+      include_requires_opengl=(OPTIONS.is_hw_renderer() and not args.use_xvfb))
+
   test_driver_list = []
   for suite_runner in all_suite_runners:
     # Form a list of selected tests for this suite, by forming a fully qualified
@@ -140,12 +133,12 @@ def _select_tests_to_run(all_suite_runners, args):
     # as command line arguments expect to match.
     tests_to_run = []
     updated_suite_test_expectations = {}
-    do_not_run_suite = not suite_runner.check_test_runnable()
-    suite_test_expectations = suite_runner.suite_test_expectations
-    for test_name, test_expectation in suite_test_expectations.iteritems():
+    is_runnable = suite_runner.is_runnable()
+    for test_name, test_expectation in (
+        suite_runner.suite_test_expectations.iteritems()):
       # Check if the test is selected.
-      fqn = '%s:%s' % (suite_runner.name, test_name)
-      if not _should_include_test_method(fqn, test_expectation, args):
+      if not test_filter_instance.should_include(
+          '%s:%s' % (suite_runner.name, test_name), test_expectation):
         continue
 
       # Add this test and its updated expectation to the dictionary of all
@@ -156,7 +149,8 @@ def _select_tests_to_run(all_suite_runners, args):
 
       # Exclude tests either because the suite is not runnable, or because each
       # individual test is not runnable.
-      if do_not_run_suite or test_expectation.should_not_run:
+      if (not is_runnable or
+          not test_filter_instance.should_run(test_expectation)):
         continue
 
       tests_to_run.append(test_name)
@@ -383,26 +377,6 @@ def parse_args(args):
 
 def set_test_options(args):
   TEST_OPTIONS.set_is_running_on_buildbot(args.buildbot)
-  TEST_OPTIONS.set_supports_opengl(OPTIONS.is_hw_renderer() and
-                                   not args.use_xvfb)
-  TEST_OPTIONS.set_want_large_tests(args.include_large)
-
-
-def set_test_config_flags(args):
-  # Tests that fail should only be run if explicitly requested.
-  FAIL.set_should_include_by_default(args.include_failing)
-
-  # Tests that are large should only be run if explicitly requested.
-  LARGE.set_should_include_by_default(args.include_large)
-
-  # Tests that timeout should not run unless explicitly requested.
-  TIMEOUT.set_should_not_run(not args.include_timeouts)
-
-  # Tests that are not supported should never be run.
-  NOT_SUPPORTED.set_should_not_run(True)
-
-  # Test that require OpenGL should not run if it is not supported.
-  REQUIRES_OPENGL.set_should_not_run(not TEST_OPTIONS.supports_opengl)
 
 
 def set_test_global_state(args):
@@ -484,7 +458,6 @@ def _process_args(raw_args):
                            for pattern in args.exclude_patterns]
 
   set_test_options(args)
-  set_test_config_flags(args)
   set_test_global_state(args)
 
   if (not args.remote and args.buildbot and

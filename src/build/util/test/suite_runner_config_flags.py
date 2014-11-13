@@ -28,14 +28,6 @@ class ExclusiveFlagSet(object):
   def __repr__(self):
     return ','.join([repr(flag) for flag in self])
 
-  @property
-  def should_not_run(self):
-    return any(flag.should_not_run for flag in self)
-
-  @property
-  def should_include_by_default(self):
-    return all(flag.should_include_by_default for flag in self)
-
 
 class _ExclusiveFlag(ExclusiveFlagSet):
   """Holds a single flag value, and tracks the list of all such flags."""
@@ -44,26 +36,10 @@ class _ExclusiveFlag(ExclusiveFlagSet):
   def __init__(self, name, value, exclusion_mask=0):
     super(_ExclusiveFlag, self).__init__(value, exclusion_mask=exclusion_mask)
     self._name = name
-    self._should_not_run = False
-    self._should_include_by_default = True
     _ExclusiveFlag._all_flags.add(self)
 
   def __repr__(self):
     return self._name
-
-  def set_should_not_run(self, value):
-    self._should_not_run = bool(value)
-
-  def set_should_include_by_default(self, value):
-    self._should_include_by_default = bool(value)
-
-  @property
-  def should_not_run(self):
-    return self._should_not_run
-
-  @property
-  def should_include_by_default(self):
-    return self._should_include_by_default and not self._should_not_run
 
 
 PASS = _ExclusiveFlag('PASS', 0x01, 0x0f)
