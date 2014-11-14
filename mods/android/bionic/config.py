@@ -461,6 +461,17 @@ def _generate_libc_ninja():
       # We only need these three modules.
       if module_name not in ['libc_bionic', 'libc_common', 'libc_freebsd']:
         return False
+      if (module_name == 'libc_bionic' and is_for_linker and
+          OPTIONS.is_bare_metal_arm()):
+        # If we specify -fstack-protector, the ARM compiler emits code
+        # which requires relocation even for the code to be executed
+        # before the self relocation. As we would like to use logging
+        # functions in libc_bionic before the self relocation, we disable
+        # the stack smashing protector for libc_bionic for now.
+        # TODO(crbug.com/342292): Enable stack protector for the Bionic
+        # loader on Bare Metal ARM.
+        vars.get_cflags().append('-fno-stack-protector')
+        vars.get_cxxflags().append('-fno-stack-protector')
       vars.set_module_name(module_name + '_linker')
       # The loader does not need to export any symbols.
       vars.get_cflags().append('-fvisibility=hidden')
@@ -881,13 +892,7 @@ def _generate_runnable_ld_ninja():
     ldflags += ' -pie'
   # See the comment in linker/arch/nacl/begin.c.
   ldflags += ' -Wl,--defsym=__linker_base=0'
-  # --gc-sections triggers an assertion failure in GNU ld for ARM for
-  # --opt build. The error message is very similar to the message in
-  # https://sourceware.org/bugzilla/show_bug.cgi?id=13990
-  # Once NaCl team updates the version of their binutils, we might be
-  # able to remove this.
-  if not OPTIONS.is_arm():
-    ldflags += ' -Wl,--gc-sections'
+  ldflags += ' -Wl,--gc-sections'
   if not OPTIONS.is_debug_info_enabled():
     ldflags += ' -Wl,--strip-all'
   n.add_library_deps(*ninja_generator.get_libgcc_for_bionic())

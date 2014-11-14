@@ -138,6 +138,9 @@ class _Options(object):
   def is_x86_64(self):
     return self.target().endswith('_x86_64')
 
+  def is_bare_metal_arm(self):
+    return self.target() == _TARGET_BARE_METAL_ARM
+
   def is_bare_metal_i686(self):
     return self.target() == _TARGET_BARE_METAL_I686
 

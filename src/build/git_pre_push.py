@@ -87,12 +87,24 @@ def _check_commit_messages():
   changes = util.git.get_in_flight_commits()
   for change in changes:
     msg = util.git.get_commit_message(change)
+    seen_change_id = False
+    trailing_lines = False
     for line_num, line in enumerate(msg):
       if len(line) > MAX_COLS:
         print 'Commit %s line %d is too long:' % (change, line_num + 1)
         print line
         print (' ' * MAX_COLS) + ('^' * (len(line) - MAX_COLS))
         error = True
+      if seen_change_id:
+        trailing_lines = True
+      if line.startswith('Change-Id:'):
+        seen_change_id = True
+    if not seen_change_id:
+      print 'Commit %s does not have a Change-Id label' % change
+      error = True
+    elif trailing_lines:
+      print 'Commit %s has trailing lines after Change-Id label' % change
+      error = True
   if error:
     return -1
   return 0

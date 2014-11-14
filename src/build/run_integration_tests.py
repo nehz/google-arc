@@ -313,7 +313,7 @@ def parse_args(args):
   parser.add_argument('--include-timeouts', action='store_true',
                       help='Include tests which are expected to timeout.')
   parser.add_argument('-j', '--jobs', metavar='N', type=int,
-                      default=min(10, multiprocessing.cpu_count() + 1),
+                      default=min(10, multiprocessing.cpu_count()),
                       help='Run N tests at once.')
   parser.add_argument('--keep-running', action='store_true',
                       help=('Attempt to recover from unclean failures. '

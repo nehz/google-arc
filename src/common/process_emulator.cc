@@ -308,7 +308,7 @@ bool ProcessEmulator::EnterBinderCall(int64_t pidToken) {
           caller_uid, callee_uid, caller_pid);
   }
 
-  // ALOGV("Switching from pid %d to %d", caller_pid, callee_pid);
+  ARC_STRACE_REPORT("Switching from pid %d to %d", caller_pid, callee_pid);
   EmulatedProcessInfo new_process(callee_pid, callee_uid);
   if (binder_enter_function_ != NULL) {
     int64_t cookie = (*binder_enter_function_)();
@@ -326,7 +326,7 @@ void ProcessEmulator::ExitBinderCall() {
 
   int64_t cookie = 0;
   bool has_cookie = state->PopBinderFrame(&cookie);
-  // ALOGV("Switched to pid %d", getpid());
+  ARC_STRACE_REPORT("Switched back to pid %d", getpid());
   if (has_cookie && binder_exit_function_ != NULL) {
     (*binder_exit_function_)(cookie);
   }

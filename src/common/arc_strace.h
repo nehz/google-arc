@@ -130,7 +130,7 @@ int64_t GetMedian(std::vector<int64_t>* samples);
 
 // ARC_STRACE_REPORT_HANDLER(const char* handler_name)
 //
-// Adds information that |handler_name| (e.g. "MemoryFileSystem") handles
+// Adds information that |handler_name| handles
 // the current task. The information is used in ARC_STRACE_DUMP_STATS.
 # define ARC_STRACE_REPORT_HANDLER(handler_name) do {  \
     if (arc::StraceEnabled())                          \
