@@ -370,3 +370,15 @@
 [submodule "third_party/android/frameworks/testing"]
 	path = third_party/android/frameworks/testing
 	url = https://android.googlesource.com/platform/frameworks/testing
+[submodule "third_party/android/packages/apps/HTMLViewer"]
+	path = third_party/android/packages/apps/HTMLViewer
+	url = https://android.googlesource.com/platform/packages/apps/HTMLViewer
+[submodule "third_party/android/external/libcxx"]
+	path = third_party/android/external/libcxx
+	url = https://android.googlesource.com/platform/external/libcxx
+[submodule "third_party/android/external/libcxxabi"]
+	path = third_party/android/external/libcxxabi
+	url = https://android.googlesource.com/platform/external/libcxxabi
+[submodule "third_party/android/external/compiler-rt"]
+	path = third_party/android/external/compiler-rt
+	url = https://android.googlesource.com/platform/external/compiler-rt

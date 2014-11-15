@@ -67,5 +67,9 @@
   "third_party/khronos/GLES2/gl2platform.h": ["cpplint"],
 
   # chrome_test source.
-  "third_party/testing/chrome_test/chrome_test.js": ["gjslint", "analyze_diffs"]
+  "third_party/testing/chrome_test/chrome_test.js": ["gjslint", "analyze_diffs"],
+
+  # This is part of the Chrome apps platform downloaded from GitHub:
+  # https://github.com/petele/IAPDemo/blob/master/scripts/buy.js
+  "canned/cws/buy.js": ["gjslint"]
 }

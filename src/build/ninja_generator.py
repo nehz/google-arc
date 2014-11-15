@@ -2260,7 +2260,8 @@ class JavaNinjaGenerator(NinjaGenerator):
                include_aidl_files=None, classpath_files=None,
                resource_subdirectories=None, resource_includes=None,
                resource_class_names=None, manifest_path=None,
-               require_localization=False, aapt_flags=None, **kwargs):
+               require_localization=False, aapt_flags=None,
+               preprocessed_aidl_files=None, **kwargs):
     super(JavaNinjaGenerator, self).__init__(module_name, base_path=base_path,
                                              **kwargs)
 
@@ -2274,6 +2275,9 @@ class JavaNinjaGenerator(NinjaGenerator):
     include_aidl_files = frozenset(os.path.join(self._base_path, path)
                                    for path in as_list(include_aidl_files))
     self._include_aidl_files = include_aidl_files
+
+    # Information for the aidl tool.
+    self._preprocessed_aidl_files = as_list(preprocessed_aidl_files)
 
     # Specific information for the javac compiler.
     self._javac_source_files = []
@@ -2667,6 +2671,9 @@ class JavaNinjaGenerator(NinjaGenerator):
     aidlflags = _VariableValueBuilder('aidlflags')
     aidlflags.append_flag_pattern('-I%s', [staging.as_staging(path)
                                            for path in self._source_paths])
+    aidlflags.append_flag_pattern(
+        '-p%s',
+        [staging.as_staging(path) for path in self._preprocessed_aidl_files])
     self.variable('aidlflags', aidlflags)
 
     java_files = []
@@ -3326,8 +3333,11 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
     if not self._canned_classes_apk:
       self._build_classes_apk()
     else:
-      if subprocess.call([toolchain.get_tool('java', 'zipalign'), '-c', '4',
-                          self._canned_classes_apk]) != 0:
+      # Check the alignment if the canned apk file exists; usually the apk is
+      # present at configure time, but apks built from internal/ may not.
+      if (os.path.isfile(self._canned_classes_apk) and
+          subprocess.call([toolchain.get_tool('java', 'zipalign'), '-c', '4',
+                           self._canned_classes_apk]) != 0):
         # An un-zipaligned apk can cause some performance issue.  See
         # crbug.com/420295.
         raise Exception('Canned APK is not zipaligned: ' +
