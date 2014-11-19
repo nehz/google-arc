@@ -16,7 +16,7 @@ import build_common
 
 _ARC_ROOT = build_common.get_arc_root()
 _NDK_PATH = os.path.join(_ARC_ROOT, 'third_party', 'ndk')
-_SDK_PATH = os.path.join(_ARC_ROOT, 'third_party', 'android-sdk')
+_SDK_PATH = build_common.get_android_sdk_path()
 _TOOLS_ROOT = os.path.join(_ARC_ROOT, 'third_party', 'tools')
 
 
@@ -42,7 +42,8 @@ def _build_apk(source_path, use_ndk, build_path, install_apk, debug, verbose):
   # Any target 14+ should work (tested on 17).
   subprocess.check_call([
       os.path.join(_SDK_PATH, 'tools', 'android'),
-      'update', 'project', '--target', 'android-17', '--path', '.',
+      'update', 'project',
+      '--target', 'android-%d' % build_common.get_api_level(), '--path', '.',
       '--name', 'test_app'], cwd=work_path)
   if use_ndk:
     if not os.path.isdir(_NDK_PATH):

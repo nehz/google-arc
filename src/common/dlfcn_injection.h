@@ -32,8 +32,8 @@ void* ResolveWrappedSymbol(const char* symbol);
 // ARC statically links some libraries into the main binary, but on
 // real Android, some of them are available as shared libraries. This
 // function returns 1 for such library names. For example, this
-// returns 1 for "libpng.so" and returns 0 for "libwrap.so". We use 0
-// or 1 instead of false or true because this function may be used
+// returns 1 for "libpng.so" and returns 0 for "libposix_translation.so".
+// We use 0 or 1 instead of false or true because this function may be used
 // in C source code.
 // This function is thread safe as long as you do not call
 // InitDlfcnInjection() after the first pthread_create.

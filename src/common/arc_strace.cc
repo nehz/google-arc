@@ -14,11 +14,13 @@
 #include <linux/sync.h>  // SYNC_IOC_*
 #include <nacl_stat.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/epoll.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/select.h>
@@ -258,6 +260,11 @@ class ArcStrace {
     UnregisterFDLocked(fd);
   }
 
+  std::string GetFdString(int fd) {
+    base::AutoLock lock(mu_);
+    return GetFdStringLocked(fd);
+  }
+
   void RegisterDsoHandle(const void* handle, const char* name) {
     base::AutoLock lock(mu_);
     RegisterDsoHandleLocked(handle, name);
@@ -369,6 +376,11 @@ class ArcStrace {
     if (!fd_to_name_.erase(fd)) {
       STRACE_WARN("%sUnregister unknown FD! fd=%d", g_plugin_type_prefix, fd);
     }
+  }
+
+  std::string GetFdStringLocked(int fd) {
+    FDToNameMap::const_iterator it = fd_to_name_.find(fd);
+    return (it != fd_to_name_.end()) ? it->second : std::string();
   }
 
   void RegisterDsoHandleLocked(const void* handle, const char* name) {
@@ -719,6 +731,37 @@ std::string GetDlopenFlagStr(int flag) {
   return result;
 }
 
+std::string GetEpollCtlOpStr(int op) {
+  std::string result;
+  APPEND_ENUM_STR(op, EPOLL_CTL_ADD, result);
+  APPEND_ENUM_STR(op, EPOLL_CTL_DEL, result);
+  APPEND_ENUM_STR(op, EPOLL_CTL_MOD, result);
+  if (op)
+    AppendResult(base::StringPrintf("%d???", op), &result);
+  return result;
+}
+
+std::string GetEpollEventStr(uint32_t events) {
+  std::string result;
+  APPEND_ENUM_STR(events, EPOLLIN, result);
+  APPEND_ENUM_STR(events, EPOLLOUT, result);
+  APPEND_ENUM_STR(events, EPOLLRDHUP, result);
+  APPEND_ENUM_STR(events, EPOLLPRI, result);
+  APPEND_ENUM_STR(events, EPOLLERR, result);
+  APPEND_ENUM_STR(events, EPOLLHUP, result);
+  APPEND_ENUM_STR(events, EPOLLET, result);
+  APPEND_ENUM_STR(events, EPOLLONESHOT, result);
+  if (events)
+    AppendResult(base::StringPrintf("%d???", events), &result);
+  return result;
+}
+
+std::string GetFdStr(int fd) {
+  ALOG_ASSERT(g_arc_strace);
+  const std::string result = g_arc_strace->GetFdString(fd);
+  return result.empty() ? "???" : result;
+}
+
 std::string GetMadviseAdviceStr(int advice) {
   std::string result;
   switch (advice) {
@@ -777,6 +820,20 @@ std::string GetMmapFlagStr(int flag) {
 #endif
   if (flag)
     AppendResult(base::StringPrintf("%d???", flag), &result);
+  return result;
+}
+
+std::string GetPollEventStr(int16_t events) {
+  std::string result;
+  APPEND_ENUM_STR(events, POLLIN, result);
+  APPEND_ENUM_STR(events, POLLOUT, result);
+  APPEND_ENUM_STR(events, POLLRDHUP, result);
+  APPEND_ENUM_STR(events, POLLPRI, result);
+  APPEND_ENUM_STR(events, POLLERR, result);
+  APPEND_ENUM_STR(events, POLLHUP, result);
+  APPEND_ENUM_STR(events, POLLNVAL, result);
+  if (events)
+    AppendResult(base::StringPrintf("%hd???", events), &result);
   return result;
 }
 

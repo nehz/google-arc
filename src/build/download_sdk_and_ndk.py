@@ -3,7 +3,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import argparse
 import io
+import logging
 import os
 import select
 import subprocess
@@ -47,24 +49,24 @@ class AndroidSDKFiles(BaseAndroidCompressedTarDownload):
   STAGE_DIR = os.path.join(_ROOT_DIR, 'third_party', 'android-sdk.bak')
   DOWNLOAD_NAME = 'sdk.tgz'
   COMPRESSION_PROGRAM = 'pigz'
-  API_TAG = 'API 17'
   # This tag is used for downloading the default version, which may be newer
   # than the pinned version defined in toolchain.py.
   SDK_BUILD_TOOLS_TAG = 'Android SDK Build-tools'
 
   @classmethod
   def post_update_work(cls):
+    api_tag = build_common.read_metadata_file(cls.DEPS_FILE)[1]
     android_tool = os.path.join(cls.FINAL_DIR, 'tools', 'android')
     packages = subprocess.Popen([android_tool, 'list', 'sdk'],
                                 stdout=subprocess.PIPE).communicate()[0]
     filters = ['platform-tools']
     for line in packages.split('\n'):
-      if cls.API_TAG in line or cls.SDK_BUILD_TOOLS_TAG in line:
+      if api_tag in line or cls.SDK_BUILD_TOOLS_TAG in line:
         ind = line.find('-')
         if ind > 0:
           filters.append(line[:ind].strip())
     assert len(filters) >= 3, 'No "%s" or "%s" packages found' % (
-        cls.API_TAG, cls.SDK_BUILD_TOOLS_TAG)
+        api_tag, cls.SDK_BUILD_TOOLS_TAG)
 
     return AndroidSDKFiles._update_sdk(android_tool, filters)
 
@@ -148,6 +150,11 @@ def check_and_perform_updates(include_media=False):
 
 
 def main():
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--verbose', '-v', action='store_true')
+  args = parser.parse_args(sys.argv[1:])
+  if args.verbose:
+    logging.getLogger().setLevel(logging.INFO)
   return check_and_perform_updates()
 
 

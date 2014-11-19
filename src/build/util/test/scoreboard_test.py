@@ -217,6 +217,26 @@ class ScoreboardTests(unittest.TestCase):
     }
     self._run('suite', tests, results)
 
+  # Test if a suite fails to report any tests. This could happen if the test
+  # does not define expectations and has an error before any tests are
+  # reported.
+  def test_no_test_reported(self):
+    results = {
+        'total': 1,
+        'incompleted': 1,
+        'overall_status': scoreboard.INCOMPLETE,
+        'get_incomplete_tests': ['*'],
+    }
+    self._expected_test_count = 1
+
+    expectations = {}
+    start_tests = []
+
+    sb = scoreboard.Scoreboard('suite', expectations)
+    sb.start(start_tests)
+    sb.finalize()
+    self._check_scoreboard(sb, results)
+
   # Setup multiple tests and have them pass, fail, or be skipped.
   def test_all(self):
     tests = [

@@ -17,6 +17,7 @@ import tempfile
 
 import build_common
 import filtered_subprocess
+from util import gdb_util
 from util.minidump_filter import MinidumpFilter
 from util.test import unittest_util
 
@@ -49,7 +50,6 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     # The following two files are needed only for 401-perf test.
     'out/staging/android/dalvik/tests/401-perf/README.benchmark',
     'out/staging/android/dalvik/tests/401-perf/test_cases',
-    'out/staging/examples/apk/*/*.apk',
     'out/target/%(target)s/integration_tests',
     'out/target/%(target)s/root/system/usr/icu/icudt48l.dat',
     'out/target/common/dalvik_tests/*/expected.txt',
@@ -74,6 +74,7 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     'third_party/android/cts/tools/vm-tests-tf/src/dot/junit/format/*/*.java',
     'third_party/android/cts/tools/vm-tests-tf/src/dot/junit/opcodes/*/*.java',
     'third_party/android/cts/tools/vm-tests-tf/src/dot/junit/verify/*/*.java',
+    'third_party/examples/apk/*/*.apk',
     'third_party/ndk/sources/cxx-stl/stlport/libs/armeabi-v7a/libstlport_shared.so']  # NOQA
 _UNIT_TEST_FILE_PATTERNS = ['out/target/%(target)s/lib',
                             'out/target/%(target)s/posix_translation_fs_images',
@@ -144,7 +145,7 @@ class RemoteOutputHandler(object):
 
 class RemoteExecutor(object):
   def __init__(self, user, remote, remote_env=None, ssh_key=None,
-               enable_pseudo_tty=False):
+               enable_pseudo_tty=False, attach_nacl_gdb_type=None):
     self._user = user
     self._remote_env = remote_env or {}
     if not ssh_key:
@@ -158,6 +159,7 @@ class RemoteExecutor(object):
     # Use a temporary known_hosts file
     self._known_hosts = _get_known_hosts()
     self._enable_pseudo_tty = enable_pseudo_tty
+    self._attach_nacl_gdb_type = attach_nacl_gdb_type
     if ':' in remote:
       self._remote, self._port = remote.split(':')
     else:
@@ -242,7 +244,13 @@ class RemoteExecutor(object):
     if cwd is None:
       cwd = self.get_remote_arc_root()
     cmd = 'cd %s && %s' % (cwd, cmd)
-    return run_command_with_filter(self._build_ssh_command(cmd))
+
+    output_handler = MinidumpFilter(RemoteOutputHandler())
+    if self._attach_nacl_gdb_type:
+      output_handler = gdb_util.NaClGdbHandlerAdapter(
+          output_handler, None, self._attach_nacl_gdb_type, host=self._remote)
+    return run_command_with_filter(self._build_ssh_command(cmd),
+                                   output_handler=output_handler)
 
   def run_command_for_output(self, cmd):
     """Runs the command on remote host and returns stdout as a string."""
@@ -303,9 +311,8 @@ def run_command(cmd, ignore_failure=False):
   return call_func(cmd)
 
 
-def run_command_with_filter(cmd):
-  """Run the command with MinidumpFilter if crash reporting is enabled. """
-  output_handler = MinidumpFilter(RemoteOutputHandler())
+def run_command_with_filter(cmd, output_handler):
+  """Run the command with some output filters. """
   p = filtered_subprocess.Popen(cmd)
   p.run_process_filtering_output(output_handler)
   if p.returncode:

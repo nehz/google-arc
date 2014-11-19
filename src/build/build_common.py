@@ -48,6 +48,8 @@ CHROME_USER_DATA_DIR_PREFIX = 'arc-test-profile'
 _TEST_OUTPUT_HANDLER = (' > $out.tmp 2>&1 && mv $out.tmp $out ' +
                         '|| (cat $out.tmp;%s exit 1)')
 
+_ANDROID_SDK_METADATA_FILE = os.path.join(_SCRIPT_DIR, 'DEPS.android-sdk')
+
 
 class SimpleTimer:
   def __init__(self):
@@ -157,6 +159,10 @@ def log_subprocess_popen(args, bufsize=0, executable=None, stdin=None,
 
 def get_arc_root():
   return os.path.abspath(os.path.join(_SCRIPT_DIR, '..', '..'))
+
+
+def get_android_sdk_path():
+  return os.path.join(get_arc_root(), 'third_party', 'android-sdk')
 
 
 def get_staging_root():
@@ -439,6 +445,14 @@ def get_chrome_prebuilt_stamp_file():
 
 def get_chrome_ppapi_root_path():
   return os.path.join('third_party', 'chromium-ppapi')
+
+
+def get_gdb_multiarch_dir():
+  return 'third_party/gdb-multiarch'
+
+
+def get_gdb_multiarch_path():
+  return os.path.join(get_gdb_multiarch_dir(), 'usr/bin/gdb-multiarch')
 
 
 def get_load_library_path(target_override=None):
@@ -784,6 +798,29 @@ def read_metadata_file(path):
       if l:
         reduced_lines.append(l)
   return reduced_lines
+
+
+def get_api_level():
+  """Reads the API level from DEPS.android-sdk."""
+  lines = read_metadata_file(_ANDROID_SDK_METADATA_FILE)
+  if len(lines) != 2:
+    raise Exception('Malformed SDK metadata file at %s.' %
+                    _ANDROID_SDK_METADATA_FILE)
+  api_tokens = lines[1].split(' ')
+  if len(api_tokens) != 2 or api_tokens[0] != 'API':
+    raise Exception('API level not recognized: ' + lines[1])
+  # No need to wrap ValueError if API level is not an integer as expected.
+  return int(api_tokens[1])
+
+
+def get_framework_aidl():
+  """Finds framework.aidl."""
+  api_level = get_api_level()
+  out = os.path.join(get_android_sdk_path(), 'platforms',
+                     'android-%d' % api_level, 'framework.aidl')
+  if not os.path.isfile(out):
+    raise Exception('framework.aidl not found in Android SDK at %s.' % out)
+  return out
 
 
 def write_atomically(filepath, content):

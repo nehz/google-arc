@@ -191,9 +191,6 @@ def _generate_chromium_base_test_ninja():
   # '/system/usr/share/zoneinfo/tzdata' in the readonly filesystem, but we do
   # not have an easy way to access this data from unit tests.
   exclude.append('TimeTest.FromLocalExplodedCrashOnAndroid')
-  # Positional parameter of printf in bionic is currently broken.
-  # TODO(crbug.com/248851): Fix this.
-  exclude.append('StringPrintfTest.PositionalParameters')
   n.add_disabled_tests(*exclude)
   n.run(n.link())
 

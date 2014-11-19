@@ -145,7 +145,7 @@ def _generate_checkdeps_ninjas():
   # TODO(crbug.com/323786): Check #include lines in mods/ too.
   src_dir = os.path.join(build_common.get_arc_root(), 'src')
   src_deps = os.path.join(src_dir, 'DEPS')
-  for d in ['common', 'ndk_translation', 'posix_translation', 'wrap']:
+  for d in ['common', 'ndk_translation', 'posix_translation']:
     # TODO(crbug.com/323786): Check other directories in src/ too.
     implicit = build_common.find_all_files(
         os.path.join(src_dir, d),

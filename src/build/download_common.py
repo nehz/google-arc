@@ -10,19 +10,6 @@ import urllib
 import build_common
 
 
-def _read_stamp_file(path):
-  """Returns the file content, or an empty string if not exists."""
-  if not os.path.exists(path):
-    return ''
-  with open(path, 'r') as f:
-    for line in f:
-      # Ignore lines starting with #.
-      if line.startswith('#'):
-        continue
-      # Ignore leading and trailing white spaces.
-      return line.strip()
-
-
 class BaseGetAndUnpackArchiveFromURL(object):
   """Handles downloading and extracting a package from a URL."""
 
@@ -75,9 +62,10 @@ class BaseGetAndUnpackArchiveFromURL(object):
     """Checks the current and dependency stamps, and performs the update if
     they are different."""
 
-    url = _read_stamp_file(cls.DEPS_FILE)
+    deps_file = build_common.read_metadata_file(cls.DEPS_FILE)
+    url = deps_file[0]
     stamp_file = build_common.StampFile(
-        url, os.path.join(cls.FINAL_DIR, 'URL'))
+        ','.join(deps_file), os.path.join(cls.FINAL_DIR, 'URL'))
     if stamp_file.is_up_to_date():
       return True
 

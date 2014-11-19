@@ -712,7 +712,7 @@ def _select_output_handler(parsed_args, stats, chrome_process, **kwargs):
     output_handler = gdb_util.GdbHandlerAdapter(
         output_handler, parsed_args.gdb, parsed_args.gdb_type)
 
-  if 'plugin' in parsed_args.gdb:
+  if 'plugin' in parsed_args.gdb and OPTIONS.is_nacl_build():
     output_handler = gdb_util.NaClGdbHandlerAdapter(
         output_handler, _get_nacl_irt_path(parsed_args), parsed_args.gdb_type)
 

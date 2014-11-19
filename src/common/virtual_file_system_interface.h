@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// TODO(nya): Delete this file.
+
 #ifndef COMMON_VIRTUAL_FILE_SYSTEM_INTERFACE_H_
 #define COMMON_VIRTUAL_FILE_SYSTEM_INTERFACE_H_
 

@@ -1743,6 +1743,9 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
     if not is_system_library and not self._is_host:
       self._shared_deps.extend(
           build_common.get_bionic_shared_objects(link_stlport))
+      self._shared_deps.append(
+          os.path.join(build_common.get_load_library_path(),
+                       'libposix_translation.so'))
     self.installed_shared_library_list = []
     self._link_crtbegin = link_crtbegin
 
@@ -2261,7 +2264,7 @@ class JavaNinjaGenerator(NinjaGenerator):
                resource_subdirectories=None, resource_includes=None,
                resource_class_names=None, manifest_path=None,
                require_localization=False, aapt_flags=None,
-               preprocessed_aidl_files=None, **kwargs):
+               link_framework_aidl=False, **kwargs):
     super(JavaNinjaGenerator, self).__init__(module_name, base_path=base_path,
                                              **kwargs)
 
@@ -2277,7 +2280,9 @@ class JavaNinjaGenerator(NinjaGenerator):
     self._include_aidl_files = include_aidl_files
 
     # Information for the aidl tool.
-    self._preprocessed_aidl_files = as_list(preprocessed_aidl_files)
+    self._preprocessed_aidl_files = []
+    if link_framework_aidl:
+      self._preprocessed_aidl_files = [build_common.get_framework_aidl()]
 
     # Specific information for the javac compiler.
     self._javac_source_files = []

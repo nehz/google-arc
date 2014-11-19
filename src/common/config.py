@@ -8,6 +8,7 @@ import os
 
 import build_common
 import ninja_generator
+import open_source
 from build_options import OPTIONS
 
 
@@ -18,7 +19,7 @@ def _add_compile_flags(ninja):
   ninja.add_libchromium_base_compile_flags()
 
 
-def _get_generated_cc_file(ninja, name):
+def _get_generated_cc_file(ninja, name, implicit_add=None):
   rule_name = 'gen_%s_cc' % name
   script_name = 'src/common/gen_%s_cc.py' % name
   ninja.rule(rule_name,
@@ -28,8 +29,11 @@ def _get_generated_cc_file(ninja, name):
   gen_dir = os.path.join(build_common.get_build_dir(), 'common_gen_sources')
   cc_filename = os.path.join(gen_dir, '%s.cc' % name)
   implicit = [script_name,
-              'src/build/build_options.py',
-              'src/build/%s.py' % name]
+              'src/build/build_options.py']
+  if implicit_add is not None:
+    implicit.extend(implicit_add)
+  else:
+    implicit.append('src/build/%s.py' % name)
   ninja.build(cc_filename, rule_name, implicit=implicit)
   return cc_filename
 
@@ -42,6 +46,11 @@ def _get_android_static_libraries_cc(ninja):
   return _get_generated_cc_file(ninja, 'android_static_libraries')
 
 
+def _get_fake_posix_translation_cc(ninja):
+  return _get_generated_cc_file(ninja, 'fake_posix_translation',
+                                ['src/build/wrapped_functions.py'])
+
+
 def _generate_libpluginhandle_ninja():
   n = ninja_generator.ArchiveNinjaGenerator('libpluginhandle')
   return n.build_default(['src/common/plugin_handle.cc']).archive()
@@ -49,6 +58,17 @@ def _generate_libpluginhandle_ninja():
 
 # Generate libcommon.a, the library that should be linked into everything.
 def generate_ninjas():
+  if open_source.is_open_source_repo():
+    # The open source version of ARC does not provide libposix_translation.so
+    # but most of the open-sourced DSOs depend on it. Build a fake POSIX
+    # translation library which exports the same set of __wrap_* symbols as
+    # the real one.
+    n = ninja_generator.SharedObjectNinjaGenerator('libposix_translation',
+                                                   is_system_library=True,
+                                                   enable_clang=True)
+    n.add_notice_sources(['src/NOTICE'])
+    n.build_default([_get_fake_posix_translation_cc(n)]).link()
+
   n = ninja_generator.ArchiveNinjaGenerator(
       'libcommon_test_main',
       base_path='src/common/tests',

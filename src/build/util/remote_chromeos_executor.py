@@ -55,10 +55,12 @@ _UNNEEDED_PARAM_PREFIXES = (
     '--vmodule')
 
 
-def _create_remote_executor(parsed_args, enable_pseudo_tty=False):
+def _create_remote_executor(parsed_args, enable_pseudo_tty=False,
+                            attach_nacl_gdb_type=None):
   return remote_executor_util.RemoteExecutor(
       'root', parsed_args.remote, remote_env=_REMOTE_ENV,
-      ssh_key=parsed_args.ssh_key, enable_pseudo_tty=enable_pseudo_tty)
+      ssh_key=parsed_args.ssh_key, enable_pseudo_tty=enable_pseudo_tty,
+      attach_nacl_gdb_type=attach_nacl_gdb_type)
 
 
 def _get_param_name(param):
@@ -165,7 +167,11 @@ def get_chrome_exe_path():
 
 def launch_remote_chrome(parsed_args, argv):
   try:
-    executor = _create_remote_executor(parsed_args)
+    attach_nacl_gdb_type = None
+    if 'plugin' in parsed_args.gdb and OPTIONS.is_nacl_build():
+      attach_nacl_gdb_type = parsed_args.gdb_type
+    executor = _create_remote_executor(
+        parsed_args, attach_nacl_gdb_type=attach_nacl_gdb_type)
     copied_files = (
         remote_executor_util.get_launch_chrome_files_and_directories(
             parsed_args) +
@@ -182,9 +188,10 @@ def launch_remote_chrome(parsed_args, argv):
 
       # -v: show the killed process, -w: wait for the killed process to die.
       executor.run('sudo killall -vw gdbserver', ignore_failure=True)
-      gdb_util.launch_bare_metal_gdb_for_remote_debug(
-          parsed_args.remote, executor.get_ssh_options(), nacl_helper_binary,
-          parsed_args.gdb_type)
+      if OPTIONS.is_bare_metal_build():
+        gdb_util.launch_bare_metal_gdb_for_remote_debug(
+            parsed_args.remote, executor.get_ssh_options(), nacl_helper_binary,
+            parsed_args.gdb_type)
     executor.run(_copy_to_arc_root_with_exec(
         executor.get_remote_arc_root(), 'out/adb'))
     command = ' '.join(

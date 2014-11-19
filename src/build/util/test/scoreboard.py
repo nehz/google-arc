@@ -173,8 +173,18 @@ class Scoreboard:
     not run will be marked as SKIPPED and any flaky tests will be marked as
     UNEXPECT_FAIL.
     """
-    for name, ex in self._expectations.iteritems():
-      self._finalize_test(name, ex)
+    if not self._expectations and not self._results:
+      # Expectations were likely not set because the test does not specify
+      # expectations so ALL_TESTS_DUMMY_NAME was used. Results should not be
+      # empty. Any valid test should report at least one test result so we will
+      # mark the entire suite as INCOMPLETE.
+      self._set_result(self.ALL_TESTS_DUMMY_NAME, INCOMPLETE)
+      suite_results.report_update_test(self,
+                                       self.ALL_TESTS_DUMMY_NAME,
+                                       INCOMPLETE)
+    else:
+      for name, ex in self._expectations.iteritems():
+        self._finalize_test(name, ex)
     self._end_time = time.time()
     suite_results.report_results(self)
 

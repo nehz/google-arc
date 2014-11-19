@@ -168,7 +168,7 @@ class SystemMode:
       additional_launch_chrome_opts = []
     self._suite_runner = suite_runner
     self._name = suite_runner.name
-    self._additional_launch_chrome_opts = additional_launch_chrome_opts
+    self._additional_launch_chrome_opts = additional_launch_chrome_opts[:]
     if not rebuild_crx:
       self._additional_launch_chrome_opts.append('--nocrxbuild')
 

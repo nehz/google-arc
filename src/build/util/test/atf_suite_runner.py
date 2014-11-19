@@ -12,9 +12,6 @@ from util.test.suite_runner import SuiteRunnerBase
 class AtfSuiteRunner(SuiteRunnerBase):
   def __init__(self, test_name, test_args, **kwargs):
     super(AtfSuiteRunner, self).__init__(test_name, **kwargs)
-    self.set_test_args(test_args)
-
-  def set_test_args(self, test_args):
     self._test_args = test_args
 
   def get_launch_chrome_command_for_atf(self):

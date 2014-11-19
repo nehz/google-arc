@@ -32,9 +32,6 @@ _LOCAL_HOST = '127.0.0.1'
 # The default password of Chrome OS test images.
 _CROS_TEST_PASSWORD = 'test0000'
 
-# The file used to store the default Chrome OS password.
-_CROS_TEST_PASSWORD_FILE = '/tmp/cros-password'
-
 # Pretty printers for STLport.
 _STLPORT_PRINTERS_PATH = ('third_party/android/ndk/sources/host-tools/'
                           'gdb-pretty-printers/stlport/gppfs-0.2')
@@ -171,7 +168,9 @@ Then, set breakpoints as you like and start debugging by
 ''' % command_file.name
 
 
-def _launch_nacl_gdb(gdb_type, nacl_irt_path, port):
+def _launch_nacl_gdb(gdb_type, nacl_irt_path, host, port):
+  if host is None:
+    host = ''
   nmf = os.path.join(build_common.get_runtime_out_dir(), 'arc.nmf')
   assert os.path.exists(nmf), (
       nmf + ' not found, you will have a bad time debugging')
@@ -179,11 +178,11 @@ def _launch_nacl_gdb(gdb_type, nacl_irt_path, port):
   # TODO(nativeclient:3739): We explicitly specify the path of
   # runnable-ld.so to work-around the issue in nacl-gdb, but we should
   # let nacl-gdb find the path from NMF.
-  gdb_args = [
-      '-ex', 'nacl-manifest %s' % nmf,
-      '-ex', 'nacl-irt %s' % nacl_irt_path,
-      '-ex', 'target remote :%s' % port,
-      build_common.get_bionic_runnable_ld_so()]
+  gdb_args = ['-ex', 'nacl-manifest %s' % nmf]
+  if nacl_irt_path:
+    gdb_args.extend(['-ex', 'nacl-irt %s' % nacl_irt_path])
+  gdb_args.extend(['-ex', 'target remote %s:%s' % (host, port),
+                   build_common.get_bionic_runnable_ld_so()])
   _launch_plugin_gdb(gdb_args, gdb_type)
 
 
@@ -333,22 +332,42 @@ def _launch_bare_metal_gdbserver(chrome_pid):
   _run_gdb_watch_thread(gdb_process)
 
 
+def _popen_with_sudo_on_chromeos(command):
+  p = subprocess.Popen(['sudo', '-S'] + command, stdin=subprocess.PIPE)
+  p.stdin.write(_CROS_TEST_PASSWORD + '\n')
+  return p
+
+
+def _check_call_with_sudo_on_chromeos(command):
+  p = _popen_with_sudo_on_chromeos(command)
+  retcode = p.wait()
+  if retcode:
+    raise subprocess.CalledProcessError(retcode, ' '.join(command))
+
+
+def _accept_tcp_connection_on_chromeos(port):
+  # Accept incoming TCP connection to the port GDB uses.
+  _check_call_with_sudo_on_chromeos(
+      ['/sbin/iptables', '-A', 'INPUT', '-p', 'tcp',
+       '--dport', str(port), '-j', 'ACCEPT'])
+  # SFI NaCl's helper process listens at 127.0.0.1 rather than
+  # 0.0.0.0, so we cannot connect to the GDB stub from the host
+  # machine. To allow connections from the host machine, we redirect
+  # eth0 to 127.0.0.1 by iptables.
+  _check_call_with_sudo_on_chromeos(
+      ['/bin/sh', '-c', 'echo 1 >/proc/sys/net/ipv4/conf/all/route_localnet'])
+  _check_call_with_sudo_on_chromeos(
+      ['/sbin/iptables', '-A', 'PREROUTING', '-t', 'nat', '-p', 'tcp',
+       '--dport', str(port), '-j', 'DNAT', '--to', '127.0.0.1:%d' % port])
+
+
 def _launch_bare_metal_gdbserver_on_chromeos(chrome_pid):
-  with open(_CROS_TEST_PASSWORD_FILE, 'w') as f:
-    f.write(_CROS_TEST_PASSWORD + '\n')
-
+  _accept_tcp_connection_on_chromeos(_BARE_METAL_GDB_PORT)
   plugin_pid = _get_bare_metal_plugin_pid(chrome_pid)
-  with open(_CROS_TEST_PASSWORD_FILE) as f:
-    # Accept incoming TCP connection to the port GDB uses.
-    subprocess.check_call(['sudo', '-S', '/sbin/iptables', '-A', 'INPUT',
-                           '-p', 'tcp', '--dport', str(_BARE_METAL_GDB_PORT),
-                           '-j', 'ACCEPT'],
-                          stdin=f)
 
-  command = ['sudo', '-S', 'gdbserver',
-             '--attach', ':%d' % _BARE_METAL_GDB_PORT, str(plugin_pid)]
-  with open(_CROS_TEST_PASSWORD_FILE) as f:
-    gdb_process = subprocess.Popen(command, stdin=f)
+  command = ['gdbserver', '--attach',
+             ':%d' % _BARE_METAL_GDB_PORT, str(plugin_pid)]
+  gdb_process = _popen_with_sudo_on_chromeos(command)
   _run_gdb_watch_thread(gdb_process)
 
 
@@ -447,10 +466,11 @@ class GdbHandlerAdapter(object):
 class NaClGdbHandlerAdapter(object):
   _START_DEBUG_STUB_PATTERN = re.compile(r'debug stub on port (\d+)')
 
-  def __init__(self, base_handler, nacl_irt_path, gdb_type):
+  def __init__(self, base_handler, nacl_irt_path, gdb_type, host=None):
     self._base_handler = base_handler
     self._nacl_irt_path = nacl_irt_path
     self._gdb_type = gdb_type
+    self._host = host
 
   def handle_timeout(self):
     self._base_handler.handle_timeout()
@@ -465,9 +485,12 @@ class NaClGdbHandlerAdapter(object):
     if not match:
       return
 
-    port = match.group(1)
-    logging.info('Found debug stub on port (%s)' % port)
-    _launch_nacl_gdb(self._gdb_type, self._nacl_irt_path, port)
+    port = int(match.group(1))
+    if platform_util.is_running_on_chromeos():
+      _accept_tcp_connection_on_chromeos(port)
+    else:
+      logging.info('Found debug stub on port (%d)' % port)
+      _launch_nacl_gdb(self._gdb_type, self._nacl_irt_path, self._host, port)
 
   def get_error_level(self, child_level):
     return self._base_handler.get_error_level(child_level)

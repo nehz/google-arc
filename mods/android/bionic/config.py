@@ -299,7 +299,7 @@ def _filter_libc_bionic(vars):
   sources.remove('android/bionic/libc/bionic/pthread_kill.cpp')
   sources.remove('android/bionic/libc/bionic/pthread_sigmask.cpp')
   # Bionic's mmap is a wrapper for __mmap2. Works the wrapper does
-  # are not necessary for NaCl and it calls madvice, which NaCl
+  # are not necessary for NaCl and it calls madvise, which NaCl
   # does not support. We will simply define mmap without the wrapper.
   sources.remove('android/bionic/libc/bionic/mmap.cpp')
   return True

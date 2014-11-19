@@ -89,6 +89,9 @@ def _filter_sources_for_chromium_org(vars):
   # Strip out protobuf python generators.  These are canned in GYP along with
   # their header output.
   source_pattern_blacklist = ['_pb2.py', 'rule_trigger']
+  # Exclude OS compatibility files exporting libc symbols that were missing in
+  # old Android Bionic, but are conflicting with those in KitKat Bionic.
+  source_pattern_blacklist.append('os_compat')
   sources = vars.get_sources()
   for pattern in source_pattern_blacklist:
     sources[:] = [s for s in sources if pattern not in s]
