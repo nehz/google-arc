@@ -304,7 +304,7 @@ def _get_tool_map():
           'runner': ' '.join(get_bare_metal_runner(use_qemu_arm=True)),
           # We do not support valgrind on Bare Metal ARM.
           'valgrind_runner': ' '.join(get_bare_metal_runner(use_qemu_arm=True)),
-          'gdb': build_common.get_gdb_multiarch_path(),
+          'gdb': 'gdb-multiarch',
           'deps': [],
           'llvm_tblgen': build_common.get_build_path_for_executable(
               'tblgen', is_host=True),
@@ -316,8 +316,10 @@ def _get_tool_map():
           'dx': os.getenv(
               'DX', os.path.join(android_sdk_build_tools_dir, 'dx')),
           'deps': [],
-          'dexopt': build_common.get_build_path_for_executable('dexopt',
-                                                               is_host=True),
+          'dexopt': build_common.get_build_path_for_executable(
+              'dexopt', is_host=True),
+          'dexdump': build_common.get_build_path_for_executable(
+              'dexdump', is_host=True),
           'java-event-log-tags': os.path.join(android_build_tools_dir,
                                               'java-event-log-tags.py'),
           'jar': os.getenv('JAR', 'jar'),

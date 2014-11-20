@@ -6,9 +6,7 @@
 
 import ast
 import collections
-import contextlib
 import distutils.spawn
-import glob
 import os
 import pipes
 import shutil
@@ -76,35 +74,6 @@ def _check_java_version():
     print 'See docs/getting-java.md\n'
   else:
     stamp_file.update()
-
-
-@contextlib.contextmanager
-def _change_directory(dirname):
-  orig_dirname = os.getcwd()
-  os.chdir(dirname)
-  try:
-    yield
-  finally:
-    os.chdir(orig_dirname)
-
-
-def _download_gdb_multiarch():
-  if os.path.exists(build_common.get_gdb_multiarch_path()):
-    return
-
-  build_common.makedirs_safely(build_common.get_gdb_multiarch_dir())
-  with _change_directory(build_common.get_gdb_multiarch_dir()):
-    # We need gdb package in addition to gdb-multiarch because the gdb
-    # package contains the Python module for GDB. We check if
-    # gdb-multiarch is ready by the existence of gdb-multiarch
-    # binary. So, we should extract gdb-multiarch after the gdb
-    # package.
-    for pkg_name in ['gdb', 'gdb-multiarch']:
-      subprocess.check_call(['apt-get', 'download', pkg_name])
-      deb = glob.glob('%s_*.deb' % pkg_name)
-      assert len(deb) == 1
-      # Extract the deb file in the current directory.
-      subprocess.check_call(['dpkg', '-x', deb[0], '.'])
 
 
 def _cleanup_orphaned_pyc_files():
@@ -179,8 +148,6 @@ def _ensure_downloads_up_to_date():
 
   if download_naclports_files.check_and_perform_updates():
     sys.exit(1)
-
-  _download_gdb_multiarch()
 
 
 def _configure_build_options():
@@ -335,10 +302,6 @@ def _set_up_generate_ninja():
   ninja_dir = build_common.get_generated_ninja_dir()
   if not os.path.exists(ninja_dir):
     os.makedirs(ninja_dir)
-
-  # Set up global implicit dependency specified by the option.
-  deps = toolchain.get_tool(OPTIONS.target(), 'deps')
-  ninja_generator.NinjaGenerator.add_global_implicit_dependency(deps)
 
   # Set up default resource path.
   framework_resources_base_path = (

@@ -13,8 +13,7 @@ from build_options import OPTIONS
 
 import crash_analyzer
 from util import platform_util
-from util.test.atf_instrumentation_result_parser import \
-    ATFInstrumentationResultParser
+from util.test import atf_instrumentation_result_parser as result_parser
 
 
 # NaCl waits 7s before writing validation cache.
@@ -148,7 +147,7 @@ class OutputDumper(object):
     return False
 
 
-class ATFTestHandler(object):
+class AtfTestHandler(object):
   # TODO(crbug.com/254164): Remove this awful compat test pattern
   # once NDK tests no longer use it.
   # Note that there are a few variations in what prints based on what JUnit
@@ -158,7 +157,8 @@ class ATFTestHandler(object):
 
   def __init__(self):
     self._reached_done = False
-    self._instrumentation_result_parser = ATFInstrumentationResultParser()
+    self._instrumentation_result_parser = (
+        result_parser.AtfInstrumentationResultParser())
 
     # Can be True (passed), False (failed), or None (unknown)
     self.compatibility_result_passed = None

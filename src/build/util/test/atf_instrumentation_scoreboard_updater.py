@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 
-class ATFInstrumentationScoreboardUpdater(object):
+class AtfInstrumentationScoreboardUpdater(object):
   def __init__(self, scoreboard):
     self._scoreboard = scoreboard
 

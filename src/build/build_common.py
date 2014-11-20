@@ -447,14 +447,6 @@ def get_chrome_ppapi_root_path():
   return os.path.join('third_party', 'chromium-ppapi')
 
 
-def get_gdb_multiarch_dir():
-  return 'third_party/gdb-multiarch'
-
-
-def get_gdb_multiarch_path():
-  return os.path.join(get_gdb_multiarch_dir(), 'usr/bin/gdb-multiarch')
-
-
 def get_load_library_path(target_override=None):
   return os.path.join(get_build_dir(target_override), 'lib')
 
@@ -538,6 +530,10 @@ def get_java_revision_file():
 
 def get_generated_ninja_dir():
   return os.path.join(OUT_DIR, 'generated_ninja')
+
+
+def get_integration_test_list_dir():
+  return os.path.join(get_target_common_dir(), 'integration_test')
 
 
 def get_test_output_handler(use_crash_analyzer=False):

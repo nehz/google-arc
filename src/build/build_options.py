@@ -287,9 +287,7 @@ class _Options(object):
             _EMUGL_DEBUG_LOGGING,
             # TODO(crbug.com/342652): Re-enable _LIBDVM_DEBUG.
             # _LIBDVM_DEBUG,
-            # TODO(crbug.com/433954): Re-enable _MEMORY_USAGE once the bug is
-            # fixed.
-            # _MEMORY_USAGE,
+            _MEMORY_USAGE,
             _POSIX_TRANSLATION_DEBUG,
             _VERBOSE_MEMORY_VIEWER
         ])

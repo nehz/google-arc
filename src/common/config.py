@@ -19,36 +19,50 @@ def _add_compile_flags(ninja):
   ninja.add_libchromium_base_compile_flags()
 
 
-def _get_generated_cc_file(ninja, name, implicit_add=None):
-  rule_name = 'gen_%s_cc' % name
-  script_name = 'src/common/gen_%s_cc.py' % name
+def _get_generated_file(ninja, out_name, script_name, implicit_add):
+  script_path = os.path.join('src/common', script_name)
+  rule_name = os.path.splitext(os.path.basename(script_path))[0]
   ninja.rule(rule_name,
-             command='%s > $out.tmp && mv $out.tmp $out' % script_name,
+             command='%s > $out.tmp && mv $out.tmp $out' % script_path,
              description=rule_name + ' $in')
 
-  gen_dir = os.path.join(build_common.get_build_dir(), 'common_gen_sources')
-  cc_filename = os.path.join(gen_dir, '%s.cc' % name)
-  implicit = [script_name,
-              'src/build/build_options.py']
-  if implicit_add is not None:
-    implicit.extend(implicit_add)
-  else:
-    implicit.append('src/build/%s.py' % name)
-  ninja.build(cc_filename, rule_name, implicit=implicit)
-  return cc_filename
+  out_path = os.path.join(build_common.get_build_dir(), 'common_gen_sources',
+                          out_name)
+  implicit = [script_path, 'src/build/build_options.py'] + implicit_add
+  ninja.build(out_path, rule_name, implicit=implicit)
+  return out_path
 
 
 def _get_wrapped_functions_cc(ninja):
-  return _get_generated_cc_file(ninja, 'wrapped_functions')
+  return _get_generated_file(
+      ninja,
+      out_name='wrapped_functions.cc',
+      script_name='gen_wrapped_functions_cc.py',
+      implicit_add=['src/build/wrapped_functions.py'])
 
 
 def _get_android_static_libraries_cc(ninja):
-  return _get_generated_cc_file(ninja, 'android_static_libraries')
+  return _get_generated_file(
+      ninja,
+      out_name='android_static_libraries.cc',
+      script_name='gen_android_static_libraries_cc.py',
+      implicit_add=['src/build/android_static_libraries.py'])
 
 
 def _get_fake_posix_translation_cc(ninja):
-  return _get_generated_cc_file(ninja, 'fake_posix_translation',
-                                ['src/build/wrapped_functions.py'])
+  return _get_generated_file(
+      ninja,
+      out_name='fake_posix_translation.cc',
+      script_name='gen_fake_posix_translation_cc.py',
+      implicit_add=['src/build/wrapped_functions.py'])
+
+
+def _get_real_syscall_aliases_s(ninja):
+  return _get_generated_file(
+      ninja,
+      out_name='real_syscall_aliases.S',
+      script_name='gen_real_syscall_aliases_s.py',
+      implicit_add=['src/build/wrapped_functions.py'])
 
 
 def _generate_libpluginhandle_ninja():
@@ -74,6 +88,12 @@ def generate_ninjas():
       base_path='src/common/tests',
       instances=0)  # Should not be used by production binary.
   sources = n.find_all_sources(include_tests=True)
+  n.build_default(sources, base_path=None).archive()
+
+  n = ninja_generator.ArchiveNinjaGenerator(
+      'libcommon_real_syscall_aliases',
+      instances=0)  # Should not be used by production binary.
+  sources = [_get_real_syscall_aliases_s(n)]
   n.build_default(sources, base_path=None).archive()
 
   _generate_libpluginhandle_ninja()

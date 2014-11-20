@@ -989,7 +989,7 @@ static int open_library(const char* name) {
   // 5. dlopen from unit tests: Like 4, we use open in
   //    open_library_on_path(). __inject_arc_linker_hooks has been
   //    already called so the implementation of __nacl_irt_open is
-  //    hooked, but it ends up calling __real_open for unit tests.
+  //    hooked, but it ends up calling real open() for unit tests.
   //
   // ARC MOD END
   TRACE("[ opening %s ]", name);

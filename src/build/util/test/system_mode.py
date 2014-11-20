@@ -35,10 +35,10 @@ class SystemModeLogs:
     self._chrome_logs = []
 
   def add_to_chrome_log(self, message):
-    self._chrome_logs.append(message)
+    self._chrome_logs.append(str(message))
 
   def add_to_adb_log(self, message):
-    self._adb_logs.append(message)
+    self._adb_logs.append(str(message))
 
   def get_log(self):
     def separator(title):
@@ -293,7 +293,7 @@ class SystemMode:
     except BaseException as e:
       self._logs.add_to_adb_log('run_subprocess failed: ' +
                                 traceback.format_exc())
-      if hasattr(e, 'output'):
+      if hasattr(e, 'output') and not e.output is None:
         self._logs.add_to_adb_log(e.output)
       raise
 

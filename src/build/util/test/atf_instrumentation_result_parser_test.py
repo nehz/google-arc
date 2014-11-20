@@ -6,13 +6,12 @@
 
 import unittest
 
-from util.test.atf_instrumentation_result_parser \
-    import ATFInstrumentationResultParser
+from util.test import atf_instrumentation_result_parser as result_parser
 
 
 class InstrumentationStatusMessageFilterTests(unittest.TestCase):
   def _process(self, text):
-    results = ATFInstrumentationResultParser()
+    results = result_parser.AtfInstrumentationResultParser()
     ignored = []
     for line in text.splitlines():
       if not results.process_line(line):

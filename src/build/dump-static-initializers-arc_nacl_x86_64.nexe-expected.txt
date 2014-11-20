@@ -10,11 +10,6 @@
 # mods/android/frameworks/native/arc/binder/driver.cc __bss_start
 # mods/android/frameworks/native/arc/binder/driver.cc __cxa_atexit@plt [registers a dtor to run at exit]
 # mods/android/frameworks/native/arc/binder/driver.cc pthread_mutex_init@plt
-# mods/graphics_translation/gles/gles_context.cc GlesContext::s_lock
-# mods/graphics_translation/gles/gles_context.cc android::Mutex::~Mutex()
-# mods/graphics_translation/gles/gles_context.cc __bss_start
-# mods/graphics_translation/gles/gles_context.cc __cxa_atexit@plt [registers a dtor to run at exit]
-# mods/graphics_translation/gles/gles_context.cc pthread_mutex_init@plt
 # mods/android/frameworks/native/arc/binder/local_process.cc arc::binder::LocalProcess::all_threads_
 # mods/android/frameworks/native/arc/binder/local_process.cc arc::binder::LocalProcess::all_processes_
 # mods/android/frameworks/native/arc/binder/local_process.cc arc::binder::LocalProcess::mutex_

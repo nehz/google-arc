@@ -13,8 +13,8 @@
 //     // You can call ARC_STRACE_REPORT to add information.
 //     result = HandleFoobarWithPepper(arg1, arg2);
 //   } else {
-//     ARC_STRACE_REPORT("falling back to __real");
-//     result = __real_foobar(arg1, arg2);
+//     ARC_STRACE_REPORT("falling back to real");
+//     result = foobar(arg1, arg2);
 //   }
 //   ARC_STRACE_RETURN(result);
 // }

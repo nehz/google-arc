@@ -264,6 +264,8 @@ class NinjaGenerator(ninja_syntax.Writer):
     self._base_path = base_path
     self._notices_only = notices_only
     self._implicit = as_list(implicit) + NinjaGenerator._default_implicit
+    if not self._is_host:
+      self._implicit.extend(toolchain.get_tool(OPTIONS.target(), 'deps'))
     self._target_groups = NinjaGenerator._canonicalize_set(target_groups)
     self._build_rule_list = []
     self._root_dir_install_targets = []
@@ -433,7 +435,7 @@ class NinjaGenerator(ninja_syntax.Writer):
     # TODO(crbug.com/283798): We can remove this if we decide to
     # create libgcc.so instead of libgcc.a.
     # TODO(crbug.com/319020): Bare Metal ARM would require another symbol.
-    if not is_so and not OPTIONS.is_arm():
+    if not is_so and target != 'host' and not OPTIONS.is_arm():
       flags.append('-Wl,-u,_Unwind_GetIP')
 
     NinjaGenerator._add_target_library_flags(
@@ -466,10 +468,6 @@ class NinjaGenerator(ninja_syntax.Writer):
 
   def is_installed(self):
     return self._build_dir_install_targets or self._root_dir_install_targets
-
-  @staticmethod
-  def add_global_implicit_dependency(deps):
-    NinjaGenerator._default_implicit.extend(deps)
 
   def find_all_files(self, base_paths, suffix, **kwargs):
     return find_all_files(base_paths,
@@ -762,7 +760,7 @@ class CNinjaGenerator(NinjaGenerator):
     if gl_flags:
       self.emit_gl_common_flags()
     # We need 4-byte alignment to pass host function pointers to arm code.
-    if not OPTIONS.is_nacl_build():
+    if not self._is_host and not OPTIONS.is_nacl_build():
       self.add_compiler_flags('-falign-functions=4')
     self._enable_clang = (enable_clang and
                           toolchain.has_clang(OPTIONS.target(), self._is_host))
@@ -2057,6 +2055,7 @@ class TestNinjaGenerator(ExecNinjaGenerator):
       self.add_library_deps('libchromium_base.a',
                             'libcommon.a',
                             'libpluginhandle.a')
+    self.add_library_deps('libcommon_real_syscall_aliases.a')
     self.add_include_paths('third_party/testing/gmock/include')
     self._run_counter = 0
     self._disabled_tests = []
@@ -3388,18 +3387,35 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
 
 
 class AtfNinjaGenerator(ApkNinjaGenerator):
+  _EXTRACT_TEST_LIST_PATH = 'src/build/util/test/extract_test_list.py'
+
   def __init__(self, module_name, **kwargs):
     super(AtfNinjaGenerator, self).__init__(module_name, **kwargs)
     self.add_built_jars_to_classpath('android.test.runner')
 
   @staticmethod
   def emit_common_rules(n):
+    n.variable('extract_test_list', AtfNinjaGenerator._EXTRACT_TEST_LIST_PATH)
+
     n.rule('strip_apk_signature',
            'cp $in $out && zip -q -d $out META-INF/*',
            description='strip_apk_signature $out')
+    n.rule('extract_test_list',
+           ('PYTHONPATH=src/build python $extract_test_list ' +
+            '--apk=$in --output=$out.tmp && mv $out.tmp $out'),
+           description='Extract test method list from $in')
 
   def build_default_all_test_sources(self):
     return self.build_default_all_sources(include_tests=True)
+
+  def build_test_list(self, test_suite_name):
+    output = os.path.join(
+        build_common.get_integration_test_list_dir(), test_suite_name + '.txt')
+    self.build([output], 'extract_test_list',
+               inputs=[self.get_final_package()],
+               implicit=[
+                   AtfNinjaGenerator._EXTRACT_TEST_LIST_PATH,
+                   toolchain.get_tool('java', 'dexdump')])
 
 
 class AaptNinjaGenerator(NinjaGenerator):

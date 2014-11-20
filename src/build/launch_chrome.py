@@ -28,7 +28,7 @@ from util import nonblocking_io
 from util import platform_util
 from util import remote_executor
 from util.minidump_filter import MinidumpFilter
-from util.output_handler import ATFTestHandler
+from util.output_handler import AtfTestHandler
 from util.output_handler import ArcStraceFilter
 from util.output_handler import CrashAddressFilter
 from util.output_handler import OutputDumper
@@ -701,7 +701,7 @@ def _select_chrome_output_timeout(parsed_args):
 
 def _select_output_handler(parsed_args, stats, chrome_process, **kwargs):
   if parsed_args.mode == 'atftest':
-    output_handler = ATFTestHandler()
+    output_handler = AtfTestHandler()
   elif parsed_args.mode == 'perftest':
     output_handler = PerfTestHandler(parsed_args, stats, chrome_process,
                                      **kwargs)

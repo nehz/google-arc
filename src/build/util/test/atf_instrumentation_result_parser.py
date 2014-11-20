@@ -8,7 +8,7 @@ import time
 from util.test.test_method_result import TestMethodResult
 
 
-class ATFInstrumentationResultParser(object):
+class AtfInstrumentationResultParser(object):
   """This class processes ATF instrumentation status messages.
 
   When the Android "am instrument" command is used to run tests, and the "-r"
@@ -209,7 +209,7 @@ class ATFInstrumentationResultParser(object):
   @property
   def run_passed_cleanly(self):
     """True if the instrumentation run had no errors."""
-    return self._suite_code == ATFInstrumentationResultParser._RESULT_OK
+    return self._suite_code == AtfInstrumentationResultParser._RESULT_OK
 
   @property
   def test_methods_total(self):
