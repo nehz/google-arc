@@ -1,0 +1,15 @@
+# POSIX Translation
+set noparent
+hamaji@google.com
+satorux@google.com
+yusukes@google.com
+
+# Socket-related files
+per-file local_socket.* = hidehiko@google.com
+per-file local_socket.* = jhorwich@google.com
+per-file socket* = hidehiko@google.com
+per-file socket* = jhorwich@google.com
+per-file tcp* = hidehiko@google.com
+per-file tcp* = jhorwich@google.com
+per-file udp* = hidehiko@google.com
+per-file udp* = jhorwich@google.com

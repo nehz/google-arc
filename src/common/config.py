@@ -8,7 +8,6 @@ import os
 
 import build_common
 import ninja_generator
-import open_source
 from build_options import OPTIONS
 
 
@@ -49,14 +48,6 @@ def _get_android_static_libraries_cc(ninja):
       implicit_add=['src/build/android_static_libraries.py'])
 
 
-def _get_fake_posix_translation_cc(ninja):
-  return _get_generated_file(
-      ninja,
-      out_name='fake_posix_translation.cc',
-      script_name='gen_fake_posix_translation_cc.py',
-      implicit_add=['src/build/wrapped_functions.py'])
-
-
 def _get_real_syscall_aliases_s(ninja):
   return _get_generated_file(
       ninja,
@@ -72,17 +63,6 @@ def _generate_libpluginhandle_ninja():
 
 # Generate libcommon.a, the library that should be linked into everything.
 def generate_ninjas():
-  if open_source.is_open_source_repo():
-    # The open source version of ARC does not provide libposix_translation.so
-    # but most of the open-sourced DSOs depend on it. Build a fake POSIX
-    # translation library which exports the same set of __wrap_* symbols as
-    # the real one.
-    n = ninja_generator.SharedObjectNinjaGenerator('libposix_translation',
-                                                   is_system_library=True,
-                                                   enable_clang=True)
-    n.add_notice_sources(['src/NOTICE'])
-    n.build_default([_get_fake_posix_translation_cc(n)]).link()
-
   n = ninja_generator.ArchiveNinjaGenerator(
       'libcommon_test_main',
       base_path='src/common/tests',
