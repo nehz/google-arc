@@ -1420,7 +1420,7 @@ class CNinjaGenerator(NinjaGenerator):
                            'out/staging')
 
   def add_ppapi_link_flags(self):
-    self.add_library_deps('libchromium_ppapi.a')
+    self.add_library_deps('libchromium_ppapi.so')
 
   def emit_logtag_flags(self):
     logtag = self._module_name
@@ -1527,6 +1527,10 @@ class RegenDependencyComputer(object):
         'src/build/download_sdk_and_ndk.py',
         'src/build/make_to_ninja.py',
         'src/build/ninja_generator.py',
+        'src/build/sync_adb.py',
+        'src/build/sync_arc_int.py',
+        'src/build/sync_chrome_deps.py',
+        'src/build/sync_gdb_multiarch.py',
         'src/build/sync_nacl_sdk.py',
         'src/build/toolchain.py',
         'src/build/wrapped_functions.py',
@@ -1534,6 +1538,7 @@ class RegenDependencyComputer(object):
 
     if not open_source.is_open_source_repo():
       self._input += [
+          'src/build/sync_chrome.py',
           'src/packaging/runtime/active_window_back.png',
           'src/packaging/runtime/active_window_close.png',
           'src/packaging/runtime/active_window_extdir.png',

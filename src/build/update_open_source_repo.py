@@ -81,11 +81,12 @@ def _commit_changes(dest, label):
 
 
 def _sync_head_tags(dest, src):
-  """Synchronize any tags currently pointing at HEAD to the open source repo."""
+  """Synchronize any tags currently pointing at HEAD to the open source repo,
+     leaving any existing tags in place."""
   tags = subprocess.check_output(['git', 'tag', '--points-at', 'HEAD'], cwd=src)
   for tag in tags.splitlines():
     logging.warning('Updating tag %s' % tag)
-    subprocess.check_call(['git', 'tag', '-f', '-a', '-m', tag, tag], cwd=dest)
+    subprocess.call(['git', 'tag', '-a', '-m', tag, tag], cwd=dest)
 
 
 def _push_changes(dest):

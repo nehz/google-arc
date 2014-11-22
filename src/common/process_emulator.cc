@@ -156,7 +156,7 @@ void ProcessEmulator::SetIsMultiThreaded(bool is_multi_threaded) {
 }
 
 // For testing.
-void ProcessEmulator::SetFallbackUidForTest(uid_t uid) {
+void ProcessEmulator::SetFallbackUidForTesting(uid_t uid) {
   s_fallback_uid = uid;
 }
 
@@ -389,17 +389,17 @@ void ProcessEmulator::FilterPthreadCreate(
 }
 
 // static
-void ProcessEmulator::SetFakeThreadStateForTest(pid_t pid, uid_t uid) {
+void ProcessEmulator::SetFakeThreadStateForTesting(pid_t pid, uid_t uid) {
   InitThreadInternal(EmulatedProcessInfo(pid, uid));
 }
 
 // static
-void ProcessEmulator::UnsetThreadStateForTest() {
+void ProcessEmulator::UnsetThreadStateForTesting() {
   ThreadDestroyed(GetThreadState());
 }
 
 // static
-void ProcessEmulator::UnfilterPthreadCreateForTest(
+void ProcessEmulator::UnfilterPthreadCreateForTesting(
     void* (*start_routine)(void*),  // NOLINT(readability/casting)
     void* arg) {
   if (start_routine == &ThreadStartWrapper) {

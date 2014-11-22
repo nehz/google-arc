@@ -77,6 +77,11 @@ class Matrix {
   float entries_[kEntries];
 };
 
+inline Matrix operator* (Matrix a, const Matrix& b) {
+  a *= b;
+  return a;
+}
+
 }  // namespace arc
 
 #endif  // COMMON_MATRIX_H_

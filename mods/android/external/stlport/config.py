@@ -83,6 +83,8 @@ def generate_ninjas():
     # This is for not emitting syscall wrappers.
     if not vars.is_static():
       vars.get_shared_deps().extend(['libc', 'libm'])
+      # Note: If you change is_system_library to False, you should link
+      # libstlport_static.a into libchromium_ppapi.so.
       vars.get_generator_args()['is_system_library'] = True
       # TODO(crbug.com/364344): Once Renderscript is built from source, this
       # canned install can be removed.

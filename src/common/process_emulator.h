@@ -101,17 +101,17 @@ class ProcessEmulator {
   static void SetIsMultiThreaded(bool is_multi_threaded);
 
   // For testing. Do not call.
-  static void SetFallbackUidForTest(uid_t uid);
+  static void SetFallbackUidForTesting(uid_t uid);
 
   // For testing. Do not call.
-  static void SetFakeThreadStateForTest(pid_t pid, uid_t uid);
-  static void UnsetThreadStateForTest();
+  static void SetFakeThreadStateForTesting(pid_t pid, uid_t uid);
+  static void UnsetThreadStateForTesting();
 
   // For testing. Do not call.
   // In unit tests where |start_routine| is not acutally started after
   // FilterPthreadCreate(), we need to call this function with rewritten
   // |start_routine| and |arg| to delete allocated memory.
-  static void UnfilterPthreadCreateForTest(
+  static void UnfilterPthreadCreateForTesting(
       void* (*start_routine)(void*),  // NOLINT(readability/casting)
       void* arg);
 

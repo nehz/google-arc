@@ -133,7 +133,7 @@ def _create_overlay_base(base_dir, overlays, dest_dir):
       return True
     # Do not create symlinks in out/staging/chromium-ppapi/ except
     # the whitelisted ones below.
-    #  - ppapi: We need this to build libchromium_ppapi.a. Note that the files
+    #  - ppapi: We need this to build libchromium_ppapi.so. Note that the files
     #      we need under ppapi/ do not depend on base/.
     #  - breakpad: minidump_generator.cc includes headers in the directory.
     #      Note that chromium_org/ does not have breakpad/.

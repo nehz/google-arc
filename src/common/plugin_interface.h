@@ -23,7 +23,6 @@ typedef uint16_t MessageCharType;
 namespace arc {
 
 class InputManagerInterface;
-class VirtualFileSystemInterface;
 
 class RendererInterface {
  public:
@@ -398,7 +397,6 @@ class PluginInterface {
   virtual RendererInterface* GetRenderer() = 0;
   virtual GPURendererInterface* GetGPURenderer() = 0;
   virtual SWRendererInterface* GetSWRenderer() = 0;
-  virtual VirtualFileSystemInterface* GetVirtualFileSystem() = 0;
   virtual InputManagerInterface* GetInputManager() = 0;
   virtual AudioManagerInterface* GetAudioManager() = 0;
   virtual CameraManagerInterface* GetCameraManager() = 0;

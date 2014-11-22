@@ -24,17 +24,17 @@ class ProcessEmulatorTest : public testing::Test {
   }
 
   virtual void TearDown() OVERRIDE {
-    ProcessEmulator::UnsetThreadStateForTest();
+    ProcessEmulator::UnsetThreadStateForTesting();
   }
 
  protected:
-  void SetFakeThreadStateForTest() {
-    ProcessEmulator::SetFakeThreadStateForTest(111, 222);
+  void SetFakeThreadStateForTesting() {
+    ProcessEmulator::SetFakeThreadStateForTesting(111, 222);
   }
-  void UnfilterPthreadCreateForTest(
+  void UnfilterPthreadCreateForTesting(
       void* (*start_routine)(void*),  // NOLINT(readability/casting)
       void* arg) {
-    ProcessEmulator::UnfilterPthreadCreateForTest(start_routine, arg);
+    ProcessEmulator::UnfilterPthreadCreateForTesting(start_routine, arg);
   }
 };
 
@@ -49,11 +49,11 @@ TEST_F(ProcessEmulatorTest, FilterPthreadCreateNoState) {
   EXPECT_EQ(&EmptyRoutine, start_routine);  // NOLINT
   EXPECT_EQ(reinterpret_cast<void*>(234), arg);
 
-  UnfilterPthreadCreateForTest(start_routine, arg);
+  UnfilterPthreadCreateForTesting(start_routine, arg);
 }
 
 TEST_F(ProcessEmulatorTest, FilterPthreadCreateWithState) {
-  SetFakeThreadStateForTest();
+  SetFakeThreadStateForTesting();
 
   void* (*start_routine)(void*) = &EmptyRoutine;  // NOLINT
   void* arg = reinterpret_cast<void*>(234);
@@ -65,7 +65,7 @@ TEST_F(ProcessEmulatorTest, FilterPthreadCreateWithState) {
   EXPECT_NE(&EmptyRoutine, start_routine);  // NOLINT
   EXPECT_NE(reinterpret_cast<void*>(234), arg);
 
-  UnfilterPthreadCreateForTest(start_routine, arg);
+  UnfilterPthreadCreateForTesting(start_routine, arg);
 }
 
 }  // namespace arc

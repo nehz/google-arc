@@ -447,6 +447,14 @@ def get_chrome_ppapi_root_path():
   return os.path.join('third_party', 'chromium-ppapi')
 
 
+def get_gdb_multiarch_dir():
+  return 'third_party/gdb-multiarch'
+
+
+def get_gdb_multiarch_path():
+  return os.path.join(get_gdb_multiarch_dir(), 'usr/bin/gdb-multiarch')
+
+
 def get_load_library_path(target_override=None):
   return os.path.join(get_build_dir(target_override), 'lib')
 

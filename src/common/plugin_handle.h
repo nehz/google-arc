@@ -30,10 +30,6 @@ class PluginHandle {
     LOG_ALWAYS_FATAL_IF(!plugin_);
     return plugin_->GetGPURenderer();
   }
-  VirtualFileSystemInterface* GetVirtualFileSystem() const {
-    LOG_ALWAYS_FATAL_IF(!plugin_);
-    return plugin_->GetVirtualFileSystem();
-  }
   InputManagerInterface* GetInputManager() const {
     LOG_ALWAYS_FATAL_IF(!plugin_);
     return plugin_->GetInputManager();

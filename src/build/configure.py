@@ -21,6 +21,7 @@ import download_sdk_and_ndk
 import open_source
 import staging
 import sync_adb
+import sync_gdb_multiarch
 import sync_nacl_sdk
 import toolchain
 
@@ -147,6 +148,9 @@ def _ensure_downloads_up_to_date():
     sys.exit(1)
 
   if download_naclports_files.check_and_perform_updates():
+    sys.exit(1)
+
+  if sync_gdb_multiarch.main():
     sys.exit(1)
 
 

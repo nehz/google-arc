@@ -15,11 +15,8 @@ class Matrix;
 class Vector {
  public:
   static const size_t kEntries = 4;
-  Vector() {
-    entries_[0] = entries_[1] = entries_[2] = entries_[3] = 0.0f;
-  }
 
-  Vector(float v1, float v2, float v3, float v4) {
+  Vector(float v1 = 0.0f, float v2 = 0.0f, float v3 = 0.0f, float v4 = 0.0f) {
     entries_[0] = v1;
     entries_[1] = v2;
     entries_[2] = v3;

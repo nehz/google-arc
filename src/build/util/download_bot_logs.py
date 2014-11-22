@@ -150,8 +150,9 @@ def main():
     print 'Select any of the following builders:'
     print '\n'.join(all_builders)
     return
-  if not builders:
-    builders = all_builders
+  if builders:
+    builders_info = dict(
+        [(k, v) for k, v in builders_info.iteritems() if k in builders])
 
   download_args_list = make_download_args_list(
       builders_info, args.outdir, args.number_of_logs)

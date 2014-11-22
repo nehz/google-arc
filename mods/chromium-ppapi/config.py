@@ -63,11 +63,10 @@ def _generate_chromium_ppapi_fpabi_shim_ninja():
 
 def _generate_chromium_ppapi_ninja():
   base_path = 'chromium-ppapi/ppapi'
-  # TODO(crbug.com/336316): Build libchromium_ppapi as a DSO without -Wl,--wrap.
-  # Functions in libchromium_ppapi do not depend on posix_translation/ at all
-  # and linking the lowest layer library with --wrap sounds a little bit scary.
-  n = ninja_generator.ArchiveNinjaGenerator(
-      'libchromium_ppapi', base_path=base_path)
+  n = ninja_generator.SharedObjectNinjaGenerator(
+      'libchromium_ppapi', base_path=base_path,
+      # The library does not require any __wrap_* function.
+      is_system_library=True)
   _add_chromium_base_compiler_flags(n)
   n.add_include_paths('chromium-ppapi/ppapi')
   # native_client/src/include/portability.h expects bits/wordsize.h
@@ -100,6 +99,10 @@ def _generate_chromium_ppapi_ninja():
 
   def relevant(f):
     assert f.startswith(base_path + os.path.sep)
+    # internal_module.cc is for building NaCl service runtime etc. and is not
+    # part of the PPAPI C++ library. See Chromium's src/ppapi/ppapi_cpp.gypi.
+    if f in ['chromium-ppapi/ppapi/cpp/private/internal_module.cc']:
+      return False
     ppapi_subdir = f.split(os.path.sep)[2]
     if ppapi_subdir in ['c', 'cpp', 'utility']:
       return True
@@ -112,7 +115,9 @@ def _generate_chromium_ppapi_ninja():
                                     'ppapi_fpabi_shim.c'))
     n.add_defines('USE_FPABI_SHIM')
   n.build_default(build_files, base_path=None)
-  n.archive()
+  # Note: libstlport.so is not linked with --wrap at this point.
+  n.add_library_deps('libc.so', 'libm.so', 'libdl.so', 'libstlport.so')
+  n.link()
 
 
 def generate_ninjas():
