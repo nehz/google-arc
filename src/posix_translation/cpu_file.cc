@@ -160,6 +160,10 @@ class CpuFile : public ReadonlyMemoryFile {
     return content_->GetContent();
   }
 
+  virtual int fstatfs(struct statfs* buf) OVERRIDE {
+    return DoStatFsForProc(buf);
+  }
+
   scoped_ptr<CpuFileContent> content_;
 
   DISALLOW_COPY_AND_ASSIGN(CpuFile);

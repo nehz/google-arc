@@ -859,6 +859,31 @@ int VirtualFileSystem::epoll_wait(int epfd, struct epoll_event* events,
   return stream->epoll_wait(events, maxevents, timeout);
 }
 
+// This is ARC-specific function in libc.so.
+extern "C" long __arc_fs_conf(struct statfs* buf, int name);  // NOLINT
+
+int VirtualFileSystem::fpathconf(int fd, int name) {
+  // No locking since all synchronization we need is inside fstatfs.
+  ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
+  struct statfs buf;
+  int ret = this->fstatfs(fd, &buf);
+  if (ret < 0) {
+    return -1;
+  }
+  return __arc_fs_conf(&buf, name);
+}
+
+int VirtualFileSystem::pathconf(const std::string& pathname, int name) {
+  // No locking since all synchronization we need is inside statfs.
+  ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
+  struct statfs buf;
+  int ret = this->statfs(pathname, &buf);
+  if (ret < 0) {
+    return -1;
+  }
+  return __arc_fs_conf(&buf, name);
+}
+
 int VirtualFileSystem::fstat(int fd, struct stat* out) {
   base::AutoLock lock(mutex_);
   ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
@@ -875,6 +900,18 @@ int VirtualFileSystem::fstat(int fd, struct stat* out) {
     FillPermissionInfoToStat(stream->permission(), out);
   }
   return result;
+}
+
+int VirtualFileSystem::fstatfs(int fd, struct statfs* out) {
+  base::AutoLock lock(mutex_);
+  ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
+
+  scoped_refptr<FileStream> stream = fd_to_stream_->GetStream(fd);
+  if (!stream) {
+    errno = EBADF;
+    return -1;
+  }
+  return stream->fstatfs(out);
 }
 
 int VirtualFileSystem::lstat(const std::string& pathname, struct stat* out) {

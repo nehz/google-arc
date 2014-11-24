@@ -259,6 +259,10 @@ int NaClManifestFile::fstat(struct stat* out) {
   return 0;
 }
 
+int NaClManifestFile::fstatfs(struct statfs* out) {
+  return DoStatFsForSystem(out);
+}
+
 ssize_t NaClManifestFile::write(const void* buf, size_t count) {
   errno = EINVAL;
   return -1;

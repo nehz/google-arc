@@ -58,6 +58,11 @@ class StubFileStream : public FileStream {
     out->st_mode = S_IFREG | 0777;
     return 0;
   }
+  virtual int fstatfs(struct statfs* out) OVERRIDE {
+    memset(out, 0, sizeof *out);
+    out->f_type = TMPFS_MAGIC;
+    return 0;
+  }
 };
 
 // A stub/fake-ish implementation of FileSystemHandler. This class maintains
@@ -268,6 +273,7 @@ class FileSystemPathTest
   DECLARE_BACKGROUND_TEST(TestFstat);
   DECLARE_BACKGROUND_TEST(TestFstatBadFD);
   DECLARE_BACKGROUND_TEST(TestFstatClosedFD);
+  DECLARE_BACKGROUND_TEST(TestFstatfs);
   DECLARE_BACKGROUND_TEST(TestFtruncateNegative);
   DECLARE_BACKGROUND_TEST(TestFtruncateBadFD);
   DECLARE_BACKGROUND_TEST(TestFtruncateClosedFD);
@@ -595,6 +601,19 @@ TEST_BACKGROUND_F(FileSystemPathTest, TestFstatClosedFD) {
   EXPECT_EQ(0, file_system_->close(fd));
   struct stat st;
   EXPECT_ERROR(file_system_->fstat(fd, &st), EBADF);
+}
+
+TEST_BACKGROUND_F(FileSystemPathTest, TestFstatfs) {
+  handler_.AddStream("/test.file", new StubFileStream);
+  int fd = file_system_->open("/test.file", O_RDONLY, 0);
+  struct statfs st = {};
+
+  errno = 0;
+  EXPECT_EQ(0, file_system_->fstatfs(fd, &st));
+  // Verify that StubFileStream::fstatfs() is called.
+  EXPECT_EQ(uint32_t(TMPFS_MAGIC), st.f_type);
+  EXPECT_EQ(0, errno);
+  EXPECT_EQ(0, file_system_->close(fd));
 }
 
 TEST_BACKGROUND_F(FileSystemPathTest, TestFtruncateNegative) {

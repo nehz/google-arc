@@ -11,6 +11,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "common/alog.h"
 #include "posix_translation/directory_file_stream.h"
+#include "posix_translation/statfs.h"
 #include "posix_translation/virtual_file_system.h"
 
 namespace posix_translation {
@@ -162,6 +163,11 @@ int FileStream::fdatasync() {
 int FileStream::fstat(struct stat* out) {
   memset(out, 0, sizeof(struct stat));
   return 0;
+}
+
+int FileStream::fstatfs(struct statfs* out) {
+  // Best effort guess.
+  return DoStatFsForData(out);
 }
 
 int FileStream::fsync() {

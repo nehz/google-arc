@@ -37,7 +37,7 @@ class DirectoryFileStream : public FileStream {
   // If permission bits of out->st_mode are not set in a handler,
   // VirtualFileSystem will set the bits based of its file type.
   virtual int fstat(struct stat* out) OVERRIDE;
-
+  virtual int fstatfs(struct statfs* out) OVERRIDE;
   virtual int ftruncate(off64_t length) OVERRIDE;
   virtual off64_t lseek(off64_t offset, int whence) OVERRIDE;
   virtual ssize_t read(void* buf, size_t count) OVERRIDE;

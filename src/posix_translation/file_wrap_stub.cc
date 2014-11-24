@@ -49,14 +49,6 @@ extern "C" ARC_EXPORT int __wrap_flock(int fd, int operation) {
   ARC_STRACE_RETURN(0);
 }
 
-extern "C" ARC_EXPORT int __wrap_fstatfs(int fd, struct statfs* buf) {
-  ARC_STRACE_ENTER_FD("fstatfs", "%d, %p", fd, buf);
-  DANGERF("fstatfs: fd=%d buf=%p", fd, buf);
-  ALOG_ASSERT(0);
-  errno = ENOSYS;
-  ARC_STRACE_RETURN(-1);
-}
-
 extern "C" ARC_EXPORT int __wrap_lchown(
     const char* path, uid_t owner, gid_t group) {
   ARC_STRACE_ENTER("lchown", "\"%s\", %u, %u",

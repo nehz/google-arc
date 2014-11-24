@@ -95,9 +95,12 @@ ARC_EXPORT int __wrap_dlclose(void* handle);
 ARC_EXPORT void* __wrap_dlopen(const char* filename, int flag);
 ARC_EXPORT void* __wrap_dlsym(void* handle, const char* symbol);
 ARC_EXPORT DIR* __wrap_fdopendir(int fd);
+ARC_EXPORT int __wrap_fstatfs(int fd, struct statfs* buf);
+ARC_EXPORT long __wrap_fpathconf(int fd, int name);  // NOLINT
 ARC_EXPORT char* __wrap_getcwd(char* buf, size_t size);
 ARC_EXPORT int __wrap_open(const char* pathname, int flags, ...);
 ARC_EXPORT DIR* __wrap_opendir(const char* name);
+ARC_EXPORT long __wrap_pathconf(const char* path, int name);  // NOLINT
 ARC_EXPORT struct dirent* __wrap_readdir(DIR* dirp);
 ARC_EXPORT int __wrap_readdir_r(
     DIR* dirp, struct dirent* entry,
@@ -355,6 +358,35 @@ DIR* __wrap_fdopendir(int fd) {
   ARC_STRACE_ENTER_FD("fdopendir", "%d", fd);
   DIR* dirp = fdopendir(fd);
   ARC_STRACE_RETURN_PTR(dirp, !dirp);
+}
+
+int __wrap_fstatfs(int fd, struct statfs* buf) {
+  ARC_STRACE_ENTER_FD("fstatfs", "%d, %p", fd, buf);
+  int result = 0;
+  VirtualFileSystem* file_system = GetFileSystem();
+  if (file_system)
+    result = file_system->fstatfs(fd, buf);
+  else
+    result = fstatfs(fd, buf);
+  ARC_STRACE_RETURN(result);
+}
+
+long __wrap_fpathconf(int fd, int name) {  // NOLINT
+  // TODO(halyavin): print a user-friendly |name| description.
+  ARC_STRACE_ENTER_FD("fpathconf", "%d, %d", fd, name);
+  VirtualFileSystem* file_system = GetFileSystem();
+  int old_errno = errno;
+  errno = 0;
+  int result = -1;
+  if (file_system)
+    result = file_system->fpathconf(fd, name);
+  else
+    errno = ENOSYS;
+  if (errno != 0) {
+    ARC_STRACE_RETURN_INT(result, true);
+  }
+  errno = old_errno;
+  ARC_STRACE_RETURN_INT(result, false);
 }
 
 char* __wrap_getcwd(char* buf, size_t size) {
@@ -1083,6 +1115,24 @@ int __wrap_munmap(void* addr, size_t length) {
     arc::MemoryMappingBacktraceMap::GetInstance()->Unmap(addr, length);
 #endif
   ARC_STRACE_RETURN(result);
+}
+
+long __wrap_pathconf(const char* path, int name) {  // NOLINT
+  // TODO(halyavin): print a user-friendly |name| description.
+  ARC_STRACE_ENTER("pathconf", "\"%s\", %d", SAFE_CSTR(path), name);
+  VirtualFileSystem* file_system = GetFileSystem();
+  int old_errno = errno;
+  errno = 0;
+  int result = -1;
+  if (file_system)
+    result = file_system->pathconf(path, name);
+  else
+    errno = ENOSYS;
+  if (errno != 0) {
+    ARC_STRACE_RETURN_INT(result, true);
+  }
+  errno = old_errno;
+  ARC_STRACE_RETURN_INT(result, false);
 }
 
 int __wrap_poll(struct pollfd* fds, nfds_t nfds, int timeout) {

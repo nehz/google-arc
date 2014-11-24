@@ -80,6 +80,7 @@ class NaClManifestFile : public PassthroughStream {
                    const struct stat& st, NaClManifestFileHandler* handler);
 
   virtual int fstat(struct stat* out) OVERRIDE;
+  virtual int fstatfs(struct statfs* out) OVERRIDE;
   virtual ssize_t write(const void* buf, size_t count) OVERRIDE;
 
   virtual const char* GetStreamType() const OVERRIDE;

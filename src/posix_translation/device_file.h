@@ -51,6 +51,7 @@ class DeviceStream : public FileStream {
  public:
   virtual int fdatasync() OVERRIDE;
   virtual int fsync() OVERRIDE;
+  virtual int fstatfs(struct statfs* buf) OVERRIDE;
 
  protected:
   DeviceStream(int oflag, const std::string& pathname);

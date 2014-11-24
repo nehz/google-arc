@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <sys/vfs.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -63,6 +64,7 @@ class FileStream : public base::RefCounted<FileStream> {
   virtual int fcntl(int cmd, va_list ap);
   virtual int fdatasync();
   virtual int fstat(struct stat* out);
+  virtual int fstatfs(struct statfs* out);
   virtual int fsync();
   virtual int ftruncate(off64_t length);
   virtual int getdents(dirent* buf, size_t count);

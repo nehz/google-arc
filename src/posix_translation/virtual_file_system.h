@@ -102,8 +102,10 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
                  int timeout);
   int fcntl(int fd, int cmd, va_list ap);
   int fdatasync(int fd);
+  int fpathconf(int fd, int name);
   void freeaddrinfo(addrinfo* ai);
   int fstat(int fd, struct stat* out);
+  int fstatfs(int fd, struct statfs* out);
   int fsync(int fd);
   int ftruncate(int fd, off64_t length);
   int getaddrinfo(const char* hostname, const char* servname,
@@ -142,6 +144,7 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   int munmap(void* addr, size_t length);
   int open(const std::string& pathname, int oflag,
            mode_t cmode);
+  int pathconf(const std::string& pathname, int name);
   int pipe2(int pipefd[2], int flags);
   int poll(struct pollfd* fds, nfds_t nfds, int timeout);
   ssize_t pread(int fd, void* buf, size_t count,

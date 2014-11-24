@@ -46,6 +46,10 @@ class CpuInfoFile : public ReadonlyMemoryFile {
     return content_;
   }
 
+  virtual int fstatfs(struct statfs* buf) OVERRIDE {
+    return DoStatFsForProc(buf);
+  }
+
   // Updates |content_| when needed.
   void UpdateContent() {
     // The cpuinfo file should be generated based on the number of online

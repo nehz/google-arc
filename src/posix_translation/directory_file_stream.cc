@@ -70,6 +70,10 @@ int DirectoryFileStream::fstat(struct stat* out) {
   return 0;
 }
 
+int DirectoryFileStream::fstatfs(struct statfs* out) {
+  return pathhandler_->statfs(pathname(), out);
+}
+
 // getdents returns the number of bytes read, meaning it should
 // always return a multiple of sizeof(dirent) or -1 in case of error.
 int DirectoryFileStream::getdents(dirent* buf, size_t count_bytes) {

@@ -60,6 +60,10 @@ int DeviceStream::fsync() {
   return -1;
 }
 
+int DeviceStream::fstatfs(struct statfs* buf) {
+  return DoStatFsForDev(buf);
+}
+
 DeviceStream::DeviceStream(int oflag, const std::string& pathname)
     : FileStream(oflag, pathname) {
 }
