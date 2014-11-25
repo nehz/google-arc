@@ -44,7 +44,6 @@
 #include "common/process_emulator.h"
 #include "common/thread_local.h"
 #include "common/trace_event.h"
-#include "posix_translation/libc_dispatch_table.h"
 #include "posix_translation/virtual_file_system.h"
 
 // A macro to wrap an IRT function. Note that the macro does not wrap IRT
@@ -85,12 +84,13 @@
 // functions because both could be called.
 
 extern "C" {
-// sorted by syscall name.
+// sorted by function name.
 ARC_EXPORT int __wrap_access(const char* pathname, int mode);
 ARC_EXPORT int __wrap_chdir(const char* path);
 ARC_EXPORT int __wrap_chown(const char* path, uid_t owner, gid_t group);
 ARC_EXPORT int __wrap_closedir(DIR* dirp);
 ARC_EXPORT int __wrap_dirfd(DIR* dirp);
+ARC_EXPORT int __wrap_dladdr(const void* addr, Dl_info* info);
 ARC_EXPORT int __wrap_dlclose(void* handle);
 ARC_EXPORT void* __wrap_dlopen(const char* filename, int flag);
 ARC_EXPORT void* __wrap_dlsym(void* handle, const char* symbol);
@@ -143,7 +143,7 @@ ARC_EXPORT ssize_t __wrap_pwrite64(
     int fd, const void* buf, size_t count, off64_t offset);
 ARC_EXPORT int __wrap_truncate64(const char* path, off64_t length);
 
-// sorted by syscall name.
+// sorted by function name.
 ARC_EXPORT int __wrap_close(int fd);
 ARC_EXPORT int __wrap_creat(const char* pathname, mode_t mode);
 ARC_EXPORT int __wrap_fcntl(int fd, int cmd, ...);
@@ -163,16 +163,12 @@ ARC_EXPORT ssize_t __wrap_readv(int fd, const struct iovec* iov, int iovcnt);
 ARC_EXPORT ssize_t __wrap_write(int fd, const void* buf, size_t count);
 ARC_EXPORT ssize_t __wrap_writev(int fd, const struct iovec* iov, int iovcnt);
 
-static int real_close(int fd);
-static int real_fstat(int fd, struct stat *buf);
-static char* real_getcwd(char *buf, size_t size);
-static off64_t real_lseek64(int fd, off64_t offset, int whence);
-static int real_lstat(const char *pathname, struct stat *buf);
-static int real_mkdir(const char *pathname, mode_t mode);
-static int real_open(const char *pathname, int oflag, mode_t cmode);
-static ssize_t real_read(int fd, void *buf, size_t count);
-static int real_stat(const char *pathname, struct stat *buf);
-static ssize_t real_write(int fd, const void *buf, size_t count);
+int real_close(int fd);
+int real_fstat(int fd, struct stat* buf);
+off64_t real_lseek64(int fd, off64_t offset, int whence);
+int real_open(const char* pathname, int oflag, mode_t cmode);
+ssize_t real_read(int fd, void* buf, size_t count);
+ssize_t real_write(int fd, const void* buf, size_t count);
 }  // extern "C"
 
 using posix_translation::VirtualFileSystem;
@@ -226,41 +222,16 @@ const char* StripSystemLibPrefix(const char* path) {
       path : path + sizeof(kSystemLib) - 1;
 }
 
-// Controls syscall interception. If set to true, file syscalls are just passed
-// through to libc.
-//
-// A mutex lock is not necessary here since |g_pass_through_enabled| is set by
-// the main thread before the first pthread_create() call is made. It is ensured
-// that a non-main thread can see correct |g_pass_through_enabled| value because
-// pthread_create() call to create the thread itself is a memory barrier.
-//
-// TODO(crbug.com/423063): We should be able to remove this after
-// libwrap/libposix_translation merge is finished.
-bool g_pass_through_enabled = false;
-
-VirtualFileSystem* GetFileSystem() {
-  if (g_pass_through_enabled) {
-    return NULL;
-  }
-  return VirtualFileSystem::GetVirtualFileSystem();
-}
-
 }  // namespace
 
-// sorted by syscall name.
+// sorted by function name.
 
 int __wrap_access(const char* pathname, int mode) {
   ARC_STRACE_ENTER("access", "\"%s\", %s",
                    SAFE_CSTR(pathname),
                    arc::GetAccessModeStr(mode).c_str());
-  int result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system) {
-    result = file_system->access(pathname, mode);
-  } else {
-    std::string newpath(pathname);
-    result = access(newpath.c_str(), mode);
-  }
+  int result = VirtualFileSystem::GetVirtualFileSystem()->access(
+      pathname, mode);
   if (result == -1 && errno != ENOENT) {
     DANGERF("path=%s mode=%d: %s",
             SAFE_CSTR(pathname), mode, safe_strerror(errno).c_str());
@@ -270,25 +241,14 @@ int __wrap_access(const char* pathname, int mode) {
 
 int __wrap_chdir(const char* path) {
   ARC_STRACE_ENTER("chdir", "\"%s\"", SAFE_CSTR(path));
-  int result = -1;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system) {
-    result = file_system->chdir(path);
-  } else {
-    DANGERF("chdir: not supported");
-    errno = ENOSYS;
-  }
+  int result = VirtualFileSystem::GetVirtualFileSystem()->chdir(path);
   ARC_STRACE_RETURN(result);
 }
 
 int __wrap_chown(const char* path, uid_t owner, gid_t group) {
   ARC_STRACE_ENTER("chown", "\"%s\", %u, %u", SAFE_CSTR(path), owner, group);
-  int result = -1;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->chown(path, owner, group);
-  else
-    errno = ENOSYS;
+  int result = VirtualFileSystem::GetVirtualFileSystem()->chown(
+      path, owner, group);
   ARC_STRACE_RETURN(result);
 }
 
@@ -306,6 +266,21 @@ int __wrap_dirfd(DIR* dirp) {
   ARC_STRACE_RETURN(result);
 }
 
+// Wrap this just for ARC strace.
+int __wrap_dladdr(const void* addr, Dl_info* info) {
+  ARC_STRACE_ENTER("dladdr", "%p, %p", addr, info);
+  const int result = dladdr(addr, info);
+  if (result && info) {  // dladdr returns 0 on error.
+    ARC_STRACE_REPORT(
+        "info={dli_fname=\"%s\" dli_fbase=%p dli_sname=\"%s\" dli_saddr=%p}",
+        SAFE_CSTR(info->dli_fname), info->dli_fbase,
+        SAFE_CSTR(info->dli_sname), info->dli_saddr);
+  }
+  // false since dladdr never sets errno.
+  ARC_STRACE_RETURN_INT(result, false);
+}
+
+// Wrap this just for ARC strace.
 int __wrap_dlclose(void* handle) {
   ARC_STRACE_ENTER("dlclose", "%p \"%s\"",
                    handle, arc::GetDlsymHandleStr(handle).c_str());
@@ -320,7 +295,8 @@ void* __wrap_dlopen(const char* filename, int flag) {
   ARC_STRACE_ENTER("dlopen", "\"%s\", %s",
                    SAFE_CSTR(filename),
                    arc::GetDlopenFlagStr(flag).c_str());
-  // dlopen is known to be slow under NaCl.
+  // dlopen is implemented on top of the open_resource IRT which can be
+  // very slow e.g. when either renderer or browser process is busy.
   TRACE_EVENT2(ARC_TRACE_CATEGORY, "wrap_dlopen",
                "filename", TRACE_STR_COPY(SAFE_CSTR(filename)),
                "flag", flag);
@@ -343,6 +319,7 @@ void* __wrap_dlopen(const char* filename, int flag) {
   ARC_STRACE_RETURN_PTR(result, false);
 }
 
+// Wrap this just for ARC strace.
 void* __wrap_dlsym(void* handle, const char* symbol) {
   ARC_STRACE_ENTER("dlsym", "%p \"%s\", \"%s\"",
                    handle,
@@ -362,26 +339,16 @@ DIR* __wrap_fdopendir(int fd) {
 
 int __wrap_fstatfs(int fd, struct statfs* buf) {
   ARC_STRACE_ENTER_FD("fstatfs", "%d, %p", fd, buf);
-  int result = 0;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->fstatfs(fd, buf);
-  else
-    result = fstatfs(fd, buf);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->fstatfs(fd, buf);
   ARC_STRACE_RETURN(result);
 }
 
 long __wrap_fpathconf(int fd, int name) {  // NOLINT
   // TODO(halyavin): print a user-friendly |name| description.
   ARC_STRACE_ENTER_FD("fpathconf", "%d, %d", fd, name);
-  VirtualFileSystem* file_system = GetFileSystem();
   int old_errno = errno;
   errno = 0;
-  int result = -1;
-  if (file_system)
-    result = file_system->fpathconf(fd, name);
-  else
-    errno = ENOSYS;
+  int result = VirtualFileSystem::GetVirtualFileSystem()->fpathconf(fd, name);
   if (errno != 0) {
     ARC_STRACE_RETURN_INT(result, true);
   }
@@ -391,28 +358,18 @@ long __wrap_fpathconf(int fd, int name) {  // NOLINT
 
 char* __wrap_getcwd(char* buf, size_t size) {
   ARC_STRACE_ENTER("getcwd", "%p, %zu", buf, size);
-  char* result = NULL;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->getcwd(buf, size);
-  else
-    result = real_getcwd(buf, size);
+  char* result = VirtualFileSystem::GetVirtualFileSystem()->getcwd(buf, size);
   ARC_STRACE_REPORT("result=\"%s\"", SAFE_CSTR(result));
   ARC_STRACE_RETURN_PTR(result, false);
 }
 
-extern "C" {
 IRT_WRAPPER(getdents, int fd, struct dirent* dirp, size_t count,
             size_t* nread) {
   // We intentionally use Bionic's dirent instead of NaCl's. See
   // bionic/libc/arch-nacl/syscalls/getdents.c for detail.
   ARC_STRACE_ENTER_FD("getdents", "%d, %p, %u, %p", fd, dirp, count, nread);
-  int result = -1;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->getdents(fd, dirp, count);
-  else
-    errno = ENOSYS;
+  int result = VirtualFileSystem::GetVirtualFileSystem()->getdents(
+      fd, dirp, count);
   if (result >= 0) {
     *nread = result;
     ARC_STRACE_REPORT("nread=\"%zu\"", *nread);
@@ -423,20 +380,12 @@ IRT_WRAPPER(getdents, int fd, struct dirent* dirp, size_t count,
 IRT_WRAPPER(getcwd, char* buf, size_t size) {
   return __wrap_getcwd(buf, size) ? 0 : errno;
 }
-}  // extern "C"
 
 IRT_WRAPPER(lstat, const char* path, struct nacl_abi_stat* buf) {
   ARC_STRACE_ENTER("lstat", "\"%s\", %p",
                    SAFE_CSTR(path), buf);
-  int result;
   struct stat st;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system) {
-    result = file_system->lstat(path, &st);
-  } else {
-    std::string newpath(path);
-    result = real_lstat(newpath.c_str(), &st);
-  }
+  int result = VirtualFileSystem::GetVirtualFileSystem()->lstat(path, &st);
   if (result == -1) {
     if (errno != ENOENT) {
       DANGERF("path=%s: %s", SAFE_CSTR(path), safe_strerror(errno).c_str());
@@ -450,12 +399,7 @@ IRT_WRAPPER(lstat, const char* path, struct nacl_abi_stat* buf) {
 
 IRT_WRAPPER(mkdir, const char* pathname, mode_t mode) {
   ARC_STRACE_ENTER("mkdir", "\"%s\", 0%o", SAFE_CSTR(pathname), mode);
-  int result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->mkdir(pathname, mode);
-  else
-    result = real_mkdir(pathname, mode);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->mkdir(pathname, mode);
   if (result == -1 && errno != EEXIST) {
     DANGERF("path=%s mode=%d: %s",
             SAFE_CSTR(pathname), mode, safe_strerror(errno).c_str());
@@ -482,20 +426,17 @@ int __wrap_open(const char* pathname, int flags, ...) {
   ARC_STRACE_ENTER("open", "\"%s\", %s, 0%o",
                    SAFE_CSTR(pathname),
                    arc::GetOpenFlagStr(flags).c_str(), mode);
-  int fd = -1;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system &&
-      arc::IsStaticallyLinkedSharedObject(StripSystemLibPrefix(pathname))) {
+  int fd;
+  if (arc::IsStaticallyLinkedSharedObject(StripSystemLibPrefix(pathname))) {
     // CtsSecurityTest verifies some libraries are ELF format. To pass that
     // check, returns FD of runnable-ld.so instead.
     // TODO(crbug.com/400947): Remove this temporary hack once we have stopped
     //                         converting shared objects to archives.
     ALOGE("open is called for %s. Opening runnable-ld.so instead.", pathname);
-    fd = file_system->open("/system/lib/runnable-ld.so", flags, mode);
-  } else if (file_system) {
-    fd = file_system->open(pathname, flags, mode);
+    fd = VirtualFileSystem::GetVirtualFileSystem()->open(
+        "/system/lib/runnable-ld.so", flags, mode);
   } else {
-    fd = real_open(pathname, flags, mode);
+    fd = VirtualFileSystem::GetVirtualFileSystem()->open(pathname, flags, mode);
   }
   if (fd == -1 && errno != ENOENT) {
     DANGERF("pathname=%s flags=%d: %s",
@@ -530,12 +471,8 @@ int __wrap_readdir_r(DIR* dirp, struct dirent* entry, struct dirent** ents) {
 ssize_t __wrap_readlink(const char* path, char* buf, size_t bufsiz) {
   ARC_STRACE_ENTER("readlink", "\"%s\", %p, %zu",
                    SAFE_CSTR(path), buf, bufsiz);
-  ssize_t result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->readlink(path, buf, bufsiz);
-  else
-    result = readlink(path, buf, bufsiz);
+  ssize_t result = VirtualFileSystem::GetVirtualFileSystem()->readlink(
+      path, buf, bufsiz);
   if (result == -1) {
     DANGERF("path=%s bufsiz=%zu: %s",
             SAFE_CSTR(path), bufsiz, safe_strerror(errno).c_str());
@@ -545,12 +482,8 @@ ssize_t __wrap_readlink(const char* path, char* buf, size_t bufsiz) {
 
 char* __wrap_realpath(const char* path, char* resolved_path) {
   ARC_STRACE_ENTER("realpath", "\"%s\", %p", SAFE_CSTR(path), resolved_path);
-  char* result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->realpath(path, resolved_path);
-  else
-    result = realpath(path, resolved_path);
+  char* result = VirtualFileSystem::GetVirtualFileSystem()->realpath(
+      path, resolved_path);
   if (!result) {
     DANGERF("path=%s resolved_path=%p: %s",
             SAFE_CSTR(path), resolved_path, safe_strerror(errno).c_str());
@@ -560,12 +493,7 @@ char* __wrap_realpath(const char* path, char* resolved_path) {
 
 int __wrap_remove(const char* pathname) {
   ARC_STRACE_ENTER("remove", "\"%s\"", SAFE_CSTR(pathname));
-  int result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->remove(pathname);
-  else
-    result = remove(pathname);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->remove(pathname);
   if (result == -1 && errno != ENOENT)
     DANGERF("path=%s: %s", SAFE_CSTR(pathname), safe_strerror(errno).c_str());
   ARC_STRACE_RETURN(result);
@@ -574,12 +502,8 @@ int __wrap_remove(const char* pathname) {
 int __wrap_rename(const char* oldpath, const char* newpath) {
   ARC_STRACE_ENTER("rename", "\"%s\", \"%s\"",
                    SAFE_CSTR(oldpath), SAFE_CSTR(newpath));
-  int result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->rename(oldpath, newpath);
-  else
-    result = rename(oldpath, newpath);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->rename(
+      oldpath, newpath);
   if (result == -1) {
     DANGERF("oldpath=%s newpath=%s: %s",
             SAFE_CSTR(oldpath), SAFE_CSTR(newpath),
@@ -608,12 +532,8 @@ int __wrap_scandir(
 
 int __wrap_statfs(const char* pathname, struct statfs* stat) {
   ARC_STRACE_ENTER("statfs", "\"%s\", %p", SAFE_CSTR(pathname), stat);
-  int result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->statfs(pathname, stat);
-  else
-    result = statfs(pathname, stat);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->statfs(
+      pathname, stat);
   if (result == -1 && errno != ENOENT)
     DANGERF("path=%s: %s", SAFE_CSTR(pathname), safe_strerror(errno).c_str());
   ARC_STRACE_REPORT(
@@ -638,12 +558,8 @@ int __wrap_statfs(const char* pathname, struct statfs* stat) {
 
 int __wrap_statvfs(const char* pathname, struct statvfs* stat) {
   ARC_STRACE_ENTER("statvfs", "\"%s\", %p", SAFE_CSTR(pathname), stat);
-  int result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->statvfs(pathname, stat);
-  else
-    result = statvfs(pathname, stat);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->statvfs(
+      pathname, stat);
   ARC_STRACE_REPORT(
       "stat={bsize=%llu frsize=%llu blocks=%llu bfree=%llu bavail=%llu "
       "files=%llu ffree=%llu favail=%llu fsid=%llu flag=%llu namemax=%llu}",
@@ -664,14 +580,7 @@ int __wrap_statvfs(const char* pathname, struct statvfs* stat) {
 int __wrap_symlink(const char* oldp, const char* newp) {
   ARC_STRACE_ENTER("symlink", "\"%s\", \"%s\"",
                    SAFE_CSTR(oldp), SAFE_CSTR(newp));
-  int result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system) {
-    result = file_system->symlink(oldp, newp);
-  } else {
-    errno = EPERM;
-    result = -1;
-  }
+  int result = VirtualFileSystem::GetVirtualFileSystem()->symlink(oldp, newp);
   if (!result)
     ALOGE("Added a non-persistent symlink from %s to %s", newp, oldp);
   ARC_STRACE_RETURN(result);
@@ -681,12 +590,8 @@ template <typename OffsetType>
 static int TruncateImpl(const char* pathname, OffsetType length) {
   ARC_STRACE_ENTER("truncate", "\"%s\", %lld",
                    SAFE_CSTR(pathname), static_cast<int64_t>(length));
-  int result = -1;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->truncate(pathname, length);
-  else
-    errno = ENOSYS;
+  int result = VirtualFileSystem::GetVirtualFileSystem()->truncate(
+      pathname, length);
   if (result == -1) {
     DANGERF("path=%s length=%lld: %s",
             SAFE_CSTR(pathname), static_cast<int64_t>(length),
@@ -705,12 +610,7 @@ int __wrap_truncate64(const char* pathname, off64_t length) {
 
 int __wrap_unlink(const char* pathname) {
   ARC_STRACE_ENTER("unlink", "\"%s\"", SAFE_CSTR(pathname));
-  int result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->unlink(pathname);
-  else
-    result = unlink(pathname);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->unlink(pathname);
   if (result == -1 && errno != ENOENT)
     DANGERF("path=%s: %s", SAFE_CSTR(pathname), safe_strerror(errno).c_str());
   ARC_STRACE_RETURN(result);
@@ -718,14 +618,8 @@ int __wrap_unlink(const char* pathname) {
 
 int __wrap_utimes(const char* filename, const struct timeval times[2]) {
   ARC_STRACE_ENTER("utimes", "\"%s\", %p", SAFE_CSTR(filename), times);
-  int result = 0;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system) {
-    result = file_system->utimes(filename, times);
-  } else {
-    DANGERF("utimes: filename=%s times=%p", SAFE_CSTR(filename), times);
-    // NB: Returning -1 breaks some NDK apps.
-  }
+  int result = VirtualFileSystem::GetVirtualFileSystem()->utimes(
+      filename, times);
   if (result == -1 && errno != ENOENT) {
     DANGERF("path=%s: %s",
             SAFE_CSTR(filename), safe_strerror(errno).c_str());
@@ -735,13 +629,8 @@ int __wrap_utimes(const char* filename, const struct timeval times[2]) {
 
 IRT_WRAPPER(stat, const char* pathname, struct nacl_abi_stat* buf) {
   ARC_STRACE_ENTER("stat", "\"%s\", %p", SAFE_CSTR(pathname), buf);
-  int result;
   struct stat st;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->stat(pathname, &st);
-  else
-    result = real_stat(pathname, &st);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->stat(pathname, &st);
   if (result == -1) {
     if (errno != ENOENT) {
       DANGERF("path=%s: %s", SAFE_CSTR(pathname), safe_strerror(errno).c_str());
@@ -755,12 +644,7 @@ IRT_WRAPPER(stat, const char* pathname, struct nacl_abi_stat* buf) {
 
 int __wrap_close(int fd) {
   ARC_STRACE_ENTER_FD("close", "%d", fd);
-  int result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->close(fd);
-  else
-    result = real_close(fd);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->close(fd);
   if (result == -1) {
     // Closing with a bad file descriptor may be indicating a double
     // close, which is more dangerous than it seems since everything
@@ -781,27 +665,15 @@ int __wrap_close(int fd) {
 
 int __wrap_creat(const char* pathname, mode_t mode) {
   ARC_STRACE_ENTER("creat", "\"%s\", 0%o", SAFE_CSTR(pathname), mode);
-  int result = -1;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system) {
-    result = file_system->open(pathname, O_CREAT | O_WRONLY | O_TRUNC,
-                                        mode);
-  } else {
-    errno = ENOSYS;
-  }
+  int result = VirtualFileSystem::GetVirtualFileSystem()->open(
+      pathname, O_CREAT | O_WRONLY | O_TRUNC, mode);
   ARC_STRACE_REGISTER_FD(result, SAFE_CSTR(pathname));
   ARC_STRACE_RETURN(result);
 }
 
 IRT_WRAPPER(dup, int oldfd, int* newfd) {
   ARC_STRACE_ENTER_FD("dup", "%d", oldfd);
-  int fd = -1;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system) {
-    fd = file_system->dup(oldfd);
-  } else {
-    fd = dup(oldfd);
-  }
+  int fd = VirtualFileSystem::GetVirtualFileSystem()->dup(oldfd);
   if (fd == -1)
     DANGERF("oldfd=%d: %s", oldfd, safe_strerror(errno).c_str());
   *newfd = fd;
@@ -810,14 +682,7 @@ IRT_WRAPPER(dup, int oldfd, int* newfd) {
 
 IRT_WRAPPER(dup2, int oldfd, int newfd) {
   ARC_STRACE_ENTER_FD("dup2", "%d, %d", oldfd, newfd);
-  int fd = -1;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system) {
-    fd = file_system->dup2(oldfd, newfd);
-  } else {
-    DANGERF("oldfd=%d newfd=%d", oldfd, newfd);
-    errno = EBADF;
-  }
+  int fd = VirtualFileSystem::GetVirtualFileSystem()->dup2(oldfd, newfd);
   if (fd == -1) {
     DANGERF("oldfd=%d newfd=%d: %s",
             oldfd, newfd, safe_strerror(errno).c_str());
@@ -831,18 +696,11 @@ int __wrap_fcntl(int fd, int cmd, ...) {
   // TODO(crbug.com/241955): Support variable args?
   ARC_STRACE_ENTER_FD("fcntl", "%d, %s, ...",
                       fd, arc::GetFcntlCommandStr(cmd).c_str());
-  int result = -1;
-  VirtualFileSystem* file_system = GetFileSystem();
 
-  if (file_system) {
-    va_list ap;
-    va_start(ap, cmd);
-    result = file_system->fcntl(fd, cmd, ap);
-    va_end(ap);
-  } else {
-    DANGER();
-    errno = EINVAL;
-  }
+  va_list ap;
+  va_start(ap, cmd);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->fcntl(fd, cmd, ap);
+  va_end(ap);
 
   if (result == -1)
     DANGERF("fd=%d cmd=%d: %s", fd, cmd, safe_strerror(errno).c_str());
@@ -851,31 +709,20 @@ int __wrap_fcntl(int fd, int cmd, ...) {
 
 int __wrap_fdatasync(int fd) {
   ARC_STRACE_ENTER_FD("fdatasync", "%d", fd);
-  int result = 0;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->fdatasync(fd);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->fdatasync(fd);
   ARC_STRACE_RETURN(result);
 }
 
 int __wrap_fsync(int fd) {
   ARC_STRACE_ENTER_FD("fsync", "%d", fd);
-  int result = 0;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->fsync(fd);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->fsync(fd);
   ARC_STRACE_RETURN(result);
 }
 
-IRT_WRAPPER(fstat, int fd, struct nacl_abi_stat *buf) {
+IRT_WRAPPER(fstat, int fd, struct nacl_abi_stat* buf) {
   ARC_STRACE_ENTER_FD("fstat", "%d, %p", fd, buf);
-  int result;
   struct stat st;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->fstat(fd, &st);
-  else
-    result = real_fstat(fd, &st);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->fstat(fd, &st);
   if (result) {
     result = errno;
     DANGERF("fd=%d: %s", fd, safe_strerror(errno).c_str());
@@ -890,12 +737,7 @@ template <typename OffsetType>
 static int FtruncateImpl(int fd, OffsetType length) {
   ARC_STRACE_ENTER_FD("ftruncate", "%d, %lld",
                       fd, static_cast<int64_t>(length));
-  int result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->ftruncate(fd, length);
-  else
-    result = ftruncate64(fd, length);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->ftruncate(fd, length);
   if (result == -1) {
     DANGERF("fd=%d length=%lld: %s", fd, static_cast<int64_t>(length),
             safe_strerror(errno).c_str());
@@ -915,14 +757,10 @@ int __wrap_ioctl(int fd, int request, ...) {
   // TODO(crbug.com/241955): Pretty-print variable args?
   ARC_STRACE_ENTER_FD("ioctl", "%d, %s, ...",
                       fd, arc::GetIoctlRequestStr(request).c_str());
-  int result = -1;
   va_list ap;
   va_start(ap, request);
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->ioctl(fd, request, ap);
-  else
-    errno = EINVAL;
+  int result = VirtualFileSystem::GetVirtualFileSystem()->ioctl(
+      fd, request, ap);
   va_end(ap);
   if (result == -1)
     DANGERF("fd=%d request=%d: %s", fd, request, safe_strerror(errno).c_str());
@@ -934,12 +772,8 @@ static OffsetType LseekImpl(int fd, OffsetType offset, int whence) {
   ARC_STRACE_ENTER_FD("lseek", "%d, %lld, %s",
                       fd, static_cast<int64_t>(offset),
                       arc::GetLseekWhenceStr(whence).c_str());
-  OffsetType result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->lseek(fd, offset, whence);
-  else
-    result = real_lseek64(fd, offset, whence);
+  OffsetType result = VirtualFileSystem::GetVirtualFileSystem()->lseek(
+      fd, offset, whence);
   if (result == -1) {
     DANGERF("fd=%d offset=%lld whence=%d: %s",
             fd, static_cast<int64_t>(offset), whence,
@@ -955,15 +789,13 @@ off64_t __wrap_lseek64(int fd, off64_t offset, int whence) {
 int __wrap_madvise(void* addr, size_t length, int advice) {
   ARC_STRACE_ENTER("madvise", "%p, %zu, %s", addr, length,
                    arc::GetMadviseAdviceStr(advice).c_str());
-  int result = -1;
   int saved_errno = errno;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->madvise(addr, length, advice);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->madvise(
+      addr, length, advice);
   if (result != 0) {
     DANGERF("errno=%d addr=%p length=%zu advice=%d: %s",
             errno, addr, length, advice, safe_strerror(errno).c_str());
-    if (!file_system || (errno == ENOSYS && advice != MADV_REMOVE)) {
+    if (errno == ENOSYS && advice != MADV_REMOVE) {
       // TODO(crbug.com/362862): Stop special-casing ENOSYS once the bug is
       // fixed.
       // Note: We should call mprotect IRT here once the IRT is supported and
@@ -1018,12 +850,8 @@ void* __wrap_mmap(
   if (flags & ~supported_flag)
     ALOGE("mmap with an unorthodox flags: %d", flags);
 
-  void* result = MAP_FAILED;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->mmap(addr, length, prot, flags, fd, offset);
-  else
-    result = mmap(addr, length, prot, flags, fd, offset);
+  void* result = VirtualFileSystem::GetVirtualFileSystem()->mmap(
+      addr, length, prot, flags, fd, offset);
 #if defined(USE_VERBOSE_MEMORY_VIEWER)
   if (result != MAP_FAILED)
     arc::MemoryMappingBacktraceMap::GetInstance()->
@@ -1074,15 +902,13 @@ int __wrap_mprotect(const void* addr, size_t len, int prot) {
   }
 #endif
 
-  int result = -1;
-  VirtualFileSystem* file_system = GetFileSystem();
   const int errno_orig = errno;
   // mprotect in Bionic defines the first argument is const void*, but
   // POSIX does it as void*. We use const void* for wrap, and use void* for
   // posix_translation.
-  if (file_system)
-    result = file_system->mprotect(const_cast<void*>(addr), len, prot);
-  if (!file_system || (result != 0 && errno == ENOSYS)) {
+  int result = VirtualFileSystem::GetVirtualFileSystem()->mprotect(
+      const_cast<void*>(addr), len, prot);
+  if (result != 0 && errno == ENOSYS) {
     // TODO(crbug.com/362862): Stop falling back to real mprotect on ENOSYS and
     // do this only for unit tests.
     ARC_STRACE_REPORT("falling back to real mprotect");
@@ -1097,12 +923,9 @@ int __wrap_munmap(void* addr, size_t length) {
   ARC_STRACE_ENTER("munmap", "%p, %zu(0x%zx)", addr, length, length);
   ARC_STRACE_REPORT("RANGE (%p-%p)",
                     addr, reinterpret_cast<char*>(addr) + length);
-  int result = -1;
-  VirtualFileSystem* file_system = GetFileSystem();
   const int errno_orig = errno;
-  if (file_system)
-    result = file_system->munmap(addr, length);
-  if (!file_system || (result != 0 && errno == ENOSYS)) {
+  int result = VirtualFileSystem::GetVirtualFileSystem()->munmap(addr, length);
+  if (result != 0 && errno == ENOSYS) {
     // TODO(crbug.com/362862): Stop falling back to real munmap on ENOSYS and
     // do this only for unit tests.
     ARC_STRACE_REPORT("falling back to real munmap");
@@ -1120,14 +943,9 @@ int __wrap_munmap(void* addr, size_t length) {
 long __wrap_pathconf(const char* path, int name) {  // NOLINT
   // TODO(halyavin): print a user-friendly |name| description.
   ARC_STRACE_ENTER("pathconf", "\"%s\", %d", SAFE_CSTR(path), name);
-  VirtualFileSystem* file_system = GetFileSystem();
   int old_errno = errno;
   errno = 0;
-  int result = -1;
-  if (file_system)
-    result = file_system->pathconf(path, name);
-  else
-    errno = ENOSYS;
+  int result = VirtualFileSystem::GetVirtualFileSystem()->pathconf(path, name);
   if (errno != 0) {
     ARC_STRACE_RETURN_INT(result, true);
   }
@@ -1145,12 +963,8 @@ int __wrap_poll(struct pollfd* fds, nfds_t nfds, int timeout) {
                         arc::GetPollEventStr(fds[i].events).c_str());
     }
   }
-  int result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->poll(fds, nfds, timeout);
-  else
-    result = poll(fds, nfds, timeout);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->poll(
+      fds, nfds, timeout);
   if (result == -1) {
     DANGERF("fds=%p nfds=%u timeout=%d[ms]: %s",
             fds, nfds, timeout, safe_strerror(errno).c_str());
@@ -1170,12 +984,8 @@ template <typename OffsetType>
 static ssize_t PreadImpl(int fd, void* buf, size_t count, OffsetType offset) {
   ARC_STRACE_ENTER_FD("pread", "%d, %p, %zu, %lld",
                       fd, buf, count, static_cast<int64_t>(offset));
-  ssize_t result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->pread(fd, buf, count, offset);
-  else
-    result = pread64(fd, buf, count, offset);
+  ssize_t result = VirtualFileSystem::GetVirtualFileSystem()->pread(
+      fd, buf, count, offset);
   if (result == -1) {
     DANGERF("fd=%d buf=%p count=%zu offset=%lld: %s",
             fd, buf, count, static_cast<int64_t>(offset),
@@ -1199,12 +1009,8 @@ static ssize_t PwriteImpl(int fd, const void* buf, size_t count,
                           OffsetType offset) {
   ARC_STRACE_ENTER_FD("pwrite", "%d, %p, %zu, %lld",
                       fd, buf, count, static_cast<int64_t>(offset));
-  ssize_t result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->pwrite(fd, buf, count, offset);
-  else
-    result = pwrite64(fd, buf, count, offset);
+  ssize_t result = VirtualFileSystem::GetVirtualFileSystem()->pwrite(
+      fd, buf, count, offset);
   if (result == -1) {
     DANGERF("fd=%d buf=%p count=%zu offset=%lld: %s",
             fd, buf, count, static_cast<int64_t>(offset),
@@ -1226,12 +1032,8 @@ ssize_t __wrap_pwrite64(int fd, const void* buf, size_t count,
 
 ssize_t __wrap_read(int fd, void* buf, size_t count) {
   ARC_STRACE_ENTER_FD("read", "%d, %p, %zu", fd, buf, count);
-  ssize_t result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->read(fd, buf, count);
-  else
-    result = real_read(fd, buf, count);
+  ssize_t result = VirtualFileSystem::GetVirtualFileSystem()->read(
+      fd, buf, count);
   if (result == -1 && errno != EAGAIN) {
     DANGERF("fd=%d buf=%p count=%zu: %s",
             fd, buf, count, safe_strerror(errno).c_str());
@@ -1244,12 +1046,8 @@ ssize_t __wrap_read(int fd, void* buf, size_t count) {
 ssize_t __wrap_readv(int fd, const struct iovec* iov, int iovcnt) {
   // TODO(crbug.com/241955): Stringify |iov|?
   ARC_STRACE_ENTER_FD("readv", "%d, %p, %d", fd, iov, iovcnt);
-  ssize_t result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->readv(fd, iov, iovcnt);
-  else
-    result = readv(fd, iov, iovcnt);
+  ssize_t result = VirtualFileSystem::GetVirtualFileSystem()->readv(
+      fd, iov, iovcnt);
   if (result == -1) {
     DANGERF("fd=%d iov=%p iovcnt=%d: %s",
             fd, iov, iovcnt, safe_strerror(errno).c_str());
@@ -1259,12 +1057,7 @@ ssize_t __wrap_readv(int fd, const struct iovec* iov, int iovcnt) {
 
 int __wrap_rmdir(const char* pathname) {
   ARC_STRACE_ENTER("rmdir", "\"%s\"", SAFE_CSTR(pathname));
-  int result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->rmdir(pathname);
-  else
-    result = rmdir(pathname);
+  int result = VirtualFileSystem::GetVirtualFileSystem()->rmdir(pathname);
   if (result == -1 && errno != ENOENT)
     DANGERF("path=%s: %s", SAFE_CSTR(pathname), safe_strerror(errno).c_str());
   ARC_STRACE_RETURN(result);
@@ -1272,12 +1065,8 @@ int __wrap_rmdir(const char* pathname) {
 
 int __wrap_utime(const char* filename, const struct utimbuf* times) {
   ARC_STRACE_ENTER("utime", "\"%s\", %p", SAFE_CSTR(filename), times);
-  int result = -1;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->utime(filename, times);
-  else
-    errno = ENOSYS;
+  int result = VirtualFileSystem::GetVirtualFileSystem()->utime(
+      filename, times);
   if (result == -1 && errno != ENOENT) {
     DANGERF("path=%s: %s",
             SAFE_CSTR(filename), safe_strerror(errno).c_str());
@@ -1299,12 +1088,8 @@ ssize_t __wrap_write(int fd, const void* buf, size_t count) {
   } else {
     ARC_STRACE_ENTER_FD("write", "%d, %p, %zu", fd, buf, count);
     g_wrap_write_nest_count.Set(wrap_write_nest_count + 1);
-    int result;
-    VirtualFileSystem* file_system = GetFileSystem();
-    if (file_system)
-      result = file_system->write(fd, buf, count);
-    else
-      result = real_write(fd, buf, count);
+    int result = VirtualFileSystem::GetVirtualFileSystem()->write(
+        fd, buf, count);
     if (errno != EFAULT)
       ARC_STRACE_REPORT("buf=%s", arc::GetRWBufStr(buf, count).c_str());
     g_wrap_write_nest_count.Set(wrap_write_nest_count);
@@ -1320,12 +1105,8 @@ ssize_t __wrap_writev(int fd, const struct iovec* iov, int iovcnt) {
   // TODO(crbug.com/241955): Output the first N bytes in |iov|.
   // TODO(crbug.com/241955): Stringify |iov|?
   ARC_STRACE_ENTER_FD("writev", "%d, %p, %d", fd, iov, iovcnt);
-  ssize_t result;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    result = file_system->writev(fd, iov, iovcnt);
-  else
-    result = writev(fd, iov, iovcnt);
+  ssize_t result = VirtualFileSystem::GetVirtualFileSystem()->writev(
+      fd, iov, iovcnt);
   if (result == -1) {
     DANGERF("fd=%d iov=%p iovcnt=%d: %s",
             fd, iov, iovcnt, safe_strerror(errno).c_str());
@@ -1335,16 +1116,10 @@ ssize_t __wrap_writev(int fd, const struct iovec* iov, int iovcnt) {
 
 mode_t __wrap_umask(mode_t mask) {
   ARC_STRACE_ENTER("umask", "0%o", mask);
-  mode_t return_umask;
-  VirtualFileSystem* file_system = GetFileSystem();
-  if (file_system)
-    return_umask = file_system->umask(mask);
-  else
-    return_umask = umask(mask);
+  mode_t return_umask = VirtualFileSystem::GetVirtualFileSystem()->umask(mask);
   ARC_STRACE_RETURN(return_umask);
 }
 
-extern "C" {
 // The following is an example call stach when close() is called:
 //
 // our_function_that_calls_close()
@@ -1364,7 +1139,7 @@ IRT_WRAPPER(close, int fd) {
 // See native_client/src/trusted/service_runtime/include/sys/fcntl.h
 #define NACL_ABI_O_SYNC 010000
 
-IRT_WRAPPER(open, const char *pathname, int oflag, mode_t cmode, int *newfd) {
+IRT_WRAPPER(open, const char* pathname, int oflag, mode_t cmode, int* newfd) {
   // |oflag| is mostly compatible between NaCl and Bionic, O_SYNC is
   // the only exception.
   int bionic_oflag = oflag;
@@ -1376,26 +1151,25 @@ IRT_WRAPPER(open, const char *pathname, int oflag, mode_t cmode, int *newfd) {
   return *newfd >= 0 ? 0 : errno;
 }
 
-IRT_WRAPPER(read, int fd, void *buf, size_t count, size_t *nread) {
+IRT_WRAPPER(read, int fd, void* buf, size_t count, size_t* nread) {
   ssize_t result = __wrap_read(fd, buf, count);
   *nread = result;
   return result >= 0 ? 0 : errno;
 }
 
-IRT_WRAPPER(seek, int fd, off64_t offset, int whence, off64_t *new_offset) {
+IRT_WRAPPER(seek, int fd, off64_t offset, int whence, off64_t* new_offset) {
   *new_offset = __wrap_lseek64(fd, offset, whence);
   return *new_offset >= 0 ? 0 : errno;
 }
 
-IRT_WRAPPER(write, int fd, const void *buf, size_t count, size_t *nwrote) {
+IRT_WRAPPER(write, int fd, const void* buf, size_t count, size_t* nwrote) {
   ssize_t result = __wrap_write(fd, buf, count);
   *nwrote = result;
   return result >= 0 ? 0 : errno;
 }
 
-// We implement IRT wrappers using __wrap_* functions. As the wrap
-// functions or posix_translation/ may call real functions, we
-// define them using real IRT interfaces.
+// We implement IRT wrappers using __wrap_* functions. As posix_translation
+// may call real functions, we define them using real IRT interfaces.
 
 int real_close(int fd) {
   ALOG_ASSERT(__nacl_irt_close_real);
@@ -1407,7 +1181,7 @@ int real_close(int fd) {
   return 0;
 }
 
-int real_fstat(int fd, struct stat *buf) {
+int real_fstat(int fd, struct stat* buf) {
   ALOG_ASSERT(__nacl_irt_fstat_real);
   struct nacl_abi_stat nacl_buf;
   int result = __nacl_irt_fstat_real(fd, &nacl_buf);
@@ -1419,38 +1193,7 @@ int real_fstat(int fd, struct stat *buf) {
   return 0;
 }
 
-char* real_getcwd(char *buf, size_t size) {
-  ALOG_ASSERT(__nacl_irt_getcwd_real);
-  // Note: If needed, you can implement it with __nacl_irt_getcwd_real in the
-  // same way as android/bionic/libc/bionic/getcwd.cpp. __nacl_irt_getcwd_real
-  // and __getcwd (in Bionic) has the same interface.
-  ALOG_ASSERT(false, "not implemented");
-  return NULL;
-}
-
-int real_lstat(const char *pathname, struct stat *buf) {
-  ALOG_ASSERT(__nacl_irt_lstat_real);
-  struct nacl_abi_stat nacl_buf;
-  int result = __nacl_irt_lstat_real(pathname, &nacl_buf);
-  if (result) {
-    errno = result;
-    return -1;
-  }
-  NaClAbiStatToStat(&nacl_buf, buf);
-  return 0;
-}
-
-int real_mkdir(const char *pathname, mode_t mode) {
-  ALOG_ASSERT(__nacl_irt_mkdir_real);
-  int result = __nacl_irt_mkdir_real(pathname, mode);
-  if (result) {
-    errno = result;
-    return -1;
-  }
-  return 0;
-}
-
-int real_open(const char *pathname, int oflag, mode_t cmode) {
+int real_open(const char* pathname, int oflag, mode_t cmode) {
   ALOG_ASSERT(__nacl_irt_open_real);
   int newfd;
   // |oflag| is mostly compatible between NaCl and Bionic, O_SYNC is
@@ -1468,7 +1211,7 @@ int real_open(const char *pathname, int oflag, mode_t cmode) {
   return newfd;
 }
 
-ssize_t real_read(int fd, void *buf, size_t count) {
+ssize_t real_read(int fd, void* buf, size_t count) {
   ALOG_ASSERT(__nacl_irt_read_real);
   size_t nread;
   int result = __nacl_irt_read_real(fd, buf, count, &nread);
@@ -1477,18 +1220,6 @@ ssize_t real_read(int fd, void *buf, size_t count) {
     return -1;
   }
   return nread;
-}
-
-int real_stat(const char *pathname, struct stat *buf) {
-  ALOG_ASSERT(__nacl_irt_stat_real);
-  struct nacl_abi_stat nacl_buf;
-  int result = __nacl_irt_stat_real(pathname, &nacl_buf);
-  if (result) {
-    errno = result;
-    return -1;
-  }
-  NaClAbiStatToStat(&nacl_buf, buf);
-  return 0;
 }
 
 off64_t real_lseek64(int fd, off64_t offset, int whence) {
@@ -1502,7 +1233,7 @@ off64_t real_lseek64(int fd, off64_t offset, int whence) {
   return nacl_offset;
 }
 
-ssize_t real_write(int fd, const void *buf, size_t count) {
+ssize_t real_write(int fd, const void* buf, size_t count) {
   ALOG_ASSERT(__nacl_irt_write_real);
   size_t nwrote;
   int result = __nacl_irt_write_real(fd, buf, count, &nwrote);
@@ -1512,7 +1243,6 @@ ssize_t real_write(int fd, const void *buf, size_t count) {
   }
   return nwrote;
 }
-}  // extern "C"
 
 namespace {
 
@@ -1528,10 +1258,9 @@ namespace arc {
 
 // The call stack gets complicated when IRT is hooked. See the comment near
 // IRT_WRAPPER(close) for more details.
-ARC_EXPORT void InitIRTHooks(bool pass_through) {
-  // This function must be called by the main thread before the first
-  // pthread_create() call is made. See the comment for g_pass_through_enabled
-  // above.
+ARC_EXPORT void InitIRTHooks() {
+  // This function must be called by the main thread before any system call
+  // is called.
   ALOG_ASSERT(!arc::ProcessEmulator::IsMultiThreaded());
 
   DO_WRAP(close);
@@ -1548,24 +1277,24 @@ ARC_EXPORT void InitIRTHooks(bool pass_through) {
   DO_WRAP(stat);
   DO_WRAP(write);
 
-  g_pass_through_enabled = pass_through;
-
   // We have replaced __nacl_irt_* above. Then, we need to inject them
   // to the Bionic loader.
   InitDlfcnInjection();
 
   SetLogWriter(direct_stderr_write);
-}
 
-// This table is exported to higher levels to define how they should dispatch
-// through to libc.
-const LibcDispatchTable g_libc_dispatch_table = {
-  real_close,
-  real_fstat,
-  real_lseek64,
-  real_open,
-  real_read,
-  real_write,
-};
+#if defined(_STLP_USE_STATIC_LIB)
+  // See mods/android/external/stlport/src/locale_impl.cpp. We initialize cin,
+  // cout, and cerr here just in case because initialization routine calls
+  // fstat(), which requires IRT wrapper setup in advance.
+  // Using these streams inside posix_translation may cause deadlock because
+  // most of VFS functions acquires mutex lock, but it is probably better than
+  // a random crash.
+  // Leaking the object is intentional. The destructor of the object calls
+  // fflush which is not allowed in POSIX translation.
+  // TODO(crbug.com/417401): Migrate to libcxx and remove this.
+  new std::ios_base::Init;
+#endif
+}
 
 }  // namespace arc

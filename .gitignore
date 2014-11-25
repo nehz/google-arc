@@ -16,6 +16,7 @@ third_party/.gclient_last_sync
 third_party/android-cts
 third_party/android-cts-media
 third_party/android-sdk
+third_party/gdb-multiarch
 third_party/nacl_sdk
 third_party/ndk
 third_party/tools/closure_linter

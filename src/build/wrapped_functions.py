@@ -17,6 +17,7 @@ def get_wrapped_functions():
                        'connect',
                        'creat',
                        'dirfd',
+                       'dladdr',
                        'dlclose',
                        'dlopen',
                        'dlsym',

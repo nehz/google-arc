@@ -41,6 +41,11 @@ arc_list="$arc_list
 libncurses5:i386
 "
 
+# 32-bit zlib1g is needed for dexdump.
+arc_list="$arc_list
+zlib1g-dev:i386
+"
+
 # python-markdown is needed to convert Markdown files to HTML.
 arc_list="$arc_list
 python-markdown

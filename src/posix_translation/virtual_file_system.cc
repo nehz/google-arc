@@ -143,15 +143,6 @@ VirtualFileSystem::VirtualFileSystem(
       mount_points_(new MountPointManager),
       host_resolver_(instance),
       abort_on_unexpected_memory_maps_(true) {
-#if defined(_STLP_USE_STATIC_LIB)
-  // See mods/android/external/stlport/src/locale_impl.cpp. Initialize cin,
-  // cout, and cerr here just in case. Using these streams inside the |mutex_|
-  // lock may cause deadlock, but it is probably better than a random crash.
-  // Leaking the object is intentional. The destructor of the object calls
-  // fflush which is not allowed in POSIX translation.
-  // TODO(crbug.com/417401): Migrate to libcxx and remove this.
-  new std::ios_base::Init;
-#endif
   ALOG_ASSERT(!file_system_);
   file_system_ = this;
 }

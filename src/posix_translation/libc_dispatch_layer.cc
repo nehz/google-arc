@@ -15,36 +15,36 @@
 #include <unistd.h>
 
 #include "common/alog.h"
-#include "posix_translation/libc_dispatch_table.h"
+
+extern "C" {
+int real_close(int fd);
+int real_fstat(int fd, struct stat* buf);
+off64_t real_lseek64(int fd, off64_t offset, int whence);
+int real_open(const char* pathname, int oflag, mode_t cmode);
+ssize_t real_read(int fd, void* buf, size_t count);
+ssize_t real_write(int fd, const void* buf, size_t count);
+}  // extern "C"
 
 namespace posix_translation {
 
-using arc::g_libc_dispatch_table;
-
 extern "C" {
 int close(int fd) {
-  ALOG_ASSERT(g_libc_dispatch_table.libc_close);
-  return g_libc_dispatch_table.libc_close(fd);
+  return real_close(fd);
 }
 int fstat(int fd, struct stat* buf) {
-  ALOG_ASSERT(g_libc_dispatch_table.libc_fstat);
-  return g_libc_dispatch_table.libc_fstat(fd, buf);
+  return real_fstat(fd, buf);
 }
 off64_t lseek64(int fd, off64_t offset, int whence) {
-  ALOG_ASSERT(g_libc_dispatch_table.libc_lseek);
-  return g_libc_dispatch_table.libc_lseek(fd, offset, whence);
+  return real_lseek64(fd, offset, whence);
 }
 int open(const char* pathname, int flags, mode_t mode) {
-  ALOG_ASSERT(g_libc_dispatch_table.libc_open);
-  return g_libc_dispatch_table.libc_open(pathname, flags, mode);
+  return real_open(pathname, flags, mode);
 }
 ssize_t read(int fd, void* buf, size_t count) {
-  ALOG_ASSERT(g_libc_dispatch_table.libc_read);
-  return g_libc_dispatch_table.libc_read(fd, buf, count);
+  return real_read(fd, buf, count);
 }
 ssize_t write(int fd, const void* buf, size_t count) {
-  ALOG_ASSERT(g_libc_dispatch_table.libc_write);
-  return g_libc_dispatch_table.libc_write(fd, buf, count);
+  return real_write(fd, buf, count);
 }
 
 // These FILE* functions are referenced in libchromium_base.a. For example,

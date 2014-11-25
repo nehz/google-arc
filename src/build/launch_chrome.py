@@ -75,12 +75,12 @@ def _kill_running_chrome():
     return
 
   try:
-    if OPTIONS.is_nacl_build():
-      # For now use sigkill, as NaCl's debug stub seems to cause sigterm to
-      # be ignored.
-      os.kill(pid, signal.SIGKILL)
-    else:
-      os.kill(pid, signal.SIGTERM)
+    # Use SIGKILL instead of more graceful signals, as Chrome's
+    # behavior for other signals are not well defined nor
+    # tested. Actually, we cannot kill Chrome with NaCl's debug stub
+    # enabled by SIGTERM. Also, there was a similar issue in Bare
+    # Metal mode with M39 Chrome. See crbug.com/433967.
+    os.kill(pid, signal.SIGKILL)
 
     # Unfortunately, there is no convenient API to wait subprocess's
     # termination with timeout. So, here we just poll it.
