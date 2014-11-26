@@ -19,24 +19,30 @@
 #endif
 
 /* from bits/fcntl.h */
-#define NACL_ABI_O_ACCMODE     0003
-#define NACL_ABI_O_RDONLY        00
-#define NACL_ABI_O_WRONLY        01
-#define NACL_ABI_O_RDWR          02
+#define NACL_ABI_O_ACCMODE       0003
+#define NACL_ABI_O_RDONLY          00
+#define NACL_ABI_O_WRONLY          01
+#define NACL_ABI_O_RDWR            02
 
-#define NACL_ABI_O_CREAT       0100 /* not fcntl */
-#define NACL_ABI_O_TRUNC      01000 /* not fcntl */
-#define NACL_ABI_O_APPEND     02000
+#define NACL_ABI_O_CREAT         0100 /* not fcntl */
+#define NACL_ABI_O_TRUNC        01000 /* not fcntl */
+#define NACL_ABI_O_APPEND       02000
 
 /*
  * Features not implemented by NaCl, but required by the newlib build.
  */
-#define NACL_ABI_O_EXCL        0200
-#define NACL_ABI_O_NONBLOCK   04000
+#define NACL_ABI_O_EXCL          0200
+#define NACL_ABI_O_NONBLOCK     04000
 #define NACL_ABI_O_NDELAY      NACL_ABI_O_NONBLOCK
-#define NACL_ABI_O_SYNC      010000
+#define NACL_ABI_O_SYNC        010000
 #define NACL_ABI_O_FSYNC       NACL_ABI_O_SYNC
-#define NACL_ABI_O_ASYNC     020000
+#define NACL_ABI_O_ASYNC       020000
+
+/*
+ * Features not implemented by NaCl, but required by nacl_helper_nonsfi.
+ */
+#define NACL_ABI_O_DIRECTORY  0200000
+#define NACL_ABI_O_CLOEXEC   02000000
 
 /* XXX close on exec request; must match UF_EXCLOSE in user.h */
 #define FD_CLOEXEC  1 /* posix */
@@ -93,6 +99,7 @@ extern "C" {
 extern int open(const char *file, int oflag, ...);
 extern int creat(const char *file, mode_t mode);
 extern int fcntl(int, int, ...);
+extern int openat(int dirfd, const char *pathname, int oflag, ...);
 
 #ifdef __cplusplus
 }  /* extern "C" */

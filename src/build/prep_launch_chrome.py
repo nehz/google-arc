@@ -66,8 +66,7 @@ def _generate_shell_command(parsed_args):
 def _convert_launch_chrome_options_to_external_metadata(parsed_args):
   metadata = parsed_args.additional_metadata
 
-  arg_to_metadata = (('can_rotate', 'canRotate'),
-                     ('disable_auto_back_button', 'disableAutoBackButton'),
+  arg_to_metadata = (('disable_auto_back_button', 'disableAutoBackButton'),
                      ('enable_adb', 'enableAdb'),
                      ('enable_arc_strace', 'enableArcStrace'),
                      ('enable_compositor', 'enableCompositor'),

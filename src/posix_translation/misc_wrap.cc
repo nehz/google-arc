@@ -353,7 +353,8 @@ int __wrap_pthread_create(
   ARC_STRACE_ENTER("pthread_create", "%p, %p, %p, %p",
                    thread_out, attr, start_routine, arg);
 
-  arc::ProcessEmulator::FilterPthreadCreate(&start_routine, &arg);
+  arc::ProcessEmulator::UpdateAndAllocatePthreadCreateArgsIfNewEmulatedProcess(
+      &start_routine, &arg);
 
   int result = pthread_create(thread_out, attr, start_routine, arg);
 

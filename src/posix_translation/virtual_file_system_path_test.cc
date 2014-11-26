@@ -22,11 +22,11 @@ class ScopedUidSetter {
  public:
   explicit ScopedUidSetter(uid_t uid)
       : original_uid_(arc::ProcessEmulator::GetUid()) {
-    arc::ProcessEmulator::SetFallbackUidForTesting(uid);
+    arc::ProcessEmulator::SetFallbackUidForTest(uid);
   }
 
   ~ScopedUidSetter() {
-    arc::ProcessEmulator::SetFallbackUidForTesting(original_uid_);
+    arc::ProcessEmulator::SetFallbackUidForTest(original_uid_);
   }
 
  private:

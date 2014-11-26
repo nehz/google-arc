@@ -27,7 +27,8 @@
 static pthread_mutex_t s_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_key_t s_tls = 0;
 static pthread_once_t s_tls_init = PTHREAD_ONCE_INIT;
-static pid_t s_prev_pid = 200;
+static const pid_t kFirstPidMinusOne = 200;
+static pid_t s_prev_pid = kFirstPidMinusOne;
 static bool s_is_multi_threaded = false;
 // By default, we pretend to be a system user. This is necessary for
 // dexopt because dexopt does not initialize the thread state and it
@@ -39,17 +40,12 @@ static uid_t s_fallback_uid = arc::kSystemUid;
 // are no uids in this range".
 static const uid_t kMinUid = 1000;
 
+// Default process name before any is assigned.
+static const char kDefaultProcessName[] = "app_process";
+
 namespace arc {
 
 namespace {
-
-struct EmulatedProcessInfo {
-  EmulatedProcessInfo(pid_t p, uid_t u)
-      : pid(p), uid(u) {}
-
-  pid_t pid;
-  uid_t uid;
-};
 
 // Stores information about the change made for a Binder call.
 // The caller pid/uid will be restored when call returns.
@@ -146,33 +142,61 @@ ProcessEmulator* ProcessEmulator::GetInstance() {
       LeakySingletonTraits<ProcessEmulator> >::get();
 }
 
+ProcessEmulator::ProcessEmulator()
+    : transaction_number_(kInitialTransactionNumber) {}
+
 bool ProcessEmulator::IsMultiThreaded() {
   return s_is_multi_threaded;
 }
 
-// For testing.
-void ProcessEmulator::SetIsMultiThreaded(bool is_multi_threaded) {
-  s_is_multi_threaded = is_multi_threaded;
+bool ProcessEmulator::UpdateTransactionNumberIfChanged(
+    TransactionNumber* number) {
+  ScopedPthreadMutexLocker lock(&s_mutex);
+  if (*number != transaction_number_) {
+    *number = transaction_number_;
+    return true;
+  }
+  return false;
 }
 
-// For testing.
-void ProcessEmulator::SetFallbackUidForTesting(uid_t uid) {
-  s_fallback_uid = uid;
+pid_t ProcessEmulator::GetFirstPid() {
+  ScopedPthreadMutexLocker lock(&s_mutex);
+  PidStringMap::iterator i = argv0_per_emulated_process_.begin();
+  if (i == argv0_per_emulated_process_.end()) return 0;
+  return i->first;
 }
 
-ProcessEmulator::ProcessEmulator() {
+pid_t ProcessEmulator::GetNextPid(pid_t last_pid) {
+  ScopedPthreadMutexLocker lock(&s_mutex);
+  PidStringMap::iterator i = argv0_per_emulated_process_.upper_bound(last_pid);
+  if (i == argv0_per_emulated_process_.end()) return 0;
+  return i->first;
 }
 
-static pid_t AllocateNewPid() {
+void ProcessEmulator::RecordTransactionLocked() {
+  transaction_number_++;
+  if (transaction_number_ < kInitialTransactionNumber)
+    transaction_number_ = kInitialTransactionNumber;
+}
+
+pid_t ProcessEmulator::AllocateNewPid(uid_t uid) {
   pid_t result;
+  ProcessEmulator* self = ProcessEmulator::GetInstance();
   ScopedPthreadMutexLocker lock(&s_mutex);
   // We normally have 2 emulated pid values per OS process.
   ALOG_ASSERT(s_prev_pid < 0x7FFFFFFF, "Too many emulated pid values");
+  // We slightly incorrectly consider the pid to be created when we allocate
+  // it, which is before the thread is actually created which runs it.
+  // However we should usually create the process thread shortly after setting
+  // up for it.
   result = ++s_prev_pid;
+  self->argv0_per_emulated_process_[result] = kDefaultProcessName;
+  self->uid_per_emulated_process_[result] = uid;
+  self->RecordTransactionLocked();
   return result;
 }
 
-static void ThreadDestroyed(void* st) {
+static void DestroyEmulatedProcessThreadState(void* st) {
   if (st != NULL) {
     ProcessEmulatorThreadState* thread =
         reinterpret_cast<ProcessEmulatorThreadState*>(st);
@@ -181,7 +205,7 @@ static void ThreadDestroyed(void* st) {
 }
 
 static void InitializeTls() {
-  if (pthread_key_create(&s_tls, ThreadDestroyed) != 0) {
+  if (pthread_key_create(&s_tls, DestroyEmulatedProcessThreadState) != 0) {
     LOG_FATAL("Unable to create TLS key");
   }
 }
@@ -193,7 +217,8 @@ static ProcessEmulatorThreadState* GetThreadState() {
   return result;
 }
 
-static void InitThreadInternal(const EmulatedProcessInfo& process) {
+static void InitProcessEmulatorTLS(const EmulatedProcessInfo& process) {
+  ScopedPthreadMutexLocker lock(&s_mutex);
   pthread_once(&s_tls_init, InitializeTls);
   if (NULL != pthread_getspecific(s_tls)) {
     LOG_FATAL("Thread already has ProcessEmulatorThreadState");
@@ -204,14 +229,14 @@ static void InitThreadInternal(const EmulatedProcessInfo& process) {
   }
 }
 
-static EmulatedProcessInfo CreateNewEmulatedProcess(uid_t uid) {
-  pid_t pid = AllocateNewPid();
+EmulatedProcessInfo ProcessEmulator::CreateNewEmulatedProcess(uid_t uid) {
+  pid_t pid = ProcessEmulator::AllocateNewPid(uid);
   return EmulatedProcessInfo(pid, uid);
 }
 
-void ProcessEmulator::CreateEmulatedProcess(uid_t uid) {
+void ProcessEmulator::SetFirstEmulatedProcessThread(uid_t uid) {
   EmulatedProcessInfo process = CreateNewEmulatedProcess(uid);
-  InitThreadInternal(process);
+  InitProcessEmulatorTLS(process);
 }
 
 pid_t ProcessEmulator::PrepareNewEmulatedProcess(uid_t uid) {
@@ -332,6 +357,30 @@ void ProcessEmulator::ExitBinderCall() {
   }
 }
 
+void ProcessEmulator::SetArgV0(const char* argv0) {
+  pid_t pid = getpid();
+  ProcessEmulator* self = GetInstance();
+  ScopedPthreadMutexLocker lock(&s_mutex);
+  self->argv0_per_emulated_process_[pid] = argv0;
+}
+
+bool ProcessEmulator::GetInfoByPid(pid_t pid, std::string* out_argv0,
+                                   uid_t* out_uid) {
+  ProcessEmulator* self = GetInstance();
+  ScopedPthreadMutexLocker lock(&s_mutex);
+  PidStringMap::iterator i = self->argv0_per_emulated_process_.find(pid);
+  if (i == self->argv0_per_emulated_process_.end())
+    return false;
+  PidUidMap::iterator j = self->uid_per_emulated_process_.find(pid);
+  if (j == self->uid_per_emulated_process_.end())
+    return false;
+  if (out_argv0 != NULL)
+    *out_argv0 = i->second;
+  if (out_uid != NULL)
+    *out_uid = j->second;
+  return true;
+}
+
 class ThreadCreateArg {
  public:
   ThreadCreateArg(EmulatedProcessInfo process,
@@ -346,7 +395,7 @@ class ThreadCreateArg {
 
 static void* ThreadStartWrapper(void* arg) {
   ThreadCreateArg* wrapped_arg = reinterpret_cast<ThreadCreateArg*>(arg);
-  InitThreadInternal(wrapped_arg->process_);
+  InitProcessEmulatorTLS(wrapped_arg->process_);
   void* (*original_start_routine)(void*) =  // NOLINT
       wrapped_arg->start_routine_;
   void* original_arg = wrapped_arg->arg_;
@@ -367,7 +416,7 @@ static void* ThreadStartWrapper(void* arg) {
 }
 
 // static
-void ProcessEmulator::FilterPthreadCreate(
+void ProcessEmulator::UpdateAndAllocatePthreadCreateArgsIfNewEmulatedProcess(
     void* (**start_routine)(void*),  // NOLINT(readability/casting)
     void** arg) {
   // A mutex lock is not necessary here since real_pthread_create_func() itself
@@ -389,22 +438,41 @@ void ProcessEmulator::FilterPthreadCreate(
 }
 
 // static
-void ProcessEmulator::SetFakeThreadStateForTesting(pid_t pid, uid_t uid) {
-  InitThreadInternal(EmulatedProcessInfo(pid, uid));
-}
-
-// static
-void ProcessEmulator::UnsetThreadStateForTesting() {
-  ThreadDestroyed(GetThreadState());
-}
-
-// static
-void ProcessEmulator::UnfilterPthreadCreateForTesting(
+void ProcessEmulator::DestroyPthreadCreateArgsIfAllocatedForTest(
     void* (*start_routine)(void*),  // NOLINT(readability/casting)
     void* arg) {
   if (start_routine == &ThreadStartWrapper) {
     delete reinterpret_cast<ThreadCreateArg*>(arg);
   }
 }
+
+// static
+void ProcessEmulator::ResetForTest() {
+  ProcessEmulator* self = ProcessEmulator::GetInstance();
+  if (GetThreadState() != NULL) {
+    DestroyEmulatedProcessThreadState(GetThreadState());
+    pthread_setspecific(s_tls, NULL);
+  }
+  ScopedPthreadMutexLocker lock(&s_mutex);
+  self->argv0_per_emulated_process_.clear();
+  self->uid_per_emulated_process_.clear();
+  s_is_multi_threaded = false;
+  s_prev_pid = kFirstPidMinusOne;
+}
+
+// static
+void ProcessEmulator::AddProcessForTest(pid_t pid, uid_t uid,
+                                        const char* argv0) {
+  ProcessEmulator* self = ProcessEmulator::GetInstance();
+  ScopedPthreadMutexLocker lock(&s_mutex);
+  self->argv0_per_emulated_process_[pid] = argv0;
+  self->uid_per_emulated_process_[pid] = uid;
+}
+
+// static
+void ProcessEmulator::SetFallbackUidForTest(uid_t uid) {
+  s_fallback_uid = uid;
+}
+
 
 }  // namespace arc

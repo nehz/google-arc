@@ -72,15 +72,6 @@ _SYMLINK_MAP = {
     # rest of the files be symlinks.
     '/sdcard': '/storage/sdcard',
     '/mnt/sdcard': '/storage/sdcard',
-    # On real devices, the link usually points to a Dalvik's executable.
-    # However, since such a binary is not available on our system, we use
-    # runnable-ld.so (which is ET_EXEC) instead. We prefer runnable-ld.so
-    # over main.nexe since some apps crash if the /proc file points to a huge
-    # binary like main.nexe which does not fit into the NaCl's small virtual
-    # address space. Also note that /proc/self/exe does not point to the
-    # loader on Linux unless you explicitly invoke glibc's like this:
-    # $ /lib64/ld-linux-x86-64.so.2 ./a.out
-    '/proc/self/exe': '/system/lib/runnable-ld.so'
 }
 
 
@@ -130,9 +121,6 @@ def _generate_libposix_files():
       ('proc/net', 'src/posix_translation/proc/net/tcp6'),
       ('proc/net', 'src/posix_translation/proc/net/udp'),
       ('proc/net', 'src/posix_translation/proc/net/udp6'),
-      ('proc/self', 'src/posix_translation/proc/self/cmdline'),
-      ('proc/self', 'src/posix_translation/proc/self/maps'),
-      ('proc/self', 'src/posix_translation/proc/self/auxv'),
       ('proc', 'src/posix_translation/proc/stat'),
       ('proc', 'src/posix_translation/proc/version')]
   for dst, src in install_files:

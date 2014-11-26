@@ -404,14 +404,13 @@ TEST_F(ReadonlyFsReaderTest, TestParseImageProd) {
   // These files should exist in the image.
   EXPECT_TRUE(FindFile(reader_prod_->file_objects_, "/proc/version"));
   EXPECT_TRUE(FindFile(reader_prod_->file_objects_, "/proc/meminfo"));
-  EXPECT_TRUE(FindFile(reader_prod_->file_objects_, "/proc/self/maps"));
   const ReadonlyFsReader::Metadata* metadata =
-      FindFile(reader_prod_->file_objects_, "/proc/self/cmdline");
+      FindFile(reader_prod_->file_objects_, "/proc/loadavg");
   ASSERT_TRUE(metadata);
-  EXPECT_EQ(9U, metadata->size);
+  EXPECT_EQ(27U, metadata->size);
 
   const char* file_head = prod_image_.data() + metadata->offset;
-  EXPECT_EQ(std::string("NaClMain\0", 9),
+  EXPECT_EQ(std::string("0.00 0.00 0.00 1/279 22477\n"),
             std::string(file_head, metadata->size));
   EXPECT_TRUE(FindFile(reader_prod_->file_objects_, "/system/bin/sh"));
   EXPECT_TRUE(FindFile(reader_prod_->file_objects_,

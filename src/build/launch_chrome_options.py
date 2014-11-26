@@ -33,7 +33,7 @@ _ALLOWED_ORIENTATION_MAPPING = {'l': 'landscape', 'p': 'portrait'}
 
 _ALLOWED_RESIZES = ['disabled', 'scale']
 
-_ALLOWED_STDERR_LOGS = ['D', 'V', 'I', 'W', 'E', 'F', 'S']
+_ALLOWED_STDERR_LOGS = ['V', 'D', 'I', 'W', 'E', 'F', 'S']
 
 _DATA_ROOTS_PATH = os.path.join('out', 'data_roots')
 
@@ -298,12 +298,6 @@ Native Client Debugging
                       help='Works with perftest command only. Not starts the '
                       'plugin page before --iterations start counting.')
 
-  # TODO(crbug.com/313551): Get rid of all duplicated metadata options.
-  parser.add_argument('--can-rotate', action='store_true', default=None,
-                      help='Indicates that the application can rotate the '
-                      'screen, which can affect geometry computations for '
-                      'window sizing.')
-
   parser.add_argument('--chrome-binary', metavar='<path>', default=None,
                       help='The path to the Chrome binary on which ARC '
                       'runs. Note that the directory containing the binary '
@@ -473,7 +467,9 @@ Native Client Debugging
                       'Used by atftest to specify which test packages to run.')
 
   parser.add_argument('--stderr-log', choices=_ALLOWED_STDERR_LOGS,
-                      default=None, help='Minimum console log priority.')
+                      default=None, help='Minimum console log priority. In '
+                      'order of most to least output: Verbose, Debug, Info, '
+                      'Warning, Error, Fatal, Silent. Defaults to warning.')
 
   parser.add_argument('--silent', '-s', action='store_true',
                       help='Sets the default filter spec to silent.')

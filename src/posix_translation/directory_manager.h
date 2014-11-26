@@ -26,6 +26,9 @@ class DirectoryManager {
   DirectoryManager();
   ~DirectoryManager();
 
+  // Clears entire file system.
+  void Clear();
+
   // Adds a file to the manager. |pathname| must be absolute, and must not end
   // with '/'.
   bool AddFile(const std::string& pathname);
@@ -63,6 +66,7 @@ class DirectoryManager {
   // TODO(crbug.com/190550): If needed, support rmdir.
  private:
   FRIEND_TEST(DirectoryManagerTest, TestAddRemoveFileBasic);
+  FRIEND_TEST(DirectoryManagerTest, TestClear);
   FRIEND_TEST(DirectoryManagerTest, TestMakeRemoveDirectory);
   FRIEND_TEST(DirectoryManagerTest, TestGetFilesInDir);
   FRIEND_TEST(DirectoryManagerTest, TestIsAbsolute);

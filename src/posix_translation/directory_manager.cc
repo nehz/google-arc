@@ -110,10 +110,15 @@ class DirectoryManager::DirImpl : public Dir {
 };
 
 DirectoryManager::DirectoryManager() {
-  MakeDirectory("/");
+  Clear();
 }
 
 DirectoryManager::~DirectoryManager() {}
+
+void DirectoryManager::Clear() {
+  dir_to_files_.clear();
+  MakeDirectory("/");
+}
 
 bool DirectoryManager::AddFile(const std::string& pathname) {
   return AddFileWithType(pathname, Dir::REGULAR);

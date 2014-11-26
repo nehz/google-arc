@@ -115,6 +115,42 @@ TEST_F(DirectoryManagerTest, TestAddRemoveFileBasic) {
   }
 }
 
+TEST_F(DirectoryManagerTest, TestClear) {
+  EXPECT_TRUE(manager_.StatDirectory("/"));
+  EXPECT_TRUE(manager_.AddFile("/proc/1234/status"));
+  EXPECT_TRUE(manager_.StatDirectory("/proc/1234"));
+  EXPECT_TRUE(manager_.StatFile("/proc/1234/status"));
+
+  manager_.Clear();
+  EXPECT_TRUE(manager_.StatDirectory("/"));
+  EXPECT_FALSE(manager_.StatDirectory("/proc"));
+  EXPECT_FALSE(manager_.StatDirectory("/proc/1234"));
+  EXPECT_FALSE(manager_.StatFile("/proc/1234/status"));
+
+  EXPECT_TRUE(manager_.AddFile("/proc/1234/status"));
+  EXPECT_TRUE(manager_.StatFile("/proc/1234/status"));
+}
+
+TEST_F(DirectoryManagerTest, TestMultipleAdds) {
+  EXPECT_TRUE(manager_.StatDirectory("/"));
+  EXPECT_TRUE(manager_.AddFile("/proc/1234/status"));
+  EXPECT_TRUE(manager_.AddFile("/proc/1234/cmdline"));
+  EXPECT_TRUE(manager_.StatDirectory("/proc/1234"));
+  EXPECT_TRUE(manager_.StatFile("/proc/1234/status"));
+  EXPECT_TRUE(manager_.StatFile("/proc/1234/cmdline"));
+  {
+    scoped_ptr<Dir> dirp(manager_.OpenDirectory("/proc"));
+    dirent entry;
+    EXPECT_TRUE(dirp->GetNext(&entry));
+    EXPECT_EQ(std::string("."), entry.d_name);
+    EXPECT_TRUE(dirp->GetNext(&entry));
+    EXPECT_EQ(std::string(".."), entry.d_name);
+    EXPECT_TRUE(dirp->GetNext(&entry));
+    EXPECT_EQ(std::string("1234"), entry.d_name);
+    EXPECT_FALSE(dirp->GetNext(&entry));
+  }
+}
+
 TEST_F(DirectoryManagerTest, TestMakeRemoveDirectory) {
   // Removing the root is not allowed.
   EXPECT_FALSE(manager_.RemoveDirectory("/"));

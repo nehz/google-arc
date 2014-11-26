@@ -19,53 +19,81 @@ static void* EmptyRoutine(void* arg) {
 class ProcessEmulatorTest : public testing::Test {
  public:
   virtual void SetUp() OVERRIDE {
-    ProcessEmulator::SetIsMultiThreaded(false);
+    ProcessEmulator::ResetForTest();
     ASSERT_FALSE(ProcessEmulator::IsMultiThreaded());
+    emulator_ = ProcessEmulator::GetInstance();
   }
 
   virtual void TearDown() OVERRIDE {
-    ProcessEmulator::UnsetThreadStateForTesting();
+    // This also deallocates thread state which might be allocated.
+    ProcessEmulator::ResetForTest();
+  }
+
+  void DestroyPthreadCreateArgsIfAllocatedForTest(
+      void* (*start_routine)(void*),  // NOLINT(readability/casting)
+      void* arg) {
+    ProcessEmulator::DestroyPthreadCreateArgsIfAllocatedForTest(
+        start_routine, arg);
   }
 
  protected:
-  void SetFakeThreadStateForTesting() {
-    ProcessEmulator::SetFakeThreadStateForTesting(111, 222);
-  }
-  void UnfilterPthreadCreateForTesting(
-      void* (*start_routine)(void*),  // NOLINT(readability/casting)
-      void* arg) {
-    ProcessEmulator::UnfilterPthreadCreateForTesting(start_routine, arg);
-  }
+  ProcessEmulator* emulator_;
 };
 
-TEST_F(ProcessEmulatorTest, FilterPthreadCreateNoState) {
+TEST_F(ProcessEmulatorTest, TransactionNumberInitialized) {
+  ProcessEmulator::TransactionNumber num =
+    ProcessEmulator::kInitialTransactionNumber;
+  EXPECT_FALSE(emulator_->UpdateTransactionNumberIfChanged(&num));
+  EXPECT_EQ(ProcessEmulator::kInitialTransactionNumber, num);
+}
+
+TEST_F(ProcessEmulatorTest, TransactionNumberInvalid) {
+  ProcessEmulator::TransactionNumber num =
+    ProcessEmulator::kInvalidTransactionNumber;
+  EXPECT_TRUE(emulator_->UpdateTransactionNumberIfChanged(&num));
+  EXPECT_EQ(ProcessEmulator::kInitialTransactionNumber, num);
+}
+
+TEST_F(ProcessEmulatorTest, TransactionNumberUpdates) {
+  ProcessEmulator::TransactionNumber num =
+    ProcessEmulator::kInitialTransactionNumber;
+  EXPECT_FALSE(emulator_->UpdateTransactionNumberIfChanged(&num));
+  EXPECT_EQ(ProcessEmulator::kInitialTransactionNumber, num);
+  emulator_->SetFirstEmulatedProcessThread(1000);
+  EXPECT_TRUE(emulator_->UpdateTransactionNumberIfChanged(&num));
+  EXPECT_NE(ProcessEmulator::kInitialTransactionNumber, num);
+  EXPECT_NE(ProcessEmulator::kInvalidTransactionNumber, num);
+}
+
+TEST_F(ProcessEmulatorTest, NoNewEmulatedProcess) {
   void* (*start_routine)(void*) = &EmptyRoutine;  // NOLINT
   void* arg = reinterpret_cast<void*>(234);
 
-  ProcessEmulator::FilterPthreadCreate(&start_routine, &arg);
+  ProcessEmulator::UpdateAndAllocatePthreadCreateArgsIfNewEmulatedProcess(
+      &start_routine, &arg);
 
   EXPECT_TRUE(ProcessEmulator::IsMultiThreaded());
 
   EXPECT_EQ(&EmptyRoutine, start_routine);  // NOLINT
   EXPECT_EQ(reinterpret_cast<void*>(234), arg);
 
-  UnfilterPthreadCreateForTesting(start_routine, arg);
+  DestroyPthreadCreateArgsIfAllocatedForTest(start_routine, arg);
 }
 
-TEST_F(ProcessEmulatorTest, FilterPthreadCreateWithState) {
-  SetFakeThreadStateForTesting();
-
+TEST_F(ProcessEmulatorTest, NewEmulatedProcess) {
+  emulator_->SetFirstEmulatedProcessThread(222);
   void* (*start_routine)(void*) = &EmptyRoutine;  // NOLINT
   void* arg = reinterpret_cast<void*>(234);
 
-  ProcessEmulator::FilterPthreadCreate(&start_routine, &arg);
+  ProcessEmulator::UpdateAndAllocatePthreadCreateArgsIfNewEmulatedProcess(
+      &start_routine, &arg);
 
   EXPECT_TRUE(ProcessEmulator::IsMultiThreaded());
 
   EXPECT_NE(&EmptyRoutine, start_routine);  // NOLINT
   EXPECT_NE(reinterpret_cast<void*>(234), arg);
 
-  UnfilterPthreadCreateForTesting(start_routine, arg);
+  DestroyPthreadCreateArgsIfAllocatedForTest(start_routine, arg);
 }
 
 }  // namespace arc
