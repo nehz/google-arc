@@ -7,6 +7,7 @@
 #include <string>
 
 #include "common/alog.h"
+#include "posix_translation/wrap.h"
 
 namespace posix_translation {
 
@@ -27,9 +28,9 @@ PassthroughHandler::~PassthroughHandler() {
 
 scoped_refptr<FileStream> PassthroughHandler::open(
     int fd, const std::string& pathname, int oflag, mode_t cmode) {
-  int native_fd;
+  int native_fd = -1;
   if (!pathname.empty()) {
-    native_fd = ::open(pathname.c_str(), oflag, cmode);
+    errno = EACCES;
   } else {
     ALOG_ASSERT(fd >= 0);
     native_fd = fd;
@@ -57,16 +58,6 @@ Dir* PassthroughHandler::OnDirectoryContentsNeeded(const std::string& name) {
   return NULL;
 }
 
-// Note: You can call libc functions with |native_fd| if the function is
-// listed in libc_functions.h. Otherwise you can not. For example, it is
-// okay to call ::close() with |native_fd| since ::close() is overridden in
-// libc_functions_prod.cc and it immediately calls into (the original) IRT.
-// However, calling ::pread() with the fd is NOT okay since it is not in
-// libc_functions.h and Bionic version of ::pread() may call into a hooked
-// IRT which may in turn call back posix_translation. The same restriction
-// applies to other streams like PepperFile, NaClManifestFile, and MemoryFile
-// that handle native descriptors.
-
 PassthroughStream::PassthroughStream(int native_fd,
                                      const std::string& pathname,
                                      int oflag,
@@ -85,12 +76,12 @@ PassthroughStream::PassthroughStream()
 
 PassthroughStream::~PassthroughStream() {
   if (close_on_destruction_)
-    ::close(native_fd_);
+    real_close(native_fd_);
 }
 
 int PassthroughStream::fstat(struct stat* out) {
   ALOG_ASSERT(native_fd_ >= 0);
-  const int result = ::fstat(native_fd_, out);
+  const int result = real_fstat(native_fd_, out);
   if (!result) {
     // Add a large number so that st_ino does not conflict with the one
     // generated in our VFS.
@@ -106,7 +97,7 @@ int PassthroughStream::fstat(struct stat* out) {
 
 off64_t PassthroughStream::lseek(off64_t offset, int whence) {
   ALOG_ASSERT(native_fd_ >= 0);
-  return ::lseek64(native_fd_, offset, whence);
+  return real_lseek64(native_fd_, offset, whence);
 }
 
 // Note: [addr, addr+length) should be valid even if a part of original mmaped
@@ -151,12 +142,12 @@ int PassthroughStream::munmap(void* addr, size_t length) {
 
 ssize_t PassthroughStream::read(void* buf, size_t count) {
   ALOG_ASSERT(native_fd_ >= 0);
-  return ::read(native_fd_, buf, count);
+  return real_read(native_fd_, buf, count);
 }
 
 ssize_t PassthroughStream::write(const void* buf, size_t count) {
   ALOG_ASSERT(native_fd_ >= 0);
-  return ::write(native_fd_, buf, count);
+  return real_write(native_fd_, buf, count);
 }
 
 bool PassthroughStream::IsSelectReadReady() const {

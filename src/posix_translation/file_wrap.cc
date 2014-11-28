@@ -45,6 +45,7 @@
 #include "common/thread_local.h"
 #include "common/trace_event.h"
 #include "posix_translation/virtual_file_system.h"
+#include "posix_translation/wrap.h"
 
 // A macro to wrap an IRT function. Note that the macro does not wrap IRT
 // calls made by the Bionic loader. For example, wrapping mmap with DO_WRAP
@@ -162,13 +163,6 @@ ARC_EXPORT ssize_t __wrap_read(int fd, void* buf, size_t count);
 ARC_EXPORT ssize_t __wrap_readv(int fd, const struct iovec* iov, int iovcnt);
 ARC_EXPORT ssize_t __wrap_write(int fd, const void* buf, size_t count);
 ARC_EXPORT ssize_t __wrap_writev(int fd, const struct iovec* iov, int iovcnt);
-
-int real_close(int fd);
-int real_fstat(int fd, struct stat* buf);
-off64_t real_lseek64(int fd, off64_t offset, int whence);
-int real_open(const char* pathname, int oflag, mode_t cmode);
-ssize_t real_read(int fd, void* buf, size_t count);
-ssize_t real_write(int fd, const void* buf, size_t count);
 }  // extern "C"
 
 using posix_translation::VirtualFileSystem;
@@ -1193,24 +1187,6 @@ int real_fstat(int fd, struct stat* buf) {
   return 0;
 }
 
-int real_open(const char* pathname, int oflag, mode_t cmode) {
-  ALOG_ASSERT(__nacl_irt_open_real);
-  int newfd;
-  // |oflag| is mostly compatible between NaCl and Bionic, O_SYNC is
-  // the only exception.
-  int nacl_oflag = oflag;
-  if ((nacl_oflag & O_SYNC)) {
-    nacl_oflag &= ~O_SYNC;
-    nacl_oflag |= NACL_ABI_O_SYNC;
-  }
-  int result = __nacl_irt_open_real(pathname, nacl_oflag, cmode, &newfd);
-  if (result) {
-    errno = result;
-    return -1;
-  }
-  return newfd;
-}
-
 ssize_t real_read(int fd, void* buf, size_t count) {
   ALOG_ASSERT(__nacl_irt_read_real);
   size_t nread;
@@ -1282,19 +1258,18 @@ ARC_EXPORT void InitIRTHooks() {
   InitDlfcnInjection();
 
   SetLogWriter(direct_stderr_write);
+}
 
-#if defined(_STLP_USE_STATIC_LIB)
-  // See mods/android/external/stlport/src/locale_impl.cpp. We initialize cin,
-  // cout, and cerr here just in case because initialization routine calls
-  // fstat(), which requires IRT wrapper setup in advance.
-  // Using these streams inside posix_translation may cause deadlock because
-  // most of VFS functions acquires mutex lock, but it is probably better than
-  // a random crash.
-  // Leaking the object is intentional. The destructor of the object calls
-  // fflush which is not allowed in POSIX translation.
-  // TODO(crbug.com/417401): Migrate to libcxx and remove this.
-  new std::ios_base::Init;
-#endif
+void InitIRTHooksForTesting() {
+  // Some tests in posix_translation_test call real_XXX functions. To make them
+  // work, set up the *_real pointers here. We cannot do that in IRT_WRAPPER
+  // since doing so introduces static initializers. This function should NOT be
+  // ARC_EXPORT'ed.
+  __nacl_irt_close_real = __nacl_irt_close;
+  __nacl_irt_fstat_real = __nacl_irt_fstat;
+  __nacl_irt_seek_real = __nacl_irt_seek;
+  __nacl_irt_read_real = __nacl_irt_read;
+  __nacl_irt_write_real = __nacl_irt_write;
 }
 
 }  // namespace arc

@@ -24,6 +24,7 @@
 #include "posix_translation/path_util.h"
 #include "posix_translation/statfs.h"
 #include "posix_translation/virtual_file_system.h"
+#include "posix_translation/wrap.h"
 #include "ppapi/c/pp_errors.h"
 #include "ppapi/c/ppb_file_io.h"
 #include "ppapi/cpp/directory_entry.h"
@@ -287,7 +288,7 @@ class FileIOWrapper {
   }
   ~FileIOWrapper() {
     if (native_handle_ != PP_kInvalidFileHandle) {
-      if (::close(native_handle_)) {
+      if (real_close(native_handle_)) {
         ALOGW("libc_close failed: native_handle_=%d: %s",
               native_handle_, safe_strerror(errno).c_str());
       }
@@ -969,7 +970,7 @@ ssize_t PepperFile::read(void* buf, size_t count) {
     return -1;
   }
 
-  const ssize_t result = ::read(file_->native_handle(), buf, count);
+  const ssize_t result = real_read(file_->native_handle(), buf, count);
 #if defined(DEBUG_POSIX_TRANSLATION)
   if (result > 0)
     ipc_stats::g_read_bytes += result;
@@ -1009,7 +1010,7 @@ ssize_t PepperFile::write(const void* buf, size_t count) {
   }
 
   cache_->Invalidate(pathname());
-  const ssize_t result = ::write(file_->native_handle(), buf, count);
+  const ssize_t result = real_write(file_->native_handle(), buf, count);
 #if defined(DEBUG_POSIX_TRANSLATION)
   if (result > 0)
     ipc_stats::g_write_bytes += result;
@@ -1018,7 +1019,7 @@ ssize_t PepperFile::write(const void* buf, size_t count) {
 }
 
 off64_t PepperFile::lseek(off64_t offset, int whence) {
-  return ::lseek64(file_->native_handle(), offset, whence);
+  return real_lseek64(file_->native_handle(), offset, whence);
 }
 
 int PepperFile::fdatasync() {
@@ -1032,7 +1033,7 @@ int PepperFile::fdatasync() {
 }
 
 int PepperFile::fstat(struct stat* out) {
-  int result = ::fstat(file_->native_handle(), out);
+  int result = real_fstat(file_->native_handle(), out);
   if (!result) {
     // If we expose the values got from host filesystem, the result
     // will be inconsistent with stat and lstat. Let VirtualFileSystem set

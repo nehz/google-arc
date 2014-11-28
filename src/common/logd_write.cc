@@ -62,6 +62,8 @@ bool ShouldLog(arc_LogPriority priority) {
 }
 
 void PrintLog(int prio, const char* tag, const char* msg) {
+  if (!tag)
+    tag = "";
   int tag_len = strlen(tag);
   int stored_errno = errno;
   WriteLog(base::StringPrintf("%c/%s:%*s %s\n", priority_char_map[prio], tag,

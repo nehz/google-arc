@@ -156,10 +156,10 @@ def _fix_gen_source_path(path):
   out/target/product/generic_x86/obj/GYP/shared_intermediates/templates/org/
   chromium/base/ActivityState.java'. This strips a long full path prefix before
   'GYP/...', and make it replaced under the build dir as e.g., 'out/target/
-  nacl_x86_64/obj/GYP/shared_intermediates/templates/org/chromium/base/
+  common/obj/GYP/shared_intermediates/templates/org/chromium/base/
   ActivityState.java'.
   """
-  return os.path.join(build_common.get_build_dir(), 'obj/GYP',
+  return os.path.join(build_common.get_target_common_dir(), 'obj/GYP',
                       *_get_path_components_following_mark(path, 'GYP'))
 
 

@@ -89,11 +89,13 @@ scoped_refptr<FileStream> ReadonlyFileHandler::CreateFileLocked(
 bool ReadonlyFileHandler::IsInitialized() const {
   if (!underlying_handler_)
     return true;  // for testing.
-  return image_stream_;
+  return image_stream_ && underlying_handler_->IsInitialized();
 }
 
 void ReadonlyFileHandler::Initialize() {
-  underlying_handler_->Initialize();
+  if (underlying_handler_ && !underlying_handler_->IsInitialized())
+    underlying_handler_->Initialize();
+
   image_stream_ =
       underlying_handler_->open(-1, image_filename_.c_str(), O_RDONLY, 0);
   if (!image_stream_) {

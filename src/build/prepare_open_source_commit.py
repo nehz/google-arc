@@ -82,7 +82,7 @@ def _add_and_sync_submodules(dest, force):
   return src_submodules_paths
 
 
-def _is_ignorable(path, cwd=None):
+def _is_ignorable(path, check_source_control, cwd=None):
   global _gitignore_checker
   if os.path.basename(path) in ['OPEN_SOURCE', '.gitmodules', '.git']:
     return True
@@ -93,6 +93,11 @@ def _is_ignorable(path, cwd=None):
     return True
   if _gitignore_checker.matches(path, cwd):
     return True
+  # Do not check whether a source file is under git control in the case of
+  # removals, since a deleted file will by definition not be under source
+  # control.  Any file that fails the gitignore check should be deleted.
+  if not check_source_control:
+    return False
   return not util.git.is_file_git_controlled(path, cwd)
 
 
@@ -100,7 +105,7 @@ def _add_directory_sync_set(src, rel_src_dir, basenames, filter,
                             open_source_rules, sync_set):
   for basename in basenames:
     rel_path = os.path.normpath(os.path.join(rel_src_dir, basename))
-    if _is_ignorable(rel_path, cwd=src):
+    if _is_ignorable(rel_path, True, cwd=src):
       # Nothing in gitignores should be in the sync set.
       continue
     if filter(basename, open_source_rules):
@@ -120,7 +125,7 @@ def _find_sync_set(src, src_submodules_paths):
                   if not os.path.join(src_dir, s) in src_submodules_paths]
     # Prune any subdirectory matching gitignores, like out.
     subdirs[:] = [s for s in subdirs
-                  if not _is_ignorable(os.path.join(src_dir, s), cwd=src)]
+                  if not _is_ignorable(os.path.join(src_dir, s), True, cwd=src)]
     basenames = subdirs + filenames
     if not open_source.METADATA_FILE in filenames:
       # The default (without a new OPEN_SOURCE metdata file) open sourcing of
@@ -171,7 +176,7 @@ def _purge_non_synced_ignored_files(dest, src, sync_set, submodule_paths):
     pruned_subdirs = []
     for s in subdirs:
       rel_dest_subdir = os.path.normpath(os.path.join(rel_dest_dir, s))
-      if _is_ignorable(rel_dest_dir, cwd=src):
+      if _is_ignorable(rel_dest_dir, False, cwd=src):
         continue
       if rel_dest_subdir in submodule_paths:
         continue
@@ -179,7 +184,7 @@ def _purge_non_synced_ignored_files(dest, src, sync_set, submodule_paths):
     subdirs[:] = pruned_subdirs
     for f in filenames:
       file_path = os.path.normpath(os.path.join(rel_dest_dir, f))
-      if _is_ignorable(file_path, cwd=src):
+      if _is_ignorable(file_path, False, cwd=src):
         continue
       if not file_path in sync_set:
         # avoid painful bugs where we delete the git repository.

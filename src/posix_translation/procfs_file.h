@@ -23,6 +23,8 @@ class ARC_EXPORT ProcfsFileHandler : public FileSystemHandler {
   virtual ~ProcfsFileHandler();
 
   // FileSystemHandler overrides:
+  virtual bool IsInitialized() const OVERRIDE;
+  virtual void Initialize() OVERRIDE;
   virtual Dir* OnDirectoryContentsNeeded(const std::string& name) OVERRIDE;
   virtual scoped_refptr<FileStream> open(
       int fd, const std::string& pathname, int oflag, mode_t cmode) OVERRIDE;

@@ -356,6 +356,15 @@ void ProcfsFileHandler::SynchronizeDirectoryTreeStructure() {
   file_names_.AddFile("/proc/version");
 }
 
+bool ProcfsFileHandler::IsInitialized() const {
+  return (!readonly_fs_handler_) || readonly_fs_handler_->IsInitialized();
+}
+
+void ProcfsFileHandler::Initialize() {
+  if (readonly_fs_handler_ && !readonly_fs_handler_->IsInitialized())
+    readonly_fs_handler_->Initialize();
+}
+
 Dir* ProcfsFileHandler::OnDirectoryContentsNeeded(const std::string& name) {
   SynchronizeDirectoryTreeStructure();
   return file_names_.OpenDirectory(name);

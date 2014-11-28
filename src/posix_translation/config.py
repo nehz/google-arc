@@ -5,7 +5,6 @@
 # found in the LICENSE file.
 
 import os
-import sys
 
 import build_common
 import ninja_generator
@@ -13,14 +12,6 @@ import ninja_generator_runner
 from build_options import OPTIONS
 from ninja_generator import ArchiveNinjaGenerator
 from ninja_generator import SharedObjectNinjaGenerator
-
-
-# Use the real mods directory instead of the one in staging directory because
-# this file is used on ChromeOS or Perf bots where the staging directory is not
-# created. It is no problem not to use the staging path because config.py, for
-# which this path is added, is our file.
-sys.path.insert(0, 'mods/android/external/stlport/')
-from config import get_libstlport_static_defines
 
 
 _CREATE_READONLY_FS_IMAGE_SCRIPT = (
@@ -78,7 +69,7 @@ _SYMLINK_MAP = {
 # Generate posix_translation. This library adds functions for converting POSIX
 # API calls into PPAPI calls.
 def _generate_libposix_translation():
-  compiler_flags = get_libstlport_static_defines() + [
+  compiler_flags = [
       '-Werror', '-fvisibility=hidden', '-fvisibility-inlines-hidden']
 
   n = ArchiveNinjaGenerator('libposix_translation_static', enable_clang=True)
@@ -94,21 +85,20 @@ def _generate_libposix_translation():
   n.add_libchromium_base_compile_flags()
   all_files = build_common.find_all_files(['src/posix_translation'],
                                           ['.cc'])
-  all_files.remove('src/posix_translation/libc_dispatch_layer.cc')
   n.build_default(all_files).archive()
 
   n = SharedObjectNinjaGenerator('libposix_translation',
                                  is_system_library=True, enable_clang=True)
-  n.add_library_deps('libc.so', 'libm.so', 'libdl.so')
+  n.add_library_deps('libc.so', 'libm.so', 'libdl.so', 'libstlport.so')
   n.add_whole_archive_deps('libposix_translation_static.a')
   # Statically link libchromium_base.a so that we can use unwrapped version of
   # the library.
   # TODO(crbug.com/423063): Statically link libcommon.a into the DSO too for
   # more safety.
-  n.add_library_deps('libchromium_base.a', 'libstlport_static.a')
+  n.add_library_deps('libchromium_base.a')
   n.add_compiler_flags(*compiler_flags)
   n.add_ppapi_link_flags()
-  n.build_default(['src/posix_translation/libc_dispatch_layer.cc']).link()
+  n.build_default([]).link()
 
 
 def _generate_libposix_files():
@@ -170,7 +160,8 @@ def generate_test_ninjas():
   n.add_compiler_flags('-Werror')
   n.add_library_deps('libposix_translation_static.a',
                      'libchromium_base.a',
-                     'libcommon.a')
+                     'libcommon.a',
+                     'libgccdemangle.a')
   n.run(n.link(), implicit=[gen_test_image, gen_prod_image])
 
   # To be able to refer mock implementation from outside of posix_translation.

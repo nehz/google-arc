@@ -27,30 +27,9 @@ int DoFcntl(scoped_refptr<FileStream> stream, int cmd, ...) {
 }
 
 class PassthroughTest : public FileSystemTestCommon {
-  // Use FileSystemTestCommon to set up VirtualFileSystem instance for
-  // TestHandlerOpenWithPath. Initializing FileStream with a non-empty
-  // pathname requires VFS.
 };
 
 }  // namespace
-
-TEST_F(PassthroughTest, TestHandlerOpenWithPath) {
-  PassthroughHandler handler;
-  // Read a file which always exists on Linux. Note that user-mode
-  // qemu does not allow guest to read some device files under /dev.
-  static const char kElfFileName[] = "/proc/self/exe";
-  scoped_refptr<FileStream> stream =
-      handler.open(123, kElfFileName, O_RDONLY, 0);
-  ASSERT_TRUE(stream != NULL);
-  struct stat st;
-  EXPECT_EQ(0, stream->fstat(&st));
-  char magic[] = "????";
-  EXPECT_EQ(4, stream->read(magic, 4));
-  EXPECT_STREQ(ELFMAG, magic);
-  errno = 0;
-  EXPECT_EQ(-1, stream->write(magic, 4));
-  EXPECT_EQ(EBADF, errno);  // not opened for writing.
-}
 
 TEST_F(PassthroughTest, TestHandlerOpenWithEmptyPath) {
   PassthroughHandler handler;
