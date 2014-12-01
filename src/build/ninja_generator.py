@@ -317,7 +317,7 @@ class NinjaGenerator(ninja_syntax.Writer):
     # Setting restat to True so that ninja can stop building its dependents
     # when the content is not modified.
     n.rule('mktoc',
-           'src/build/make_table_of_contents.py %s $in $out' % OPTIONS.target(),
+           'src/build/make_table_of_contents.py $target $in $out',
            description='make_table_of_contents $in',
            restat=True)
 
@@ -533,6 +533,10 @@ class NinjaGenerator(ninja_syntax.Writer):
 
     self._check_implicit(rule, implicit)
     self._check_order_only(implicit, order_only)
+    self._check_target_independent_does_not_depend_on_target(
+        outputs,
+        updated_inputs + implicit + as_list(order_only),
+        variables)
     return super(NinjaGenerator, self).build(outputs,
                                              rule,
                                              implicit=implicit,
@@ -668,6 +672,30 @@ class NinjaGenerator(ninja_syntax.Writer):
         raise Exception('%s in rule: %s\n'
                         'Avoid third_party/ paths in implicit dependencies; '
                         'use staging paths instead.' % (dep, rule))
+
+  def _check_target_independent_does_not_depend_on_target(self, outputs,
+                                                          inputs, variables):
+    target_dir = build_common.get_build_dir()
+    target_independent_outputs = [f for f in outputs if target_dir not in f]
+    if not target_independent_outputs:
+      return
+
+    target_dependent_inputs = [
+        f for f in inputs if build_common.get_build_dir() in f]
+    if target_dependent_inputs:
+      logging.info(
+          'Non-target files (%s) depend on files in target directory (%s).' %
+          (' '.join(target_independent_outputs),
+           ' '.join(target_dependent_inputs)))
+
+    target_dependent_variables = [
+        '%s=%s' % (k, v) for k, v in variables.iteritems()
+        if target_dir in str(v)]
+    if target_dependent_variables:
+      logging.info(
+          'Non-target files (%s) depend on target specific variables (%s).' %
+          (' '.join(target_independent_outputs),
+           ' '.join(target_dependent_variables)))
 
   def _check_symbols(self, object_files, disallowed_symbol_files):
     for object_file in object_files:
@@ -1524,6 +1552,7 @@ class RegenDependencyComputer(object):
         'src/build/build_options.py',
         'src/build/config.py',
         'src/build/config_loader.py',
+        'src/build/config_runner.py',
         'src/build/download_sdk_and_ndk.py',
         'src/build/make_to_ninja.py',
         'src/build/ninja_generator.py',
@@ -1812,6 +1841,7 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
       return intermediate_so
     if OPTIONS.is_nacl_build() and not self._is_host:
       self.ncval_test(intermediate_so)
+    mktoc_target = 'host' if self._is_host else OPTIONS.target()
     if self._install_path is not None:
       install_so = os.path.join(self._install_path, basename_so)
       self.install_to_build_dir(install_so, intermediate_so)
@@ -1820,13 +1850,15 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
       # Create TOC file next to the installed shared library.
       self.build(self._get_toc_file_for_so(install_so),
                  'mktoc', self._rebase_to_build_dir(install_so),
-                 implicit='src/build/make_table_of_contents.py')
+                 implicit='src/build/make_table_of_contents.py',
+                 variables={'target': mktoc_target})
     else:
       # Create TOC file next to the intermediate shared library if the shared
       # library is not to be installed. E.g. host binaries are not installed.
       self.build(self.get_build_path(basename_so + '.TOC'),
                  'mktoc', intermediate_so,
-                 implicit='src/build/make_table_of_contents.py')
+                 implicit='src/build/make_table_of_contents.py',
+                 variables={'target': mktoc_target})
 
     # Make sure |intermediate_so| contain neither 'disallowed_symbols.defined'
     # symbols nor libchromium_base.a symbols, but the check is unnecessary for
