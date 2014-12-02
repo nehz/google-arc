@@ -183,6 +183,7 @@ bool CpuFileHandler::IsInitialized() const {
 }
 
 void CpuFileHandler::Initialize() {
+  ALOG_ASSERT(!IsInitialized());
   ALOG_ASSERT(!path_.empty());
   directory_manager_.MakeDirectories(path_);
 

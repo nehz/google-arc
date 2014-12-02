@@ -34,6 +34,7 @@ bool RedirectHandler::IsInitialized() const {
 }
 
 void RedirectHandler::Initialize() {
+  ALOG_ASSERT(!IsInitialized());
   if (!underlying_->IsInitialized())
     underlying_->Initialize();
   if (!is_initialized_) {

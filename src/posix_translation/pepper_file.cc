@@ -357,6 +357,7 @@ bool PepperFileHandler::IsInitialized() const {
 }
 
 void PepperFileHandler::Initialize() {
+  ALOG_ASSERT(!IsInitialized());
   TRACE_EVENT0(ARC_TRACE_CATEGORY, "PepperFileHandler::Initialize");
   VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
   sys->mutex().AssertAcquired();

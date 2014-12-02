@@ -361,6 +361,7 @@ bool ProcfsFileHandler::IsInitialized() const {
 }
 
 void ProcfsFileHandler::Initialize() {
+  ALOG_ASSERT(!IsInitialized());
   if (readonly_fs_handler_ && !readonly_fs_handler_->IsInitialized())
     readonly_fs_handler_->Initialize();
 }

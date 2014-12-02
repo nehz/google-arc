@@ -382,3 +382,12 @@
 [submodule "third_party/android/external/compiler-rt"]
 	path = third_party/android/external/compiler-rt
 	url = https://android.googlesource.com/platform/external/compiler-rt
+[submodule "third_party/android/packages/apps/Contacts"]
+	path = third_party/android/packages/apps/Contacts
+	url = https://android.googlesource.com/platform/packages/apps/Contacts
+[submodule "third_party/android/packages/apps/PhoneCommon"]
+	path = third_party/android/packages/apps/PhoneCommon
+	url = https://android.googlesource.com/platform/packages/apps/PhoneCommon
+[submodule "third_party/android/packages/apps/ContactsCommon"]
+	path = third_party/android/packages/apps/ContactsCommon
+	url = https://android.googlesource.com/platform/packages/apps/ContactsCommon

@@ -18,6 +18,7 @@ bool FileSystemHandler::IsInitialized() const {
 }
 
 void FileSystemHandler::Initialize() {
+  ALOG_ASSERT(!IsInitialized());
 }
 
 void FileSystemHandler::OnMounted(const std::string& path) {

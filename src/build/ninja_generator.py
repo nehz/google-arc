@@ -2300,7 +2300,8 @@ class JavaNinjaGenerator(NinjaGenerator):
                resource_subdirectories=None, resource_includes=None,
                resource_class_names=None, manifest_path=None,
                require_localization=False, aapt_flags=None,
-               link_framework_aidl=False, **kwargs):
+               link_framework_aidl=False, extra_packages=None,
+               **kwargs):
     super(JavaNinjaGenerator, self).__init__(module_name, base_path=base_path,
                                              **kwargs)
 
@@ -2351,6 +2352,19 @@ class JavaNinjaGenerator(NinjaGenerator):
       self._manifest_path = None
 
     self._require_localization = require_localization
+
+    if extra_packages is None:
+      self._extra_packages = []
+    else:
+      self._extra_packages = extra_packages
+      flags = []
+      if aapt_flags:
+        flags.append[aapt_flags]
+      flags.append('--auto-add-overlay')
+      flags.extend(
+          '--extra-packages %s' % package for package in extra_packages)
+      aapt_flags = ' '.join(flags)
+
     self._aapt_flags = aapt_flags
 
   @staticmethod
@@ -2663,6 +2677,11 @@ class JavaNinjaGenerator(NinjaGenerator):
       java_path = JavaNinjaGenerator._extract_pattern_as_java_file_path(
           self._manifest_path, re_pattern, class_name=c, ignore_dependency=True)
       java_files.append(os.path.join(out_resource_path, java_path))
+
+      for extra_package in self._extra_packages:
+        java_files.append(os.path.join(out_resource_path,
+                                       extra_package.replace('.', '/'),
+                                       '%s.java' % c))
 
     self._build_aapt(outputs=java_files, implicit=resource_files + implicit,
                      out_base_path=out_resource_path)
@@ -3233,15 +3252,15 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
 class ApkNinjaGenerator(JavaNinjaGenerator):
   def __init__(self, module_name, base_path=None, source_subdirectories=None,
                install_path=None, canned_classes_apk=None, install_lazily=False,
-               **kwargs):
+               resource_subdirectories=None, **kwargs):
     # Set the most common defaults for APKs.
     if source_subdirectories is None:
       source_subdirectories = ['src']
 
-    if os.path.exists(staging.as_staging(os.path.join(base_path or '', 'res'))):
-      resource_subdirectories = 'res'
-    else:
-      resource_subdirectories = None
+    if resource_subdirectories is None:
+      if os.path.exists(
+          staging.as_staging(os.path.join(base_path or '', 'res'))):
+        resource_subdirectories = ['res']
 
     super(ApkNinjaGenerator, self).__init__(
         module_name,

@@ -408,11 +408,11 @@ ExternalDirectoryHandler::~ExternalDirectoryHandler() {
 }
 
 void ExternalDirectoryHandler::Initialize() {
+  ALOG_ASSERT(!IsInitialized());
   VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
   sys->mutex().AssertAcquired();
 
-  if (!IsInitialized())
-    observer_->OnInitializing();
+  observer_->OnInitializing();
 
   // Check IsInitialized again since OnInitializing may initialize this
   // handler synchronously.

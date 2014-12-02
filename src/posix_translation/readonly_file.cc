@@ -93,9 +93,10 @@ bool ReadonlyFileHandler::IsInitialized() const {
 }
 
 void ReadonlyFileHandler::Initialize() {
-  if (underlying_handler_ && !underlying_handler_->IsInitialized())
+  ALOG_ASSERT(!IsInitialized());
+  ALOG_ASSERT(underlying_handler_);
+  if (!underlying_handler_->IsInitialized())
     underlying_handler_->Initialize();
-
   image_stream_ =
       underlying_handler_->open(-1, image_filename_.c_str(), O_RDONLY, 0);
   if (!image_stream_) {

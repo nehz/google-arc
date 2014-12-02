@@ -44,8 +44,10 @@ class FileSystemHandler {
 
   // Returns true if and only if syscalls below are ready to be called.
   virtual bool IsInitialized() const;
+
   // A derived class can override this method to do an initialization on a
-  // non-main thread with VirtualFileSystem::mutex_ locked.
+  // non-main thread with VirtualFileSystem::mutex_ locked. This function
+  // can be called only when IsInitialized() is false.
   virtual void Initialize();
 
   // Called when the handler is mounted/unmounted to/from the |path|.

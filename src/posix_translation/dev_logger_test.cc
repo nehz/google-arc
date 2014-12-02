@@ -40,7 +40,6 @@ class DevLoggerTest : public FileSystemBackgroundTestCommon<DevLoggerTest> {
 void DevLoggerTest::SetUp() {
   FileSystemBackgroundTestCommon<DevLoggerTest>::SetUp();
   handler_.reset(new DevLoggerHandler);
-  handler_->Initialize();
   ASSERT_TRUE(handler_->IsInitialized());
 
   DeviceHandler::AddDeviceId(
