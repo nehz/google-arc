@@ -4,6 +4,7 @@
 
 import os
 import shutil
+import subprocess
 import tempfile
 import urllib
 
@@ -25,6 +26,11 @@ class BaseGetAndUnpackArchiveFromURL(object):
     raise NotImplementedError('Please implement this in a derived class.')
 
   @classmethod
+  def _gsretrieve(cls, url, download_file):
+    cmd = [build_common.get_gsutil_executable(), 'cp', url, download_file]
+    subprocess.check_call(cmd)
+
+  @classmethod
   def _fetch_and_stage_update(cls, url):
     """Downloads an update file to a temp directory, and manages replacing the
     final directory with the stage directory contents."""
@@ -37,7 +43,10 @@ class BaseGetAndUnpackArchiveFromURL(object):
         os.mkdir(cls.STAGE_DIR)
 
         download_file = os.path.join(tmp_dir, cls.DOWNLOAD_NAME)
-        urllib.urlretrieve(url, download_file)
+        if url.startswith('gs://'):
+          BaseGetAndUnpackArchiveFromURL._gsretrieve(url, download_file)
+        else:
+          urllib.urlretrieve(url, download_file)
 
         cls._unpack_update(download_file)
 

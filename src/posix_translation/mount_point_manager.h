@@ -30,6 +30,19 @@ class FileSystemHandler;
 // part of DirectoryManager.
 class MountPointManager {
  public:
+  typedef int TransactionNumber;
+  enum {
+    kInvalidTransactionNumber = -1,
+    kInitialTransactionNumber = 0
+  };
+  struct MountPoint {
+    MountPoint(FileSystemHandler* h, uid_t u) : handler(h), owner_uid(u) {}
+
+    FileSystemHandler* handler;
+    uid_t owner_uid;
+  };
+  typedef base::hash_map<std::string, MountPoint> MountPointMap;  // NOLINT
+
   MountPointManager();
   ~MountPointManager();
 
@@ -56,6 +69,11 @@ class MountPointManager {
   FileSystemHandler* GetFileSystemHandler(const std::string& path,
                                           uid_t* owner_uid) const;
 
+  // Returns the full mount point map for viewing/dumping purposes.
+  const MountPointMap* GetMountPointMap() const {
+    return &mount_point_map_;
+  }
+
   // Returns all file system handlers that have been added.
   void GetAllFileSystemHandlers(std::vector<FileSystemHandler*>* out_handlers);
 
@@ -66,17 +84,17 @@ class MountPointManager {
   // Removes all mount points. For testing only.
   void Clear();
 
+  // Updates the given transaction number (number of mutations to the process
+  // emulation state) if it does not match the current number and returns true
+  // if so.
+  bool UpdateTransactionNumberIfChanged(TransactionNumber* last_number) const;
+
  private:
-  struct MountPoint {
-    MountPoint(FileSystemHandler* h, uid_t u) : handler(h), owner_uid(u) {}
-
-    FileSystemHandler* handler;
-    uid_t owner_uid;
-  };
-  typedef base::hash_map<std::string, MountPoint> MountPointMap;  // NOLINT
-
   // A map from mount point paths to metadata of them.
   MountPointMap mount_point_map_;
+  TransactionNumber transaction_number_;
+
+  void RecordTransaction();
 
   DISALLOW_COPY_AND_ASSIGN(MountPointManager);
 };

@@ -230,7 +230,7 @@ def create_staging():
   _create_symlink_tree(_MODS_DIR, _THIRD_PARTY_DIR, staging_root)
 
   # internal/ is an optional checkout
-  if build_options.OPTIONS.internal_apks_source() == 'internal':
+  if build_options.OPTIONS.internal_apks_source_is_internal():
     assert build_common.has_internal_checkout()
     for name in os.listdir(_INTERNAL_THIRD_PARTY_PATH):
       if os.path.exists(os.path.join(_THIRD_PARTY_DIR, name)):

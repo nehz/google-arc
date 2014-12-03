@@ -6,6 +6,8 @@
 
 #include <time.h>
 #include <unistd.h>
+
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -16,6 +18,7 @@
 #include "common/process_emulator.h"
 #include "posix_translation/dir.h"
 #include "posix_translation/directory_file_stream.h"
+#include "posix_translation/path_util.h"
 #include "posix_translation/readonly_memory_file.h"
 #include "posix_translation/statfs.h"
 
@@ -245,20 +248,22 @@ class ProcessFormattedFile : public ProcfsFile {
 };
 
 // A base class to implement procfs files which are arrays of strings that
-// are null-terminated, like /proc/$PID/{cmdline,environ}.
-class ProcessNullDelimitedFile : public ProcfsFile {
+// are delimited, like /proc/$PID/{cmdline,environ,mounts}.
+class ProcessDelimitedFile : public ProcfsFile {
  public:
-  explicit ProcessNullDelimitedFile(const std::string& pathname)
-      : ProcfsFile(pathname) {}
+  ProcessDelimitedFile(const std::string& pathname, unsigned char delimiter)
+      : ProcfsFile(pathname), delimiter_(delimiter) {}
 
  protected:
   typedef std::vector<std::string> StringVector;
-  virtual ~ProcessNullDelimitedFile() {}
+  virtual ~ProcessDelimitedFile() {}
 
-  virtual void UpdateStringVectorIfNecessary() = 0;
+  // If no updates have occurred, return false, otherwise return true and
+  // update string_vector_.
+  virtual bool UpdateStringVectorIfNecessary() = 0;
 
   void UpdateContentIfNecessary() OVERRIDE {
-    UpdateStringVectorIfNecessary();
+    if (!UpdateStringVectorIfNecessary()) return;
     size_t resulting_size = 0;
     content_.clear();
     for (StringVector::iterator i = string_vector_.begin();
@@ -270,29 +275,80 @@ class ProcessNullDelimitedFile : public ProcfsFile {
          i != string_vector_.end(); ++i) {
       for (int j = 0; j < i->size(); ++j)
         content_.push_back((*i)[j]);
-      content_.push_back('\0');
+      content_.push_back(delimiter_);
     }
     LOG_ALWAYS_FATAL_IF(content_.size() != resulting_size);
   }
 
   StringVector string_vector_;
+  unsigned char delimiter_;
 };
 
-class ProcessCmdlineFile : public ProcessNullDelimitedFile {
+class ProcessCmdlineFile : public ProcessDelimitedFile {
  public:
   ProcessCmdlineFile(const std::string& pathname, pid_t pid)
-      : ProcessNullDelimitedFile(pathname), pid_(pid) {}
+      : ProcessDelimitedFile(pathname, '\0'), pid_(pid) {}
 
  protected:
-  void UpdateStringVectorIfNecessary() {
+  bool UpdateStringVectorIfNecessary() OVERRIDE {
     std::string argv0;
     string_vector_.clear();
     if (arc::ProcessEmulator::GetInfoByPid(pid_, &argv0, NULL)) {
       string_vector_.push_back(argv0);
     }
+    return true;
   }
 
   pid_t pid_;
+};
+
+class ProcessMountsFile : public ProcessDelimitedFile {
+ public:
+  ProcessMountsFile(const std::string& pathname,
+                    const MountPointManager* manager)
+      : ProcessDelimitedFile(pathname, '\n'),
+        last_mount_transaction_(MountPointManager::kInvalidTransactionNumber),
+        manager_(manager) {}
+
+ protected:
+  virtual bool UpdateStringVectorIfNecessary() OVERRIDE {
+    if (manager_ != NULL) {
+      const MountPointManager::MountPointMap* mounts =
+          manager_->GetMountPointMap();
+      if (!manager_->UpdateTransactionNumberIfChanged(&last_mount_transaction_))
+        return false;
+      string_vector_.clear();
+      typedef std::vector<std::string> StringVector;
+      StringVector sorted_mount_paths;
+      for (MountPointManager::MountPointMap::const_iterator i = mounts->begin();
+           i != mounts->end(); ++i) {
+        sorted_mount_paths.push_back(i->first);
+      }
+      std::sort(sorted_mount_paths.begin(), sorted_mount_paths.end());
+      for (StringVector::iterator i = sorted_mount_paths.begin();
+           i != sorted_mount_paths.end(); ++i) {
+        // This file has fstab (5) formatting, specifically:
+        // <fs_spec> <fs_file> <fs_vfstype> <fs_mntops> <fs_freq> <fs_passno>\n
+        std::string mount_path = *i;
+        const MountPointManager::MountPoint* point =
+            &mounts->find(mount_path)->second;
+        const FileSystemHandler* handler = point->handler;
+        bool is_single_file = !util::EndsWithSlash(mount_path);
+        // Only / should have a trailing slash, all other directory paths
+        // should end just with the directory name.
+        if (mount_path != "/")
+          util::RemoveTrailingSlashes(&mount_path);
+        string_vector_.push_back(base::StringPrintf(
+            "none %s %s uid=%d%s 0 0",
+            mount_path.c_str(), handler->name().c_str(), point->owner_uid,
+            is_single_file ? ",single_file" : ""));
+      }
+    }
+    return true;
+  }
+
+  MountPointManager::TransactionNumber last_mount_transaction_;
+  const MountPointManager* manager_;
 };
 
 }  // namespace
@@ -300,8 +356,9 @@ class ProcessCmdlineFile : public ProcessNullDelimitedFile {
 ProcfsFileHandler::ProcfsFileHandler(FileSystemHandler* readonly_fs_handler)
     : FileSystemHandler("ProcfsFileHandler"),
       readonly_fs_handler_(readonly_fs_handler),
-      last_transaction_number_(
-          arc::ProcessEmulator::kInvalidTransactionNumber) {
+      last_process_transaction_(
+          arc::ProcessEmulator::kInvalidTransactionNumber),
+      mount_point_manager_(NULL) {
   SetCpuInfoFileTemplate(kProcCpuInfoHeader, kProcCpuInfoBody,
                          kProcCpuInfoFooter);
 }
@@ -321,14 +378,19 @@ void ProcfsFileHandler::SetCpuInfoFileTemplate(const std::string& header,
 ProcfsFileHandler::~ProcfsFileHandler() {
 }
 
+void ProcfsFileHandler::SetMountPointManager(const MountPointManager* manager) {
+  mount_point_manager_ = manager;
+}
+
 void ProcfsFileHandler::SynchronizeDirectoryTreeStructure() {
   arc::ProcessEmulator* emulator = arc::ProcessEmulator::GetInstance();
-  if (!emulator->UpdateTransactionNumberIfChanged(&last_transaction_number_))
+  if (!emulator->UpdateTransactionNumberIfChanged(&last_process_transaction_))
     return;
   file_names_.Clear();
   // We provide cpuinfo's contents.
   file_names_.AddFile("/proc/cpuinfo");
-  // We provide the symlink /proc/self.
+  // We provide these symlinks.
+  file_names_.AddFileWithType("/proc/mounts", Dir::SYMLINK);
   file_names_.AddFileWithType("/proc/self", Dir::SYMLINK);
   // GetFirstPid/GetNextPid are guaranteed to be tolerant of mutation while
   // iterating the list of PIDs.  If a process is created or removed while
@@ -339,8 +401,14 @@ void ProcfsFileHandler::SynchronizeDirectoryTreeStructure() {
        pid = emulator->GetNextPid(pid)) {
     file_names_.AddFile(base::StringPrintf("/proc/%d/auxv", pid));
     file_names_.AddFile(base::StringPrintf("/proc/%d/cmdline", pid));
+    // The /proc/*/fd/* files are not actually usable, but were included
+    // to pass ProcessManagerTest testCloseNonStandardFds.
+    file_names_.AddFile(base::StringPrintf("/proc/%d/fd/0", pid));
+    file_names_.AddFile(base::StringPrintf("/proc/%d/fd/1", pid));
+    file_names_.AddFile(base::StringPrintf("/proc/%d/fd/2", pid));
     file_names_.AddFile(base::StringPrintf("/proc/%d/exe", pid));
     file_names_.AddFile(base::StringPrintf("/proc/%d/maps", pid));
+    file_names_.AddFile(base::StringPrintf("/proc/%d/mounts", pid));
     file_names_.AddFile(base::StringPrintf("/proc/%d/stat", pid));
     file_names_.AddFile(base::StringPrintf("/proc/%d/status", pid));
   }
@@ -410,6 +478,8 @@ scoped_refptr<FileStream> ProcfsFileHandler::open(
         return new ProcessCmdlineFile(pathname, pid);
       } else if (post_pid == "/maps") {
         return new ProcessFormattedFile(pathname, pid, kProcMapsFormat);
+      } else if (post_pid == "/mounts") {
+        return new ProcessMountsFile(pathname, mount_point_manager_);
       } else if (post_pid == "/stat") {
         return new ProcessFormattedFile(pathname, pid, kProcStatFormat);
       } else if (post_pid == "/status") {
@@ -450,6 +520,10 @@ ssize_t ProcfsFileHandler::readlink(const std::string& pathname,
   if (pathname == "/proc/self") {
     pid_t my_pid = arc::ProcessEmulator::GetPid();
     *resolved = base::StringPrintf("/proc/%d", my_pid);
+    return resolved->size();
+  } else if (pathname == "/proc/mounts") {
+    pid_t my_pid = arc::ProcessEmulator::GetPid();
+    *resolved = base::StringPrintf("/proc/%d/mounts", my_pid);
     return resolved->size();
   }
   pid_t request_pid = 0;

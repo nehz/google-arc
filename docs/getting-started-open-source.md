@@ -14,7 +14,7 @@ A fully running system cannot currently be built.
 
 ### Prerequisites for Building:
 
-1. You must be building on Linux and have Ubuntu 12.04 or 14.04.
+1. You must be building on Linux and have Ubuntu 14.04.
 
 2. Install depot_tools:
       <http://dev.chromium.org/developers/how-tos/install-depot-tools>
@@ -22,14 +22,10 @@ A fully running system cannot currently be built.
     CAVEAT: depot_tools has an executable called ninja.  You might have an
     Ubuntu package ninja installed on your system, that is not the same thing.
 
-3. Run src/build/install-arc-deps.sh or src/build/install-build-deps.sh to
-   make sure your dependencies are up to date.
+3. Run src/build/install-build-deps.sh to make sure your dependencies are
+   up to date.  The script supports Ubuntu 14.04 officially.
 
-         $ ./src/build/install-arc-deps.sh    # Ubuntu 12.04
-
-    or
-
-         $ ./src/build/install-build-deps.sh  # Ubuntu 14.04
+         $ ./src/build/install-build-deps.sh
 
 4. Run the configure script.  Arguments to this script indicate the build
    target and what experimental code you want to be using.  Note that the fewer

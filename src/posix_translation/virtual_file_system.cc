@@ -1907,6 +1907,7 @@ void VirtualFileSystem::Mount(const std::string& path,
                               FileSystemHandler* handler) {
   base::AutoLock lock(mutex_);
   mount_points_->Add(path, handler);
+  handler->SetMountPointManager(mount_points_.get());
 }
 
 void VirtualFileSystem::Unmount(const std::string& path) {
@@ -2021,8 +2022,10 @@ void VirtualFileSystem::ResolveSymlinks(std::string* in_out_path) {
   const int old_errono = errno;
   if (handler->readlink(*in_out_path, &resolved) >= 0) {
     ALOG_ASSERT(*in_out_path != resolved);
+    // TODO(crbug.com/437099): Support the symlink target including
+    // relative paths and embedded symlinks.
     in_out_path->replace(0, in_out_path->length(), resolved);
-    // TODO(crbug.com/226346): There are no protection against
+    // TODO(crbug.com/437099): There are no protection against
     // infinite symbolic link loop.
     return ResolveSymlinks(in_out_path);
   }

@@ -1,8 +1,3 @@
-# mods/graphics_translation/egl/api_entries.cc (anonymous namespace)::s_display
-# mods/graphics_translation/egl/api_entries.cc EglDisplayImpl::EglDisplayImpl()
-# mods/graphics_translation/egl/api_entries.cc EglDisplayImpl::~EglDisplayImpl()
-# mods/graphics_translation/egl/api_entries.cc __bss_start
-# mods/graphics_translation/egl/api_entries.cc __cxa_atexit@plt [registers a dtor to run at exit]
 # app_runtime.cc android::kDefaultStandbyTimeInNsecs
 # mods/android/frameworks/native/arc/binder/driver.cc guard variable for arc::binder::Singleton<arc::binder::BinderDriverImpl>::mutex_
 # mods/android/frameworks/native/arc/binder/driver.cc arc::binder::Singleton<arc::binder::BinderDriverImpl>::mutex_

@@ -179,4 +179,14 @@ TEST_F(ProcfsHandlerTest, TestCmdlineFileContents) {
   EXPECT_STREQ("proc_201_1000", buf);
 }
 
+// TODO(crbug.com/438051): Create unit tests for /proc/*/mounts files when
+// a mount pointer manager is passed.
+TEST_F(ProcfsHandlerTest, TestMountsFileContentsWhenNoMountPointManager) {
+  scoped_refptr<FileStream> stream = handler_->open(-1, "/proc/201/mounts",
+                                                    O_RDONLY, 0);
+  char buf[128] = {};
+  // Without passing a mount point manager, the mounts file is empty.
+  EXPECT_EQ(0, stream->read(buf, sizeof(buf)));
+}
+
 }  // namespace posix_translation

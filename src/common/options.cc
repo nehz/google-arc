@@ -71,7 +71,7 @@ void Options::Reset() {
   enable_arc_strace = false;
   enable_compositor = false;
   enable_gl_error_check = false;
-  enable_gl_fixed_attribs = false;
+  disable_gl_fixed_attribs = false;
   enable_mount_external_directory = false;
   fps_limit = 60;
   has_touchscreen = false;

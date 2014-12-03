@@ -19,7 +19,6 @@ Example to run supported tests:
 """
 
 import argparse
-import config_loader
 import os
 import logging
 import re
@@ -31,6 +30,7 @@ import dashboard_submit
 import filtered_subprocess
 import run_integration_tests
 from build_options import OPTIONS
+from config_loader import ConfigLoader
 from ninja_generator import ApkFromSdkNinjaGenerator
 from util import launch_chrome_util
 from util import remote_executor
@@ -63,6 +63,9 @@ _OUTPUT_DUMP_FORMAT = """
 
 *** END ***
 """
+
+_config_loader = ConfigLoader()
+_config_loader.load_from_default_path()
 
 
 class InvalidResultError(Exception):
@@ -306,7 +309,7 @@ class VMPerfDriver(BaseDriver):
     super(VMPerfDriver, self).__init__(args)
 
   def _run(self, benchmark):
-    DalvikVMTest = list(config_loader.find_name('DalvikVMTest'))[0]
+    DalvikVMTest = list(_config_loader.find_name('DalvikVMTest'))[0]
     inst = DalvikVMTest('401-perf', **{'flags': PASS})
     args = _prepare_integration_tests_args(100)
 

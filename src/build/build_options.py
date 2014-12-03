@@ -44,8 +44,8 @@ _CHROMETYPE_MAPPING = {'b': 'beta',
 _DEFAULT_CHROMETYPE = 'prebuilt'
 
 # --internal-apks-source=
-# TODO(crbug.com/379227): remove this flag and always build from internal repo.
-_ALLOWED_INTERNAL_APKS_SOURCES = ['canned', 'internal']
+# TODO(crbug.com/379227): Remove the 'canned' option.
+_ALLOWED_INTERNAL_APKS_SOURCES = ['canned', 'internal', 'prebuilt']
 _DEFAULT_INTERNAL_APKS_SOURCES = 'canned'
 
 # --renderer= options
@@ -231,6 +231,9 @@ class _Options(object):
   def is_hw_renderer(self):
     return self.renderer() == _RENDERER_HW
 
+  def internal_apks_source_is_internal(self):
+    return self.internal_apks_source() == 'internal'
+
   def use_verbose_memory_viewer(self):
     return _VERBOSE_MEMORY_VIEWER in self._loggers
 
@@ -390,7 +393,8 @@ class _Options(object):
                         choices=_ALLOWED_INTERNAL_APKS_SOURCES,
                         default=_DEFAULT_INTERNAL_APKS_SOURCES,
                         help='Source of play-services and '
-                        'GoogleContactsSyncAdapter APKs.')
+                        'GoogleContactsSyncAdapter APKs. \'prebuilt\' requires '
+                        'production server access.')
 
     parser.add_argument('--regen-build-prop', action='store_true', help=
                         'Forces regeneration of the build.prop file which '

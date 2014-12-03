@@ -55,12 +55,18 @@ ARC_EXPORT pid_t __wrap_wait4(
     pid_t pid, int *status, int options, struct rusage *rusage);
 
 ARC_EXPORT pid_t __wrap_getpid();
+ARC_EXPORT uid_t __wrap_geteuid();
+ARC_EXPORT int __wrap_getresuid(uid_t* ruid, uid_t* euid, uid_t* suid);
 ARC_EXPORT uid_t __wrap_getuid();
 ARC_EXPORT int __wrap_pthread_create(
     pthread_t* thread_out,
     pthread_attr_t const* attr,
     void* (*start_routine)(void*),  // NOLINT(readability/casting)
     void* arg);
+ARC_EXPORT int __wrap_seteuid(uid_t euid);
+ARC_EXPORT int __wrap_setresuid(uid_t ruid, uid_t euid, uid_t suid);
+ARC_EXPORT int __wrap_setreuid(uid_t ruid, uid_t euid);
+ARC_EXPORT int __wrap_setuid(uid_t uid);
 }  // extern "C"
 
 namespace {
@@ -341,6 +347,42 @@ pid_t __wrap_getpid() {
 uid_t __wrap_getuid() {
   ARC_STRACE_ENTER("getuid", "%s", "");
   const uid_t result = arc::ProcessEmulator::GetUid();
+  ARC_STRACE_RETURN(result);
+}
+
+uid_t __wrap_geteuid() {
+  ARC_STRACE_ENTER("geteuid", "%s", "");
+  uid_t result = arc::ProcessEmulator::GetEuid();
+  ARC_STRACE_RETURN(result);
+}
+
+int __wrap_getresuid(uid_t* ruid, uid_t* euid, uid_t* suid) {
+  ARC_STRACE_ENTER("getresuid", "%p, %p, %p", ruid, euid, suid);
+  int result = arc::ProcessEmulator::GetRuidEuidSuid(ruid, euid, suid);
+  ARC_STRACE_RETURN(result);
+}
+
+int __wrap_setuid(uid_t uid) {
+  ARC_STRACE_ENTER("setuid", "%d", uid);
+  int result = arc::ProcessEmulator::SetUid(uid);
+  ARC_STRACE_RETURN(result);
+}
+
+int __wrap_seteuid(uid_t euid) {
+  ARC_STRACE_ENTER("seteuid", "%d", euid);
+  int result = arc::ProcessEmulator::SetEuid(euid);
+  ARC_STRACE_RETURN(result);
+}
+
+int __wrap_setreuid(uid_t ruid, uid_t euid) {
+  ARC_STRACE_ENTER("setreuid", "%d, %d", ruid, euid);
+  int result = arc::ProcessEmulator::SetRuidEuid(ruid, euid);
+  ARC_STRACE_RETURN(result);
+}
+
+int __wrap_setresuid(uid_t ruid, uid_t euid, uid_t suid) {
+  ARC_STRACE_ENTER("setresuid", "%d, %d, %d", ruid, euid, suid);
+  int result = arc::ProcessEmulator::SetRuidEuidSuid(ruid, euid, suid);
   ARC_STRACE_RETURN(result);
 }
 

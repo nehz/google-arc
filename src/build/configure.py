@@ -15,6 +15,7 @@ import sys
 import build_common
 import config_runner
 import download_cts_files
+import download_internal_apks
 import download_naclports_files
 import download_sdk_and_ndk
 import open_source
@@ -148,6 +149,11 @@ def _ensure_downloads_up_to_date():
   if sync_gdb_multiarch.main():
     sys.exit(1)
 
+  if (not open_source.is_open_source_repo() and
+      OPTIONS.internal_apks_source() == 'prebuilt' and
+      download_internal_apks.check_and_perform_updates()):
+    sys.exit(1)
+
 
 def _configure_build_options():
   if OPTIONS.parse(sys.argv[1:]):
@@ -225,6 +231,10 @@ def _set_up_chromium_org_submodules():
       print 'ERROR: path "%s" does not exist.' % source
       print 'ERROR: Did you forget to run git submodules update --init?'
       sys.exit(1)
+    # If a real directory exists, remove it explicitly. |overwrite| flag does
+    # not care for real directories and files, but old symlinks.
+    if not os.path.islink(symlink) and os.path.isdir(symlink):
+      shutil.rmtree(symlink)
     build_common.create_link(symlink, source, overwrite=True)
 
 
@@ -245,7 +255,7 @@ def main():
   sync_adb.run(adb_target)
 
   if (build_common.has_internal_checkout() and
-      OPTIONS.internal_apks_source() != 'canned'):
+      OPTIONS.internal_apks_source_is_internal()):
     # Sync arc-int repo and and its sub-repo.
     subprocess.check_call('src/build/sync_arc_int.py')
 

@@ -8,12 +8,15 @@ import collections
 import os
 
 import build_common
-import config_loader
 import make_to_ninja
 import ninja_generator
 import ninja_generator_runner
 import open_source
 from build_options import OPTIONS
+from config_loader import ConfigLoader
+
+
+_config_loader = ConfigLoader()
 
 
 def _filter_excluded_libs(vars):
@@ -143,6 +146,8 @@ def _set_up_generate_ninja():
       _filter_all_make_to_ninja)
   make_to_ninja.prepare_make_to_ninja()
 
+  _config_loader.load_from_default_path()
+
 
 def _generate_independent_ninjas():
   timer = build_common.SimpleTimer()
@@ -150,9 +155,9 @@ def _generate_independent_ninjas():
   # Invoke an unordered set of ninja-generators distributed across config
   # modules by name, and if that generator is marked for it.
   timer.start('Generating independent generate_ninjas', True)
-  task_list = list(config_loader.find_name('generate_ninjas'))
+  task_list = list(_config_loader.find_name('generate_ninjas'))
   if OPTIONS.run_tests():
-    task_list.extend(config_loader.find_name('generate_test_ninjas'))
+    task_list.extend(_config_loader.find_name('generate_test_ninjas'))
   ninja_list = ninja_generator_runner.run_in_parallel(task_list,
                                                       OPTIONS.configure_jobs())
   timer.done()
@@ -171,12 +176,12 @@ def _generate_shared_lib_depending_ninjas(ninja_list):
   installed_shared_libs = (
       ninja_generator.NinjaGenerator.get_installed_shared_libs(ninja_list[:]))
   ninja_generators = list(
-      config_loader.find_name('generate_shared_lib_depending_ninjas'))
+      _config_loader.find_name('generate_shared_lib_depending_ninjas'))
   task_list = [(f, installed_shared_libs) for f in ninja_generators]
 
   if OPTIONS.run_tests():
     test_ninja_generators = list(
-        config_loader.find_name('generate_shared_lib_depending_test_ninjas'))
+        _config_loader.find_name('generate_shared_lib_depending_test_ninjas'))
     task_list.extend([(f, installed_shared_libs)
                      for f in test_ninja_generators])
 
@@ -198,7 +203,7 @@ def _generate_dependent_ninjas(ninja_list):
                                         p in n._root_dir_install_targets)
   dependent_ninjas = ninja_generator_runner.run_in_parallel(
       [(job, root_dir_install_all_targets) for job in
-       config_loader.find_name('generate_binaries_depending_ninjas')],
+       _config_loader.find_name('generate_binaries_depending_ninjas')],
       OPTIONS.configure_jobs())
 
   notice_ninja = ninja_generator.NoticeNinjaGenerator('notices')

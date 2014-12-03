@@ -21,6 +21,7 @@
 #include "base/basictypes.h"
 #include "base/strings/string16.h"
 #include "posix_translation/file_stream.h"
+#include "posix_translation/mount_point_manager.h"
 
 namespace pp {
 class FileSystem;
@@ -82,6 +83,10 @@ class FileSystemHandler {
       const pp::FileSystem* pepper_file_system,
       const std::string& mount_source_in_pepper_file_system,
       const std::string& mount_dest_in_vfs);
+
+  // The mount point manager is useful to the procfs file system but likely
+  // not to any others.
+  virtual void SetMountPointManager(const MountPointManager*) {}
 
   // Sorted by syscall name. Note that we should always prefer
   // 'const std::string&' over 'const char*' for a string parameter

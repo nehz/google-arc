@@ -32,6 +32,7 @@ class ARC_EXPORT ProcfsFileHandler : public FileSystemHandler {
   virtual int statfs(const std::string& pathname, struct statfs* out) OVERRIDE;
   virtual ssize_t readlink(const std::string& pathname, std::string* resolved)
       OVERRIDE;
+  virtual void SetMountPointManager(const MountPointManager*) OVERRIDE;
 
  private:
   friend class ProcfsHandlerTest;
@@ -61,7 +62,9 @@ class ARC_EXPORT ProcfsFileHandler : public FileSystemHandler {
   FileSystemHandler* readonly_fs_handler_;
 
   DirectoryManager file_names_;
-  int last_transaction_number_;
+  int last_process_transaction_;
+
+  const MountPointManager* mount_point_manager_;
 
   DISALLOW_COPY_AND_ASSIGN(ProcfsFileHandler);
 };

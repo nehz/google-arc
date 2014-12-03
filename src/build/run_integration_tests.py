@@ -27,12 +27,12 @@ import subprocess
 import sys
 
 import build_common
-# TODO(crbug.com/384028): Remove this import once all test code is out of
-# configs.
-import config_loader
 import dashboard_submit
 import util.test.suite_results
 from build_options import OPTIONS
+# TODO(crbug.com/384028): Remove this import once all test code is out of
+# configs.
+from config_loader import ConfigLoader
 from cts import expected_driver_times
 from cts import generate_cts_runners
 from util import color
@@ -60,6 +60,9 @@ _REPORT_COLOR_FOR_SUITE_EXPECTATION = {
     scoreboard_constants.EXPECT_PASS: color.GREEN,
 }
 
+_config_loader = ConfigLoader()
+_config_loader.load_from_default_path()
+
 
 def _get_all_suite_runners_from_defs():
   return util.test.suite_runner.load_from_suite_definitions(
@@ -75,7 +78,7 @@ def get_all_suite_runners():
   # and call it to get a list of test runner objects we can use to identify
   # and run each test.
   get_runners_list = list(
-      config_loader.find_name('get_integration_test_runners'))
+      _config_loader.find_name('get_integration_test_runners'))
   get_runners_list.append(generate_cts_runners.get_integration_test_runners)
   get_runners_list.append(_get_all_suite_runners_from_defs)
 

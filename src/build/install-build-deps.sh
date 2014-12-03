@@ -4,11 +4,10 @@
 # found in the LICENSE file.
 #
 # Script to install dependencies needed for running and building ARC.
-# For Ubuntu older than 14.04, use install-arc-deps.sh instead.
+# ARC does not support Ubuntu older than 14.04.
 
 if ! egrep -q '14\.04' /etc/issue; then
   echo "ERROR: Only Ubuntu 14.04 is currently supported" >&2
-  echo "ERROR: Run install-arc-deps.sh instead" >&2
   exit 1
 fi
 

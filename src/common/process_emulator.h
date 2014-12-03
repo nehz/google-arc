@@ -76,14 +76,26 @@ class ProcessEmulator {
   // Returns the new PID.
   pid_t PrepareNewEmulatedProcess(uid_t uid);
 
-  // Returns PID. Unlike ::getpid() in libc, this functions does not
+  // Returns PID. Unlike ::getpid() in libc, this function does not
   // output to arc_strace.
   static pid_t GetPid();
 
-  // Returns UID. Unlike ::getuid() in libc, this functions does not
+  // Returns UID. Unlike ::getuid() in libc, this function does not
   // output to arc_strace and is supposed to be used from inside
   // arc_strace.
   static uid_t GetUid();
+
+  // Returns the same value as GetUid() since we don't allow to change initial
+  // UID and so RUID, EUID and SUID can't go out of sync.
+  static uid_t GetEuid();
+  static int GetRuidEuidSuid(uid_t* ruid, uid_t* euid, uid_t* suid);
+
+  // Simpilified UID emulation. These functions return an error for any
+  // UID change.
+  static int SetUid(uid_t uid);
+  static int SetEuid(uid_t euid);
+  static int SetRuidEuid(uid_t ruid, uid_t euid);
+  static int SetRuidEuidSuid(uid_t ruid, uid_t euid, uid_t suid);
 
   // Intercepts all pthread_create() calls and set up emulated uid and pid
   // values of the created thread.

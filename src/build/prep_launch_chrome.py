@@ -71,7 +71,7 @@ def _convert_launch_chrome_options_to_external_metadata(parsed_args):
                      ('enable_arc_strace', 'enableArcStrace'),
                      ('enable_compositor', 'enableCompositor'),
                      ('enable_external_directory', 'enableExternalDirectory'),
-                     ('enable_gl_fixed_attribs', 'enableGlFixedAttribs'),
+                     ('disable_gl_fixed_attribs', 'disableGlFixedAttribs'),
                      ('form_factor', 'formFactor'),
                      ('jdb_port', 'jdbPort'),
                      ('log_load_progress', 'logLoadProgress'),
