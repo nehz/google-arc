@@ -45,7 +45,9 @@ _DEFAULT_CHROMETYPE = 'prebuilt'
 
 # --internal-apks-source=
 # TODO(crbug.com/379227): Remove the 'canned' option.
-_ALLOWED_INTERNAL_APKS_SOURCES = ['canned', 'internal', 'prebuilt']
+_ALLOWED_INTERNAL_APKS_SOURCES = ['canned',
+                                  'internal',  # for the corp builder
+                                  'prebuilt']
 _DEFAULT_INTERNAL_APKS_SOURCES = 'canned'
 
 # --renderer= options

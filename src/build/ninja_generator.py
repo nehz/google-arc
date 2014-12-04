@@ -684,7 +684,8 @@ class NinjaGenerator(ninja_syntax.Writer):
         f for f in inputs if build_common.get_build_dir() in f]
     if target_dependent_inputs:
       logging.info(
-          'Non-target files (%s) depend on files in target directory (%s).' %
+          'Target independent files (%s) depend on '
+          'files in target directory (%s).' %
           (' '.join(target_independent_outputs),
            ' '.join(target_dependent_inputs)))
 
@@ -693,7 +694,8 @@ class NinjaGenerator(ninja_syntax.Writer):
         if target_dir in str(v)]
     if target_dependent_variables:
       logging.info(
-          'Non-target files (%s) depend on target specific variables (%s).' %
+          'Target independent files (%s) depend on '
+          'target specific variables (%s).' %
           (' '.join(target_independent_outputs),
            ' '.join(target_dependent_variables)))
 

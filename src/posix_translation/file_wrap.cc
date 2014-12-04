@@ -1087,7 +1087,7 @@ ssize_t __wrap_write(int fd, const void* buf, size_t count) {
     if (errno != EFAULT)
       ARC_STRACE_REPORT("buf=%s", arc::GetRWBufStr(buf, count).c_str());
     g_wrap_write_nest_count.Set(wrap_write_nest_count);
-    if (result == -1) {
+    if (result == -1 && errno != EAGAIN) {
       DANGERF("fd=%d buf=%p count=%zu: %s",
               fd, buf, count, safe_strerror(errno).c_str());
     }

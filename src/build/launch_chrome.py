@@ -626,20 +626,16 @@ def _compute_chrome_params(parsed_args):
   chrome_path = _get_chrome_path(parsed_args)
   params = [chrome_path]
 
-  if parsed_args.mode == 'perftest':
+  if parsed_args.mode in ('perftest', 'atftest'):
     # Do not show the New Tab Page because showing NTP during perftest makes the
     # benchmark score look unnecessarily bad.
     # TODO(crbug.com/315356): Remove the IF once 315356 is fixed.
     params.append('about:blank')
-
-  if parsed_args.mode != 'run':
-    # Append flags for performance measurement in the modes other than run
-    # mode to stabilize integration tests and perf score. Do not append these
-    # flags in run mode because apps that depend on component extensions
-    # (e.g. Files.app) won't work with these flags.
+    # Append flags for performance measurement in test modes to stabilize
+    # integration tests and perf score. Do not append these flags in run mode
+    # because apps that depend on component extensions (e.g. Files.app) will not
+    # work with these flags.
     params.extend(_compute_chrome_performance_test_params(parsed_args))
-
-  if parsed_args.mode == 'perftest' or parsed_args.mode == 'atftest':
     # Make the window size small on Goobuntu so that it does not cover the whole
     # desktop during perftest/integration_test.
     params.append('--window-size=500,500')

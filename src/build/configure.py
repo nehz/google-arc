@@ -256,8 +256,10 @@ def main():
 
   if (build_common.has_internal_checkout() and
       OPTIONS.internal_apks_source_is_internal()):
-    # Sync arc-int repo and and its sub-repo.
-    subprocess.check_call('src/build/sync_arc_int.py')
+    # Check if internal/third_party/{gms-core, google-contacts-sync-adapter}/
+    # checkout, which requires manual sync for now, is consistent with
+    # internal/build/DEPS.*.xml.
+    subprocess.check_call('src/build/check_arc_int.py')
 
   _gclient_sync_third_party()
   _check_java_version()

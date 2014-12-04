@@ -14,6 +14,7 @@ import os
 import re
 import sys
 
+from build_common import get_arc_welder_unpacked_dir
 from build_options import OPTIONS
 from ninja_generator import ApkFromSdkNinjaGenerator
 from util import launch_chrome_util
@@ -68,9 +69,10 @@ def _parse_mode_arguments(remaining_args, parsed_args):
   if not parsed_args.crx_name_override and parsed_args.mode == 'system':
     parsed_args.crx_name_override = _SYSTEM_CRX_NAME
 
-  # The last APK listed is the one that is actually run. For consistency, use
-  # it also for the path to the unpacked CRX.
-  if parsed_args.mode != 'driveby':
+  if parsed_args.mode == 'arcwelder':
+    parsed_args.build_crx = False
+    parsed_args.arc_data_dir = os.path.join(get_arc_welder_unpacked_dir())
+  elif parsed_args.mode != 'driveby':
     parsed_args.arc_data_dir = _get_arc_data_dir(parsed_args)
 
   return True
@@ -207,9 +209,11 @@ def _get_arc_data_dir(parsed_args):
     # We use crx_name_override to isolate /mnt and /data of non pepper FS mode.
     crx_name = parsed_args.crx_name_override
   else:
-    # Chrome does not like spaces in paths to CRXs to load.
+    # The last APK listed is the one that is actually run. For consistency, use
+    # it also for the path to the unpacked CRX.
     crx_name = os.path.splitext(os.path.basename(
         parsed_args.apk_path_list[-1]))[0]
+  # Chrome does not like spaces in paths to CRXs to load.
   return os.path.join(_DATA_ROOTS_PATH, crx_name.replace(' ', '_'))
 
 
@@ -225,6 +229,9 @@ def parse_args(argv):
       fromfile_prefix_chars='@',
       usage='%(prog)s [options...] <command> [...]',
       description="""Commands:
+
+  arcwelder
+      Start Chrome and launch the ARC Welder packaging tool.
 
   atftest [path-to-apk]*
       Starts Chrome, and launches the first set of tests found which target the
@@ -271,8 +278,8 @@ Native Client Debugging
 """, formatter_class=argparse.RawTextHelpFormatter)
 
   parser.add_argument('mode',
-                      choices=('atftest', 'driveby', 'run', 'system',
-                               'perftest'),
+                      choices=('arcwelder', 'atftest', 'driveby', 'run',
+                               'system', 'perftest'),
                       help=argparse.SUPPRESS)
 
   parser.add_argument('--additional-android-permissions',

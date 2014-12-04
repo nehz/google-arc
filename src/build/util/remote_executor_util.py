@@ -32,6 +32,7 @@ _COMMON_FILE_PATTERNS = ['out/configure.options',
                          'third_party/tools/ninja/misc']
 _LAUNCH_CHROME_FILE_PATTERNS = ['launch_chrome',
                                 'out/target/%(target)s/runtime',
+                                build_common.get_arc_welder_unpacked_dir(),
                                 'src/packaging']
 _INTEGRATION_TEST_FILE_PATTERNS = [
     'mods/android/dalvik/tests',

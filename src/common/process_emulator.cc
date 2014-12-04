@@ -74,6 +74,7 @@ class ProcessEmulatorThreadState {
 
   inline pid_t GetCurrentPid() const { return process_.pid; }
   inline uid_t GetCurrentUid() const { return process_.uid; }
+  inline gid_t GetCurrentGid() const { return process_.uid; }
 
   inline EmulatedProcessInfo GetAndClearThreadCreationProcess() {
     EmulatedProcessInfo result = thread_creation_process_;
@@ -292,9 +293,9 @@ int ProcessEmulator::GetRuidEuidSuid(uid_t* ruid, uid_t* euid, uid_t* suid) {
   return 0;
 }
 
-int ProcessEmulator::SetUid(uid_t uid) {
+int ProcessEmulator::SetUid(uid_t ruid) {
   ProcessEmulatorThreadState* state = GetThreadState();
-  if (state->GetCurrentUid() != uid) {
+  if (ruid != state->GetCurrentUid()) {
     errno = EPERM;
     return -1;
   }
@@ -303,7 +304,7 @@ int ProcessEmulator::SetUid(uid_t uid) {
 
 int ProcessEmulator::SetEuid(uid_t euid) {
   ProcessEmulatorThreadState* state = GetThreadState();
-  if (state->GetCurrentUid() != euid) {
+  if (euid != state->GetCurrentUid()) {
     errno = EPERM;
     return -1;
   }
@@ -312,11 +313,11 @@ int ProcessEmulator::SetEuid(uid_t euid) {
 
 int ProcessEmulator::SetRuidEuid(uid_t ruid, uid_t euid) {
   ProcessEmulatorThreadState* state = GetThreadState();
-  if (ruid != -1 && state->GetCurrentUid() != ruid) {
+  if (ruid != -1 && ruid != state->GetCurrentUid()) {
     errno = EPERM;
     return -1;
   }
-  if (euid != -1 && state->GetCurrentUid() != euid) {
+  if (euid != -1 && euid != state->GetCurrentUid()) {
     errno = EPERM;
     return -1;
   }
@@ -325,15 +326,81 @@ int ProcessEmulator::SetRuidEuid(uid_t ruid, uid_t euid) {
 
 int ProcessEmulator::SetRuidEuidSuid(uid_t ruid, uid_t euid, uid_t suid) {
   ProcessEmulatorThreadState* state = GetThreadState();
-  if (ruid != -1 && state->GetCurrentUid() != ruid) {
+  if (ruid != -1 && ruid != state->GetCurrentUid()) {
     errno = EPERM;
     return -1;
   }
-  if (euid != -1 && state->GetCurrentUid() != euid) {
+  if (euid != -1 && euid != state->GetCurrentUid()) {
     errno = EPERM;
     return -1;
   }
-  if (suid != -1 && state->GetCurrentUid() != suid) {
+  if (suid != -1 && suid != state->GetCurrentUid()) {
+    errno = EPERM;
+    return -1;
+  }
+  return 0;
+}
+
+gid_t ProcessEmulator::GetGid() {
+  ProcessEmulatorThreadState* state = GetThreadState();
+  return state->GetCurrentGid();
+}
+
+gid_t ProcessEmulator::GetEgid() {
+  ProcessEmulatorThreadState* state = GetThreadState();
+  return state->GetCurrentGid();
+}
+
+int ProcessEmulator::GetRgidEgidSgid(gid_t* rgid, gid_t* egid, gid_t* sgid) {
+  ProcessEmulatorThreadState* state = GetThreadState();
+  *rgid = state->GetCurrentGid();
+  *egid = state->GetCurrentGid();
+  *sgid = state->GetCurrentGid();
+  return 0;
+}
+
+int ProcessEmulator::SetGid(gid_t rgid) {
+  ProcessEmulatorThreadState* state = GetThreadState();
+  if (rgid != state->GetCurrentGid()) {
+    errno = EPERM;
+    return -1;
+  }
+  return 0;
+}
+
+int ProcessEmulator::SetEgid(gid_t egid) {
+  ProcessEmulatorThreadState* state = GetThreadState();
+  if (egid != state->GetCurrentGid()) {
+    errno = EPERM;
+    return -1;
+  }
+  return 0;
+}
+
+int ProcessEmulator::SetRgidEgid(gid_t rgid, gid_t egid) {
+  ProcessEmulatorThreadState* state = GetThreadState();
+  if (rgid != -1 && rgid != state->GetCurrentGid()) {
+    errno = EPERM;
+    return -1;
+  }
+  if (egid != -1 && egid != state->GetCurrentGid()) {
+    errno = EPERM;
+    return -1;
+  }
+  return 0;
+}
+
+int ProcessEmulator::SetRgidEgidSgid(gid_t rgid, gid_t egid, gid_t sgid) {
+  ProcessEmulatorThreadState* state = GetThreadState();
+  if (rgid != -1 && rgid != state->GetCurrentGid()) {
+    errno = EPERM;
+    return -1;
+  }
+  if (egid != -1 && egid != state->GetCurrentGid()) {
+    errno = EPERM;
+    return -1;
+  }
+  if (sgid != -1 && sgid != state->GetCurrentGid()) {
     errno = EPERM;
     return -1;
   }

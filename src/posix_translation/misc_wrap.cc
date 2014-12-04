@@ -55,17 +55,24 @@ ARC_EXPORT pid_t __wrap_wait4(
     pid_t pid, int *status, int options, struct rusage *rusage);
 
 ARC_EXPORT pid_t __wrap_getpid();
+ARC_EXPORT gid_t __wrap_getegid();
 ARC_EXPORT uid_t __wrap_geteuid();
+ARC_EXPORT int __wrap_getresgid(gid_t* rgid, gid_t* egid, gid_t* sgid);
 ARC_EXPORT int __wrap_getresuid(uid_t* ruid, uid_t* euid, uid_t* suid);
+ARC_EXPORT gid_t __wrap_getgid();
 ARC_EXPORT uid_t __wrap_getuid();
 ARC_EXPORT int __wrap_pthread_create(
     pthread_t* thread_out,
     pthread_attr_t const* attr,
     void* (*start_routine)(void*),  // NOLINT(readability/casting)
     void* arg);
+ARC_EXPORT int __wrap_setegid(gid_t egid);
 ARC_EXPORT int __wrap_seteuid(uid_t euid);
+ARC_EXPORT int __wrap_setresgid(gid_t rgid, gid_t egid, gid_t sgid);
 ARC_EXPORT int __wrap_setresuid(uid_t ruid, uid_t euid, uid_t suid);
+ARC_EXPORT int __wrap_setregid(gid_t rgid, gid_t egid);
 ARC_EXPORT int __wrap_setreuid(uid_t ruid, uid_t euid);
+ARC_EXPORT int __wrap_setgid(gid_t gid);
 ARC_EXPORT int __wrap_setuid(uid_t uid);
 }  // extern "C"
 
@@ -344,9 +351,21 @@ pid_t __wrap_getpid() {
   ARC_STRACE_RETURN(result);
 }
 
+gid_t __wrap_getgid() {
+  ARC_STRACE_ENTER("getgid", "%s", "");
+  gid_t result = arc::ProcessEmulator::GetGid();
+  ARC_STRACE_RETURN(result);
+}
+
 uid_t __wrap_getuid() {
   ARC_STRACE_ENTER("getuid", "%s", "");
   const uid_t result = arc::ProcessEmulator::GetUid();
+  ARC_STRACE_RETURN(result);
+}
+
+gid_t __wrap_getegid() {
+  ARC_STRACE_ENTER("getegid", "%s", "");
+  gid_t result = arc::ProcessEmulator::GetEgid();
   ARC_STRACE_RETURN(result);
 }
 
@@ -356,9 +375,21 @@ uid_t __wrap_geteuid() {
   ARC_STRACE_RETURN(result);
 }
 
+int __wrap_getresgid(gid_t* rgid, gid_t* egid, uid_t* sgid) {
+  ARC_STRACE_ENTER("getresgid", "%p, %p, %p", rgid, egid, sgid);
+  int result = arc::ProcessEmulator::GetRgidEgidSgid(rgid, egid, sgid);
+  ARC_STRACE_RETURN(result);
+}
+
 int __wrap_getresuid(uid_t* ruid, uid_t* euid, uid_t* suid) {
   ARC_STRACE_ENTER("getresuid", "%p, %p, %p", ruid, euid, suid);
   int result = arc::ProcessEmulator::GetRuidEuidSuid(ruid, euid, suid);
+  ARC_STRACE_RETURN(result);
+}
+
+int __wrap_setgid(gid_t gid) {
+  ARC_STRACE_ENTER("setgid", "%d", gid);
+  int result = arc::ProcessEmulator::SetGid(gid);
   ARC_STRACE_RETURN(result);
 }
 
@@ -368,15 +399,33 @@ int __wrap_setuid(uid_t uid) {
   ARC_STRACE_RETURN(result);
 }
 
+int __wrap_setegid(gid_t egid) {
+  ARC_STRACE_ENTER("setegid", "%d", egid);
+  int result = arc::ProcessEmulator::SetEgid(egid);
+  ARC_STRACE_RETURN(result);
+}
+
 int __wrap_seteuid(uid_t euid) {
   ARC_STRACE_ENTER("seteuid", "%d", euid);
   int result = arc::ProcessEmulator::SetEuid(euid);
   ARC_STRACE_RETURN(result);
 }
 
+int __wrap_setregid(gid_t rgid, gid_t egid) {
+  ARC_STRACE_ENTER("setregid", "%d, %d", rgid, egid);
+  int result = arc::ProcessEmulator::SetRgidEgid(rgid, egid);
+  ARC_STRACE_RETURN(result);
+}
+
 int __wrap_setreuid(uid_t ruid, uid_t euid) {
   ARC_STRACE_ENTER("setreuid", "%d, %d", ruid, euid);
   int result = arc::ProcessEmulator::SetRuidEuid(ruid, euid);
+  ARC_STRACE_RETURN(result);
+}
+
+int __wrap_setresgid(gid_t rgid, gid_t egid, gid_t sgid) {
+  ARC_STRACE_ENTER("setresgid", "%d, %d, %d", rgid, egid, sgid);
+  int result = arc::ProcessEmulator::SetRgidEgidSgid(rgid, egid, sgid);
   ARC_STRACE_RETURN(result);
 }
 

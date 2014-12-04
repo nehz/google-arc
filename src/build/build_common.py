@@ -366,6 +366,14 @@ def get_build_path_for_apk(apk_name, subpath=None, is_target=False):
   return path
 
 
+def get_arc_welder_output_dir():
+  return os.path.join(get_target_common_dir(), 'arc_welder')
+
+
+def get_arc_welder_unpacked_dir():
+  return os.path.join(get_arc_welder_output_dir(), 'arc_welder_unpacked')
+
+
 def get_build_tag(commit='HEAD'):
   if not os.path.exists(os.path.join(get_arc_root(), '.git')):
     # This ARC tree should be a stashed copy. Return a fake version.

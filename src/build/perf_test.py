@@ -310,7 +310,7 @@ class VMPerfDriver(BaseDriver):
 
   def _run(self, benchmark):
     DalvikVMTest = list(_config_loader.find_name('DalvikVMTest'))[0]
-    inst = DalvikVMTest('401-perf', **{'flags': PASS})
+    inst = DalvikVMTest('401-perf', config={'flags': PASS})
     args = _prepare_integration_tests_args(100)
 
     # Call set_up_common_test_directory and prepare_to_run iff source files

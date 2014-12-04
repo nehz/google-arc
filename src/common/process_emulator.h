@@ -97,6 +97,16 @@ class ProcessEmulator {
   static int SetRuidEuid(uid_t ruid, uid_t euid);
   static int SetRuidEuidSuid(uid_t ruid, uid_t euid, uid_t suid);
 
+  // Emulate GID == UID and do not allow to change GID.
+  static gid_t GetGid();
+  static gid_t GetEgid();
+  static int GetRgidEgidSgid(gid_t* rgid, gid_t* egid, gid_t* sgid);
+
+  static int SetGid(gid_t gid);
+  static int SetEgid(gid_t egid);
+  static int SetRgidEgid(gid_t rgid, gid_t egid);
+  static int SetRgidEgidSgid(gid_t rgid, gid_t egid, gid_t sgid);
+
   // Intercepts all pthread_create() calls and set up emulated uid and pid
   // values of the created thread.
   static void UpdateAndAllocatePthreadCreateArgsIfNewEmulatedProcess(
