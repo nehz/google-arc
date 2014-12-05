@@ -850,18 +850,7 @@ def write_atomically(filepath, content):
 
 
 def get_gsutil_executable():
-  # For buildbot.  Instead of passing flag around, we simply make it a
-  # speicial case here.
-  candidate = '/b/build/scripts/slave/gsutil'
-  if os.access(candidate, os.X_OK):
-    return candidate
-
-  candidate = 'third_party/tools/depot_tools/third_party/gsutil/gsutil'
-  if os.access(candidate, os.X_OK):
-    return candidate
-
-  try:
-    return subprocess.check_output(['/usr/bin/which', 'gsutil']).strip()
-  except subprocess.CalledProcessError:  # Not found
-    pass
-  return None
+  gsutil = 'third_party/tools/depot_tools/third_party/gsutil/gsutil'
+  if not os.access(gsutil, os.X_OK):
+    raise Exception('%s is not available' % gsutil)
+  return gsutil

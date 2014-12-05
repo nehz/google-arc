@@ -129,15 +129,14 @@ class SuiteRunnerBase(object):
             '--server-args', '-screen 0 640x480x24',
             '--error-file', output_filename]
 
-  def __init__(self, name, expectations_loader=None, config=None):
+  def __init__(self, name, expectations_loader=None, **config):
     # TODO(crbug.com/384028): expectation_loader will become mandatory.
     if expectations_loader:
-      assert not config, 'Unexpected entries in config: %s' % config
+      assert len(config) == 0, 'Unexpected entries in config: %s' % config
       merged_config = expectations_loader.get(name)
     else:
       merged_config = default_run_configuration()
-      if config:
-        merged_config.update(config)
+      merged_config.update(config)
 
     self._lock = threading.Lock()
     self._name = name

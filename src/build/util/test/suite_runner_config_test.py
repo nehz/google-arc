@@ -178,8 +178,8 @@ class SuiteRunConfigIntegrationTests(unittest.TestCase):
     TEST_OPTIONS.reset()
 
   def _make_suite_runner(self, name):
-    return SuiteRunnerBase(
-        name, config=SuiteRunConfigIntegrationTests.my_config()[name])
+    options = SuiteRunConfigIntegrationTests.my_config()[name]
+    return SuiteRunnerBase(name, **options)
 
   def test_works_as_intended(self):
     runner = self._make_suite_runner('dummy_suite_1')

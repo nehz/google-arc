@@ -47,7 +47,7 @@ def run():
                     'change(s) in internal/ and/or checkout master if you '
                     'need to sync the internal directory.')
   else:
-    with file(_DEPS_FILE) as f:
+    with open(_DEPS_FILE) as f:
       target_revision = f.read().rstrip()
     if target_revision != _get_current_arc_int_revision():
       sync_repo(target_revision)

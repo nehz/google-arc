@@ -2434,6 +2434,14 @@ class JavaNinjaGenerator(NinjaGenerator):
            'zip -q ../../$out classes.dex); ' +
            'rm -f $$DIR/classes.dex && rmdir $$DIR || (rm $out; exit 1)',
            description='creating multidex zip $out')
+    n.rule('zip',
+           command=('TMPD=`mktemp -d` TMPF="$$TMPD/tmp.zip"; '
+                    '(cd $zip_working_dir && '
+                    'zip --quiet $zip_flags $$TMPF $in $zip_pattern && '
+                    'cd - > /dev/null && cp $$TMPF $out && '
+                    '(rm -f $$TMPF; rmdir $$TMPD)) '
+                    '|| (rm -f $out $$TMPF; rmdir $$TMPD; exit 1)'),
+           description='zipping $desc')
 
   @staticmethod
   def add_default_resource_include(resource_include):
