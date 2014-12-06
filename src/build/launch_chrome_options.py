@@ -21,9 +21,9 @@ from util import remote_executor
 
 # The values in _ALLOWED_* must be synchronized with _ALLOWED_VALUES in
 # src/packaging/runtime/common.js.
-_ALLOWED_FORMFACTORS = ['phone', 'tablet']
+_ALLOWED_FORMFACTORS = ['maximized', 'phone', 'tablet']
 
-_ALLOWED_FORMFACTOR_MAPPING = {'p': 'phone', 't': 'tablet'}
+_ALLOWED_FORMFACTOR_MAPPING = {'m': 'maximized', 'p': 'phone', 't': 'tablet'}
 
 _ALLOWED_NDK_ABIS = ['armeabi', 'armeabi-v7a']
 
