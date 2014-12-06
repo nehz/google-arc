@@ -26,19 +26,40 @@ def _get_current_arc_int_revision():
   return util.git.get_last_landed_commit(cwd=_ARC_INTERNAL_DIR)
 
 
+def _git_has_local_modification():
+  if util.git.get_current_branch_name(cwd=_ARC_INTERNAL_DIR) != 'master':
+    return True  # not on master
+  if util.git.get_uncommitted_files(cwd=_ARC_INTERNAL_DIR):
+    return True  # found modified or staged file(s)
+  return False
+
+
+def sync_repo(target_revision):
+  logging.info('Resetting %s to %s' % (_ARC_INTERNAL_DIR, target_revision))
+  util.git.reset_to_revision(target_revision, cwd=_ARC_INTERNAL_DIR)
+
+
 def run():
+  # Check if internal/ exists. Run git-clone if not.
   if not os.path.isdir(_ARC_INTERNAL_DIR):
-    logging.error('This script only works when internal checkout exists.')
+    # TODO(tandrii): Move this nacl-x86_64-bionic-internal recipe's botupdate
+    # step.
+    url = 'https://chrome-internal.googlesource.com/arc/internal-packages.git'
+    logging.info('Cloning %s' % url)
+    subprocess.check_call('git clone %s internal' % url,
+                          cwd=_ARC_ROOT, shell=True)
+
+  # Check if internal/ is clean and on master.
+  if _git_has_local_modification():
+    logging.error('%s has local modification' % _ARC_INTERNAL_DIR)
     sys.exit(-1)
 
-  # Check if internal/ is up to date.
+  # Check if internal/ is up to date. Run git-reset if not.
   with open(_DEPS_FILE) as f:
     target_revision = f.read().rstrip()
+  logging.info('%s has %s' % (_DEPS_FILE, target_revision))
   if target_revision != _get_current_arc_int_revision():
-    logging.error('The revision of internal/ (%s) does not match %s (%s). '
-                  'Run src/build/sync_arc_int.py.' % (
-                  _get_current_arc_int_revision(), _DEPS_FILE, target_revision))
-    sys.exit(-1)
+    sync_repo(target_revision)
 
   # Check if the Android internal code is up to date.
   xml = tempfile.NamedTemporaryFile(prefix='repo_manifest_output_')
@@ -49,7 +70,7 @@ def run():
   result = subprocess.call(['diff', xml.name, _GMS_CORE_DEPS])
   if result != 0:
     logging.error('Android internal source code is not up to date. '
-                  'Run src/build/sync_arc_int.py.')
+                  'See internal/docs/rebasing.md and update the code.')
   return result
 
 

@@ -254,8 +254,7 @@ def main():
   adb_target = 'linux-arm' if OPTIONS.is_arm() else 'linux-x86_64'
   sync_adb.run(adb_target)
 
-  if (build_common.has_internal_checkout() and
-      OPTIONS.internal_apks_source_is_internal()):
+  if OPTIONS.internal_apks_source_is_internal():
     # Check if internal/third_party/{gms-core, google-contacts-sync-adapter}/
     # checkout, which requires manual sync for now, is consistent with
     # internal/build/DEPS.*.xml.

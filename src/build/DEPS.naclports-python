@@ -3,4 +3,4 @@
 # python distribution should be fine for this purpose, we do not compile
 # anything else against it so it just needs to function hermetically with our
 # apk_to_crx.py script.
-http://gsdview.appspot.com/naclports/builds/pepper_40/trunk-138-g38b7d0d/publish/python/newlib/python.zip
+http://gsdview.appspot.com/naclports/builds/pepper_40/trunk-154-geacd680/publish/python/newlib/python.zip
