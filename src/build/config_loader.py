@@ -14,7 +14,7 @@ from build_common import get_arc_root
 
 def _all_config_files(base_paths):
   for base_path in base_paths:
-    for root, dirs, files in os.walk(base_path, followlinks=True):
+    for root, dirs, files in os.walk(base_path, followlinks=False):
       for name in files:
         if name == 'config.py':
           yield os.path.join(root, name), base_path

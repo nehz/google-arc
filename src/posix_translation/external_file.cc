@@ -6,11 +6,12 @@
 
 #include <errno.h>
 
-#include "base/strings/string_util.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
 #include "common/alog.h"
+#include "common/process_emulator.h"
 #include "native_client/src/untrusted/irt/irt.h"
 #include "posix_translation/directory_file_stream.h"
 #include "posix_translation/directory_manager.h"
@@ -30,13 +31,15 @@ base::Lock& GetFileSystemMutex() {
 
 ///////////////////////////////////////////////////////////////////////////////
 // ExternalFileWrapperHandler
-ExternalFileWrapperHandler::ExternalFileWrapperHandler()
-  : FileSystemHandler("ExternalFileWrapperHandler") {
+ExternalFileWrapperHandler::ExternalFileWrapperHandler(Delegate* delegate)
+  : FileSystemHandler("ExternalFileWrapperHandler"),
+    delegate_(delegate) {
   nacl_interface_query(NACL_IRT_RANDOM_v0_1, &random_, sizeof(random_));
   ALOG_ASSERT(random_.get_random_bytes);
 }
 
 ExternalFileWrapperHandler::~ExternalFileWrapperHandler() {
+  STLDeleteValues(&file_handlers_);
 }
 
 int ExternalFileWrapperHandler::mkdir(
@@ -59,6 +62,37 @@ int ExternalFileWrapperHandler::mkdir(
   return -1;
 }
 
+FileSystemHandler* ExternalFileWrapperHandler::ResolveExternalFile(
+    const std::string& pathname) {
+  HandlerMap::const_iterator it = file_handlers_.find(pathname);
+  if (it != file_handlers_.end())
+    return it->second;
+
+  if (!delegate_ || !IsResourcePath(pathname))
+    return NULL;
+
+  pp::FileSystem* file_system = NULL;
+  std::string path_in_external_fs;
+  bool is_writable = false;
+
+  if (!delegate_->ResolveExternalFile(pathname,
+                                      &file_system,
+                                      &path_in_external_fs,
+                                      &is_writable))
+    return NULL;
+
+  FileSystemHandler* handler = NULL;
+  const std::string path_in_vfs = SetPepperFileSystemLocked(
+      file_system, path_in_external_fs, pathname, &handler);
+  ALOG_ASSERT(handler);
+  if (is_writable) {
+    VirtualFileSystem::GetVirtualFileSystem()->ChangeMountPointOwner(
+        path_in_vfs, arc::kFirstAppUid);
+  }
+
+  return handler;
+}
+
 scoped_refptr<FileStream> ExternalFileWrapperHandler::open(
     int unused_fd, const std::string& pathname, int oflag, mode_t cmode) {
   ALOG_ASSERT(!util::EndsWithSlash(pathname));
@@ -70,8 +104,12 @@ scoped_refptr<FileStream> ExternalFileWrapperHandler::open(
   }
 
   std::string slot = GetSlot(pathname);
-  if (slot_file_map_.find(slot) == slot_file_map_.end()) {
-    // Invalid path format or slot does not exist.
+  if (slot.empty() || slot_file_map_.find(slot) == slot_file_map_.end()) {
+    // It may be yet unmounted external file
+    FileSystemHandler* handler = ResolveExternalFile(pathname);
+    if (handler)
+      return handler->open(unused_fd, pathname, oflag, cmode);
+
     errno = ENOENT;
     return NULL;
   }
@@ -90,8 +128,12 @@ int ExternalFileWrapperHandler::stat(
   }
 
   std::string slot = GetSlot(pathname);
-  if (slot_file_map_.find(slot) == slot_file_map_.end()) {
-    // Invalid path format or slot does not exist.
+  if (slot.empty() || slot_file_map_.find(slot) == slot_file_map_.end()) {
+    // It may be yet unmounted external file
+    FileSystemHandler* handler = ResolveExternalFile(pathname);
+    if (handler)
+      return handler->stat(pathname, out);
+
     errno = ENOENT;
     return -1;
   }
@@ -156,22 +198,42 @@ Dir* ExternalFileWrapperHandler::OnDirectoryContentsNeeded(
   return directory.OpenDirectory(pathname);
 }
 
-std::string ExternalFileWrapperHandler::GetSlot(const std::string& file_path) {
+bool ExternalFileWrapperHandler::IsResourcePath(
+    const std::string& file_path) const {
   ALOG_ASSERT(!root_directory_.empty(), "OnMounted() has not been called.");
-  if (!StartsWithASCII(file_path, root_directory_, true) &&
-      util::EndsWithSlash(file_path)) {
+  if (!StartsWithASCII(file_path, root_directory_, true) ||
+      util::EndsWithSlash(file_path))
+    return false;
+
+  std::string slot_with_resource = file_path.substr(root_directory_.size());
+  if (slot_with_resource.empty() || slot_with_resource == "/")
+    return false;
+
+  ALOG_ASSERT(StartsWithASCII(slot_with_resource, "/", true));
+
+  // We must have only one segment name after slot
+  int next_slash = slot_with_resource.find('/', 1);
+  if (next_slash == std::string::npos ||
+      slot_with_resource.find('/', next_slash + 1) != std::string::npos)
+    return false;
+
+  return true;
+}
+
+std::string ExternalFileWrapperHandler::GetSlot(
+    const std::string& file_path) const {
+  ALOG_ASSERT(!root_directory_.empty(), "OnMounted() has not been called.");
+  if (!StartsWithASCII(file_path, root_directory_, true) ||
+      util::EndsWithSlash(file_path))
     return "";
-  }
 
   std::string slot = file_path.c_str() + root_directory_.size();
-  if (slot.empty() || slot == "/") {
+  if (slot.empty() || slot == "/")
     return "";
-  }
 
   ALOG_ASSERT(StartsWithASCII(slot, "/", true));
-  if (slot.find('/', 1) != std::string::npos) {
+  if (slot.find('/', 1) != std::string::npos)
     return "";
-  }
 
   return slot;
 }
@@ -191,7 +253,7 @@ std::string ExternalFileWrapperHandler::GenerateUniqueSlotLocked() const {
     ALOG_ASSERT(nread > 0);
     i += nread;
   }
-  return "/" + base::HexEncode(buffer, kRandLen);;
+  return "/" + base::HexEncode(buffer, kRandLen);
 }
 
 std::string ExternalFileWrapperHandler::SetPepperFileSystem(
@@ -199,7 +261,17 @@ std::string ExternalFileWrapperHandler::SetPepperFileSystem(
     const std::string& mount_source_in_pepper_file_system,
     const std::string& mount_dest_in_vfs) {
   base::AutoLock lock(GetFileSystemMutex());
+  return SetPepperFileSystemLocked(pepper_file_system,
+                                   mount_source_in_pepper_file_system,
+                                   mount_dest_in_vfs,
+                                   NULL);
+}
 
+std::string ExternalFileWrapperHandler::SetPepperFileSystemLocked(
+    const pp::FileSystem* pepper_file_system,
+    const std::string& mount_source_in_pepper_file_system,
+    const std::string& mount_dest_in_vfs,
+    FileSystemHandler** file_handler) {
   ALOG_ASSERT(pepper_file_system);
   ALOG_ASSERT(util::IsAbsolutePath(mount_source_in_pepper_file_system));
   ALOG_ASSERT(mount_source_in_pepper_file_system.find('/', 1) ==
@@ -247,8 +319,11 @@ std::string ExternalFileWrapperHandler::SetPepperFileSystem(
                                 mount_source_in_pepper_file_system,
                                 mount_point);
   }
+  if (file_handler != NULL)
+    *file_handler = handler.get();
 
-  file_handlers_.push_back(handler.release());
+  ALOG_ASSERT(file_handlers_.find(mount_point) == file_handlers_.end());
+  file_handlers_[mount_point] = handler.release();
   return mount_point;
 }
 

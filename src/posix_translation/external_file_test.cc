@@ -16,8 +16,9 @@
 #include "gtest/gtest.h"
 #include "posix_translation/test_util/file_system_background_test_common.h"
 #include "posix_translation/test_util/file_system_test_common.h"
-#include "posix_translation/virtual_file_system.h"
 #include "posix_translation/test_util/mock_virtual_file_system.h"
+#include "posix_translation/test_util/mock_file_handler.h"
+#include "posix_translation/virtual_file_system.h"
 
 namespace posix_translation {
 
@@ -204,7 +205,7 @@ TEST_BACKGROUND_F(ExternalDirectoryTest, InitializeTest) {
 
 class TestableExternalFileWrapperHandler : public ExternalFileWrapperHandler {
  public:
-  TestableExternalFileWrapperHandler() : ExternalFileWrapperHandler() {}
+  TestableExternalFileWrapperHandler() : ExternalFileWrapperHandler(NULL) {}
 
   using ExternalFileWrapperHandler::GetSlot;
   using ExternalFileWrapperHandler::GenerateUniqueSlotLocked;
@@ -225,11 +226,15 @@ class TestableExternalFileWrapperHandler : public ExternalFileWrapperHandler {
     EXPECT_TRUE(file_system);
     delete file_system;
     mounts_.push_back(MountInfo(path_in_external_fs, path_in_vfs));
-    return scoped_ptr<FileSystemHandler>();
+    return scoped_ptr<FileSystemHandler>(new MockFileHandler());
   }
 
   const std::vector<MountInfo>& mounts() {
     return mounts_;
+  }
+
+  void SetDelegate(Delegate* delegate) {
+    delegate_.reset(delegate);
   }
 
  private:
@@ -259,9 +264,60 @@ class ExternalFileWrapperTest
   scoped_ptr<TestableExternalFileWrapperHandler> handler_;
 };
 
+// A mock delegate for ExternalDirectoryHandler.
+class MockExtFileWrapperDelegate : public ExternalFileWrapperHandler::Delegate {
+ public:
+  MockExtFileWrapperDelegate() : call_cnt_(0), target_writable_(false) {}
+  virtual ~MockExtFileWrapperDelegate() {}
+
+  virtual bool ResolveExternalFile(const std::string& path,
+                                   pp::FileSystem** file_system,
+                                   std::string* path_in_external_fs,
+                                   bool* is_writable) OVERRIDE {
+    ++call_cnt_;
+    requested_path_ = path;
+
+    if (path != target_path_) {
+      return false;
+    }
+
+    *file_system = new pp::FileSystem();
+    *path_in_external_fs = target_path_.substr(target_path_.find_last_of('/'));
+    *is_writable = target_writable_;
+
+    return true;
+  }
+
+  void SetTargetObject(const std::string& path, bool writable) {
+    target_path_ = path;
+    target_writable_ = writable;
+    requested_path_ = "";
+  }
+
+  std::string GetRequestedPath() {
+    // We reset requested_path_ here and next time when this function
+    // calls it returns empty string if no ResolveExternalFile was called.
+    // This way we return copy of current string.
+    std::string requested_path = requested_path_;
+    requested_path_ = "";
+    return requested_path;
+  }
+
+  int call_cnt() const {
+    return call_cnt_;
+  }
+
+ private:
+  int call_cnt_;
+  bool target_writable_;
+  std::string target_path_;
+  std::string requested_path_;
+};
+
+
 TEST_F(ExternalFileWrapperTest, ConstructDestructTest) {
   scoped_ptr<ExternalFileWrapperHandler> handler;
-  handler.reset(new ExternalFileWrapperHandler());
+  handler.reset(new ExternalFileWrapperHandler(NULL));
   handler.reset();
 }
 
@@ -333,6 +389,7 @@ TEST_F(ExternalFileWrapperTest, GetSlotTest) {
     { "/a/bb/ccc/dddd", "" },
     { "/a/bb/ccc/dddd/", "" },
     { "/a/bb/ccc/dddd//", "" },
+    { "/x/bb/ccc/dddd/938493948", "" },
   };
 
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(kTestData) ; ++i) {
@@ -453,19 +510,19 @@ TEST_F(ExternalFileWrapperTest, open) {
       EXPECT_EQ(0, errno);
     }
   }
-
   // unknown slot
   errno = 0;
   stream = handler_->open(kUnusedFd, ext_files_dir + "/12345", 0, 0644);
   ASSERT_FALSE(stream.get());
   EXPECT_EQ(ENOENT, errno);
 
-  // every path in correct slot.
+  // every path in correct slot. foo is mounted. Mock returned
   errno = 0;
   stream = handler_->open(kUnusedFd,
                           ext_files_dir + "/0/foo.txt", 0, 0644);
-  ASSERT_FALSE(stream.get());
-  EXPECT_EQ(ENOENT, errno);
+  ASSERT_TRUE(stream.get());
+  EXPECT_EQ(0, errno);
+
   errno = 0;
   stream = handler_->open(kUnusedFd,
                           ext_files_dir + "/0/bar.txt", 0, 0644);
@@ -655,6 +712,70 @@ TEST_F(ExternalFileWrapperTest, getdents_slot) {
   ReadDirectoryEntries(stream, &dir_entries);
   EXPECT_EQ(1U, dir_entries.size());
   EXPECT_EQ("foo.txt", dir_entries[0]);
+}
+
+TEST_F(ExternalFileWrapperTest, resolvemount) {
+  base::AutoLock lock(file_system_->mutex());
+
+  const int kUnusedFd = 10;
+
+  const std::string ext_files_dir = kExternalFilesDir;  // for easy appending.
+  std::string slot = base::StringPrintf("/%X/", 1000);
+  std::string testfile = ext_files_dir + slot + "test.txt";
+  std::string testfile2 = ext_files_dir + slot + "test2.txt";
+
+  struct stat st = {};
+  scoped_refptr<FileStream> stream;
+
+  st.st_mode = 0;
+  errno = 0;
+  EXPECT_EQ(-1, handler_->stat(testfile, &st));
+  EXPECT_EQ(ENOENT, errno);
+  stream = handler_->open(kUnusedFd, testfile, 0, 0644);
+  ASSERT_FALSE(stream.get());
+  EXPECT_EQ(ENOENT, errno);
+
+  TestableExternalFileWrapperHandler* handler =
+      reinterpret_cast<TestableExternalFileWrapperHandler*>(handler_.get());
+  MockExtFileWrapperDelegate* delegate = new MockExtFileWrapperDelegate();
+  handler->SetDelegate(delegate);
+
+  errno = 0;
+  EXPECT_EQ(-1, handler_->stat(testfile, &st));
+  EXPECT_EQ(ENOENT, errno);
+
+  EXPECT_EQ(1, delegate->call_cnt());
+  EXPECT_EQ(testfile, delegate->GetRequestedPath());
+
+  delegate->SetTargetObject(testfile, false);
+
+  errno = 0;
+  EXPECT_EQ(0, handler_->stat(testfile, &st));
+  EXPECT_EQ(0, errno);
+
+  EXPECT_EQ(2, delegate->call_cnt());
+  EXPECT_EQ(testfile, delegate->GetRequestedPath());
+
+  errno = 0;
+  stream = handler_->open(kUnusedFd, testfile, 0, 0644);
+  ASSERT_TRUE(stream.get());
+  EXPECT_EQ(0, errno);
+
+  // Result should be cached. No more calls to delegate.
+  EXPECT_EQ(2, delegate->call_cnt());
+
+  // Delegate is set but cannot resolve.
+  errno = 0;
+  EXPECT_EQ(-1, handler_->stat(testfile2, &st));
+  EXPECT_EQ(ENOENT, errno);
+  EXPECT_EQ(3, delegate->call_cnt());
+  EXPECT_EQ(testfile2, delegate->GetRequestedPath());
+
+  stream = handler_->open(kUnusedFd, testfile2, 0, 0644);
+  ASSERT_FALSE(stream.get());
+  EXPECT_EQ(ENOENT, errno);
+  EXPECT_EQ(4, delegate->call_cnt());
+  EXPECT_EQ(testfile2, delegate->GetRequestedPath());
 }
 
 }  // namespace posix_translation

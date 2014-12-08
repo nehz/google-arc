@@ -9,61 +9,10 @@
 #include "gtest/gtest.h"
 #include "posix_translation/dev_null.h"
 #include "posix_translation/directory_file_stream.h"
-#include "posix_translation/directory_manager.h"
 #include "posix_translation/test_util/file_system_test_common.h"
+#include "posix_translation/test_util/mock_file_handler.h"
 
 namespace posix_translation {
-
-namespace {
-
-class MockFileStream : public FileStream {
- public:
-  MockFileStream(int oflag, const std::string& pathname)
-    : FileStream(oflag, pathname) {
-  }
-
-  // Stubs for requred methods from FileStream. Do nothing here.
-  ssize_t read(void* buf, size_t count) OVERRIDE {
-    return -1;
-  }
-  ssize_t write(const void* buf, size_t count) OVERRIDE {
-    return -1;
-  }
-  const char* GetStreamType() const OVERRIDE {
-     return "MockFileStream";
-  }
-};
-
-class MockFileHandler : public FileSystemHandler {
- public:
-  MockFileHandler()
-    : FileSystemHandler("MockFileHandler") {
-  }
-
-  scoped_refptr<FileStream> open(
-      int fd, const std::string& pathname, int oflag, mode_t cmode) OVERRIDE {
-    file_names_.AddFile(pathname);
-    return new MockFileStream(oflag, pathname);
-  }
-  Dir* OnDirectoryContentsNeeded(const std::string& name) OVERRIDE {
-    return file_names_.OpenDirectory(name);
-  }
-
-  // Stubs for required methods from FileSystemHandler. Do nothing here
-  int stat(const std::string& pathname, struct stat* out) OVERRIDE {
-    return -1;
-  }
-  int statfs(const std::string& pathname, struct statfs* out) OVERRIDE {
-    return -1;
-  }
-
- private:
-  // An object which holds a list of files and directories in the file system.
-  // Contains directory information returned to getdents.
-  DirectoryManager file_names_;
-};
-
-}  // namespace
 
 class DirectoryFileStreamTest : public FileSystemTestCommon {
  protected:

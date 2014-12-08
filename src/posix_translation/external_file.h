@@ -27,9 +27,9 @@ namespace posix_translation {
 //   Then chosen file is "/foo.txt"
 //
 //   In this case, the mounted path will be like:
-//   /data/data/org.chromium.arc/external/0183748209/foo.txt
+//   /data/data/org.chromium.arc/external/361F9A2BF6CDFD23EEE2C3D618C170/foo.txt
 //   Here, RootDirectory is "/data/data/org.chromium.arc/external",
-//   Slot is "/361F9A2BF6CDFD23EEE2C3D618C170E5", and Filename is "/foo.txt"
+//   Slot is "/361F9A2BF6CDFD23EEE2C3D618C170", and Filename is "/foo.txt"
 //
 // RootDirectory:
 //   The RootDirectory is the same as mount point of this file handler. In this
@@ -44,7 +44,20 @@ namespace posix_translation {
 //   contain slash. There is only one Filename per slot.
 class ARC_EXPORT ExternalFileWrapperHandler : public FileSystemHandler {
  public:
-  ExternalFileWrapperHandler();
+  // An delegate class for external file handler. This delegate can be
+  // used for resolving unmounted file requests.
+  class Delegate {
+   public:
+    virtual ~Delegate() {}
+
+    // Called when found request to unmounted resource
+    virtual bool ResolveExternalFile(const std::string& path,
+                                     pp::FileSystem** file_system,
+                                     std::string* path_in_external_fs,
+                                     bool* is_writable) = 0;
+  };
+
+  explicit ExternalFileWrapperHandler(Delegate* delegate);
   virtual ~ExternalFileWrapperHandler();
 
   // Overridden from FileSystemHandler
@@ -67,7 +80,11 @@ class ARC_EXPORT ExternalFileWrapperHandler : public FileSystemHandler {
 
   // Returns slot from |file_path|. The slot is starting slash.
   // This function returns empty string if |file_path| is invalid.
-  std::string GetSlot(const std::string& file_path);
+  std::string GetSlot(const std::string& file_path) const;
+
+  // Returns true if given string defines resource path
+  // which consists from root/slot/resource_name
+  bool IsResourcePath(const std::string& file_path) const;
 
   // Generates unique slot name.
   std::string GenerateUniqueSlotLocked() const;
@@ -79,6 +96,16 @@ class ARC_EXPORT ExternalFileWrapperHandler : public FileSystemHandler {
       const std::string& path_in_external_fs,
       const std::string& path_in_vfs);
 
+  // Tries to resolve external file what was not mounted in this session
+  FileSystemHandler* ResolveExternalFile(const std::string& pathname);
+
+  std::string SetPepperFileSystemLocked(
+      const pp::FileSystem* pepper_file_system,
+      const std::string& mount_source_in_pepper_file_system,
+      const std::string& mount_dest_in_vfs,
+      FileSystemHandler** file_handler);
+
+
   // The mounted directory in VFS. This must NOT end with slash.
   std::string root_directory_;
 
@@ -87,10 +114,14 @@ class ARC_EXPORT ExternalFileWrapperHandler : public FileSystemHandler {
   SlotFileMap slot_file_map_;
 
   // Mounted handlers.
-  ScopedVector<FileSystemHandler> file_handlers_;
+  typedef base::hash_map<std::string, FileSystemHandler*> HandlerMap;  // NOLINT
+  HandlerMap file_handlers_;
 
   // For generating unique slot.
   nacl_irt_random random_;
+
+  // Keep delegate pointer
+  scoped_ptr<Delegate> delegate_;
 
   DISALLOW_COPY_AND_ASSIGN(ExternalFileWrapperHandler);
 };
@@ -167,7 +198,7 @@ class ExternalFileHandler : public ExternalFileHandlerBase {
 // block until the filesystem is attached with SetExternalDirectory.
 class ARC_EXPORT ExternalDirectoryHandler : public ExternalFileHandlerBase {
  public:
-  // An obeser class for external directory handler. By passing this instance
+  // An observer class for external directory handler. By passing this instance
   // to ExternalDirectoryHandler ctor, OnInitializing is called just
   // before PepperFileHandler::Initialize function call. This observer can be
   // used on-demand initialization of ExternalDirectoryHandler.
