@@ -1274,9 +1274,11 @@ class CNinjaGenerator(NinjaGenerator):
   @staticmethod
   def emit_optimization_flags(n, force_optimizations=False):
     cflags = []
+    gccflags = []
     ldflags = []
     if OPTIONS.is_optimized_build() or force_optimizations:
       cflags = get_optimization_cflags()
+      gccflags = get_gcc_optimization_cflags()
       # Unlike Chromium where gold is available, do not use '-Wl,-O1' since it
       # slows down the linker a lot. Do not use '-Wl,--gc-sections' either
       # (crbug.com/231034).
@@ -1298,7 +1300,11 @@ class CNinjaGenerator(NinjaGenerator):
 
     n.variable('cflags', '$cflags ' + ' '.join(cflags))
     n.variable('cxxflags', '$cxxflags ' + ' '.join(cflags))
-    n.variable('ldflags', '$ldflags ' + ' '.join(ldflags))
+    if gccflags:
+      n.variable('gccflags', '$gccflags ' + ' '.join(gccflags))
+      n.variable('gxxflags', '$gxxflags ' + ' '.join(gccflags))
+    if ldflags:
+      n.variable('ldflags', '$ldflags ' + ' '.join(ldflags))
 
   @staticmethod
   def emit_target_rules_(n):
@@ -3640,9 +3646,12 @@ def get_optimization_cflags():
   # We also removed -fno-inline-functions-called-once as this was not
   # giving any value for ARC. There were no performance/binary size
   # regressions by removing this flag.
-  return ['-O2',
-          '-finline-functions',
-          '-funswitch-loops']
+  return ['-O2']
+
+
+def get_gcc_optimization_cflags():
+  # Clang does not support them so they are GCC only.
+  return ['-finline-functions', '-funswitch-loops']
 
 
 # TODO(crbug.com/177699): Remove ignore_dependency option (we never

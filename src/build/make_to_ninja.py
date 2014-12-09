@@ -1937,7 +1937,10 @@ def _adjust_flags(vars):
       vars.get_ldflags().remove('-Wl,-z,relro')
 
   if not OPTIONS.is_optimized_build():
-    for flag in ninja_generator.get_optimization_cflags():
+    # We remove all optimization flags.
+    optimization_cflags = (ninja_generator.get_optimization_cflags() +
+                           ninja_generator.get_gcc_optimization_cflags())
+    for flag in optimization_cflags:
       vars.remove_c_or_cxxflag(flag)
     vars.remove_c_or_cxxflag('-O1')  # Just in case
     vars.remove_c_or_cxxflag('-O3')

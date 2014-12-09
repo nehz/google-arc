@@ -98,8 +98,12 @@ def get_builders_info():
   builder_info = {}
   for builder, builder_data in builders_data.iteritems():
     # Exclude currentsBuilds because their complete logs are not available yet.
-    latest_build_number = max(set(builder_data['cachedBuilds']) -
-                              set(builder_data['currentBuilds']))
+    builds = (set(builder_data['cachedBuilds']) -
+              set(builder_data['currentBuilds']))
+    if not builds:
+      print '%s builder does not have build logs yet. Skip it.' % builder
+      continue
+    latest_build_number = max(builds)
     builder_info[builder] = latest_build_number
   return builder_info
 

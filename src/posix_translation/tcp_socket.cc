@@ -493,10 +493,8 @@ int TCPSocket::ioctl(int request, va_list ap) {
     int* out = va_arg(ap, int*);
     *out = in_buf_.size();
     return 0;
-  } else {
-    errno = EINVAL;
-    return -1;
   }
+  return SocketStream::ioctl(request, ap);
 }
 
 bool TCPSocket::GetOptNameData(

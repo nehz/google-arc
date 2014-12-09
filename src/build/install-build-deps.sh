@@ -20,6 +20,7 @@ libcap-dev:amd64
 libgl1-mesa-dev
 linux-libc-dev:i386
 openjdk-6-jdk
+openjdk-7-jdk
 pbzip2
 pigz
 "

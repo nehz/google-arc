@@ -30,6 +30,12 @@ TEST(Matrix, Transpose) {
   EXPECT_TRUE(AlmostEquals(m, kTransposedFunMatrix));
 }
 
+TEST(Matrix, RescaleNormal) {
+  Matrix m(kFunMatrix);
+  m.RescaleNormal();
+  EXPECT_TRUE(AlmostEquals(m, kRescaledNormalFunMatrix));
+}
+
 TEST(Matrix, Inverse) {
   Vector translate(1.f, 2.f, 3.f, 1.f);
   Vector axis(1.f, 1.f, 0.f, 0.f);

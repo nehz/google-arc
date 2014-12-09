@@ -4,7 +4,9 @@
 
 #include "posix_translation/socket_stream.h"
 
+#include <fcntl.h>
 #include <netinet/in.h>
+#include <sys/ioctl.h>
 
 #include "common/alog.h"
 #include "common/process_emulator.h"
@@ -201,13 +203,24 @@ int SocketStream::getsockopt(int level, int optname, void* optval,
   }
   *optlen = len;
   if (optval != NULL) {
-    if (storage != NULL) {
+    if (storage != NULL)
       memcpy(optval, storage, len);
-    } else {
+    else
       memset(optval, 0, len);
-    }
   }
   return 0;
+}
+
+int SocketStream::ioctl(int request, va_list ap) {
+  if (request == FIONBIO) {
+    int val = va_arg(ap, int);
+    if (val)
+      set_oflag(oflag() | O_NONBLOCK);
+    else
+      set_oflag(oflag() & ~O_NONBLOCK);
+    return 0;
+  }
+  return FileStream::ioctl(request, ap);
 }
 
 int SocketStream::setsockopt(int level, int optname, const void* optval,

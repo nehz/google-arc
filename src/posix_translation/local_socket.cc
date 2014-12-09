@@ -213,10 +213,8 @@ int LocalSocket::ioctl(int request, va_list ap) {
         *out = 0;
     }
     return 0;
-  } else {
-    errno = EINVAL;
-    return -1;
   }
+  return SocketStream::ioctl(request, ap);
 }
 
 bool LocalSocket::IsSelectReadReady() const {

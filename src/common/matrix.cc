@@ -51,6 +51,16 @@ void Matrix::Transpose() {
   }
 }
 
+void Matrix::RescaleNormal() {
+  for (int i = 0; i < 3; ++i) {
+    Vector v(Get(i, 0), Get(i, 1), Get(i, 2), 0.f);
+    v.Normalize();
+    Set(i, 0, v.Get(0));
+    Set(i, 1, v.Get(1));
+    Set(i, 2, v.Get(2));
+  }
+}
+
 void Matrix::Inverse() {
   float inv[kEntries];
   inv[0] = entries_[5]  * entries_[10] * entries_[15] -

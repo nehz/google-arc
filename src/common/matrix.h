@@ -44,6 +44,9 @@ class Matrix {
 
   void Transpose();
 
+  // Normalizes the x-, y-, and z-scale vector components of the matrix.
+  void RescaleNormal();
+
   void AssignIdentity();
 
   void AssignMatrixMultiply(const Matrix& a, const Matrix& b);

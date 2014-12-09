@@ -6,6 +6,8 @@
 #define COMMON_VECTOR_H_
 
 #include <math.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <limits>
 
 namespace arc {

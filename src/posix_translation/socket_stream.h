@@ -29,6 +29,7 @@ class SocketStream : public FileStream {
   virtual int fsync() OVERRIDE;
   virtual int getsockopt(int level, int optname, void* optval,
                          socklen_t* optlen) OVERRIDE;
+  virtual int ioctl(int request, va_list ap) OVERRIDE;
   virtual int setsockopt(int level, int optname, const void* optval,
                          socklen_t optlen) OVERRIDE;
 
