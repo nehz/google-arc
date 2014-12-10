@@ -72,7 +72,6 @@ class Vector {
   void GetLinearMapping(float* params, size_t count) const;
   void GetLinearMapping(int32_t* params, size_t count) const;
 
-  // TODO(lpique) Merge with Haroon's Clamp()
   void Clamp(float min, float max);
 
  private:

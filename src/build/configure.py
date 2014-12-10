@@ -53,22 +53,23 @@ def _set_up_git_hooks():
       os.unlink(symlink_path)
 
 
-def _check_java_version():
+def _check_javac_version():
   # Stamp file should keep the last modified time of the java binary.
-  java_path = distutils.spawn.find_executable(
-      toolchain.get_tool('java', 'java'))
+  javac_path = distutils.spawn.find_executable(
+      toolchain.get_tool('java', 'javac'))
   stamp_file = build_common.StampFile(
-      os.path.getmtime(java_path), build_common.get_java_revision_file())
+      '%s %f' % (javac_path, os.path.getmtime(javac_path)),
+      build_common.get_javac_revision_file())
   if stamp_file.is_up_to_date():
     return
 
-  p = subprocess.Popen([toolchain.get_tool('java', 'java'), '-version'],
-                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
   want_version = '1.6.'
-  java_version = p.communicate()[0]
-  if want_version not in java_version:
-    print '\nWARNING: You are not using the supported Java SE 1.6.'
-    print 'See docs/getting-java.md\n'
+  javac_version = subprocess.check_output(
+      [javac_path, '-version'], stderr=subprocess.STDOUT)
+  if want_version not in javac_version:
+    print '\nWARNING: You are not using the supported Java SE 1.6.:',
+    print javac_version.strip()
+    print 'See docs/getting-java.md.\n'
   else:
     stamp_file.update()
 
@@ -261,7 +262,7 @@ def main():
     subprocess.check_call('src/build/check_arc_int.py')
 
   _gclient_sync_third_party()
-  _check_java_version()
+  _check_javac_version()
   _cleanup_orphaned_pyc_files()
 
   _set_up_git_hooks()

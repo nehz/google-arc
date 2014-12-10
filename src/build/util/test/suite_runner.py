@@ -129,14 +129,15 @@ class SuiteRunnerBase(object):
             '--server-args', '-screen 0 640x480x24',
             '--error-file', output_filename]
 
-  def __init__(self, name, expectations_loader=None, **config):
+  def __init__(self, name, expectations_loader=None, config=None):
     # TODO(crbug.com/384028): expectation_loader will become mandatory.
     if expectations_loader:
-      assert len(config) == 0, 'Unexpected entries in config: %s' % config
+      assert not config, 'Unexpected entries in config: %s' % config
       merged_config = expectations_loader.get(name)
     else:
       merged_config = default_run_configuration()
-      merged_config.update(config)
+      if config:
+        merged_config.update(config)
 
     self._lock = threading.Lock()
     self._name = name
@@ -453,7 +454,6 @@ class SuiteRunnerBase(object):
         if self._terminated:
           raise subprocess.CalledProcessError(1, args)
         args = self.write_args_if_needed(args)
-        build_common.log_subprocess_popen(args, *vargs, **kwargs)
         self._subprocess = filtered_subprocess.Popen(args, *vargs, **kwargs)
       verbose = self._args.output == 'verbose'
       handler = SuiteRunnerOutputHandler(verbose, output_file, self)

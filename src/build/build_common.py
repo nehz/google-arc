@@ -540,8 +540,8 @@ def get_thirdparty_gclient_revision_file():
   return os.path.join('third_party', '.gclient_last_sync')
 
 
-def get_java_revision_file():
-  return os.path.join(OUT_DIR, 'STAMP.jre')
+def get_javac_revision_file():
+  return os.path.join(OUT_DIR, 'STAMP.jdk')
 
 
 def get_generated_ninja_dir():

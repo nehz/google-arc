@@ -378,6 +378,11 @@ class _Options(object):
 
     parser.add_argument('--goma-dir', help='The directory for goma.')
 
+    parser.add_argument('--java-dir', help='The directory for Java. The path '
+                        'points to a directory, which usually JAVA_HOME env '
+                        'variable points to. E.g. '
+                        '/usr/lib/jvm/java-6-openjdk-amd64 for Ubuntu.')
+
     parser.add_argument('--logging', metavar=str(_ALLOWED_LOGGING), help='A '
                         'comma-separated list of logging to enable on build.')
 

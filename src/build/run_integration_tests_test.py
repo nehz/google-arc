@@ -243,6 +243,8 @@ def _stub_parse_configure_file():
 @patch('apk_to_crx.build_crx', _stub_return_none)
 @patch('prep_launch_chrome.update_shell_command', _stub_return_none)
 @patch('build_options.OPTIONS.parse_configure_file', _stub_parse_configure_file)
+# The unittest files may not be created yet.
+@patch('util.test.unittest_util.get_all_tests', lambda: [])
 class RunIntegrationTestsTest(unittest.TestCase):
   # A chosen real test suite, and a test in it. The test should normally pass.
   EXAMPLE_SUITE_NAME = 'cts.android.core.tests.libcore.package.libcore'

@@ -195,6 +195,21 @@ def _get_valgrind_runner(target):
       valgrind_env, valgrind_path, ' '.join(valgrind_options), runner)
 
 
+def _get_java_command(command):
+  # First, look at environment variable. E.g. JAR for jar, JAVAC for javac.
+  env_var = os.getenv(command.upper())
+  if env_var:
+    return env_var
+
+  # Then, if java_dir is set, look at its bin/ directory.
+  java_dir = OPTIONS.java_dir()
+  if java_dir:
+    bin_path = os.path.join(java_dir, 'bin', command)
+    if os.path.exists(bin_path):
+      return bin_path
+  return command
+
+
 def _get_tool_map():
   android_build_tools_dir = _get_android_build_tools_dir()
   android_sdk_build_tools_dir = get_android_sdk_build_tools_dir()
@@ -322,11 +337,11 @@ def _get_tool_map():
               'dexdump', is_host=True),
           'java-event-log-tags': os.path.join(android_build_tools_dir,
                                               'java-event-log-tags.py'),
-          'jar': os.getenv('JAR', 'jar'),
+          'jar': _get_java_command('jar'),
           'jarjar': os.getenv('JARJAR', os.path.join(
               _DEXMAKER_PATH, 'lib', 'jarjar.jar')),
-          'java': os.getenv('JAVA', 'java'),
-          'javac': os.getenv('JAVAC', 'javac'),
+          'java': _get_java_command('java'),
+          'javac': _get_java_command('javac'),
           'runner': _get_native_runner('java'),
           'zipalign': 'third_party/android-sdk/tools/zipalign',
       },
