@@ -83,7 +83,7 @@ FileSystemHandler* ExternalFileWrapperHandler::ResolveExternalFile(
 
   FileSystemHandler* handler = NULL;
   const std::string path_in_vfs = SetPepperFileSystemLocked(
-      file_system, path_in_external_fs, pathname, &handler);
+      make_scoped_ptr(file_system), path_in_external_fs, pathname, &handler);
   ALOG_ASSERT(handler);
   if (is_writable) {
     VirtualFileSystem::GetVirtualFileSystem()->ChangeMountPointOwner(
@@ -257,18 +257,18 @@ std::string ExternalFileWrapperHandler::GenerateUniqueSlotLocked() const {
 }
 
 std::string ExternalFileWrapperHandler::SetPepperFileSystem(
-    const pp::FileSystem* pepper_file_system,
+    scoped_ptr<pp::FileSystem> pepper_file_system,
     const std::string& mount_source_in_pepper_file_system,
     const std::string& mount_dest_in_vfs) {
   base::AutoLock lock(GetFileSystemMutex());
-  return SetPepperFileSystemLocked(pepper_file_system,
+  return SetPepperFileSystemLocked(pepper_file_system.Pass(),
                                    mount_source_in_pepper_file_system,
                                    mount_dest_in_vfs,
                                    NULL);
 }
 
 std::string ExternalFileWrapperHandler::SetPepperFileSystemLocked(
-    const pp::FileSystem* pepper_file_system,
+    scoped_ptr<pp::FileSystem> pepper_file_system,
     const std::string& mount_source_in_pepper_file_system,
     const std::string& mount_dest_in_vfs,
     FileSystemHandler** file_handler) {
@@ -315,7 +315,7 @@ std::string ExternalFileWrapperHandler::SetPepperFileSystemLocked(
     // Need to unlock the file system lock since handler creation and Mount
     // requires filesystem lock.
     base::AutoUnlock unlock(GetFileSystemMutex());
-    handler = MountExternalFile(pepper_file_system,
+    handler = MountExternalFile(pepper_file_system.Pass(),
                                 mount_source_in_pepper_file_system,
                                 mount_point);
   }
@@ -328,10 +328,11 @@ std::string ExternalFileWrapperHandler::SetPepperFileSystemLocked(
 }
 
 scoped_ptr<FileSystemHandler> ExternalFileWrapperHandler::MountExternalFile(
-    const pp::FileSystem* file_system, const std::string& path_in_external_fs,
+    scoped_ptr<pp::FileSystem> file_system,
+    const std::string& path_in_external_fs,
     const std::string& path_in_vfs) {
   scoped_ptr<FileSystemHandler> handler(new ExternalFileHandler(
-      file_system, path_in_external_fs, path_in_vfs));
+      file_system.Pass(), path_in_external_fs, path_in_vfs));
   VirtualFileSystem::GetVirtualFileSystem()->Mount(path_in_vfs, handler.get());
   return handler.Pass();
 }
@@ -346,7 +347,7 @@ ExternalFileHandlerBase::~ExternalFileHandlerBase() {
 }
 
 std::string ExternalFileHandlerBase::SetPepperFileSystem(
-    const pp::FileSystem* file_system,
+    scoped_ptr<pp::FileSystem> file_system,
     const std::string& path_in_pepperfs,
     const std::string& path_in_vfs) {
   ppapi_file_path_ = path_in_pepperfs;
@@ -355,7 +356,7 @@ std::string ExternalFileHandlerBase::SetPepperFileSystem(
   ALOG_ASSERT(virtual_file_path_.empty() || virtual_file_path_ == path_in_vfs);
   virtual_file_path_ = path_in_vfs;
   return PepperFileHandler::SetPepperFileSystem(
-      file_system, path_in_pepperfs, path_in_vfs);
+      file_system.Pass(), path_in_pepperfs, path_in_vfs);
 }
 
 int ExternalFileHandlerBase::mkdir(const std::string& pathname, mode_t mode) {
@@ -446,11 +447,11 @@ std::string ExternalFileHandlerBase::GetExternalPPAPIPath(
 ///////////////////////////////////////////////////////////////////////////////
 // ExternalFileHandler
 ExternalFileHandler::ExternalFileHandler(
-    const pp::FileSystem* file_system,
+    scoped_ptr<pp::FileSystem> file_system,
     const std::string& ppapi_file_path,
     const std::string& virtual_file_path)
     : ExternalFileHandlerBase("ExternalFileHandler") {
-  SetPepperFileSystem(file_system, ppapi_file_path, virtual_file_path);
+  SetPepperFileSystem(file_system.Pass(), ppapi_file_path, virtual_file_path);
 }
 
 ExternalFileHandler::~ExternalFileHandler() {

@@ -25,7 +25,7 @@ import unittest
 
 from build_options import OPTIONS
 from run_integration_tests import main
-from util.test.suite_runner_config_flags import FLAKY
+from util.test import suite_runner_config_flags as flags
 
 # TODO(lpique): Unify with similar constants in
 # atf_instrumentation_result_parser
@@ -131,8 +131,8 @@ def _make_all_tests_flaky():
   def _make_flaky_suite_configuration(*unused, **kwunused):
     # We must return a new dictionary for every call.
     return dict(
-        flags=FLAKY, bug=None, metadata=None, deadline=300, test_order={},
-        suite_test_expectations={})
+        flags=flags.FLAKY, bug=None, metadata=None, deadline=300,
+        test_order={}, suite_test_expectations={})
   return patch(
       'util.test.suite_runner_config._SuiteRunConfiguration.evaluate',
       _make_flaky_suite_configuration)
@@ -224,6 +224,11 @@ def _stub_parse_configure_file():
   OPTIONS.parse([])
 
 
+def _stub_read_test_list(path):
+  """Dummy read_test_list function."""
+  return {'*': flags.PASS}
+
+
 # These patch decorators replace the named function with a stub/fake/mock for
 # each test in the suite.
 # Any call to create a general subprocess object will be caught as unexpected.
@@ -245,6 +250,7 @@ def _stub_parse_configure_file():
 @patch('build_options.OPTIONS.parse_configure_file', _stub_parse_configure_file)
 # The unittest files may not be created yet.
 @patch('util.test.unittest_util.get_all_tests', lambda: [])
+@patch('util.test.suite_runner_util.read_test_list', _stub_read_test_list)
 class RunIntegrationTestsTest(unittest.TestCase):
   # A chosen real test suite, and a test in it. The test should normally pass.
   EXAMPLE_SUITE_NAME = 'cts.android.core.tests.libcore.package.libcore'

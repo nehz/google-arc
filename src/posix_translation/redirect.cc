@@ -13,6 +13,7 @@
 #include "posix_translation/dir.h"
 #include "posix_translation/directory_file_stream.h"
 #include "posix_translation/path_util.h"
+#include "ppapi/cpp/file_system.h"
 
 namespace posix_translation {
 
@@ -69,11 +70,11 @@ bool RedirectHandler::IsWorldWritable(const std::string& pathname) {
 }
 
 std::string RedirectHandler::SetPepperFileSystem(
-    const pp::FileSystem* pepper_file_system,
+    scoped_ptr<pp::FileSystem> pepper_file_system,
     const std::string& mount_source_in_pepper_file_system,
     const std::string& mount_dest_in_vfs) {
   return underlying_->SetPepperFileSystem(
-      pepper_file_system,
+      pepper_file_system.Pass(),
       mount_source_in_pepper_file_system,
       mount_dest_in_vfs);
 }

@@ -324,14 +324,15 @@ void PepperFileHandler::OpenPepperFileSystem(pp::Instance* instance) {
   // Since Chrome ignores |kExpectedUsage|, the actual value is not important.
   static const uint64_t kExpectedUsage = 16ULL * 1024 * 1024 * 1024;
   ALOG_ASSERT(pp::Module::Get()->core()->IsMainThread());
-  pp::FileSystem* file_system =
-      new pp::FileSystem(instance, PP_FILESYSTEMTYPE_LOCALPERSISTENT);
+  scoped_ptr<pp::FileSystem> file_system(
+      new pp::FileSystem(instance, PP_FILESYSTEMTYPE_LOCALPERSISTENT));
   TRACE_EVENT_ASYNC_BEGIN1(ARC_TRACE_CATEGORY,
                            "PepperFileHandler::OpenPepperFileSystem",
                            this, "type", PP_FILESYSTEMTYPE_LOCALPERSISTENT);
   const int32_t result = file_system->Open(
       kExpectedUsage,
-      factory_.NewCallback(&PepperFileHandler::OnFileSystemOpen, file_system));
+      factory_.NewCallback(&PepperFileHandler::OnFileSystemOpen,
+                           file_system.release()));
   ALOG_ASSERT(result == PP_OK_COMPLETIONPENDING,
               "Failed to create pp::FileSystem, error: %d", result);
 }
@@ -340,14 +341,16 @@ void PepperFileHandler::DisableCacheForTesting() {
   cache_->DisableForTesting();
 }
 
-void PepperFileHandler::OnFileSystemOpen(int32_t result,
-                                         pp::FileSystem* file_system) {
+void PepperFileHandler::OnFileSystemOpen(
+    int32_t result,
+    pp::FileSystem* file_system_ptr) {
+  scoped_ptr<pp::FileSystem> file_system(file_system_ptr);
   TRACE_EVENT_ASYNC_END1(ARC_TRACE_CATEGORY,
                          "PepperFileHandler::OpenPepperFileSystem",
                          this, "result", result);
   if (result != PP_OK)
     LOG_FATAL("Failed to open pp::FileSystem, error: %d", result);
-  SetPepperFileSystem(file_system, "/", "/");
+  SetPepperFileSystem(file_system.Pass(), "/", "/");
 }
 
 bool PepperFileHandler::IsInitialized() const {
@@ -367,17 +370,17 @@ void PepperFileHandler::Initialize() {
 }
 
 std::string PepperFileHandler::SetPepperFileSystem(
-    const pp::FileSystem* pepper_file_system,
+    scoped_ptr<pp::FileSystem> pepper_file_system,
     const std::string& mount_source_in_pepper_file_system,
     const std::string& mount_dest_in_vfs) {
   VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
   base::AutoLock lock(sys->mutex());
   ALOG_ASSERT(pepper_file_system);
   ALOG_ASSERT(!file_system_);
-  file_system_.reset(pepper_file_system);
+  file_system_ = pepper_file_system.Pass();
   ARC_STRACE_REPORT("Mounting %s in pp::FileSystem %p to %s in VFS",
                     mount_source_in_pepper_file_system.c_str(),
-                    pepper_file_system,
+                    file_system_.get(),
                     mount_dest_in_vfs.c_str());
   sys->Broadcast();
   return mount_dest_in_vfs;

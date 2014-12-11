@@ -36,15 +36,6 @@ void* __nacl_add_tp (ptrdiff_t off)
 // Add __get_tls for bionic.
 void* __get_tls(void)
 {
-#if defined(__arm__) && defined(__native_client__)
-  void* tls;
-  // r9 is the thread pointer on ARM. Note that the NaCl validator
-  // allows programs to read the thread pointer with the following
-  // form, while writing to r9 or [r9] is always prohibited.
-  asm("ldr  %0, [%%r9]": "=r"(tls));
-  return tls;
-#else
   return __nacl_irt_tls_get();
-#endif
 }
 // ARC MOD END

@@ -19,6 +19,7 @@
 #include <string>
 
 #include "base/basictypes.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/strings/string16.h"
 #include "posix_translation/file_stream.h"
 #include "posix_translation/mount_point_manager.h"
@@ -80,7 +81,7 @@ class FileSystemHandler {
   // it is empty, the generated path in VFS is returned. If this function fails
   // to mount the Pepper file system, returns an empty string.
   virtual std::string SetPepperFileSystem(
-      const pp::FileSystem* pepper_file_system,
+      scoped_ptr<pp::FileSystem> pepper_file_system,
       const std::string& mount_source_in_pepper_file_system,
       const std::string& mount_dest_in_vfs);
 

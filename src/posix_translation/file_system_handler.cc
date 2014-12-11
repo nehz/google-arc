@@ -45,7 +45,7 @@ bool FileSystemHandler::IsWorldWritable(const std::string& pathname) {
 }
 
 std::string FileSystemHandler::SetPepperFileSystem(
-    const pp::FileSystem* file_system,
+    scoped_ptr<pp::FileSystem> file_system,
     const std::string& path_in_pepperfs,
     const std::string& path_in_vfs) {
   ALOGE("%s does not support Pepper filesystem.", name().c_str());

@@ -42,7 +42,7 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     'out/data_roots/file_system_manager.*',
     'out/data_roots/gles.*',
     'out/data_roots/graphics.*',
-    'out/data_roots/jstests.*',
+    'out/data_roots/jstests/*',
     'out/data_roots/ndk.*',
     'out/data_roots/posix_translation.*',
     'out/data_roots/system_mode.*',
@@ -55,6 +55,7 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     'out/target/%(target)s/root/system/usr/icu/icudt48l.dat',
     'out/target/common/dalvik_tests/*/expected.txt',
     'out/target/common/dalvik_tests/*/test*.jar',
+    'out/target/common/integration_test/*',
     # TODO(crbug.com/340594): Avoid checking for APK files when CRX is
     # already generated so that we don't need to send APK to remote,
     # for package.apk, HelloAndroid.apk, glowhockey.apk, and

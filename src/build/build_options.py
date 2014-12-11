@@ -44,9 +44,16 @@ _CHROMETYPE_MAPPING = {'b': 'beta',
 _DEFAULT_CHROMETYPE = 'prebuilt'
 
 # --internal-apks-source=
+# prebuilt: use the artifacts previously built by corp builder
+# internal: build apk from local checkout.  Used by corp builder.
+# internal-dev: a self-pilot mode comparing to internal.  It cuts a
+#   almost-always-actually-satisfied dependency from internal apks to framework
+#   jar to speed up development iteration.  In addition, it does not sync git
+#   repo to DEPS automatically.
 # TODO(crbug.com/379227): Remove the 'canned' option.
 _ALLOWED_INTERNAL_APKS_SOURCES = ['canned',
                                   'internal',  # for the corp builder
+                                  'internal-dev',  # for local development
                                   'prebuilt']
 _DEFAULT_INTERNAL_APKS_SOURCES = 'canned'
 
@@ -234,7 +241,7 @@ class _Options(object):
     return self.renderer() == _RENDERER_HW
 
   def internal_apks_source_is_internal(self):
-    return self.internal_apks_source() == 'internal'
+    return self.internal_apks_source().startswith('internal')
 
   def use_verbose_memory_viewer(self):
     return _VERBOSE_MEMORY_VIEWER in self._loggers

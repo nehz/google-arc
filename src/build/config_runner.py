@@ -19,6 +19,20 @@ from config_loader import ConfigLoader
 _config_loader = ConfigLoader()
 
 
+class ConfigResult:
+  def __init__(self, config_name, ninja_list):
+    self.config_name = config_name
+    self.ninja_list = ninja_list
+
+
+class ConfigContext:
+  def __init__(self, config_name):
+    self.config_name = config_name
+
+  def make_result(self, ninja_list):
+    return ConfigResult(self.config_name, ninja_list)
+
+
 def _filter_excluded_libs(vars):
   excluded_libs = [
       'libandroid',          # Added as an archive to plugin
@@ -129,6 +143,11 @@ def _filter_all_make_to_ninja(vars):
   return True
 
 
+def _find_ninja_generators(config_loader, name):
+  for module in config_loader.find_config_modules(name):
+    yield (module.__name__, getattr(module, name))
+
+
 def _set_up_generate_ninja():
   # Create generated_ninja directory if necessary.
   ninja_dir = build_common.get_generated_ninja_dir()
@@ -155,13 +174,20 @@ def _generate_independent_ninjas():
   # Invoke an unordered set of ninja-generators distributed across config
   # modules by name, and if that generator is marked for it.
   timer.start('Generating independent generate_ninjas', True)
-  task_list = list(_config_loader.find_name('generate_ninjas'))
+  task_list = list(_find_ninja_generators(_config_loader, 'generate_ninjas'))
   if OPTIONS.run_tests():
-    task_list.extend(_config_loader.find_name('generate_test_ninjas'))
-  ninja_list = ninja_generator_runner.run_in_parallel(task_list,
-                                                      OPTIONS.configure_jobs())
+    task_list.extend(_find_ninja_generators(
+        _config_loader, 'generate_test_ninjas'))
+  result_list = ninja_generator_runner.run_in_parallel([
+      ninja_generator_runner.GeneratorTask(ConfigContext(config_name), task)
+      for config_name, task in task_list],
+      OPTIONS.configure_jobs())
   timer.done()
 
+  ninja_list = []
+  for config_result in result_list:
+    ninja_list.extend(config_result.ninja_list)
+  ninja_list.sort(key=lambda ninja: ninja.get_module_name())
   return ninja_list
 
 
@@ -175,20 +201,29 @@ def _generate_shared_lib_depending_ninjas(ninja_list):
   # These modules depend on shared libraries generated in the previous phase.
   installed_shared_libs = (
       ninja_generator.NinjaGenerator.get_installed_shared_libs(ninja_list[:]))
-  ninja_generators = list(
-      _config_loader.find_name('generate_shared_lib_depending_ninjas'))
-  task_list = [(f, installed_shared_libs) for f in ninja_generators]
+  ninja_generators = _find_ninja_generators(
+      _config_loader, 'generate_shared_lib_depending_ninjas')
+  task_list = [(m, (f, installed_shared_libs)) for m, f in ninja_generators]
 
   if OPTIONS.run_tests():
-    test_ninja_generators = list(
-        _config_loader.find_name('generate_shared_lib_depending_test_ninjas'))
-    task_list.extend([(f, installed_shared_libs)
-                     for f in test_ninja_generators])
+    test_ninja_generators = _find_ninja_generators(
+        _config_loader, 'generate_shared_lib_depending_test_ninjas')
+    task_list.extend([(m, (f, installed_shared_libs))
+                     for m, f in test_ninja_generators])
 
-  result = ninja_generator_runner.run_in_parallel(task_list,
-                                                  OPTIONS.configure_jobs())
+  result_list = ninja_generator_runner.run_in_parallel([
+      ninja_generator_runner.GeneratorTask(
+          ConfigContext(config_name),
+          task)
+      for config_name, task in task_list],
+      OPTIONS.configure_jobs())
   timer.done()
-  return result
+
+  ninja_list = []
+  for config_result in result_list:
+    ninja_list.extend(config_result.ninja_list)
+  ninja_list.sort(key=lambda ninja: ninja.get_module_name())
+  return ninja_list
 
 
 def _generate_dependent_ninjas(ninja_list):
@@ -201,10 +236,19 @@ def _generate_dependent_ninjas(ninja_list):
   for n in ninja_list:
     root_dir_install_all_targets.extend(build_common.get_android_fs_path(p) for
                                         p in n._root_dir_install_targets)
-  dependent_ninjas = ninja_generator_runner.run_in_parallel(
-      [(job, root_dir_install_all_targets) for job in
-       _config_loader.find_name('generate_binaries_depending_ninjas')],
+  task_list = _find_ninja_generators(
+      _config_loader, 'generate_binaries_depending_ninjas')
+  result_list = ninja_generator_runner.run_in_parallel(
+      [ninja_generator_runner.GeneratorTask(
+          ConfigContext(config_name),
+          (job, root_dir_install_all_targets))
+          for config_name, job in task_list],
       OPTIONS.configure_jobs())
+
+  dependent_ninjas = []
+  for config_result in result_list:
+    dependent_ninjas.extend(config_result.ninja_list)
+  dependent_ninjas.sort(key=lambda ninja: ninja.get_module_name())
 
   notice_ninja = ninja_generator.NoticeNinjaGenerator('notices')
   notice_ninja.build_notices(ninja_list + dependent_ninjas)

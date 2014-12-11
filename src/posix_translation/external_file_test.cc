@@ -54,11 +54,11 @@ typedef FileSystemTestCommon ExternalFileTest;
 
 class TestableExternalFileHandler : public ExternalFileHandler {
  public:
-  TestableExternalFileHandler(const pp::FileSystem* file_system,
+  TestableExternalFileHandler(scoped_ptr<pp::FileSystem> file_system,
                               const std::string& ppapi_file_path,
                               const std::string& virtual_file_path)
-      : ExternalFileHandler(file_system, ppapi_file_path,
-                                  virtual_file_path) {}
+      : ExternalFileHandler(file_system.Pass(), ppapi_file_path,
+                            virtual_file_path) {}
   using ExternalFileHandler::GetExternalPPAPIPath;
 };
 
@@ -74,7 +74,8 @@ class MockObserver : public ExternalDirectoryHandler::Observer {
       base::AutoUnlock unlock(
           VirtualFileSystem::GetVirtualFileSystem()->mutex());
       handler_->SetPepperFileSystem(
-          new pp::FileSystem(), "/Documents", kExternalDirPath);
+          make_scoped_ptr(new pp::FileSystem()),
+          "/Documents", kExternalDirPath);
     }
   }
 
@@ -103,7 +104,7 @@ TEST_F(ExternalFileTest, TestConstructDestruct) {
 
   scoped_ptr<ExternalFileHandler> handler;
   handler.reset(new TestableExternalFileHandler(
-      new pp::FileSystem(),
+      make_scoped_ptr(new pp::FileSystem()),
       "/some_file.txt",
       "/some/path/in/vfs/file.txt"));
   handler.reset();
@@ -122,7 +123,7 @@ TEST_F(ExternalFileTest, GetExternalPPAPIPath) {
   {
     SCOPED_TRACE("External path is regular file.");
     TestableExternalFileHandler handler(
-        new pp::FileSystem(),
+        make_scoped_ptr(new pp::FileSystem()),
         "/regular.txt",
         "/vendor/chromium/.external/1/regular.txt");
 
@@ -132,9 +133,9 @@ TEST_F(ExternalFileTest, GetExternalPPAPIPath) {
   }
   {
     SCOPED_TRACE("External path is directory");
-    TestableExternalFileHandler handler(new pp::FileSystem(),
-                                        "/directory/",
-                                        "/sdcard/external/");
+    TestableExternalFileHandler handler(
+        make_scoped_ptr(new pp::FileSystem()),
+        "/directory/", "/sdcard/external/");
     EXPECT_EQ("/directory/",
               handler.GetExternalPPAPIPath("/sdcard/external/"));
     EXPECT_EQ("/directory/",
@@ -149,8 +150,9 @@ TEST_F(ExternalFileTest, GetExternalPPAPIPath) {
   }
   {
     SCOPED_TRACE("External path is root.");
-    TestableExternalFileHandler handler(new pp::FileSystem(), "/",
-                                        "/sdcard/external/");
+    TestableExternalFileHandler handler(
+        make_scoped_ptr(new pp::FileSystem()),
+        "/", "/sdcard/external/");
 
     EXPECT_EQ("/",
               handler.GetExternalPPAPIPath("/sdcard/external/"));
@@ -166,9 +168,10 @@ TEST_F(ExternalFileTest, GetExternalPPAPIPath) {
   }
   {
     SCOPED_TRACE("External path has unicode characters.");
-    TestableExternalFileHandler handler(new pp::FileSystem(),
-                                        "/" + kDangerousUnicodes + "/",
-                                        "/sdcard/external/");
+    TestableExternalFileHandler handler(
+        make_scoped_ptr(new pp::FileSystem()),
+        "/" + kDangerousUnicodes + "/",
+        "/sdcard/external/");
     EXPECT_EQ("/" + kDangerousUnicodes + "/",
               handler.GetExternalPPAPIPath("/sdcard/external/"));
     EXPECT_EQ("/" + kDangerousUnicodes + "/",
@@ -220,11 +223,10 @@ class TestableExternalFileWrapperHandler : public ExternalFileWrapperHandler {
   };
 
   virtual scoped_ptr<FileSystemHandler> MountExternalFile(
-      const pp::FileSystem* file_system,
+      scoped_ptr<pp::FileSystem> file_system,
       const std::string& path_in_external_fs,
       const std::string& path_in_vfs) OVERRIDE {
     EXPECT_TRUE(file_system);
-    delete file_system;
     mounts_.push_back(MountInfo(path_in_external_fs, path_in_vfs));
     return scoped_ptr<FileSystemHandler>(new MockFileHandler());
   }
@@ -325,7 +327,7 @@ TEST_F(ExternalFileWrapperTest, Mount_EmptyMountPoint) {
   const char kPathInExtFs[] = "/foo.txt";
   std::string mount_point =
       handler_->SetPepperFileSystem(
-          new pp::FileSystem(), kPathInExtFs,
+          make_scoped_ptr(new pp::FileSystem()), kPathInExtFs,
           std::string() /* assign new directory */);
   EXPECT_FALSE(mount_point.empty());
   EXPECT_TRUE(StartsWithASCII(mount_point, kExternalFilesDir, true));
@@ -350,7 +352,8 @@ TEST_F(ExternalFileWrapperTest, Mount_WithMountPoint) {
   const char kPathInExtFs[] = "/foo.txt";
   const char kMountPosition[] = "/a/bb/ccc/dddd/0ABE8364802/foo.txt";
   std::string mount_point = handler_->SetPepperFileSystem(
-      new pp::FileSystem(), kPathInExtFs, kMountPosition);
+      make_scoped_ptr(new pp::FileSystem()),
+      kPathInExtFs, kMountPosition);
 
   EXPECT_EQ(kMountPosition, mount_point);
   EXPECT_TRUE(StartsWithASCII(mount_point, kExternalFilesDir, true));
@@ -428,7 +431,7 @@ TEST_F(ExternalFileWrapperTest, mkdir) {
     EXPECT_EQ(EPERM, errno);
 
     std::string mount_point = handler_->SetPepperFileSystem(
-        new pp::FileSystem(), path_in_extfs,
+        make_scoped_ptr(new pp::FileSystem()), path_in_extfs,
         kExternalFilesDir + slot + path_in_extfs);
 
     // newly mounted slot directory.
@@ -489,7 +492,7 @@ TEST_F(ExternalFileWrapperTest, open) {
     {
       base::AutoUnlock unlock(file_system_->mutex());
       std::string mount_point = handler_->SetPepperFileSystem(
-          new pp::FileSystem(), path_in_extfs,
+          make_scoped_ptr(new pp::FileSystem()), path_in_extfs,
           kExternalFilesDir + slot + path_in_extfs);
     }
 
@@ -554,7 +557,7 @@ TEST_F(ExternalFileWrapperTest, stat) {
     {
       base::AutoUnlock unlock(file_system_->mutex());
       std::string mount_point = handler_->SetPepperFileSystem(
-          new pp::FileSystem(), path_in_extfs,
+          make_scoped_ptr(new pp::FileSystem()), path_in_extfs,
           kExternalFilesDir + slot + path_in_extfs);
     }
 
@@ -614,7 +617,7 @@ TEST_F(ExternalFileWrapperTest, statfs) {
     {
       base::AutoUnlock unlock(file_system_->mutex());
       std::string mount_point = handler_->SetPepperFileSystem(
-          new pp::FileSystem(), path_in_extfs,
+          make_scoped_ptr(new pp::FileSystem()), path_in_extfs,
           kExternalFilesDir + slot + path_in_extfs);
     }
 
@@ -672,7 +675,7 @@ TEST_F(ExternalFileWrapperTest, getdents_root) {
     {
       base::AutoUnlock unlock(file_system_->mutex());
       std::string mount_point = handler_->SetPepperFileSystem(
-          new pp::FileSystem(), path_in_extfs,
+          make_scoped_ptr(new pp::FileSystem()), path_in_extfs,
           kExternalFilesDir + slot + path_in_extfs);
     }
 
@@ -701,7 +704,7 @@ TEST_F(ExternalFileWrapperTest, getdents_slot) {
   {
     base::AutoUnlock unlock(file_system_->mutex());
     std::string mount_point = handler_->SetPepperFileSystem(
-        new pp::FileSystem(), path_in_extfs,
+        make_scoped_ptr(new pp::FileSystem()), path_in_extfs,
         kExternalFilesDir + slot + path_in_extfs);
   }
 

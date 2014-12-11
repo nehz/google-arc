@@ -552,6 +552,11 @@ def get_integration_test_list_dir():
   return os.path.join(get_target_common_dir(), 'integration_test')
 
 
+def get_integration_test_list_path(module_name):
+  return os.path.join(
+      get_integration_test_list_dir(), module_name + '.txt')
+
+
 def get_test_output_handler(use_crash_analyzer=False):
   analyzer = ''
   # Only Bionic build can be handled by crash_analyzer.

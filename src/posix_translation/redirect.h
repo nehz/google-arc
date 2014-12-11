@@ -47,7 +47,7 @@ class ARC_EXPORT RedirectHandler : public FileSystemHandler {
                           bool exists) OVERRIDE;
   virtual bool IsWorldWritable(const std::string& pathname) OVERRIDE;
   virtual std::string SetPepperFileSystem(
-      const pp::FileSystem* pepper_file_system,
+      scoped_ptr<pp::FileSystem> pepper_file_system,
       const std::string& mount_source_in_pepper_file_system,
       const std::string& mount_dest_in_vfs) OVERRIDE;
 

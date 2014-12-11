@@ -71,7 +71,7 @@ class ARC_EXPORT ExternalFileWrapperHandler : public FileSystemHandler {
   virtual void OnUnmounted(const std::string& path) OVERRIDE;
   virtual Dir* OnDirectoryContentsNeeded(const std::string& name) OVERRIDE;
   virtual std::string SetPepperFileSystem(
-      const pp::FileSystem* pepper_file_system,
+      scoped_ptr<pp::FileSystem> pepper_file_system,
       const std::string& mount_source_in_pepper_file_system,
       const std::string& mount_dest_in_vfs) OVERRIDE;
 
@@ -92,7 +92,7 @@ class ARC_EXPORT ExternalFileWrapperHandler : public FileSystemHandler {
   // This function takes the ownership of |file_system|.
   // virtual for testing purpose.
   virtual scoped_ptr<FileSystemHandler> MountExternalFile(
-      const pp::FileSystem* file_system,
+      scoped_ptr<pp::FileSystem> file_system,
       const std::string& path_in_external_fs,
       const std::string& path_in_vfs);
 
@@ -100,7 +100,7 @@ class ARC_EXPORT ExternalFileWrapperHandler : public FileSystemHandler {
   FileSystemHandler* ResolveExternalFile(const std::string& pathname);
 
   std::string SetPepperFileSystemLocked(
-      const pp::FileSystem* pepper_file_system,
+      scoped_ptr<pp::FileSystem> pepper_file_system,
       const std::string& mount_source_in_pepper_file_system,
       const std::string& mount_dest_in_vfs,
       FileSystemHandler** file_handler);
@@ -133,7 +133,7 @@ class ExternalFileHandlerBase : public PepperFileHandler {
   virtual ~ExternalFileHandlerBase();
 
   virtual std::string SetPepperFileSystem(
-      const pp::FileSystem* file_system,
+      scoped_ptr<pp::FileSystem> file_system,
       const std::string& path_in_pepperfs,
       const std::string& path_in_vfs) OVERRIDE;
 
@@ -178,7 +178,7 @@ class ExternalFileHandlerBase : public PepperFileHandler {
 // system.
 class ExternalFileHandler : public ExternalFileHandlerBase {
  public:
-  ExternalFileHandler(const pp::FileSystem* file_system,
+  ExternalFileHandler(scoped_ptr<pp::FileSystem> file_system,
                       const std::string& ppapi_file_path,
                       const std::string& virtual_file_path);
   virtual ~ExternalFileHandler();

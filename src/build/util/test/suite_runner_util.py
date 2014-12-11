@@ -36,3 +36,10 @@ def merge_test_expectations(
         test_name, default_expectation or original_expectation)
     result[test_name] = expectation
   return result
+
+
+def read_test_list(path):
+  """Reads a list of test methods from file, and returns an expectation map."""
+  with open(path) as stream:
+    data = stream.read()
+  return dict.fromkeys(data.splitlines(), flags.PASS)

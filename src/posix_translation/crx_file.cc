@@ -103,7 +103,8 @@ void CrxFileHandler::OnFileSystemOpen(int32_t result,
                          this, "result", result);
   if (result != PP_OK)
     LOG_FATAL("Failed to open pp::ExtCrxFileSystemPrivate, error: %d", result);
-  SetPepperFileSystem(new pp::FileSystem(file_system), "/", "/");
+  SetPepperFileSystem(make_scoped_ptr(new pp::FileSystem(file_system)),
+                      "/", "/");
 }
 
 }  // namespace posix_translation

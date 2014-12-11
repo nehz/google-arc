@@ -21,20 +21,19 @@ class MockCallback(object):
 class JavaScriptTestResultParser(unittest.TestCase):
   def test_start(self):
     callback = MockCallback()
-    parser = result_parser.JavaScriptTestResultParser('jstests.all', callback)
+    parser = result_parser.JavaScriptTestResultParser(callback)
     parser.process_line(
         '[13748:13748:1202/184723:INFO:CONSOLE(136)] '
         '"INFO: [ RUN      ] BackgroundPageTest.SendCrashReportsFromRelease", '
         'source: chrome-extension://dummy_hash_code/chrome_test.js (136)')
     self.assertEqual(
-        [('start_test',
-          'jstests.all:BackgroundPageTest#SendCrashReportsFromRelease')],
+        [('start_test', 'BackgroundPageTest#SendCrashReportsFromRelease')],
         callback.result)
     self.assertFalse(parser.test_result)
 
   def test_success(self):
     callback = MockCallback()
-    parser = result_parser.JavaScriptTestResultParser('jstests.all', callback)
+    parser = result_parser.JavaScriptTestResultParser(callback)
     parser.process_line(
         '[13748:13748:1202/184723:INFO:CONSOLE(136)] '
         '"INFO: [       OK ] BackgroundPageTest.SendCrashReportsFromRelease '
@@ -45,27 +44,25 @@ class JavaScriptTestResultParser(unittest.TestCase):
 
     update_result = callback.result[0][1]
     self.assertEqual(1, len(update_result))
-    self.assertEqual(
-        'jstests.all:BackgroundPageTest#SendCrashReportsFromRelease',
-        update_result[0].name)
+    self.assertEqual('BackgroundPageTest#SendCrashReportsFromRelease',
+                     update_result[0].name)
     self.assertTrue(update_result[0].passed)
     self.assertAlmostEqual(0.215, update_result[0].duration)
 
     test_result = parser.test_result
     self.assertEqual(1, len(test_result))
-    self.assertIn('jstests.all:BackgroundPageTest#SendCrashReportsFromRelease',
+    self.assertIn('BackgroundPageTest#SendCrashReportsFromRelease',
                   test_result)
     test_case_result = test_result[
-        'jstests.all:BackgroundPageTest#SendCrashReportsFromRelease']
-    self.assertEqual(
-        'jstests.all:BackgroundPageTest#SendCrashReportsFromRelease',
-        test_case_result.name)
+        'BackgroundPageTest#SendCrashReportsFromRelease']
+    self.assertEqual('BackgroundPageTest#SendCrashReportsFromRelease',
+                     test_case_result.name)
     self.assertTrue(test_case_result.passed)
     self.assertAlmostEqual(0.215, test_case_result.duration)
 
   def test_fail(self):
     callback = MockCallback()
-    parser = result_parser.JavaScriptTestResultParser('jstests.all', callback)
+    parser = result_parser.JavaScriptTestResultParser(callback)
     parser.process_line(
         '[13748:13748:1202/184723:INFO:CONSOLE(136)] '
         '"INFO: [  FAILED  ] BackgroundPageTest.SendCrashReportsFromRelease '
@@ -76,20 +73,18 @@ class JavaScriptTestResultParser(unittest.TestCase):
 
     update_result = callback.result[0][1]
     self.assertEquals(1, len(update_result))
-    self.assertEqual(
-        'jstests.all:BackgroundPageTest#SendCrashReportsFromRelease',
-        update_result[0].name)
+    self.assertEqual('BackgroundPageTest#SendCrashReportsFromRelease',
+                     update_result[0].name)
     self.assertTrue(update_result[0].failed)
     self.assertAlmostEqual(1.5, update_result[0].duration)
 
     test_result = parser.test_result
     self.assertEqual(1, len(test_result))
-    self.assertIn('jstests.all:BackgroundPageTest#SendCrashReportsFromRelease',
+    self.assertIn('BackgroundPageTest#SendCrashReportsFromRelease',
                   test_result)
     test_case_result = test_result[
-        'jstests.all:BackgroundPageTest#SendCrashReportsFromRelease']
-    self.assertEqual(
-        'jstests.all:BackgroundPageTest#SendCrashReportsFromRelease',
-        test_case_result.name)
+        'BackgroundPageTest#SendCrashReportsFromRelease']
+    self.assertEqual('BackgroundPageTest#SendCrashReportsFromRelease',
+                     test_case_result.name)
     self.assertTrue(test_case_result.failed)
     self.assertAlmostEqual(1.5, test_case_result.duration)

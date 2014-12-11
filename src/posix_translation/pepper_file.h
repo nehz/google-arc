@@ -39,7 +39,7 @@ class ARC_EXPORT PepperFileHandler : public FileSystemHandler {
   virtual void Initialize() OVERRIDE;
   virtual bool IsWorldWritable(const std::string& pathname) OVERRIDE;
   virtual std::string SetPepperFileSystem(
-      const pp::FileSystem* file_system,
+      scoped_ptr<pp::FileSystem> file_system,
       const std::string& path_in_pepperfs,
       const std::string& path_in_vfs) OVERRIDE;
 
@@ -72,7 +72,7 @@ class ARC_EXPORT PepperFileHandler : public FileSystemHandler {
   friend class PepperFileTest;
   void DisableCacheForTesting();
 
-  void OnFileSystemOpen(int32_t result, pp::FileSystem* file_system);
+  void OnFileSystemOpen(int32_t result, pp::FileSystem* file_system_ptr);
   int32_t QueryRefLocked(const std::string& pathname,
                          PP_FileInfo* out_file_info);
 

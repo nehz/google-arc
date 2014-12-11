@@ -19,8 +19,6 @@ from util import concurrent
 
 
 _MINIDUMP_DUMP_TOOL = toolchain.get_nacl_tool('minidump_dump')
-_DUMP_SYMS_TOOL = build_common.get_build_path_for_executable('dump_syms',
-                                                             is_host=True)
 _MINIDUMP_STACKWALK_TOOL = toolchain.get_nacl_tool('minidump_stackwalk')
 _SYMBOL_OUT_DIR = 'out/symbols'
 
@@ -41,7 +39,9 @@ def _extract_symbols_from_one_binary(binary):
     return
 
   logging.info('Extracting symbols from: %s' % binary)
-  syms = subprocess.check_output([_DUMP_SYMS_TOOL, binary])
+  dump_syms_tool = build_common.get_build_path_for_executable(
+      'dump_syms', is_host=True)
+  syms = subprocess.check_output([dump_syms_tool, binary])
   # The first line should look like:
   # MODULE Linux arm 0222CE01F27D6870B1FA991F84B9E0460 libc.so
   symhash = syms.splitlines()[0].split()[3]

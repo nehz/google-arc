@@ -14,6 +14,27 @@ import ninja_generator
 from util import concurrent
 
 
+# Represents an individual task to run on |ninja_generator_runner|.
+# Given |generator_context| is passed around the primary task and tasks
+# requested by the primary task.  For each result of the task,
+# generator_context.make_result is called to make the result to be returned to
+# the caller of |run_in_parallel|.
+#
+# |generator_task| is a function to run as the body of the task, or a tuple
+# that has the function as the first element and its arguments as the rest.
+#
+# Both |generator_context| and |generator_task| must be picklable.
+class GeneratorTask:
+  def __init__(self, generator_context, generator_task):
+    self.context = generator_context
+    if isinstance(generator_task, tuple):
+      self.function = generator_task[0]
+      self.args = generator_task[1:]
+    else:
+      self.function = generator_task
+      self.args = []
+
+
 # This is used to request back from a sub process to the parent process
 # to request to run tasks in parallel. Available only under _run_task.
 __request_task_list = None
@@ -27,16 +48,13 @@ def request_run_in_parallel(*task_list):
   __request_task_list.extend(task_list)
 
 
-def _run_task(task):
+def _run_task(generator_task):
   """Run a generate ninja task synchronously.
 
   This is a helper to run generate_ninja() functions in multiprocessing, and
   will be called multiple times in each sub process.
   To run this function from the multiprocess.Pool, we need to make it a
   module top-level function.
-
-  "task" can be either 1) function, or 2) a tuple of a function (at beginning)
-  and its arguments (remaining elements). It must be picklable.
 
   At the beginning of the task, NinjaGenerator._ninja_list and
   __request_task_list must be empty. In NinjaGenerator's ctor, the instance
@@ -54,12 +72,9 @@ def _run_task(task):
     __request_task_list = []
 
     start_time = time.time()
-    if isinstance(task, tuple):
-      function = task[0]
-      args = task[1:]
-    else:
-      function = task
-      args = []
+    context = generator_task.context
+    function = generator_task.function
+    args = generator_task.args
     function(*args)
     elapsed_time = time.time() - start_time
     if elapsed_time > 1:
@@ -68,14 +83,16 @@ def _run_task(task):
 
     # Extract the result from global variables.
     ninja_list = ninja_generator.NinjaGenerator.consume_ninjas()
-    task_list = __request_task_list
-    __request_task_list = None
+    task_list = [GeneratorTask(context, requested_task)
+                 for requested_task in __request_task_list]
+
+    result = context.make_result(ninja_list) if ninja_list else None
 
     # At the moment, it is prohibited 1) to return NinjaGenerator and
     # 2) to request to run ninja generators back to the parent process, at the
     # same time.
-    assert (not ninja_list or not task_list)
-    return (ninja_list, task_list)
+    assert (not result or not task_list)
+    return (result, task_list)
   except BaseException:
     if multiprocessing.current_process().name == 'MainProcess':
       # Just raise the exception up the single process, single thread
@@ -92,6 +109,8 @@ def _run_task(task):
     # http://bugs.python.org/issue9400
     print message
     raise Exception('subprocess failure, see console output above')
+  finally:
+    __request_task_list = None
 
 
 def run_in_parallel(task_list, maximum_jobs):
@@ -110,7 +129,8 @@ def run_in_parallel(task_list, maximum_jobs):
   with executor:
     try:
       # Submit initial tasks.
-      not_done = {executor.submit(_run_task, task) for task in task_list}
+      not_done = {executor.submit(_run_task, generator_task)
+                  for generator_task in task_list}
       while not_done:
         # Wait any task is completed.
         done, not_done = concurrent.wait(
@@ -126,21 +146,21 @@ def run_in_parallel(task_list, maximum_jobs):
             raise completed_future.exception()
 
           # The task is completed successfully. Process the result.
-          ninja_list, request_task_list = completed_future.result()
+          result, request_task_list = completed_future.result()
           if request_task_list:
             # If sub tasks are requested, submit them.
-            assert not ninja_list
+            assert not result
             not_done.update(
-                executor.submit(_run_task, task) for task in request_task_list)
+                executor.submit(_run_task, generator_task)
+                for generator_task in request_task_list)
             continue
 
-          result_list.extend(ninja_list)
+          if result:
+            result_list.append(result)
     except:
       # An exception is raised. Terminate the running workers.
       if isinstance(executor, concurrent.ProcessPoolExecutor):
         executor.terminate()
       raise
 
-  # Sort the result by name for stabilization.
-  result_list.sort(key=lambda ninja: ninja.get_module_name())
   return result_list
