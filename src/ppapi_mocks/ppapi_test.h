@@ -21,6 +21,7 @@
 #include "ppapi_mocks/ppapi_mock_factory.h"
 #include "ppapi_mocks/ppb_audio.h"
 #include "ppapi_mocks/ppb_audio_config.h"
+#include "ppapi_mocks/ppb_compositor.h"
 #include "ppapi_mocks/ppb_core.h"
 #include "ppapi_mocks/ppb_ext_crx_file_system_private.h"
 #include "ppapi_mocks/ppb_file_system.h"
@@ -83,6 +84,7 @@ class PpapiTest : public testing::Test {
   ::testing::NiceMock<PPB_AudioConfig_Mock>* ppb_audioconfig_;
   ::testing::NiceMock<PPB_Instance_Mock>* ppb_instance_;
   ::testing::NiceMock<PPB_Core_Mock>* ppb_core_;
+  ::testing::NiceMock<PPB_Compositor_Mock>* ppb_compositor_;
   ::testing::NiceMock<PPB_FileSystem_Mock>* ppb_file_system_;
   ::testing::NiceMock<PPB_Messaging_Mock>* ppb_messaging_;
   ::testing::NiceMock<PPB_Var_Mock>* ppb_var_;

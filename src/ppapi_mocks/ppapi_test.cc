@@ -26,6 +26,7 @@ using ::testing::Return;
 
 namespace {
 pp::Module* s_test_module = NULL;
+pp::Instance* s_test_instance = NULL;
 
 // Make the mapping of pp::Vars file scope to simplify creation of
 // Mock matchers.
@@ -39,6 +40,17 @@ void CompletionCallbackNotSet(void *user_data, int32_t result) {
 
 }  // namespace
 
+namespace pp {
+PP_Bool Instance_DidCreate(PP_Instance pp_instance,
+                           uint32_t /* argc */,
+                           const char** /*argn */,
+                           const char** /* argv*/) {
+  s_test_module->current_instances_[pp_instance] = s_test_instance;
+  return PP_TRUE;
+}
+
+}  // namespace pp
+
 PpapiTest::~PpapiTest() {
   EXPECT_TRUE(completion_callbacks_.empty())
       << "Completion callback was set but not called.";
@@ -47,7 +59,12 @@ PpapiTest::~PpapiTest() {
 
 void PpapiTest::SetUp() {
   s_test_module = NULL;
+  module_ = new MockModule;
+  SetUpModule(module_);
+
   instance_.reset(new pp::Instance(kInstanceNumber));
+  s_test_instance = instance_.get();
+  pp::Instance_DidCreate(instance_->pp_instance(), 0, NULL, NULL);
   // We now proceed to set up the PPAPI interfaces that are needed
   // by at least two tests.  Ones that are specific to a test (like
   // GPU, OpenGL, image, audio) access should be defined in that
@@ -67,8 +84,6 @@ void PpapiTest::SetUp() {
   factory_.GetMock(&ppb_message_loop_);
   factory_.GetMock(&ppb_uma_);
 
-  module_ = new MockModule;
-  SetUpModule(module_);
   main_thread_ = pthread_self();
   EXPECT_CALL(*ppb_core_, IsMainThread()).WillRepeatedly(
         Invoke(this, &PpapiTest::IsMainThread));
