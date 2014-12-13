@@ -1,0 +1,15 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Google ARC Java Debugger
+Bundle-SymbolicName: com.google.arc.jdbg;singleton:=true
+Bundle-Version: 1.0.0.e
+Bundle-Activator: com.google.arc.jdbg.Activator
+Bundle-Vendor: Google
+Require-Bundle: org.eclipse.ui,
+ org.eclipse.core.runtime,
+ org.eclipse.debug.core,
+ org.eclipse.debug.ui,
+ org.eclipse.jdt.debug,
+ org.eclipse.jdt.launching,
+ org.eclipse.jdt.debug.ui
+Eclipse-AutoStart: true

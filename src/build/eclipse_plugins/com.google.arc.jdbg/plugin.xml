@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.0"?>
+<plugin>
+   <extension
+         point="org.eclipse.ui.startup">
+      <startup
+            class="com.google.arc.jdbg.Starter"/>
+   </extension>
+   <extension
+         point="org.eclipse.debug.core.launchConfigurationTypes">
+      <launchConfigurationType
+            id="com.google.arc.jdbg.remoteconnect"
+            delegate="com.google.arc.jdbg.RemoteConnectDelegate"
+            delegateDescription="Google ARC Remote debug connect"
+            delegateName="com.google.arc.jdbg.RemoteConnectDelegate"
+            modes="debug"
+            name="Google ARC Remote connect"
+            sourceLocatorId="org.eclipse.jdt.launching.sourceLocator.JavaSourceLookupDirector"
+            sourcePathComputerId="org.eclipse.jdt.launching.sourceLookup.javaSourcePathComputer" >
+      </launchConfigurationType>
+   </extension>
+   <extension
+         point="org.eclipse.debug.ui.launchConfigurationTabGroups">
+      <launchConfigurationTabGroup
+            id="com.google.arc.jdbg.RemoteConnectTabGroup"
+            type="com.google.arc.jdbg.remoteconnect"
+            description="Google ARC Java Debugger UI Tabs"
+            class="com.google.arc.jdbg.RemoteConnectTabGroup">
+      </launchConfigurationTabGroup>
+   </extension>
+   <extension
+         point="org.eclipse.debug.ui.launchConfigurationTypeImages">
+      <launchConfigurationTypeImage
+            id="com.google.arc.jdbg.RemoteConnectIcon"
+            configTypeID="com.google.arc.jdbg.remoteconnect"
+            icon="icons/google.png">
+      </launchConfigurationTypeImage>
+   </extension>
+</plugin>

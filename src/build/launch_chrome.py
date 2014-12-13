@@ -16,6 +16,7 @@ import time
 import urlparse
 
 import build_common
+import eclipse_connector
 import filtered_subprocess
 import launch_chrome_options
 import prep_launch_chrome
@@ -773,6 +774,14 @@ def _run_chrome(parsed_args, stats, **kwargs):
   gdb_util.maybe_launch_gdb(parsed_args.gdb, parsed_args.gdb_type,
                             _get_nacl_helper_path(parsed_args),
                             _get_nacl_irt_path(parsed_args), p.pid)
+
+  # If jdb option is specified jdb_port exists. Now it is time to
+  # check which Java debugger to start (currently Eclipse).
+  if parsed_args.jdb_port:
+    if parsed_args.jdb_type == 'eclipse':
+      if not eclipse_connector.connect_eclipse_debugger(parsed_args.jdb_port):
+        # We already should have error message now. Just exit.
+        sys.exit(1)
 
   # Write the PID to a file, so that other launch_chrome process sharing the
   # same user data can find the process. In common case, the file will be

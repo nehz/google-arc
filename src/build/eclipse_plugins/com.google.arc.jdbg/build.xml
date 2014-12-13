@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project default="export" name="com.google.arc.jdbg">
+  <property environment="env"/>
+  <property name="ECLIPSE_HOME" value="/usr/lib/eclipse"/>
+  <property name="debuglevel" value="source,lines,vars"/>
+  <property name="target" value="1.6"/>
+  <property name="source" value="1.6"/>
+  <property file="META-INF/MANIFEST.MF"/> 
+  <property name="arcdir" value="../../../.."/>
+  <property name="rootdir" value="."/>
+  <property name="outdir" value="${arcdir}/canned/host/bin/eclipse_plugins/plugins"/>
+  <property name="outname" value="com.google.arc.jdbg_${Bundle-Version}.jar"/>
+  <path id="com.google.arc.jdbg.classpath">
+    <pathelement location="bin"/>
+  </path>
+  <target name="init">
+    <mkdir dir="${rootdir}/bin"/>
+    <copy includeemptydirs="false" todir="${rootdir}/bin">
+      <fileset dir="${rootdir}/src">
+        <exclude name="**/*.java"/>
+      </fileset>
+    </copy>
+  </target>
+  <target name="clean">
+    <delete dir="${rootdir}/bin"/>
+  </target>
+  <target depends="clean" name="cleanall"/>
+  <target depends="build-subprojects,build-project" name="build"/>
+  <target name="build-subprojects"/>
+  <target depends="init" name="build-project">
+    <echo message="${ant.project.name}: ${ant.file}"/>
+    <javac debug="true" debuglevel="${debuglevel}" destdir="${rootdir}/bin"
+    	     includeantruntime="false" source="${source}" target="${target}">
+      <src path="${rootdir}/src"/>
+      <classpath refid="com.google.arc.jdbg.classpath"/>
+      <classpath>
+        <fileset dir="${ECLIPSE_HOME}/plugins">
+          <include name="org.eclipse.core.commands_*.jar"/>
+          <include name="org.eclipse.core.contenttype_*.jar"/>
+          <include name="org.eclipse.core.jobs_*.jar"/>
+          <include name="org.eclipse.core.resources_*.jar"/>
+          <include name="org.eclipse.core.runtime_*.jar"/>
+          <include name="org.eclipse.debug.core_*.jar"/>
+          <include name="org.eclipse.debug.ui_*.jar"/>
+          <include name="org.eclipse.equinox.app_*.jar"/>
+          <include name="org.eclipse.equinox.common_*.jar"/>
+          <include name="org.eclipse.equinox.preferences_*.jar"/>
+          <include name="org.eclipse.equinox.registry_*.jar"/>
+          <include name="org.eclipse.jdt.debug.ui_*.jar"/>
+          <include name="org.eclipse.jdt.launching_*.jar"/>
+          <include name="org.eclipse.jface_*.jar"/>
+          <include name="org.eclipse.osgi_*.jar"/>
+          <include name="org.eclipse.swt_*.jar"/>
+          <include name="org.eclipse.swt.*.jar"/>
+          <include name="org.eclipse.ui_*.jar"/>
+          <include name="org.eclipse.ui.workbench_*.jar"/>
+        </fileset>
+        <!-- Default Eclipse installation in Ubuntu may have JDK
+                     installed in shared plugin folder-->
+        <fileset dir="/usr/share/eclipse/dropins/jdt">
+          <include name="**/*.jar"/>
+        </fileset>
+      </classpath>
+    </javac>
+  </target>
+  <target depends="clean,build" name="export">
+    <mkdir dir="${outdir}"/>
+    <zip destfile="${outdir}/${outname}/">
+      <fileset dir="${rootdir}/bin"/>
+      <fileset dir="." excludes="${rootdir}/bin/,${rootdir}/src/,${rootdir}/.*,${rootdir}/build.*,${rootdir}/README"/>
+    </zip>
+    <antcall target="clean"/>
+  </target>
+</project>

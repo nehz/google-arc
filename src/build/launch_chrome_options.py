@@ -395,9 +395,19 @@ Native Client Debugging
                       'JDWP compliant debugger (such as jdb or Eclipse) to '
                       'connect.  Once the user resumes, booting will resume.')
 
+  parser.add_argument('--jdb-type', dest='jdb_type',
+                      choices=('eclipse', 'none'), default='eclipse',
+                      help='Specifies which java debugger is launched. If you '
+                      'specify "none" it is launched in mode which waits JDWP '
+                      'compliant debugger (such as jdb) to connect. Once the '
+                      'user resumes, booting will resume. If you specify '
+                      '"eclipse" then the Eclipse framework will be launched '
+                      'and it will be automatically connected to debugger. '
+                      'Implies --jdb.')
+
   parser.add_argument('--jdb-port', dest='jdb_port', metavar='<port>',
                       type=int, default=8000, help='Port to use for the JDWP '
-                      'debugger. The default is 8000. Implies --jdb')
+                      'debugger. The default is 8000. Implies --jdb.')
 
   parser.add_argument('--logcat', dest='logcat',
                       metavar='[filterspecs]', type=str, nargs='+',

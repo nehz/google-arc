@@ -67,8 +67,8 @@ def _check_javac_version():
   javac_version = subprocess.check_output(
       [javac_path, '-version'], stderr=subprocess.STDOUT)
   if want_version not in javac_version:
-    print '\nWARNING: You are not using the supported Java SE 1.6.:',
-    print javac_version.strip()
+    print('\nWARNING: You are not using the supported Java SE 1.6.: ' +
+          javac_version.strip())
     print 'See docs/getting-java.md.\n'
   else:
     stamp_file.update()
