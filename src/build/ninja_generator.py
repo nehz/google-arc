@@ -1013,14 +1013,9 @@ class CNinjaGenerator(NinjaGenerator):
     gcc_raw_version = toolchain.get_gcc_raw_version(OPTIONS.target())
 
     if OPTIONS.is_nacl_build():
-      if OPTIONS.is_arm():
-        compiler_include = os.path.join(
-            toolchain.get_nacl_toolchain_root(),
-            'lib/gcc/arm-nacl/%s/include' % gcc_raw_version)
-      else:
-        compiler_include = os.path.join(
-            toolchain.get_nacl_toolchain_root(),
-            'lib/gcc/x86_64-nacl/%s/include' % gcc_raw_version)
+      compiler_include = os.path.join(
+          toolchain.get_nacl_toolchain_root(),
+          'lib/gcc/x86_64-nacl/%s/include' % gcc_raw_version)
     else:
       if OPTIONS.is_arm():
         # Ubuntu 14.04 has this diriectory for cross-compile headers.

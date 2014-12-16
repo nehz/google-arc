@@ -49,19 +49,13 @@ def main():
         lib = lib[:-len(unnecessary_suffix)]
     libs.append(lib)
 
-  # We are not building android/frameworks/native/opengl/libs/GLES2.
-  # As libGLESv2.so is just a wrapper of real GL implementations, GL
-  # related symbols linked in the main nexe work as symbols in
-  # libGLESv2.so.
-  libs.append('libGLESv2')
-
   # Graphics translation builds all EGL/GLES libraries as static libraries
   # so we need to register them here so that they can still be dlopen'ed.
-  if not OPTIONS.enable_emugl():
-    libs.append('libEGL')
-    libs.append('libEGL_emulation')
-    libs.append('libGLESv1_CM')
-    libs.append('libGLESv2_emulation')
+  libs.append('libEGL')
+  libs.append('libEGL_emulation')
+  libs.append('libGLESv1_CM')
+  libs.append('libGLESv2')
+  libs.append('libGLESv2_emulation')
 
   libs_string_literals = ['  "%s",' % lib for lib in libs]
 

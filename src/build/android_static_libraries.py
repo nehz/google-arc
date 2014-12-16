@@ -31,6 +31,7 @@ def get_android_static_library_deps():
       'libdrmframeworkcommon.a',
       'libdrmserver.a',
       'libeffects.a',
+      'libegl.a',
       'libemoji.a',
       'libetc1.a',
       'libexpat.a',
@@ -39,6 +40,8 @@ def get_android_static_library_deps():
       'libgabi++.a',
       'libgccdemangle.a',
       'libgif.a',  # used by libskia
+      'libgles.a',
+      'libgralloc.a',
       'libgui.a',
       'libhardware.a',
       'libharfbuzz_ng.a',
@@ -108,14 +111,6 @@ def get_android_static_library_deps():
       'libwilhelm.a',  # used by libOpenMAXAL
       'libyuv_static.a',
       'libz.a']
-
-  if OPTIONS.enable_emugl():
-    deps.append('libEGL.a')
-    deps.append('libGLESv1_CM.a')
-  else:
-    deps.append('libegl.a')
-    deps.append('libgles.a')
-    deps.append('libgralloc.a')
 
   if not OPTIONS.disable_hwui():
     deps.append('libhwui.a')

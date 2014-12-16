@@ -50,12 +50,10 @@ _DEFAULT_CHROMETYPE = 'prebuilt'
 #   almost-always-actually-satisfied dependency from internal apks to framework
 #   jar to speed up development iteration.  In addition, it does not sync git
 #   repo to DEPS automatically.
-# TODO(crbug.com/379227): Remove the 'canned' option.
-_ALLOWED_INTERNAL_APKS_SOURCES = ['canned',
-                                  'internal',  # for the corp builder
+_ALLOWED_INTERNAL_APKS_SOURCES = ['internal',  # for the corp builder
                                   'internal-dev',  # for local development
-                                  'prebuilt']
-_DEFAULT_INTERNAL_APKS_SOURCES = 'canned'
+                                  'prebuilt']  # for everyone else
+_DEFAULT_INTERNAL_APKS_SOURCES = 'prebuilt'
 
 # --renderer= options
 _RENDERER_HW = 'hw'
@@ -69,10 +67,6 @@ _ANSI_SF_LAYER_LOGGING = 'ansi-sf-layer'
 _BIONIC_LOADER_LOGGING = 'bionic-loader'
 _EGL_API = 'egl-api'
 _EGL_API_TRACING = 'egl-api-tracing'
-_EMUGL_DEBUG_LOGGING = 'emugl-debug'
-_EMUGL_DECODER_LOGGING = 'emugl-decoder'
-_EMUGL_GL_ERROR = 'emugl-gl-error'
-_EMUGL_TRACING = 'emugl-tracing'
 _GLES_API_LOGGING = 'gles-api'
 _GLES_API_TRACING = 'gles-api-tracing'
 _GLES_PASSTHROUGH_LOGGING = 'gles-passthrough'
@@ -89,10 +83,6 @@ _ALLOWED_LOGGING = [_ANSI_FB_LOGGING,
                     _BIONIC_LOADER_LOGGING,
                     _EGL_API,
                     _EGL_API_TRACING,
-                    _EMUGL_DEBUG_LOGGING,
-                    _EMUGL_DECODER_LOGGING,
-                    _EMUGL_GL_ERROR,
-                    _EMUGL_TRACING,
                     _GLES_API_LOGGING,
                     _GLES_API_TRACING,
                     _GLES_PASSTHROUGH_LOGGING,
@@ -195,18 +185,6 @@ class _Options(object):
   def is_egl_api_tracing(self):
     return _EGL_API_TRACING in self._loggers
 
-  def is_emugl_debug_logging(self):
-    return _EMUGL_DEBUG_LOGGING in self._loggers
-
-  def is_emugl_decoder_logging(self):
-    return _EMUGL_DECODER_LOGGING in self._loggers
-
-  def is_emugl_gl_error(self):
-    return _EMUGL_GL_ERROR in self._loggers
-
-  def is_emugl_tracing(self):
-    return _EMUGL_TRACING in self._loggers
-
   def is_gles_api_logging(self):
     return _GLES_API_LOGGING in self._loggers
 
@@ -293,10 +271,8 @@ class _Options(object):
     args.logging = args.logging.split(',') if args.logging else []
     if args.weird:
       if _Options._is_nacl_target(args.target):
-        args.enable_emugl = True
         args.enable_touch_overlay = True
         args.logging.extend([
-            _EMUGL_DEBUG_LOGGING,
             # TODO(crbug.com/342652): Re-enable _LIBDVM_DEBUG.
             # _LIBDVM_DEBUG,
             _MEMORY_USAGE,
@@ -365,11 +341,6 @@ class _Options(object):
     parser.add_argument('--enable-dalvik-jit', action='store_true', help='Run '
                         'Dalvik VM with JIT mode enabled.')
 
-    parser.add_argument('--enable-emugl', dest='enable_emugl',
-                        action='store_true', default=False,
-                        help='[Deprecated] Use emugl instead of the ARC '
-                        'graphics library.')
-
     parser.add_argument('--enable-ndk-translation', action='store_true',
                         help='Enable NDK translation even when direct '
                         'execution is possible (on Bare Metal ARM).  Has no '
@@ -407,8 +378,8 @@ class _Options(object):
                         choices=_ALLOWED_INTERNAL_APKS_SOURCES,
                         default=_DEFAULT_INTERNAL_APKS_SOURCES,
                         help='Source of play-services and '
-                        'GoogleContactsSyncAdapter APKs. \'prebuilt\' requires '
-                        'production server access.')
+                        'GoogleContactsSyncAdapter APKs. \'prebuilt\' is the '
+                        'default and it requires production server access.')
 
     parser.add_argument('--regen-build-prop', action='store_true', help=
                         'Forces regeneration of the build.prop file which '

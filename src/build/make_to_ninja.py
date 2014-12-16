@@ -149,7 +149,6 @@ _DEFAULT_VARS = ['_include_stack',  # for _import_node
                  'DIST_DIR',
                  'DONT_INSTALL_DEX_FILES',
                  'EMMA_INSTRUMENT',
-                 'EMUGL_DEBUG',
                  'ENABLE_AUTOFILL',
                  'ENABLE_INCREMENTALJAVAC',
                  'ENABLE_JSC_JIT',
@@ -271,8 +270,6 @@ _IGNORED_VAR_PREFIXES = [
     # WTF?
     '_nic.PRODUCTS.',
     'PRODUCTS.',
-    # for --enable-emugl.
-    '_emugl.',
     'libunwind',
     # base_rules.mk introduces ALL_MODULE_TAGS.<tag>, and
     # ALL_MODULES.<local module>.<attribute>. See, 'Register with ALL_MODULES'
@@ -357,10 +354,6 @@ def _create_main_makefile(file_name, extra_env_vars):
       'ART_BUILD_HOST_NDEBUG': 'true',
       'ART_BUILD_TARGET_DEBUG': 'false',
       'ART_BUILD_TARGET_NDEBUG': 'true',
-      # Enable emugl code to be built.
-      'BUILD_EMULATOR_OPENGL': 'true',
-      # Enable emugl gralloc code to be built.
-      'BUILD_EMULATOR_OPENGL_DRIVER': 'true',
       # Set to a fixed value to prevent mk from generating one each time.
       # Build number is passed to aapt and so becomes a dependency.
       'BUILD_NUMBER': 'eng.eng.20120505.150022',
@@ -934,18 +927,12 @@ def _get_prebuilt_install_type_and_path(vars):
 class MakeVars:
   """Encapsulates variables from Android make file."""
 
-  def __init__(self, build_type, build_file, build_as_target_libs, raw_vars):
+  def __init__(self, build_type, build_file, raw_vars):
     # To make it more clear what is being used we avoid storing vars and
     # store individual pieces instead.
     self._build_type = build_type
 
     self._build_file = build_file
-
-    # List of host libraries that should be built as target libraries.
-    self._build_as_target_libs = build_as_target_libs
-
-    # Will be set to True if the module is converted to a target library.
-    self._is_converted_to_target_lib = False
 
     # We store the original raw_vars produced by the mk file so that custom
     # filter_vars code can later access non-standard variables such as
@@ -991,10 +978,6 @@ class MakeVars:
 
   def _init_c_program(self, vars_helper):
     self._module_name = vars_helper.get_required('LOCAL_MODULE')
-    # Convert a host library to a target library as needed.
-    if ((self.is_host_shared() or self.is_host_static()) and
-        self._module_name in self._build_as_target_libs):
-      self._convert_host_to_target()
 
     self._is_clang_enabled = False
     self._is_stlport_enabled = True
@@ -1293,25 +1276,6 @@ class MakeVars:
       self._build_type = build_type
       return
     raise Exception('Cannot change build type of ' + self._build_type)
-
-  def _convert_host_to_target(self):
-    """Converts a host library into a target library.
-
-    In rare cases (ex. emugl), it's necessary to build host libraries as
-    target libraries.
-    """
-    if not (self.is_host() and self.is_c_library()):
-      raise Exception('Not a host library: ' + self._build_type)
-    if self.is_host_static():
-      self.set_build_type(BUILD_TYPE_TARGET_STATIC)
-    elif self.is_host_shared():
-      self.set_build_type(BUILD_TYPE_TARGET_SHARED)
-    else:
-      raise Exception('Unexpected target build type: ' + self._build_type)
-    self._is_converted_to_target_lib = True
-
-  def is_converted_to_target_lib(self):
-    return self._is_converted_to_target_lib
 
   def get_android_gen_path(self):
     return self._android_gen_path
@@ -2069,14 +2033,12 @@ class MakefileNinjaTranslator:
   # List of all make-to-ninja translators ever created.
   _all_translators = []
 
-  def __init__(self, in_file, extra_env_vars=None, build_as_target_libs=None):
+  def __init__(self, in_file, extra_env_vars=None):
     """Initializes MakefileNinjaTranslator.
 
     Keyword arguments:
     extra_env_vars -- Extra environment variables set when running "make".
     executables as shared objects.
-    build_as_target_libs -- List of host libraries that should be built
-    as target libraries.
     """
     in_file = staging.as_staging(in_file)
     if os.path.isdir(in_file):
@@ -2090,8 +2052,6 @@ class MakefileNinjaTranslator:
     self._modules = []
     self._out_intermediates = {}
     self._out_libs = []
-    self._build_as_target_libs = ([] if build_as_target_libs is None
-                                  else build_as_target_libs)
 
     MakefileNinjaTranslator._all_translators += [self]
 
@@ -2122,7 +2082,7 @@ class MakefileNinjaTranslator:
       if OPTIONS.verbose():
         print 'Converting ' + self._in_file
       self._vars_list = MakefileNinjaTranslator._read_modules(
-          self._in_file, self._extra_env_vars, self._build_as_target_libs)
+          self._in_file, self._extra_env_vars)
 
   def _apply_filters(self, vars):
     """Applies filters and returns True if all filters pass."""
@@ -2197,7 +2157,7 @@ class MakefileNinjaTranslator:
     return self._out_intermediates[module_name]
 
   @staticmethod
-  def _read_modules(file_name, extra_env_vars, build_as_target_libs):
+  def _read_modules(file_name, extra_env_vars):
     make_output_lines = _run_make(file_name, extra_env_vars)
 
     vars_list = []
@@ -2209,8 +2169,7 @@ class MakefileNinjaTranslator:
         if build_type:
           # Generate ninja for the previous lines
           raw_vars = _parse_vars(build_lines)
-          vars_list += [MakeVars(build_type, build_file,
-                                 build_as_target_libs, raw_vars)]
+          vars_list += [MakeVars(build_type, build_file, raw_vars)]
         line = line[len(_VARS_PREFIX):]
         build_type, build_file = line.split(' ')
         build_lines = []
@@ -2219,8 +2178,7 @@ class MakefileNinjaTranslator:
     if build_type:
       # Generate ninja for the previous lines
       raw_vars = _parse_vars(build_lines)
-      vars_list += [MakeVars(build_type, build_file,
-                             build_as_target_libs, raw_vars)]
+      vars_list += [MakeVars(build_type, build_file, raw_vars)]
     return vars_list
 
 
