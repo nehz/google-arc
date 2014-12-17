@@ -12,6 +12,7 @@ import argparse
 import subprocess
 from xml.etree import ElementTree
 
+import build_options
 import toolchain
 
 
@@ -89,6 +90,8 @@ def _parse_args():
 
 
 def main():
+  # Dexdump path depends on OPTIONS.
+  build_options.OPTIONS.parse_configure_file()
   args = _parse_args()
 
   dex_xml = _parse_apk(args.apk)

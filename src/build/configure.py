@@ -15,7 +15,6 @@ import sys
 import build_common
 import config_runner
 import download_cts_files
-import download_internal_apks
 import download_naclports_files
 import download_sdk_and_ndk
 import open_source
@@ -150,10 +149,12 @@ def _ensure_downloads_up_to_date():
   if sync_gdb_multiarch.main():
     sys.exit(1)
 
+  # The open source repository does not have download_internal_apks.py.
   if (not open_source.is_open_source_repo() and
-      OPTIONS.internal_apks_source() == 'prebuilt' and
-      download_internal_apks.check_and_perform_updates()):
-    sys.exit(1)
+      OPTIONS.internal_apks_source() == 'prebuilt'):
+    import download_internal_apks
+    if download_internal_apks.check_and_perform_updates():
+      sys.exit(1)
 
 
 def _configure_build_options():

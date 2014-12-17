@@ -159,6 +159,8 @@ def _validate_debug_modes(parser, args):
     debug_modes.append('gdb')
   if args.perfstartup:
     debug_modes.append('perfstartup')
+  if args.javatracestartup:
+    debug_modes.append('javatracestartup')
   if args.tracestartup:
     debug_modes.append('tracestartup')
   if len(debug_modes) > 1:
@@ -348,8 +350,8 @@ Native Client Debugging
                       help='Enable builtin strace-like tracer of ARC '
                       '(output to --arc-strace-output).')
 
-  parser.add_argument('--enable-compositor', action='store_true',
-                      default=None, help='Enable the pepper compositor.')
+  parser.add_argument('--disable-compositor', action='store_true',
+                      default=None, help='Disable the pepper compositor.')
 
   parser.add_argument('--enable-fake-video-source', action='store_true',
                       help='Enable a fake video source for testing')
@@ -389,6 +391,11 @@ Native Client Debugging
                       'with perftest command only.  Starts the plugin page <N> '
                       'times and prints average stats.  Starts counting after '
                       'warmup iterations.')
+
+  parser.add_argument('--javatracestartup', type=int, metavar='<N>',
+                      help='Start the Java VM with '
+                      'android.os.debug.startMethodTracing and collect data '
+                      'for the first <N> seconds.')
 
   parser.add_argument('--jdb', dest='jdb_port', action='store_const',
                       default=None, const=8000, help='Wait for a '

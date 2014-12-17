@@ -69,7 +69,7 @@ void Options::Reset() {
   country.clear();
   enable_adb = false;
   enable_arc_strace = false;
-  enable_compositor = false;
+  enable_compositor = true;
   enable_gl_error_check = false;
   disable_gl_fixed_attribs = false;
   enable_mount_external_directory = false;
@@ -87,6 +87,7 @@ void Options::Reset() {
   min_stderr_log_priority_ = ARC_LOG_ERROR;
   android_density_dpi = 0;
   can_rotate = false;
+  java_trace_startup = "0";
 }
 
 inline static bool IsValidPriorityChar(char c) {

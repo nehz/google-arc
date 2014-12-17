@@ -356,7 +356,9 @@ class _Options(object):
 
     parser.add_argument('--goma-dir', help='The directory for goma.')
 
-    parser.add_argument('--java-dir', help='The directory for Java. The path '
+    parser.add_argument('--java-dir',
+                        default='/usr/lib/jvm/java-6-openjdk-amd64',
+                        help='The directory for Java. The path '
                         'points to a directory, which usually JAVA_HOME env '
                         'variable points to. E.g. '
                         '/usr/lib/jvm/java-6-openjdk-amd64 for Ubuntu.')

@@ -238,6 +238,8 @@ class NinjaGenerator(ninja_syntax.Writer):
   create new ninja files.
   """
 
+  _EXTRACT_TEST_LIST_PATH = 'src/build/util/test/extract_test_list.py'
+
   # Global list of all ninjas generated in this parallel task.
   _ninja_list = []
 
@@ -280,6 +282,8 @@ class NinjaGenerator(ninja_syntax.Writer):
 
   @staticmethod
   def emit_common_rules(n):
+    n.variable('extract_test_list', NinjaGenerator._EXTRACT_TEST_LIST_PATH)
+
     n.rule('copy_symbols_file',
            'src/build/symbol_tool.py --clean $in > $out',
            description='copy_symbols_file $in $out')
@@ -320,6 +324,13 @@ class NinjaGenerator(ninja_syntax.Writer):
            'src/build/make_table_of_contents.py $target $in $out',
            description='make_table_of_contents $in',
            restat=True)
+
+    # Rule to make a list of tests from .apk. This is hsared with
+    # AtfNinjaGenerator and ApkFromSdkNinjaGenerator.
+    n.rule('extract_test_list',
+           ('PYTHONPATH=src/build python $extract_test_list '
+            '--apk=$in --output=$out.tmp && mv $out.tmp $out'),
+           description='Extract test method list from $in')
 
   @staticmethod
   def consume_ninjas():
@@ -753,6 +764,14 @@ class NinjaGenerator(ninja_syntax.Writer):
     (with static linking, for instance), this module inherits the licenses of
     the included module."""
     return []
+
+  def _build_test_list(self, final_package_path):
+    self.build(
+        [build_common.get_integration_test_list_path(self._module_name)],
+        'extract_test_list',
+        inputs=[final_package_path],
+        implicit=[NinjaGenerator._EXTRACT_TEST_LIST_PATH,
+                  toolchain.get_tool('java', 'dexdump')])
 
 
 class CNinjaGenerator(NinjaGenerator):
@@ -3254,6 +3273,10 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
     return self.build([self._install_path], 'build_using_sdk', inputs=files,
                       variables=variables, implicit=implicit)
 
+  def build_test_list(self):
+    return self._build_test_list(
+        ApkFromSdkNinjaGenerator.get_final_package_for_apk(self._module_name))
+
   @staticmethod
   def get_final_package_for_apk(apk_name):
     return build_common.get_build_path_for_apk(
@@ -3454,35 +3477,21 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
 
 
 class AtfNinjaGenerator(ApkNinjaGenerator):
-  _EXTRACT_TEST_LIST_PATH = 'src/build/util/test/extract_test_list.py'
-
   def __init__(self, module_name, **kwargs):
     super(AtfNinjaGenerator, self).__init__(module_name, **kwargs)
     self.add_built_jars_to_classpath('android.test.runner')
 
   @staticmethod
   def emit_common_rules(n):
-    n.variable('extract_test_list', AtfNinjaGenerator._EXTRACT_TEST_LIST_PATH)
-
     n.rule('strip_apk_signature',
            'cp $in $out && zip -q -d $out META-INF/*',
            description='strip_apk_signature $out')
-    n.rule('extract_test_list',
-           ('PYTHONPATH=src/build python $extract_test_list ' +
-            '--apk=$in --output=$out.tmp && mv $out.tmp $out'),
-           description='Extract test method list from $in')
 
   def build_default_all_test_sources(self):
     return self.build_default_all_sources(include_tests=True)
 
-  def build_test_list(self, test_suite_name):
-    output = os.path.join(
-        build_common.get_integration_test_list_dir(), test_suite_name + '.txt')
-    self.build([output], 'extract_test_list',
-               inputs=[self.get_final_package()],
-               implicit=[
-                   AtfNinjaGenerator._EXTRACT_TEST_LIST_PATH,
-                   toolchain.get_tool('java', 'dexdump')])
+  def build_test_list(self):
+    return self._build_test_list(self.get_final_package())
 
 
 class AaptNinjaGenerator(NinjaGenerator):

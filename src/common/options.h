@@ -113,6 +113,11 @@ struct Options {
   // If true, the app can rotate the screen with setRequestedOrientation() API.
   bool can_rotate;
 
+  // If atoi(java_trace_startup) is >0, the app calls
+  // android.os.debug.startMethodTracing() right after the Java VM is started
+  // to collect profile data for the first N seconds of the runtime startup.
+  std::string java_trace_startup;
+
  private:
   friend struct DefaultSingletonTraits<Options>;
   FRIEND_TEST(OptionsTest, HandleFilterspecMessage);

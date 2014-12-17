@@ -44,7 +44,7 @@ class BaseGetAndUnpackArchiveFromURL(object):
 
         download_file = os.path.join(tmp_dir, cls.DOWNLOAD_NAME)
         if url.startswith('gs://'):
-          BaseGetAndUnpackArchiveFromURL._gsretrieve(url, download_file)
+          cls._gsretrieve(url, download_file)
         else:
           urllib.urlretrieve(url, download_file)
 

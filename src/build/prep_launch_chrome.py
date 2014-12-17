@@ -15,6 +15,7 @@
 import atexit
 import json
 import os
+import pipes
 import shutil
 import sys
 
@@ -54,10 +55,15 @@ def _generate_shell_command(parsed_args):
     if parsed_args.start_test_component:
       target = parsed_args.start_test_component
     shell_cmd.extend(['am', 'instrument'])
+    # Set target test classes and packages.
+    # Note that, the name may contain '$' character, so we need to escape them
+    # here.
     if parsed_args.run_test_classes:
-      shell_cmd.extend(['-e', 'class', parsed_args.run_test_classes])
+      shell_cmd.extend(
+          ['-e', 'class', pipes.quote(parsed_args.run_test_classes)])
     if parsed_args.run_test_packages:
-      shell_cmd.extend(['-e', 'package', parsed_args.run_test_packages])
+      shell_cmd.extend(
+          ['-e', 'package', pipes.quote(parsed_args.run_test_packages)])
     shell_cmd.extend(['-r', '-w', target, ';'])
     shell_cmd.extend(['stop', ';'])
   return shell_cmd
@@ -69,10 +75,11 @@ def _convert_launch_chrome_options_to_external_metadata(parsed_args):
   arg_to_metadata = (('disable_auto_back_button', 'disableAutoBackButton'),
                      ('enable_adb', 'enableAdb'),
                      ('enable_arc_strace', 'enableArcStrace'),
-                     ('enable_compositor', 'enableCompositor'),
+                     ('disable_compositor', 'disableCompositor'),
                      ('enable_external_directory', 'enableExternalDirectory'),
                      ('disable_gl_fixed_attribs', 'disableGlFixedAttribs'),
                      ('form_factor', 'formFactor'),
+                     ('javatracestartup', 'javaTraceStartup'),
                      ('jdb_port', 'jdbPort'),
                      ('log_load_progress', 'logLoadProgress'),
                      ('minimum_launch_delay', 'minimumLaunchDelay'),

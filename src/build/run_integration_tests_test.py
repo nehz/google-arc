@@ -225,7 +225,6 @@ def _stub_parse_configure_file():
 
 
 def _stub_read_test_list(path):
-  """Dummy read_test_list function."""
   return {'*': flags.PASS}
 
 
