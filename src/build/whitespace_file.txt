@@ -103,4 +103,4 @@ Perf bots very unhappy
 
 Test updated ChromeOS machines in 3... 2... 1...
 
-ping pong
+ping pong bang

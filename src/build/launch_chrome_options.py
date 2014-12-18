@@ -342,6 +342,16 @@ Native Client Debugging
   parser.add_argument('--dogfood-metadata', '-D', action='store_true',
                       help='Use dogfood metadata settings to start this app')
 
+  # TODO(crbug.com/394080) Change to --force-accessibility once
+  # chrome.accessibilityFeatures API is used to enable accessibility
+  # in the default case on ChromeOS.
+  parser.add_argument('--enable-accessibility', action='store_true',
+                      default=None, help='Experimental. Enables the ARC '
+                      'accessibility service and allows it to provide '
+                      'information to the Chrome screen reader in order to '
+                      'assist blind/low vision users with navigation '
+                      'through the application.')
+
   parser.add_argument('--enable-adb', action='store_true', default=None,
                       help='Enable adb support')
 

@@ -42,7 +42,7 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     'out/data_roots/file_system_manager.*',
     'out/data_roots/gles.*',
     'out/data_roots/graphics.*',
-    'out/data_roots/jstests/*',
+    'out/data_roots/jstests*/*',
     'out/data_roots/ndk.*',
     'out/data_roots/posix_translation.*',
     'out/data_roots/system_mode.*',

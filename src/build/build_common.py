@@ -366,6 +366,11 @@ def get_build_path_for_apk(apk_name, subpath=None, is_target=False):
   return path
 
 
+def get_build_path_for_gen_test_template(test_name):
+  return os.path.join(get_target_common_dir(),
+                      'test_template_' + test_name)
+
+
 def get_arc_welder_output_dir():
   return os.path.join(get_target_common_dir(), 'arc_welder')
 

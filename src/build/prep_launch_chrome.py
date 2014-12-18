@@ -73,6 +73,7 @@ def _convert_launch_chrome_options_to_external_metadata(parsed_args):
   metadata = parsed_args.additional_metadata
 
   arg_to_metadata = (('disable_auto_back_button', 'disableAutoBackButton'),
+                     ('enable_accessibility', 'enableAccessibility'),
                      ('enable_adb', 'enableAdb'),
                      ('enable_arc_strace', 'enableArcStrace'),
                      ('disable_compositor', 'disableCompositor'),

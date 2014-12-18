@@ -79,27 +79,17 @@ class CompositorInterface;
 
 class GPURendererInterface {
  public:
+  typedef std::vector<int32_t> Attributes;
+
   virtual ~GPURendererInterface() {}
 
-  virtual void CreateAttribs(
-      int red_size, int green_size, int blue_size, int alpha_size,
-      int depth_size, int stencil_size, std::vector<int32_t>& attribs) = 0;
-  virtual ContextGPU* CreateContextGPU(const std::vector<int32_t>& attribs,
-                                       ContextGPU* shared_context) = 0;
-  virtual void ShareContextGPU(void* context, void* shared_context) = 0;
-  virtual bool BindGraphics3D(ContextGPU* context) = 0;
-  virtual void DestroyContextGPU(void* context) = 0;
-  // TODO(kmixter): Remove this once we have separate contexts
-  // and surfaces.
-  virtual bool ResizeGraphics3D(ContextGPU* context,
-                                int width,
-                                int height) = 0;
-  virtual void CallMakeCurrent(void* context) = 0;
-  // If a pending SwapBuffers call is in flight, block until it is serviced.
+  virtual ContextGPU* CreateContext(const Attributes& attribs,
+                                    ContextGPU* shared_context) = 0;
+  virtual bool BindContext(ContextGPU* context) = 0;
+  virtual bool SwapBuffers(ContextGPU* context) = 0;
   virtual void WaitForSwapBuffers() = 0;
-  // Check whether a SwapBuffers callback is pending.
-  virtual bool IsSwapBuffersOutstanding() = 0;
-  virtual bool SwapBuffersGraphics3D(ContextGPU* context) = 0;
+  virtual void DestroyContext(ContextGPU* context) = 0;
+
   virtual compositor::CompositorInterface* GetCompositor() = 0;
 };
 
