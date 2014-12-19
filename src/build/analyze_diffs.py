@@ -27,16 +27,21 @@ from notices import Notices
 _args = None
 FILE_IGNORE_TAG = 'ARC MOD IGNORE'
 FILE_TRACK_TAG = 'ARC MOD TRACK'
+FORK_BASE_PATH = 'mods/fork/'
 MAX_ALLOWED_COMMON_LINES_IN_REGION = 20
 MAX_ARC_TRACK_SEARCH_LINES = 2
 REGION_END_TAG = 'ARC MOD END'
 REGION_FORK_TAG = 'FORK'
-REGION_UPSTREAM_TAG = 'UPSTREAM'
 REGION_START_TAG = 'ARC MOD BEGIN'
-UPSTREAM_BASE_PATH = 'mods/upstream'
-VALID_TAGS = (REGION_FORK_TAG,
+REGION_UPSTREAM_TAG = 'UPSTREAM'
+UPSTREAM_BASE_PATH = 'mods/upstream/'
+
+VALID_TAGS = ('',
+              REGION_FORK_TAG,
               REGION_UPSTREAM_TAG,
               REGION_UPSTREAM_TAG + ' ' + REGION_FORK_TAG)
+IGNORE_SUBDIRECORIES = (FORK_BASE_PATH,
+                        UPSTREAM_BASE_PATH)
 
 
 def show_error(stats, error):
@@ -116,11 +121,18 @@ class ModStats(object):
     self.line_count = 0
 
 
-def _extract_upstream_ref_from_tag(tag):
-  pos = tag.rfind(' ')
-  if pos == -1:
-    return None
-  return tag[pos + 1:].strip()
+def _extract_tag_and_ref_name_from_line(line, is_diff):
+  tag = extract_tag_from_line(line, is_diff)
+  name = ''
+  # Look for a trailing name which can be using any combination of lowercase
+  # letters numbers, underscores, or dashes. We do not include uppercase letters
+  # since the tags otherwise use uppercase letters.
+  m = re.match(r'(.*?)\b([\-_a-z0-9]+)$', tag or '')
+  if m:
+    tag = m.group(1).strip()
+    name = m.group(2)
+
+  return tag, name
 
 
 def get_file_mod_stats_for_upstream_refs(file_name, mod_stats_map):
@@ -131,9 +143,9 @@ def get_file_mod_stats_for_upstream_refs(file_name, mod_stats_map):
     upstream_start_line = None
     for line_number, line in enumerate(lines):
       if REGION_START_TAG in line:
-        tag = extract_tag_from_line(line, False)
+        tag, ref_name = _extract_tag_and_ref_name_from_line(line, False)
         if REGION_UPSTREAM_TAG in tag:
-          upstream_ref = _extract_upstream_ref_from_tag(tag)
+          upstream_ref = ref_name
           upstream_start_line = line_number
       elif REGION_END_TAG in line and upstream_ref:
         mod_stats = mod_stats_map[upstream_ref]
@@ -234,32 +246,39 @@ class _AnalyzeDiffState(object):
                     line[1:]))
     self._stats['current_region'] = None
 
+  def _verify_mod_description_file(self, desc_file, msg):
+    if (_args.under_test and
+        self._our_path.startswith(staging.TESTS_MODS_PATH)):
+      desc_file = os.path.join(staging.TESTS_BASE_PATH, desc_file)
+
+    if not os.path.isfile(desc_file):
+      # In open source repo we have no upstream files (except when running
+      # tests) but if in internal repo, we verify the file exists.
+      if _args.under_test or not open_source.is_open_source_repo():
+        show_error(self._stats, msg + desc_file)
+    return True
+
   def _verify_tag_line(self, line, is_begin_tag):
-    tag = extract_tag_from_line(line, True)
+    tag, ref_name = _extract_tag_and_ref_name_from_line(line, True)
     if tag is None:
       show_error(self._stats, 'Invalid tag line:\n' + line[1:])
-    if not tag:
-      return None
-    if is_begin_tag and REGION_UPSTREAM_TAG in tag:
-      pos = tag.rfind(' ')
-      if pos != -1:
-        id = tag[pos + 1:].strip()
-        tag = tag[:pos].strip()
-        desc_file = os.path.join(UPSTREAM_BASE_PATH, id)
-        if (_args.under_test and
-            self._our_path.startswith(staging.TESTS_MODS_PATH)):
-          desc_file = os.path.join(staging.TESTS_BASE_PATH, desc_file)
-        if not os.path.isfile(desc_file):
-          # In open source repo we have no upstream files (except when running
-          # tests) but if in internal repo, we verify the file exists.
-          if _args.under_test or not open_source.is_open_source_repo():
-            show_error(self._stats,
-                       'Upstream description file does not exist: %s' % (
-                       desc_file))
-      else:
-        show_error(self._stats, 'Upstream missing identifier:\n' + line[1:])
-    if (tag not in VALID_TAGS):
+
+    if tag not in VALID_TAGS:
       show_error(self._stats, 'Invalid tag line:\n' + line[1:])
+
+    if is_begin_tag and REGION_UPSTREAM_TAG in tag and not ref_name:
+      show_error(self._stats, 'Upstream missing identifier:\n' + line[1:])
+
+    if is_begin_tag and ref_name:
+      if REGION_UPSTREAM_TAG in tag:
+        desc_file = os.path.join(UPSTREAM_BASE_PATH, ref_name)
+        msg = 'Upstream description file does not exist: '
+      else:
+        desc_file = os.path.join(FORK_BASE_PATH, ref_name)
+        msg = 'Modification description file does not exist: '
+
+      self._verify_mod_description_file(desc_file, msg)
+
     return tag
 
   def _handle_source_difference(self, line):
@@ -384,15 +403,14 @@ def compute_tracking_path(stats, our_path, our_lines, do_lint_check=False):
 
 def is_tracking_an_upstream_file(path):
   with open(path) as source_file:
-    tracking_path = compute_tracking_path(construct_stats(path), path,
-                                          source_file)
+    tracking_path = compute_tracking_path(None, path, source_file)
     return tracking_path is not None
 
 
 def _check_any_license(stats, our_path, tracking_path, default_tracking):
   # No need to require notices for other metadata files.
   if (os.path.basename(our_path) in ['OPEN_SOURCE', 'OWNERS'] or
-      our_path.startswith('mods/upstream/') or
+      any(our_path.startswith(p) for p in IGNORE_SUBDIRECORIES) or
       our_path == '.gitmodules' or
       our_path == '.gitignore'):
     return
@@ -477,7 +495,7 @@ def _check_notices(stats, our_path, tracking_path):
   basename = os.path.basename(our_path)
   if (basename in ['OWNERS', 'NOTICE'] or
       basename.startswith('MODULE_LICENSE_') or
-      our_path.startswith('mods/upstream/')):
+      any(our_path.startswith(p) for p in IGNORE_SUBDIRECORIES)):
     return
   default_tracking = staging.get_default_tracking_path(our_path)
   _check_any_license(stats, our_path, tracking_path, default_tracking)
@@ -491,7 +509,10 @@ def _check_notices(stats, our_path, tracking_path):
                                              default_tracking)
 
 
-def analyze_file(our_path, output_file):
+def analyze_file(raw_our_path, output_file):
+  # Code expects first relative directory names to start immediately.
+  # Convert ./mods/... to mods/....
+  our_path = os.path.relpath(raw_our_path)
   our_lines = _read_all_lines(our_path)
   stats = construct_stats(our_path)
   tracking_path = compute_tracking_path(stats, our_path, our_lines,

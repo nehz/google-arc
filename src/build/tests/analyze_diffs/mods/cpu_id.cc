@@ -81,7 +81,7 @@ static uint32 XGetBV(unsigned int xcr) {
     ret
   }
 }
-/* ARC MOD BEGIN UPSTREAM TEST1 */
+/* ARC MOD BEGIN UPSTREAM test1 */
 // NativeClient currently does not support AVX / XGETBV.
 #elif !defined(__native_client__) && (defined(__i386__) || defined(__x86_64__))
 /* ARC MOD END UPSTREAM */

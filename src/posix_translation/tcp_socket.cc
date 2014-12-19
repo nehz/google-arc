@@ -428,6 +428,25 @@ ssize_t TCPSocket::recvfrom(void* buf, size_t len, int flags, sockaddr* addr,
   return -1;
 }
 
+ssize_t TCPSocket::recvmsg(struct msghdr* msg, int flags) {
+  if (!msg || !msg->msg_iov) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (msg->msg_iovlen != 1) {
+    ALOGE("TCPSocket only supports trivial recvmsg with msg_iovlen of 1");
+    errno = EINVAL;
+    return -1;
+  }
+  if (msg->msg_controllen != 0) {
+    ALOGE("TCPSocket only supports trivial recvmsg with no control data");
+    errno = EINVAL;
+    return -1;
+  }
+  msg->msg_flags = 0;
+  return recv(msg->msg_iov[0].iov_base, msg->msg_iov[0].iov_len, flags);
+}
+
 ssize_t TCPSocket::write(const void* buf, size_t count) {
   if (!is_connected()) {
     errno = EPIPE;
@@ -486,6 +505,24 @@ ssize_t TCPSocket::sendto(const void* buf, size_t len, int flags,
     return write(buf, len);
   errno = EINVAL;
   return -1;
+}
+
+ssize_t TCPSocket::sendmsg(const struct msghdr* msg, int flags) {
+  if (!msg || !msg->msg_iov) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (msg->msg_iovlen != 1) {
+    ALOGE("TCPSocket only supports trivial sendmsg with msg_iovlen of 1");
+    errno = EINVAL;
+    return -1;
+  }
+  if (msg->msg_controllen != 0) {
+    ALOGE("TCPSocket only supports trivial sendmsg with no control data");
+    errno = EINVAL;
+    return -1;
+  }
+  return send(msg->msg_iov[0].iov_base, msg->msg_iov[0].iov_len, flags);
 }
 
 int TCPSocket::ioctl(int request, va_list ap) {

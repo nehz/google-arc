@@ -44,7 +44,7 @@ static jboolean
 android_hardware_UsbDeviceConnection_open(JNIEnv *env, jobject thiz, jstring deviceName,
         jobject fileDescriptor)
 {
-    /* ARC MOD BEGIN */
+    /* ARC MOD BEGIN test-named-fork*/
     NOT_IMPLEMENTED();
     return false;
     /* ARC MOD END */

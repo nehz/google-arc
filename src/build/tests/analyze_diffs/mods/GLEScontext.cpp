@@ -149,7 +149,7 @@ void GLEScontext::init() {
                 m_texState[i][j].enabled = GL_FALSE;
             }
         }
-        // ARC MOD BEGIN UPSTREAM TEST2
+        // ARC MOD BEGIN UPSTREAM test2
 #if USE_GL_BUFFER_OBJECTS
         m_vertexBuffers = new GLuint[4 + s_glSupport.maxVertexAttribs];
         s_glDispatch.glGenBuffers(4 + s_glSupport.maxVertexAttribs,
@@ -176,7 +176,7 @@ GLEScontext::GLEScontext():
                            m_arrayBuffer(0)        ,
                            m_elementBuffer(0),
                            m_renderbuffer(0),
-                           /* ARC MOD BEGIN UPSTREAM TEST2 */
+                           /* ARC MOD BEGIN UPSTREAM test2 */
                            m_vertexBuffers(0),
                            m_framebuffer(0),
                            m_viewport({-1,-1,-1,-1})
@@ -197,7 +197,7 @@ void GLEScontext::setActiveTexture(GLenum tex) {
 }
 
 GLEScontext::~GLEScontext() {
-    /* ARC MOD BEGIN UPSTREAM TEST2 */
+    /* ARC MOD BEGIN UPSTREAM test2 */
 #if USE_GL_BUFFER_OBJECTS
     if (m_initialized) {
         s_glDispatch.glDeleteBuffers(4 + s_glSupport.maxVertexAttribs, m_vertexBuffers);
@@ -215,7 +215,7 @@ GLEScontext::~GLEScontext() {
     delete[] m_texState;
     m_texState = NULL;
 }
-/* ARC MOD BEGIN UPSTREAM TEST2 */
+/* ARC MOD BEGIN UPSTREAM test2 */
 
 GLint GLEScontext::getGLTypeSize(GLenum type) {
     switch (type) {
@@ -629,7 +629,7 @@ void GLEScontext::initCapsLocked(const GLubyte * extensionString)
     const GLubyte* glslVersion = s_glDispatch.glGetString(GL_SHADING_LANGUAGE_VERSION);
     s_glSupport.glslVersion = Version((const  char*)(glslVersion));
 
-    /* ARC MOD BEGIN UPSTREAM TEST_NONEXISTING */
+    /* ARC MOD BEGIN UPSTREAM test_nonexisting */
     // The underlying GL implementation may have FBO support without
     // support for the FBO extension.  OpenGL 3 and GL ES 2+ have
     // core FBO support.
@@ -799,7 +799,7 @@ bool GLEScontext::glGetIntegerv(GLenum pname, GLint *params)
         case GL_IMPLEMENTATION_COLOR_READ_FORMAT_OES:
             *params = GL_RGBA;
             break;
-        /* ARC MOD BEGIN UPSTREAM TEST2 */
+        /* ARC MOD BEGIN UPSTREAM test2 */
         // Return cached value as this round-trip call is often
         // made by ColorBuffer.
         case GL_VIEWPORT:

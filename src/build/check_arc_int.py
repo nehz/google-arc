@@ -70,8 +70,10 @@ def run():
 
   result = subprocess.call(['diff', xml.name, _GMS_CORE_DEPS])
   if result != 0:
-    logging.error('Android internal source code is not up to date. '
-                  'See internal/docs/rebasing.md and update the code.')
+    logging.error('Android internal source code is not up to date.  Please run '
+                  'internal/build/configure.py to update the code.  If you are '
+                  'trying to sync on buildbot, please refer to '
+                  'internal/docs/rebasing.md')
   return result
 
 

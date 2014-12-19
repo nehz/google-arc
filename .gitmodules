@@ -391,3 +391,6 @@
 [submodule "third_party/android/packages/apps/ContactsCommon"]
 	path = third_party/android/packages/apps/ContactsCommon
 	url = https://android.googlesource.com/platform/packages/apps/ContactsCommon
+[submodule "third_party/android/packages/providers/CalendarProvider"]
+	path = third_party/android/packages/providers/CalendarProvider
+	url = https://android.googlesource.com/platform/packages/providers/CalendarProvider
