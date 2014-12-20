@@ -15,7 +15,7 @@
 # mods/android/frameworks/native/arc/binder/local_process.cc __cxa_atexit@plt [registers a dtor to run at exit]
 # mods/android/frameworks/native/arc/binder/local_process.cc pthread_mutex_init@plt
 # pass_through.cc s_pass_through_lock
-# pass_through.cc android::Mutex::~Mutex()
+# pass_through.cc Mutex::~Mutex()
 # pass_through.cc __bss_start
 # pass_through.cc __cxa_atexit@plt [registers a dtor to run at exit]
 # pass_through.cc pthread_mutex_init@plt

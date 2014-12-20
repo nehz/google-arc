@@ -213,8 +213,8 @@ int SocketStream::getsockopt(int level, int optname, void* optval,
 
 int SocketStream::ioctl(int request, va_list ap) {
   if (request == FIONBIO) {
-    int val = va_arg(ap, int);
-    if (val)
+    int* val = va_arg(ap, int*);
+    if (*val)
       set_oflag(oflag() | O_NONBLOCK);
     else
       set_oflag(oflag() & ~O_NONBLOCK);

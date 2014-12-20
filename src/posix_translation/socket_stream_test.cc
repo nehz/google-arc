@@ -79,9 +79,11 @@ TEST(SocketStreamTest, ioctl_Invalid) {
 TEST(SocketStreamTest, ioctl_FIONBIO) {
   scoped_refptr<TestSocketStream> stream(new TestSocketStream);
   EXPECT_EQ(0, SocketFcntl(stream.get(), F_GETFL) & O_NONBLOCK);
-  ASSERT_EQ(0, SocketIoctl(stream.get(), FIONBIO, 1));
+  int val = 1;
+  ASSERT_EQ(0, SocketIoctl(stream.get(), FIONBIO, &val));
   EXPECT_EQ(O_NONBLOCK, SocketFcntl(stream.get(), F_GETFL) & O_NONBLOCK);
-  ASSERT_EQ(0, SocketIoctl(stream.get(), FIONBIO, 0));
+  val = 0;
+  ASSERT_EQ(0, SocketIoctl(stream.get(), FIONBIO, &val));
   EXPECT_EQ(0, SocketFcntl(stream.get(), F_GETFL) & O_NONBLOCK);
 }
 
