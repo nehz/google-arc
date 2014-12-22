@@ -15,6 +15,9 @@
  */
 
 #include "linker.h"
+// ARC MOD BEGIN
+#include "linker_debug.h"
+// ARC MOD END
 
 #include <dlfcn.h>
 #include <pthread.h>
@@ -26,7 +29,8 @@
 #include <private/ScopedPthreadMutexLocker.h>
 #include <private/ThreadLocalBuffer.h>
 // ARC MOD BEGIN
-// Add a include for __inject_arc_linker_hooks.
+// Add includes for ARC linker functions.
+#include <private/dlsym.h>
 #include <private/inject_arc_linker_hooks.h>
 // ARC MOD END
 
@@ -74,7 +78,12 @@ void* dlopen(const char* filename, int flags) {
   return result;
 }
 
-void* dlsym(void* handle, const char* symbol) {
+// ARC MOD BEGIN
+// Expose __dlsym_with_return_address for __wrap_dlsym.
+// See android/bionic/libc/include/private/dlsym.h for details.
+void* __dlsym_with_return_address(
+    void* handle, const char* symbol, void* ret_addr) {
+// ARC MOD END
   ScopedPthreadMutexLocker locker(&gDlMutex);
 
   if (handle == NULL) {
@@ -91,7 +100,11 @@ void* dlsym(void* handle, const char* symbol) {
   if (handle == RTLD_DEFAULT) {
     sym = dlsym_linear_lookup(symbol, &found, NULL);
   } else if (handle == RTLD_NEXT) {
-    void* ret_addr = __builtin_return_address(0);
+    // ARC MOD BEGIN
+    // Expose __dlsym_with_return_address for __wrap_dlsym.
+    // See android/bionic/libc/include/private/dlsym.h for details.
+    // void* ret_addr = __builtin_return_address(0);
+    // ARC MOD END
     soinfo* si = find_containing_library(ret_addr);
 
     sym = NULL;
@@ -125,6 +138,14 @@ void* dlsym(void* handle, const char* symbol) {
     return NULL;
   }
 }
+// ARC MOD BEGIN
+// Expose __dlsym_with_return_address for __wrap_dlsym.
+// See android/bionic/libc/include/private/dlsym.h for details.
+void* dlsym(void* handle, const char* symbol) {
+  return __dlsym_with_return_address(
+      handle, symbol, __builtin_return_address(0));
+}
+// ARC MOD END
 
 int dladdr(const void* addr, Dl_info* info) {
   ScopedPthreadMutexLocker locker(&gDlMutex);
@@ -158,21 +179,20 @@ int dlclose(void* handle) {
 
 #if defined(ANDROID_ARM_LINKER)
 // ARC MOD BEGIN
-// Add dl_iterate_phdr and __inject_arc_linker_hooks for ARM.
-//   0000000 00011111 111112 22222222 2333333 3333444444444455555555556666666 666777777777788888888 8899999999990000 0000001111111111222222222233
-//   0123456 78901234 567890 12345678 9012345 6789012345678901234567890123456 789012345678901234567 8901234567890123 4567890123456789012345678901
+// Add ARC linker functions.
+//   0000000 00011111 111112 22222222 2333333 3333444444444455555555556666666 666777777777788888888 8899999999990000 00000011111111112222222222 3333333333444444444455555555
+//   0123456 78901234 567890 12345678 9012345 6789012345678901234567890123456 789012345678901234567 8901234567890123 45678901234567890123456789 0123456789012345678901234567
 #define ANDROID_LIBDL_STRTAB \
-    "dlopen\0dlclose\0dlsym\0dlerror\0dladdr\0android_update_LD_LIBRARY_PATH\0dl_unwind_find_exidx\0dl_iterate_phdr\0__inject_arc_linker_hooks\0"
+    "dlopen\0dlclose\0dlsym\0dlerror\0dladdr\0android_update_LD_LIBRARY_PATH\0dl_unwind_find_exidx\0dl_iterate_phdr\0__inject_arc_linker_hooks\0__dlsym_with_return_address\0"
 
 // Add x86-64 support.
 #elif defined(ANDROID_X86_LINKER) || defined(ANDROID_MIPS_LINKER) \
   || defined(ANDROID_X86_64_LINKER)
-// Add __inject_arc_linker_hooks.
-// See bionic/libc/private/inject_arc_linker_hooks.h for detail.
-//   0000000 00011111 111112 22222222 2333333 3333444444444455555555556666666 6667777777777888 8888888999999999900000000001
-//   0123456 78901234 567890 12345678 9012345 6789012345678901234567890123456 7890123456789012 3456789012345678901234567890
+// Add ARC linker functions.
+//   0000000 00011111 111112 22222222 2333333 3333444444444455555555556666666 6667777777777888 88888889999999999000000000 0111111111122222222223333333
+//   0123456 78901234 567890 12345678 9012345 6789012345678901234567890123456 7890123456789012 34567890123456789012345678 9012345678901234567890123456
 #define ANDROID_LIBDL_STRTAB \
-    "dlopen\0dlclose\0dlsym\0dlerror\0dladdr\0android_update_LD_LIBRARY_PATH\0dl_iterate_phdr\0__inject_arc_linker_hooks\0"
+    "dlopen\0dlclose\0dlsym\0dlerror\0dladdr\0android_update_LD_LIBRARY_PATH\0dl_iterate_phdr\0__inject_arc_linker_hooks\0__dlsym_with_return_address\0"
 // ARC MOD END
 #else
 #error Unsupported architecture. Only ARM, MIPS, and x86 are presently supported.
@@ -259,17 +279,19 @@ static Elf32_Sym gLibDlSymtab[] = {
 #if defined(ANDROID_ARM_LINKER)
   ELF32_SYM_INITIALIZER(67, &dl_unwind_find_exidx, 1),
   // ARC MOD BEGIN
-  // Add dl_iterate_phdr and __inject_arc_linker_hooks for ARM.
+  // Add ARC linker functions.
   ELF32_SYM_INITIALIZER(88, &dl_iterate_phdr, 1),
   ELF32_SYM_INITIALIZER(104, &__inject_arc_linker_hooks, 1),
+  ELF32_SYM_INITIALIZER(130, &__dlsym_with_return_address, 1),
   // Add x86-64 support.
 #elif defined(ANDROID_X86_LINKER) || defined(ANDROID_MIPS_LINKER) \
   || defined(ANDROID_X86_64_LINKER)
   // ARC MOD END
   ELF32_SYM_INITIALIZER(67, &dl_iterate_phdr, 1),
   // ARC MOD BEGIN
-  // Add dl_iterate_phdr and __inject_arc_linker_hooks.
+  // Add ARC linker functions.
   ELF32_SYM_INITIALIZER(83, &__inject_arc_linker_hooks, 1),
+  ELF32_SYM_INITIALIZER(109, &__dlsym_with_return_address, 1),
   // ARC MOD END
 #endif
 };
@@ -294,13 +316,11 @@ static Elf32_Sym gLibDlSymtab[] = {
 // stubbing them out in libdl.
 static unsigned gLibDlBuckets[1] = { 1 };
 // ARC MOD BEGIN
-// Size now varies because dl_iterate_phdr and
-// __inject_arc_linker_hooks have been added for ARM.
+// Size now varies because ARC linker functions have been added.
 #ifdef ANDROID_ARM_LINKER
-static unsigned gLibDlChains[10] = { 0, 2, 3, 4, 5, 6, 7, 8, 9, 0 };
+static unsigned gLibDlChains[11] = { 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0 };
 #else
-// Size now varies because _arc_linker_hooks has been added.
-static unsigned gLibDlChains[9] = { 0, 2, 3, 4, 5, 6, 7, 8, 0 };
+static unsigned gLibDlChains[10] = { 0, 2, 3, 4, 5, 6, 7, 8, 9, 0 };
 #endif
 // ARC MOD END
 

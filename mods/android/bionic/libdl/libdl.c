@@ -16,7 +16,8 @@
 
 #include <dlfcn.h>
 // ARC MOD BEGIN
-// Add a include for __inject_arc_linker_hooks.
+// Add includes for ARC linker functions.
+#include <private/dlsym.h>
 #include <private/inject_arc_linker_hooks.h>
 // ARC MOD END
 /* These are stubs for functions that are actually defined
@@ -30,7 +31,9 @@ int dlclose(void *handle) { return 0; }
 
 void android_update_LD_LIBRARY_PATH(const char* ld_library_path) { }
 // ARC MOD BEGIN
-// Add __inject_arc_linker_hooks.
+// Add ARC linker functions.
+void* __dlsym_with_return_address(
+    void* handle, const char* symbol, void* ret_addr) { return 0; }
 void __inject_arc_linker_hooks(__arc_linker_hooks* hooks) { }
 // ARC MOD END
 

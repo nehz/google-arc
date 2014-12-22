@@ -11,6 +11,7 @@
 #include <limits.h>
 #include <nacl_stat.h>
 #include <poll.h>
+#include <private/dlsym.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -319,7 +320,13 @@ void* __wrap_dlsym(void* handle, const char* symbol) {
                    handle,
                    arc::GetDlsymHandleStr(handle).c_str(),
                    SAFE_CSTR(symbol));
-  void* result = dlsym(handle, symbol);
+  // We should not simply call dlsym here because it looks at the return address
+  // to determine the library lookup chain when |handle| is RTLD_NEXT.
+  // TODO(crbug.com/444500): Add an integration test for this. Note that
+  // we can't use posix_translation integration test because dlsym is handled
+  // differently under NDK translation.
+  void* result = __dlsym_with_return_address(
+      handle, symbol, __builtin_return_address(0));
   // false since dlsym never sets errno.
   ARC_STRACE_RETURN_PTR(result, false);
 }
