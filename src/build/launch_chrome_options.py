@@ -277,6 +277,8 @@ Native Client Debugging
     NACL_SRPC_DEBUG=[1-255] (higher is more output)
     NACLVERBOSITY=[1-255] (higher is more output)
 
+  When you need to debug a remote machine (e.g. Chromebook), add them
+  to _REMOTE_ENV[] in util/remote_chromeos_executor.py.
 """, formatter_class=argparse.RawTextHelpFormatter)
 
   parser.add_argument('mode',
