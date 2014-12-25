@@ -394,3 +394,6 @@
 [submodule "third_party/android/packages/providers/CalendarProvider"]
 	path = third_party/android/packages/providers/CalendarProvider
 	url = https://android.googlesource.com/platform/packages/providers/CalendarProvider
+[submodule "third_party/android/packages/providers/UserDictionaryProvider"]
+	path = third_party/android/packages/providers/UserDictionaryProvider
+	url = https://android.googlesource.com/platform/packages/providers/UserDictionaryProvider
