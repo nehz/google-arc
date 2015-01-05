@@ -323,11 +323,10 @@ def launch_bare_metal_gdb_for_remote_debug(remote_address, ssh_options,
 
 
 def _launch_bare_metal_gdbserver(chrome_pid):
-  # Currently we assume that, here we built -t=bi ARC. So, we use gdbserver32.
   assert OPTIONS.is_bare_metal_i686()
   plugin_pid = _get_bare_metal_plugin_pid(chrome_pid)
   command = [
-      'gdbserver32', '--attach', ':%d' % _BARE_METAL_GDB_PORT, str(plugin_pid)]
+      'gdbserver', '--attach', ':%d' % _BARE_METAL_GDB_PORT, str(plugin_pid)]
   gdb_process = subprocess.Popen(command)
   _run_gdb_watch_thread(gdb_process)
 
