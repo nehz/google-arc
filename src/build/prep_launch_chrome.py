@@ -76,7 +76,7 @@ def _convert_launch_chrome_options_to_external_metadata(parsed_args):
                      ('enable_accessibility', 'enableAccessibility'),
                      ('enable_adb', 'enableAdb'),
                      ('enable_arc_strace', 'enableArcStrace'),
-                     ('disable_compositor', 'disableCompositor'),
+                     ('enable_compositor', 'enableCompositor'),
                      ('enable_external_directory', 'enableExternalDirectory'),
                      ('disable_gl_fixed_attribs', 'disableGlFixedAttribs'),
                      ('form_factor', 'formFactor'),

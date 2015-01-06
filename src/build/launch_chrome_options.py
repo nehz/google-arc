@@ -362,8 +362,8 @@ Native Client Debugging
                       help='Enable builtin strace-like tracer of ARC '
                       '(output to --arc-strace-output).')
 
-  parser.add_argument('--disable-compositor', action='store_true',
-                      default=None, help='Disable the pepper compositor.')
+  parser.add_argument('--enable-compositor', action='store_true',
+                      default=None, help='Enable the pepper compositor.')
 
   parser.add_argument('--enable-fake-video-source', action='store_true',
                       help='Enable a fake video source for testing')

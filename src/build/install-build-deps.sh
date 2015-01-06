@@ -15,6 +15,7 @@ fi
 arc_list="
 g++-arm-linux-gnueabihf
 gcc-arm-linux-gnueabihf
+gcc
 libc6-dev-i386
 libcap-dev:amd64
 libgl1-mesa-dev
@@ -23,6 +24,7 @@ openjdk-6-jdk
 openjdk-7-jdk
 pbzip2
 pigz
+unzip
 "
 
 # Packages for running tests.

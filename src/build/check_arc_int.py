@@ -64,9 +64,8 @@ def run():
   # Check if the Android internal code is up to date.
   xml = tempfile.NamedTemporaryFile(prefix='repo_manifest_output_')
   # 'repo manifest' does not access the internal Android code repository.
-  subprocess.check_call(
-      'repo manifest -o %s -r --suppress-upstream-revision' % xml.name,
-      cwd=_GMS_CORE_DIR, shell=True)
+  subprocess.check_call('repo manifest -o %s -r' % xml.name,
+                        cwd=_GMS_CORE_DIR, shell=True)
 
   result = subprocess.call(['diff', xml.name, _GMS_CORE_DEPS])
   if result != 0:
