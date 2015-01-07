@@ -59,8 +59,8 @@ def _extract_symbols_from_one_binary(binary):
 
 def _extract_symbols():
   # Extract symbols in parallel.
-  with concurrent.ThreadPoolExecutor(
-      max_workers=multiprocessing.cpu_count(), daemon=True) as executor:
+  with concurrent.CheckedExecutor(concurrent.ThreadPoolExecutor(
+      max_workers=multiprocessing.cpu_count(), daemon=True)) as executor:
     for root, _, filenames in os.walk(build_common.get_load_library_path()):
       for filename in filenames:
         if os.path.splitext(filename)[1] in ['.so', '.nexe']:

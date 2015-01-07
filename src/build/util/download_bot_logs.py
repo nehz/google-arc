@@ -160,7 +160,8 @@ def main():
 
   download_args_list = make_download_args_list(
       builders_info, args.outdir, args.number_of_logs)
-  with util.concurrent.ThreadPoolExecutor(args.jobs, daemon=True) as executor:
+  with util.concurrent.CheckedExecutor(util.concurrent.ThreadPoolExecutor(
+      args.jobs, daemon=True)) as executor:
     for download_args in download_args_list:
       executor.submit(download_log, *download_args)
   print 'Downloaded logs in %s' % args.outdir

@@ -132,6 +132,118 @@ class ThreadPoolExecutorTest(unittest.TestCase):
     self.assertFalse(cancel_event.is_set())
 
 
+class CheckedExecutorTest(unittest.TestCase):
+  """Simple tests for CheckedExecutor."""
+
+  def test_success_scenario(self):
+    def job1():
+      return 111
+
+    def job2():
+      return 222
+
+    with concurrent.CheckedExecutor(
+        concurrent.ThreadPoolExecutor(max_workers=1)) as executor:
+      future1 = executor.submit(job1)
+      future2 = executor.submit(job2)
+
+    self.assertEquals(111, future1.result())
+    self.assertEquals(222, future2.result())
+
+  def test_exception_scenario(self):
+    class MyException(Exception):
+      pass
+
+    def job1():
+      return 111
+
+    def job2():
+      raise MyException()
+
+    with self.assertRaises(MyException):
+      with concurrent.CheckedExecutor(
+          concurrent.ThreadPoolExecutor(max_workers=1)) as executor:
+        future1 = executor.submit(job1)
+        future2 = executor.submit(job2)
+
+    self.assertEquals(111, future1.result())
+    self.assertRaises(MyException, future2.result)
+
+  def test_exception_and_cancel_scenario(self):
+    started_event = threading.Event()
+    waiting_event = threading.Event()
+
+    class MyException(Exception):
+      pass
+
+    def job1():
+      return 111
+
+    def job2():
+      raise MyException()
+
+    def job3():
+      started_event.set()
+      # Wait until future4 gets visible.
+      waiting_event.wait()
+      # Though this job seems to block forever, it finishes when future4 is
+      # cancelled by CheckedExecutor.__exit__().
+      while not future4.done():
+        pass
+      return 333
+
+    def job4():
+      raise MyException()
+
+    with self.assertRaises(MyException):
+      with concurrent.CheckedExecutor(
+          concurrent.ThreadPoolExecutor(max_workers=1)) as executor:
+        future1 = executor.submit(job1)
+        future2 = executor.submit(job2)
+        future3 = executor.submit(job3)
+        future4 = executor.submit(job4)
+        # Wait until job3 starts running.
+        started_event.wait()
+        waiting_event.set()
+
+    self.assertTrue(future1.done())
+    self.assertTrue(future2.done())
+    self.assertTrue(future3.done())
+    self.assertTrue(future4.done())
+
+    self.assertEquals(111, future1.result())
+    self.assertRaises(MyException, future2.result)
+    self.assertEquals(333, future3.result())
+    self.assertRaises(concurrent.CancelledError, future4.result)
+
+  def test_precancelled_future(self):
+    # Our own concurrent implementation has a bug that concurrent.wait() hangs
+    # if cancelled futures are passed. This test checks a workaround of the bug.
+    started_event = threading.Event()
+    waiting_event = threading.Event()
+
+    def job1():
+      started_event.set()
+      # Wait until job2 gets cancelled.
+      waiting_event.wait()
+      return 111
+
+    def job2():
+      return 222
+
+    with concurrent.CheckedExecutor(
+        concurrent.ThreadPoolExecutor(max_workers=1)) as executor:
+      future1 = executor.submit(job1)
+      future2 = executor.submit(job2)
+      # Wait until job1 starts running.
+      started_event.wait()
+      self.assertTrue(future2.cancel())
+      waiting_event.set()
+
+    self.assertEquals(111, future1.result())
+    self.assertRaises(concurrent.CancelledError, future2.result)
+
+
 # Unfortunately, there seems no easy way to share Event object between a worker
 # process and the master process, so here we use tempfile instead.
 class TempFileEvent(object):

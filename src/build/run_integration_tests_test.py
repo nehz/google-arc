@@ -26,6 +26,7 @@ import unittest
 from build_options import OPTIONS
 from run_integration_tests import main
 from util.test import suite_runner_config_flags as flags
+from util.test import suite_runner_config
 
 # TODO(lpique): Unify with similar constants in
 # atf_instrumentation_result_parser
@@ -228,6 +229,10 @@ def _stub_read_test_list(path):
   return {'*': flags.PASS}
 
 
+def _stub_expectation_loader_get(*args):
+  return suite_runner_config.default_run_configuration()
+
+
 # These patch decorators replace the named function with a stub/fake/mock for
 # each test in the suite.
 # Any call to create a general subprocess object will be caught as unexpected.
@@ -250,6 +255,8 @@ def _stub_read_test_list(path):
 # The unittest files may not be created yet.
 @patch('util.test.unittest_util.get_all_tests', lambda: [])
 @patch('util.test.suite_runner_util.read_test_list', _stub_read_test_list)
+@patch('util.test.suite_runner_config.SuiteExpectationsLoader.get',
+       _stub_expectation_loader_get)
 class RunIntegrationTestsTest(unittest.TestCase):
   # A chosen real test suite, and a test in it. The test should normally pass.
   EXAMPLE_SUITE_NAME = 'cts.android.core.tests.libcore.package.libcore'

@@ -114,13 +114,17 @@ def get_nacl_tool(tool):
   return os.path.join(_NACL_TOOLS_PATH, tool)
 
 
+def get_nacl_irt_core(bitsize):
+  return get_nacl_tool('irt_core_x86_%d.nexe' % bitsize)
+
+
 def get_nacl_runner(bitsize, bin_dir=None):
   # We use the NACL_IRT_DEV_FILENAME interface for unit tests.
   args = ['env', 'NACL_DANGEROUS_ENABLE_FILE_ACCESS=1']
 
   arch = 'x86_%d' % bitsize
   sel_ldr = get_nacl_tool('sel_ldr_%s' % arch)
-  irt_core = get_nacl_tool('irt_core_%s.nexe' % arch)
+  irt_core = get_nacl_irt_core(bitsize)
   if bin_dir:
     sel_ldr = os.path.join(bin_dir, sel_ldr)
     irt_core = os.path.join(bin_dir, irt_core)

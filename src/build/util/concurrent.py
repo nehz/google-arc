@@ -163,6 +163,61 @@ class ThreadPoolExecutor(Executor):
         worker_thread.join(1)
 
 
+class CheckedExecutor(Executor):
+  """Executor wrapper that adds exception checks.
+
+  For bare Executor implementations (e.g. ThreadPoolExecutor), it is caller's
+  responsibility to check exceptions raised from submitted jobs. If you don't
+  check them, they are just silently ignored.
+
+  This wrapper takes care of exception checks for you. If it encounters
+  some exceptions, one of them is re-raised on shutdown().
+
+  Use this wrapper if you're not interested in return values of submitted jobs.
+
+  Example:
+    with CheckedExecutor(ThreadPoolExecutor(4)) as executor:
+      for job in jobs:
+        executor.submit(job)
+    # At this point, you can assume all jobs finished without exceptions.
+  """
+
+  def __init__(self, executor):
+    self._executor = executor
+    self._futures = []
+
+  def submit(self, fn, *args, **kwargs):
+    future = self._executor.submit(fn, *args, **kwargs)
+    self._futures.append(future)
+    return future
+
+  def shutdown(self, wait=True):
+    try:
+      if wait:
+        self._wait_and_check_futures()
+    finally:
+      self._executor.shutdown(wait=wait)
+
+  def _wait_and_check_futures(self):
+    """Waits for all futures to be done and checks exceptions.
+
+    If any job raised some exceptions, all pending jobs are cancelled and
+    one of them is re-raised.
+    """
+    # TODO(crbug.com/441162): Filtering cancelled futures is just a workaround
+    # for the bug in our own concurrent implementation. It should be unnecessary
+    # once we migrate to official implementation.
+    futures = [future for future in self._futures if not future.cancelled()]
+    waits, cancels = wait(futures, return_when=FIRST_EXCEPTION)
+    for future in cancels:
+      if not future.cancel():
+        # We need to wait a future if we failed to cancel it.
+        waits.add(future)
+    for future in waits:
+      # This may raise an exception.
+      future.result()
+
+
 # Hereafter, the implementation of the ProcessPoolExecutor.
 def _process_worker_run(in_queue, out_queue):
   """The main routine of the process worker."""

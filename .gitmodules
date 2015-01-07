@@ -397,3 +397,6 @@
 [submodule "third_party/android/packages/providers/UserDictionaryProvider"]
 	path = third_party/android/packages/providers/UserDictionaryProvider
 	url = https://android.googlesource.com/platform/packages/providers/UserDictionaryProvider
+[submodule "third_party/android/external/webrtc"]
+	path = third_party/android/external/webrtc
+	url = https://android.googlesource.com/platform/external/webrtc

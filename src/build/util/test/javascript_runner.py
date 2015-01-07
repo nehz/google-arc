@@ -10,11 +10,11 @@ import prep_launch_chrome
 import subprocess
 from util.test import google_test_result_parser as result_parser
 from util.test import scoreboard
-from util.test.suite_runner import SuiteRunnerBase
+from util.test import suite_runner
 from util.test import suite_runner_util
 
 
-class JavaScriptTestRunner(SuiteRunnerBase):
+class JavaScriptTestRunner(suite_runner.SuiteRunnerBase):
   """A test runner for running JavaScript tests."""
 
   def __init__(self, name, apk=None, additional_launch_chrome_args=None,
@@ -74,4 +74,4 @@ class JavaScriptTestRunner(SuiteRunnerBase):
       raw_output = self.run_subprocess(args)
     except subprocess.CalledProcessError:
       raw_output = self._get_subprocess_output()
-    return raw_output, self._result_parser.test_result
+    return raw_output, self._result_parser.test_method_results

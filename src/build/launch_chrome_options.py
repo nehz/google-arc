@@ -301,6 +301,19 @@ Native Client Debugging
                       '--enable-arc-strace (default: out/arc_strace.txt). '
                       'Use \'stderr\' to send results to stderr.')
 
+  parser.add_argument('--atf-gtest-filter',
+                      help='A \':\' separated list of googletest test filters '
+                      'for ATF based gtest suite runner. The delimiter of the '
+                      'TestCase and TestMethodName is \'.\'.')
+
+  parser.add_argument('--atf-gtest-list',
+                      help='A \':\' separated list of all googletest test '
+                      'cases contained in the testing binary (regardless '
+                      'whether it will run or not based on the '
+                      '--atf-gtest-filter ) for ATF based gtest suite runner. '
+                      'The delimiter of the TestCase and TestMethodName is '
+                      '\'.\'.')
+
   parser.add_argument('--app-template', metavar='<path>', default=None,
                       help='Path to an override app template for apk_to_crx '
                       'packaging.')

@@ -61,7 +61,7 @@ class GoogleTestResultParser(object):
     self._result_map = {}
 
   @property
-  def test_result(self):
+  def test_method_results(self):
     return self._result_map.copy()
 
   def process_line(self, line):

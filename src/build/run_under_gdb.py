@@ -34,7 +34,7 @@ def _run_gdb_for_nacl(args, test_args):
                                   preexec_fn=os.setsid)
 
   gdb = toolchain.get_tool(OPTIONS.target(), 'gdb')
-  irt = toolchain.get_tool(OPTIONS.target(), 'irt')
+  irt = toolchain.get_nacl_irt_core(OPTIONS.get_target_bitsize())
   subprocess.call([
       gdb,
       '-ex', 'target remote :4014',

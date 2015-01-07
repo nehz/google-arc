@@ -64,6 +64,13 @@ def _generate_shell_command(parsed_args):
     if parsed_args.run_test_packages:
       shell_cmd.extend(
           ['-e', 'package', pipes.quote(parsed_args.run_test_packages)])
+    if parsed_args.atf_gtest_list:
+      shell_cmd.extend(
+          ['-e', 'atf-gtest-list', pipes.quote(parsed_args.atf_gtest_list)])
+    if parsed_args.atf_gtest_filter:
+      shell_cmd.extend(
+          ['-e', 'atf-gtest-filter',
+           pipes.quote(parsed_args.atf_gtest_filter)])
     shell_cmd.extend(['-r', '-w', target, ';'])
     shell_cmd.extend(['stop', ';'])
   return shell_cmd

@@ -460,6 +460,11 @@ def get_chrome_ppapi_root_path():
   return os.path.join('third_party', 'chromium-ppapi')
 
 
+def get_extract_google_test_list_path():
+  return os.path.join(
+      'src', 'build', 'util', 'test', 'extract_google_test_list.py')
+
+
 def get_gdb_multiarch_dir():
   return 'third_party/gdb-multiarch'
 

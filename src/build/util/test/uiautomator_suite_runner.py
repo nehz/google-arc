@@ -17,18 +17,23 @@ import tempfile
 import prep_launch_chrome
 from util.test import atf_instrumentation_result_parser as result_parser
 from util.test import atf_instrumentation_scoreboard_updater as scoreboard_updater  # NOQA
-from util.test.suite_runner import SuiteRunnerBase
-from util.test.system_mode import SystemMode
+from util.test import suite_runner
+from util.test import suite_runner_util
+from util.test import system_mode
 
 
 # uiautomator expects jar files to be in /data/local/tmp by default.
 _DEVICE_TMP_PATH = '/data/local/tmp'
 
 
-class UiAutomatorSuiteRunner(SuiteRunnerBase):
+class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
   def __init__(self, name, apk_path, jar_path, main_activity,
-               additional_launch_chrome_opts=None, **kwargs):
+               expectation_map, additional_launch_chrome_opts=None, **kwargs):
     super(UiAutomatorSuiteRunner, self).__init__(name, **kwargs)
+    self.set_suite_test_expectations(
+        suite_runner_util.merge_test_expectations(
+            expectation_map, self.suite_test_expectations))
+
     self._apk_path = apk_path
     self._jar_path = jar_path
     self._main_activity = main_activity
@@ -105,7 +110,7 @@ class UiAutomatorSuiteRunner(SuiteRunnerBase):
     self._print('Running %d uiAutomator tests of suite %s' %
                 (len(test_methods_to_run), self._name))
 
-    with SystemMode(
+    with system_mode.SystemMode(
         self,
         additional_launch_chrome_opts=self._additional_launch_chrome_opts
     ) as arc:

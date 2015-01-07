@@ -242,8 +242,8 @@ def _test_apks_boot(args):
                     str(duplicated_name))
 
   # Run tests in parallel.
-  with concurrent.ThreadPoolExecutor(
-      max_workers=args.jobs, daemon=True) as executor:
+  with concurrent.CheckedExecutor(concurrent.ThreadPoolExecutor(
+      max_workers=args.jobs, daemon=True)) as executor:
     for apk_runner in apk_runners:
       executor.submit(apk_runner.run)
   return apk_runners

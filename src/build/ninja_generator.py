@@ -3218,6 +3218,10 @@ class JarNinjaGenerator(JavaNinjaGenerator):
           self._output_odex_file)
     return self
 
+  def build_test_list(self):
+    return self._build_test_list(
+        JarNinjaGenerator.get_javalib_jar_path(self._module_name))
+
 
 class ApkFromSdkNinjaGenerator(NinjaGenerator):
   """Builds an APK using the Android SDK directly."""
@@ -3251,6 +3255,12 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
             '(cat $log; exit 1)') % ('src/build/build_using_sdk.py', dbg),
            description='build_using_sdk.py $out')
 
+    n.rule('extract_google_test_list',
+           ('python %s --language=c++ $in > $out.tmp && '
+            'mv $out.tmp $out' %
+            build_common.get_extract_google_test_list_path()),
+           description='Extract googletest style test methods from $in')
+
   def build_default_all_sources(self, implicit=None):
     files = self.find_all_contained_files(None, include_tests=True)
     build_path = os.path.dirname(self._install_path)
@@ -3281,6 +3291,13 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
   def get_final_package_for_apk(apk_name):
     return build_common.get_build_path_for_apk(
         apk_name, subpath=apk_name + '.apk')
+
+  def build_google_test_list(self):
+    return self.build(
+        [build_common.get_integration_test_list_path(self._module_name)],
+        'extract_google_test_list',
+        inputs=self.find_all_contained_files('_test.cc', include_tests=True),
+        implicit=[build_common.get_extract_google_test_list_path()])
 
 
 class ApkNinjaGenerator(JavaNinjaGenerator):

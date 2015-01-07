@@ -25,6 +25,7 @@ openjdk-7-jdk
 pbzip2
 pigz
 unzip
+zip
 "
 
 # Packages for running tests.

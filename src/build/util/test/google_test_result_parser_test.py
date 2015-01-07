@@ -27,7 +27,7 @@ class GoogleTestResultParser(unittest.TestCase):
     self.assertEqual(
         [('start_test', 'android.bionic.strings#ffs')],
         callback.result)
-    self.assertFalse(parser.test_result)
+    self.assertFalse(parser.test_method_results)
 
   def test_success(self):
     callback = MockCallback()
@@ -43,7 +43,7 @@ class GoogleTestResultParser(unittest.TestCase):
     self.assertTrue(update_result[0].passed)
     self.assertAlmostEqual(0.065, update_result[0].duration)
 
-    test_result = parser.test_result
+    test_result = parser.test_method_results
     self.assertEqual(1, len(test_result))
     self.assertIn('android.bionic.strings#ffs', test_result)
     test_case_result = test_result['android.bionic.strings#ffs']
@@ -66,7 +66,7 @@ class GoogleTestResultParser(unittest.TestCase):
     self.assertTrue(update_result[0].failed)
     self.assertAlmostEqual(0.155, update_result[0].duration)
 
-    test_result = parser.test_result
+    test_result = parser.test_method_results
     self.assertEqual(1, len(test_result))
     self.assertIn('android.bionic.signal#raise_invalid', test_result)
     test_case_result = test_result['android.bionic.signal#raise_invalid']
@@ -87,7 +87,7 @@ class JavaScriptTestResultParser(unittest.TestCase):
     self.assertEqual(
         [('start_test', 'BackgroundPageTest#SendCrashReportsFromRelease')],
         callback.result)
-    self.assertFalse(parser.test_result)
+    self.assertFalse(parser.test_method_results)
 
   def test_success(self):
     callback = MockCallback()
