@@ -195,6 +195,7 @@ def _configure_build_options():
 
 
 def _set_up_chromium_org_submodules():
+  CHROMIUM_ORG_ROOT = 'third_party/android/external/chromium_org'
   # android/external/chromium_org contains these required submodules.  It is not
   # posible to have submodules within a submodule path (i.e., chromium_org)
   # using git submodules.  This is the list of subdirectories relative to
@@ -223,8 +224,15 @@ def _set_up_chromium_org_submodules():
       'third_party/yasm/source/patched-yasm',
       'v8']
 
+  # First remove all existing symlinks to make sure no stale links exist.
+  for dirpath, dirs, fnames in os.walk(CHROMIUM_ORG_ROOT):
+    # We only create symlinks for directories.
+    for name in dirs:
+      directory = os.path.join(dirpath, name)
+      if os.path.islink(directory):
+        os.unlink(directory)
   for s in submodules:
-    symlink = os.path.join('third_party/android/external/chromium_org', s)
+    symlink = os.path.join(CHROMIUM_ORG_ROOT, s)
     # As an example, this maps 'sdch/open-vcdiff' to
     # 'android/external/chromium_org__sdch_open-vcdiff', which is the true
     # location of the submodule checkout.

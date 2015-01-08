@@ -20,11 +20,6 @@ import time
 #                  CONTENTS, ALLOC, LOAD, READONLY, CODE
 _TEXT_SECTION_PATTERN = re.compile(r'\.text\s+(?:\w+\s+){3}(\w+)')
 
-# The Bionic loader has a MOD for Bare Metal mode so that it waits GDB
-# to attach the process if this file exists. See __linker_init in
-# bionic/linker/linker.cpp.
-_LOCK_FILE = '/tmp/bare_metal_gdb.lock'
-
 
 def _get_text_section_file_offset(path):
   """Returns the offset of the text section in the file."""
@@ -131,8 +126,8 @@ def _get_program_loaded_address(path):
     time.sleep(0.1)
 
 
-def init(arc_nexe, library_path, runnable_ld_path, remote_address=None,
-         ssh_options=None):
+def init(arc_nexe, library_path, runnable_ld_path, lock_file,
+         remote_address=None, ssh_options=None):
   """Initializes GDB plugin for nacl_helper in Bare Metal mode.
 
   If remote_address is specified, we control the _LOCK_FILE using this
@@ -164,10 +159,10 @@ def init(arc_nexe, library_path, runnable_ld_path, remote_address=None,
     command = ['ssh', 'root@%s' % remote_address]
     if ssh_options:
       command.extend(ssh_options)
-    command.extend(['rm', _LOCK_FILE])
+    command.extend(['rm', lock_file])
     subprocess.check_call(command)
   else:
-    os.unlink(_LOCK_FILE)
+    os.unlink(lock_file)
 
 
 def init_for_unittest(bare_metal_loader, test_binary, library_path):

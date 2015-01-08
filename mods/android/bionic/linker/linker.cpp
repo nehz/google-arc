@@ -2347,6 +2347,65 @@ static void add_vdso(KernelArgumentBlock& args UNUSED) {
     }
 #endif
 }
+// ARC MOD BEGIN
+// Temporary support of GDB.
+#if defined(BARE_METAL_BIONIC)
+static const char kBareMetalGdbDir[] = "/tmp/bare_metal_gdb/";
+
+// This function is called in very early stage of process initialization to
+// wait for GDB to attach to this process and install necessary breakpoints.
+static void maybe_wait_gdb_attach() {
+  // First check existence of a lock directory. Return if it does not exist.
+  // Note that it's safe to call open syscall here even under Bare Metal's
+  // seccomp sandbox; it just returns EPERM instead of killing the process.
+  int fd = TEMP_FAILURE_RETRY(
+      syscall(__NR_open, kBareMetalGdbDir, O_RDONLY | O_DIRECTORY));
+  if (fd < 0) {
+    return;
+  }
+  syscall(__NR_close, fd);
+
+  // Existence of the lock directory indicates that the user wants to debug
+  // this process. Touch a PID marker file under the directory, print PID to
+  // stderr, and wait for the file to be removed.
+  // Note that it's safe to call getpid here because successful open syscall
+  // above means seccomp sandbox is disabled.
+  int pid = TEMP_FAILURE_RETRY(syscall(__NR_getpid));
+  if (pid < 0) {
+    DL_ERR("tried communicating with gdb, but getpid failed.\n");
+    exit(-1);
+  }
+  char lock_file[64];
+  __libc_format_buffer(
+      lock_file, sizeof(lock_file), "%s%d", kBareMetalGdbDir, pid);
+  fd = TEMP_FAILURE_RETRY(
+      syscall(__NR_open, lock_file, O_WRONLY | O_CREAT, 0755));
+  if (fd < 0) {
+    DL_ERR("tried communicating with gdb, but failed to touch a lock file.\n");
+    exit(-1);
+  }
+  syscall(__NR_close, fd);
+
+  // Notify that we are ready to be attached by gdb.
+  // Note that this message is hard-coded in build scripts.
+  __libc_format_fd(2, "linker: waiting for gdb (%d)\n", pid);
+
+  for (;;) {
+    fd = TEMP_FAILURE_RETRY(syscall(__NR_open, lock_file, O_RDONLY));
+    if (fd < 0) {
+      if (errno != ENOENT) {
+        DL_ERR("tried communicating with gdb, but failed to watch "
+               "a lock file: %s.\n",
+               strerror(errno));
+        exit(-1);
+      }
+      break;
+    }
+    syscall(__NR_close, fd);
+  }
+}
+#endif  // BARE_METAL_BIONIC
+// ARC MOD END
 
 /*
  * This code is called after the linker has linked itself and
@@ -2366,21 +2425,16 @@ static Elf32_Addr __linker_init_post_relocation(KernelArgumentBlock& args, Elf32
   // ARC MOD BEGIN
   // Temporary support of GDB.
 #if defined(BARE_METAL_BIONIC)
-  // Wait for gdb attaching to this process by busy loop. If
-  // __bare_metal_irt_notify_gdb_of_libraries exists, the Bionic
+  // Wait for gdb attaching to this process.
+  // If __bare_metal_irt_notify_gdb_of_libraries exists, the Bionic
   // loader is launched by bare_metal_loader and not by nacl_helper,
   // so we should not wait. Note that run_under_gdb.py does not rely
-  // on /tmp/bare_metal_gdb.lock.
+  // on /tmp/bare_metal_gdb.
   // TODO(crbug.com/354290): Remove this hack. Use __nacl_irt_open and
   // __nacl_irt_close instead of the direct syscalls when we add more
   // restrictions to the syscall sandbox.
   if (!__bare_metal_irt_notify_gdb_of_libraries) {
-    while (true) {
-      int fd = syscall(__NR_open, "/tmp/bare_metal_gdb.lock", O_RDONLY);
-      if (fd < 0)
-        break;
-      syscall(__NR_close, fd);
-    }
+    maybe_wait_gdb_attach();
   }
 #endif  // BARE_METAL_BIONIC
   // ARC MOD END

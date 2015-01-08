@@ -16,7 +16,6 @@ import traceback
 import build_common
 import toolchain
 from build_options import OPTIONS
-from util import gdb_util
 from util import launch_chrome_util
 from util import remote_executor_util
 from util.test import unittest_util
@@ -56,11 +55,12 @@ _UNNEEDED_PARAM_PREFIXES = (
 
 
 def _create_remote_executor(parsed_args, enable_pseudo_tty=False,
-                            attach_nacl_gdb_type=None):
+                            attach_nacl_gdb_type=None, nacl_helper_binary=None):
   return remote_executor_util.RemoteExecutor(
       'root', parsed_args.remote, remote_env=_REMOTE_ENV,
       ssh_key=parsed_args.ssh_key, enable_pseudo_tty=enable_pseudo_tty,
-      attach_nacl_gdb_type=attach_nacl_gdb_type)
+      attach_nacl_gdb_type=attach_nacl_gdb_type,
+      nacl_helper_binary=nacl_helper_binary)
 
 
 def _get_param_name(param):
@@ -168,30 +168,39 @@ def get_chrome_exe_path():
 def launch_remote_chrome(parsed_args, argv):
   try:
     attach_nacl_gdb_type = None
-    if 'plugin' in parsed_args.gdb and OPTIONS.is_nacl_build():
+    nacl_helper_binary = None
+    need_copy_nacl_helper_binary = False
+    tmpdir = tempfile.gettempdir()
+
+    if 'plugin' in parsed_args.gdb:
       attach_nacl_gdb_type = parsed_args.gdb_type
+      if OPTIONS.is_bare_metal_build():
+        nacl_helper_binary = parsed_args.nacl_helper_binary
+        if not nacl_helper_binary:
+          # We decide the path here, but the binary can be copied after
+          # RemoteExecutor is constructed.
+          nacl_helper_binary = os.path.join(tmpdir, 'nacl_helper')
+          need_copy_nacl_helper_binary = True
+
     executor = _create_remote_executor(
-        parsed_args, attach_nacl_gdb_type=attach_nacl_gdb_type)
+        parsed_args, attach_nacl_gdb_type=attach_nacl_gdb_type,
+        nacl_helper_binary=nacl_helper_binary)
+
     copied_files = (
         remote_executor_util.get_launch_chrome_files_and_directories(
             parsed_args) +
         [_get_adb_path()])
     _setup_remote_environment(executor, copied_files)
-    if 'plugin' in parsed_args.gdb:
-      nacl_helper_binary = parsed_args.nacl_helper_binary
-      if not nacl_helper_binary:
-        tmpdir = tempfile.gettempdir()
-        executor.copy_remote_files([_REMOTE_NACL_HELPER_BINARY], tmpdir)
-        nacl_helper_binary = os.path.join(tmpdir, 'nacl_helper')
+
+    if need_copy_nacl_helper_binary:
+      executor.copy_remote_files([_REMOTE_NACL_HELPER_BINARY], tmpdir)
+
+    if nacl_helper_binary:
       # This should not happen, but for just in case.
       assert os.path.exists(nacl_helper_binary)
-
       # -v: show the killed process, -w: wait for the killed process to die.
       executor.run('sudo killall -vw gdbserver', ignore_failure=True)
-      if OPTIONS.is_bare_metal_build():
-        gdb_util.launch_bare_metal_gdb_for_remote_debug(
-            parsed_args.remote, executor.get_ssh_options(), nacl_helper_binary,
-            parsed_args.gdb_type)
+
     executor.run(_copy_to_arc_root_with_exec(
         executor.get_remote_arc_root(), 'out/adb'))
     command = ' '.join(

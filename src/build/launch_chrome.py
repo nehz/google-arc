@@ -709,9 +709,14 @@ def _select_output_handler(parsed_args, stats, chrome_process, **kwargs):
     output_handler = gdb_util.GdbHandlerAdapter(
         output_handler, parsed_args.gdb, parsed_args.gdb_type)
 
-  if 'plugin' in parsed_args.gdb and OPTIONS.is_nacl_build():
-    output_handler = gdb_util.NaClGdbHandlerAdapter(
-        output_handler, _get_nacl_irt_path(parsed_args), parsed_args.gdb_type)
+  if 'plugin' in parsed_args.gdb:
+    if OPTIONS.is_nacl_build():
+      output_handler = gdb_util.NaClGdbHandlerAdapter(
+          output_handler, _get_nacl_irt_path(parsed_args), parsed_args.gdb_type)
+    elif OPTIONS.is_bare_metal_build():
+      output_handler = gdb_util.BareMetalGdbHandlerAdapter(
+          output_handler, _get_nacl_helper_path(parsed_args),
+          parsed_args.gdb_type)
 
   if (parsed_args.enable_arc_strace and
       parsed_args.arc_strace_output != 'stderr'):
@@ -764,16 +769,14 @@ def _run_chrome(parsed_args, stats, **kwargs):
     atexit.register(lambda: adb.poll() is not None or adb.kill())
 
   params = _compute_chrome_params(parsed_args)
-  gdb_util.create_or_remove_bare_metal_gdb_lock_file(parsed_args.gdb)
+  gdb_util.create_or_remove_bare_metal_gdb_lock_dir(parsed_args.gdb)
 
   # Similar to adb subprocess, using atexit has timing issue. See above comment
   # for the details.
   p = ChromeProcess(params)
   atexit.register(_terminate_chrome, p)
 
-  gdb_util.maybe_launch_gdb(parsed_args.gdb, parsed_args.gdb_type,
-                            _get_nacl_helper_path(parsed_args),
-                            _get_nacl_irt_path(parsed_args), p.pid)
+  gdb_util.maybe_launch_gdb(parsed_args.gdb, parsed_args.gdb_type, p.pid)
 
   # If jdb option is specified jdb_port exists. Now it is time to
   # check which Java debugger to start (currently Eclipse).

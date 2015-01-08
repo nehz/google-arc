@@ -7,6 +7,7 @@ import contextlib
 import logging
 import os
 import re
+import shutil
 import signal
 import socket
 import stat
@@ -24,8 +25,15 @@ from util import platform_util
 # Note: DISPLAY may be overwritten in the main() of launch_chrome.py.
 __DISPLAY = os.getenv('DISPLAY')
 
-# Consistent with NaCl's GDB stub.
-_BARE_METAL_GDB_PORT = 4014
+# Bare metal GDB will wait at port (_BARE_METAL_GDB_PORT_BASE + pid).
+# This value must be small enough to allow all possible PIDs to map to a
+# valid TCP port. Linux's PID_MAX_DEFAULT is 32768.
+_BARE_METAL_GDB_PORT_BASE = 10000
+
+# The Bionic loader has a MOD for Bare Metal mode so that it waits GDB
+# to attach the process if this directory exists. See maybe_wait_gdb_attach
+# in bionic/linker/linker.cpp.
+_BARE_METAL_GDB_LOCK_DIR = '/tmp/bare_metal_gdb'
 
 _LOCAL_HOST = '127.0.0.1'
 
@@ -63,22 +71,17 @@ def _create_command_file(command):
   return command_file
 
 
-def maybe_launch_gdb(
-        gdb_target_list, gdb_type, nacl_helper_path, nacl_irt_path, chrome_pid):
+def _get_bare_metal_gdb_port(plugin_pid):
+  return _BARE_METAL_GDB_PORT_BASE + plugin_pid
+
+
+def maybe_launch_gdb(gdb_target_list, gdb_type, chrome_pid):
   """Launches the gdb command if necessary.
 
   It is expected for this method to be called right after chrome is launched.
   """
   if 'browser' in gdb_target_list:
     _launch_gdb('browser', str(chrome_pid), gdb_type)
-
-  if 'plugin' in gdb_target_list:
-    if OPTIONS.is_bare_metal_build():
-      if platform_util.is_running_on_chromeos():
-        _launch_bare_metal_gdbserver_on_chromeos(chrome_pid)
-      else:
-        _launch_bare_metal_gdbserver(chrome_pid)
-        _attach_bare_metal_gdb(None, [], nacl_helper_path, gdb_type)
 
 
 def _get_xterm_gdb_startup(title, gdb):
@@ -186,71 +189,6 @@ def _launch_nacl_gdb(gdb_type, nacl_irt_path, host, port):
   _launch_plugin_gdb(gdb_args, gdb_type)
 
 
-def _get_zygote_pid(chrome_pid):
-  """Returns pid of Chrome Zygote process, or None if not exist."""
-  try:
-    # The first column is pid, and the second param is command line.
-    output = subprocess.check_output(
-        ['ps', '-o', 'pid=', '-o', 'args=', '--ppid', str(chrome_pid)])
-  except subprocess.CalledProcessError:
-    return None
-
-  for line in output.split('\n'):
-    if '--type=zygote' in line:
-      return int(line.split(None, 2)[0])
-  return None
-
-
-def _get_nacl_helper_nonsfi_pid(parent_pid, expected_num_processes):
-  """Returns pid of nacl_helper, or None if not exist."""
-  try:
-    # On ARM, nacl_helper is wrapped by nacl_helper_bootstrap so the
-    # exact match fails. (pgrep -x nacl_helper_bootstrap also fails
-    # for some reason). So, we do not do the exact match on ARM. It
-    # should be safe as ARM device (i.e., Chrome OS) does not run
-    # multiple Chrome when we run launch_chrome.
-    exact_flag = [] if OPTIONS.is_arm() else ['-x']
-    # TODO(crbug.com/376666): Change nacl_helper to nacl_helper_nonsfi
-    # and update the comment below.
-    command = ['pgrep', '-P', str(parent_pid)] + exact_flag + ['nacl_helper']
-    pids = subprocess.check_output(command).splitlines()
-    assert len(pids) <= expected_num_processes
-    # Note that we need to wait until the number of pids is equal to
-    # expected_num_processes. Otherwise, we may find SFI nacl_helper
-    # because Chrome launches the SFI version first and there is a
-    # time window where only SFI nacl_helper is running.
-    if len(pids) != expected_num_processes:
-      return None
-    # nacl_helper has two zygotes. One for SFI mode and the other
-    # for non-SFI. As Chrome launches nacl_helper for SFI first, we
-    # pick the newer PID by pgrep -n.
-    command.insert(1, '-n')
-    return int(subprocess.check_output(command))
-  except subprocess.CalledProcessError:
-    return None
-
-
-def _get_bare_metal_plugin_pid(chrome_pid):
-  """Waits for the nacl_helper is launched and returns its pid."""
-  # The process parent-child relationship is as follows.
-  #
-  # ancestors
-  #     ^      chrome <- directly launched from ./launch_chrome
-  #     |      chrome --type=zygote
-  #     |      nacl_helper <- manages plugin process fork()s.
-  #     v      nacl_helper <- the plugin process we want to attach.
-  # decendants
-  zygote_pid = _wait_by_busy_loop(lambda: _get_zygote_pid(chrome_pid))
-  logging.info('Chrome zygote PID: %d' % zygote_pid)
-  nacl_helper_pid = _wait_by_busy_loop(
-      lambda: _get_nacl_helper_nonsfi_pid(zygote_pid, 2))
-  logging.info('nacl_helper (zygote) PID: %d' % nacl_helper_pid)
-  plugin_pid = _wait_by_busy_loop(
-      lambda: _get_nacl_helper_nonsfi_pid(nacl_helper_pid, 1))
-  logging.info('nacl_helper (plugin) PID: %d' % plugin_pid)
-  return plugin_pid
-
-
 def _get_bare_metal_gdb_python_init_args():
   library_path = os.path.abspath(build_common.get_load_library_path())
   runnable_ld_path = os.path.join(library_path, 'runnable-ld.so')
@@ -264,9 +202,12 @@ def _get_bare_metal_gdb_python_init_args():
   ]
 
 
-def _get_bare_metal_gdb_init_commands(remote_address=None, ssh_options=None):
+def _get_bare_metal_gdb_init_commands(plugin_pid, remote_address, ssh_options):
   bare_metal_gdb_init_args = _get_bare_metal_gdb_python_init_args()
   util_dir = os.path.abspath('src/build/util')
+  bare_metal_gdb_init_args.append(
+      'lock_file=%s' % to_python_string_literal(
+          os.path.join(_BARE_METAL_GDB_LOCK_DIR, str(plugin_pid))))
   if remote_address:
     bare_metal_gdb_init_args.append('remote_address=%s' %
                                     to_python_string_literal(remote_address))
@@ -282,25 +223,26 @@ def _get_bare_metal_gdb_init_commands(remote_address=None, ssh_options=None):
 
 
 def _attach_bare_metal_gdb(
-    remote_address, ssh_options, nacl_helper_binary, gdb_type):
+    remote_address, plugin_pid, ssh_options, nacl_helper_binary, gdb_type):
   """Attaches to the gdbserver running on |remote_host|.
 
   To conntect the server running on the local host, |remote_address| should
   be set to None, rather than '127.0.0.1' or 'localhost'. Otherwise it tries to
   re-login by ssh command as 'root' user.
   """
+  gdb_port = _get_bare_metal_gdb_port(plugin_pid)
+
   # Before launching 'gdb', we wait for that the target port is opened.
   _wait_by_busy_loop(
-      lambda: _is_remote_port_open(
-          remote_address or _LOCAL_HOST, _BARE_METAL_GDB_PORT))
+      lambda: _is_remote_port_open(remote_address or _LOCAL_HOST, gdb_port))
 
-  gdb_args = [
-      nacl_helper_binary,
-      '-ex', 'target remote %s:%d' % (
-          remote_address or _LOCAL_HOST, _BARE_METAL_GDB_PORT)
-  ]
+  gdb_args = []
+  if nacl_helper_binary:
+    gdb_args.append(nacl_helper_binary)
+  gdb_args.extend([
+      '-ex', 'target remote %s:%d' % (remote_address or _LOCAL_HOST, gdb_port)])
   gdb_args.extend(_get_bare_metal_gdb_init_commands(
-      remote_address=remote_address, ssh_options=ssh_options))
+      plugin_pid, remote_address, ssh_options))
   _launch_plugin_gdb(gdb_args, gdb_type)
 
 
@@ -310,25 +252,18 @@ def _is_remote_port_open(remote_address, port):
     return sock.connect_ex((remote_address, port)) == 0
 
 
-def launch_bare_metal_gdb_for_remote_debug(remote_address, ssh_options,
-                                           nacl_helper_binary, gdb_type):
-  def _thread_callback():
-    logging.info('Attaching to remote GDB in %s' % remote_address)
-    _attach_bare_metal_gdb(
-        remote_address, ssh_options, nacl_helper_binary, gdb_type)
+def _launch_bare_metal_gdbserver(plugin_pid, is_child_plugin):
+  gdb_port = _get_bare_metal_gdb_port(plugin_pid)
+  command = ['gdbserver', '--attach', ':%d' % gdb_port, str(plugin_pid)]
 
-  thread = threading.Thread(target=_thread_callback)
-  thread.daemon = True
-  thread.start()
+  if platform_util.is_running_on_chromeos():
+    _accept_tcp_connection_on_chromeos(gdb_port)
+    gdb_process = _popen_with_sudo_on_chromeos(command)
+  else:
+    gdb_process = subprocess.Popen(command)
 
-
-def _launch_bare_metal_gdbserver(chrome_pid):
-  assert OPTIONS.is_bare_metal_i686()
-  plugin_pid = _get_bare_metal_plugin_pid(chrome_pid)
-  command = [
-      'gdbserver', '--attach', ':%d' % _BARE_METAL_GDB_PORT, str(plugin_pid)]
-  gdb_process = subprocess.Popen(command)
-  _run_gdb_watch_thread(gdb_process)
+  if not is_child_plugin:
+    _run_gdb_watch_thread(gdb_process)
 
 
 def _popen_with_sudo_on_chromeos(command):
@@ -360,30 +295,10 @@ def _accept_tcp_connection_on_chromeos(port):
        '--dport', str(port), '-j', 'DNAT', '--to', '127.0.0.1:%d' % port])
 
 
-def _launch_bare_metal_gdbserver_on_chromeos(chrome_pid):
-  _accept_tcp_connection_on_chromeos(_BARE_METAL_GDB_PORT)
-  plugin_pid = _get_bare_metal_plugin_pid(chrome_pid)
-
-  command = ['gdbserver', '--attach',
-             ':%d' % _BARE_METAL_GDB_PORT, str(plugin_pid)]
-  gdb_process = _popen_with_sudo_on_chromeos(command)
-  _run_gdb_watch_thread(gdb_process)
-
-
-def create_or_remove_bare_metal_gdb_lock_file(gdb_target_list):
-  bare_metal_gdb_lock = '/tmp/bare_metal_gdb.lock'
+def create_or_remove_bare_metal_gdb_lock_dir(gdb_target_list):
+  shutil.rmtree(_BARE_METAL_GDB_LOCK_DIR, ignore_errors=True)
   if 'plugin' in gdb_target_list and OPTIONS.is_bare_metal_build():
-    # Just touch the lock file.
-    # TODO(crbug.com/354290): Remove this.
-    with open(bare_metal_gdb_lock, 'wb'):
-      pass
-  else:
-    # We always remove the lock file so the execution will not be
-    # accidentally blocked.
-    try:
-      os.unlink(bare_metal_gdb_lock)
-    except:
-      pass
+    build_common.makedirs_safely(_BARE_METAL_GDB_LOCK_DIR)
 
 
 def is_no_sandbox_needed(gdb_target_list):
@@ -485,11 +400,65 @@ class NaClGdbHandlerAdapter(object):
       return
 
     port = int(match.group(1))
+    # Note that, for remote debugging, NaClGdbHandlerAdapter will run in
+    # both local and remote machine.
     if platform_util.is_running_on_chromeos():
       _accept_tcp_connection_on_chromeos(port)
     else:
       logging.info('Found debug stub on port (%d)' % port)
       _launch_nacl_gdb(self._gdb_type, self._nacl_irt_path, self._host, port)
+
+  def get_error_level(self, child_level):
+    return self._base_handler.get_error_level(child_level)
+
+  def is_done(self):
+    return self._base_handler.is_done()
+
+
+class BareMetalGdbHandlerAdapter(object):
+  # This pattern must be in sync with the message in
+  # mods/android/bionic/linker/linker.cpp.
+  _WAITING_GDB_PATTERN = re.compile(r'linker: waiting for gdb \((\d+)\)')
+
+  def __init__(self, base_handler, nacl_helper_path, gdb_type, host=None,
+               ssh_options=None):
+    self._base_handler = base_handler
+    self._nacl_helper_path = nacl_helper_path
+    self._gdb_type = gdb_type
+    self._host = host
+    self._ssh_options = ssh_options
+    self._next_is_child_plugin = False
+
+  def handle_timeout(self):
+    self._base_handler.handle_timeout()
+
+  def handle_stdout(self, line):
+    self._base_handler.handle_stdout(line)
+
+  def handle_stderr(self, line):
+    self._base_handler.handle_stderr(line)
+
+    match = BareMetalGdbHandlerAdapter._WAITING_GDB_PATTERN.search(line)
+    if not match:
+      return
+
+    plugin_pid = int(match.group(1))
+
+    # Note that, for remote debugging, NaClGdbHandlerAdapter will run in
+    # both local and remote machine.
+    if platform_util.is_running_on_chromeos():
+      _launch_bare_metal_gdbserver(plugin_pid, self._next_is_child_plugin)
+    else:
+      logging.info('Found new %s plugin process %d',
+                   'child' if self._next_is_child_plugin else 'main',
+                   plugin_pid)
+      if not self._host:
+        _launch_bare_metal_gdbserver(plugin_pid, self._next_is_child_plugin)
+      _attach_bare_metal_gdb(
+          self._host, plugin_pid, self._ssh_options, self._nacl_helper_path,
+          self._gdb_type)
+
+    self._next_is_child_plugin = True
 
   def get_error_level(self, child_level):
     return self._base_handler.get_error_level(child_level)

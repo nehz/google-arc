@@ -16,6 +16,7 @@ import sys
 import tempfile
 
 import build_common
+from build_options import OPTIONS
 import filtered_subprocess
 from util import gdb_util
 from util.minidump_filter import MinidumpFilter
@@ -147,7 +148,8 @@ class RemoteOutputHandler(object):
 
 class RemoteExecutor(object):
   def __init__(self, user, remote, remote_env=None, ssh_key=None,
-               enable_pseudo_tty=False, attach_nacl_gdb_type=None):
+               enable_pseudo_tty=False, attach_nacl_gdb_type=None,
+               nacl_helper_binary=None):
     self._user = user
     self._remote_env = remote_env or {}
     if not ssh_key:
@@ -162,6 +164,7 @@ class RemoteExecutor(object):
     self._known_hosts = _get_known_hosts()
     self._enable_pseudo_tty = enable_pseudo_tty
     self._attach_nacl_gdb_type = attach_nacl_gdb_type
+    self._nacl_helper_binary = nacl_helper_binary
     if ':' in remote:
       self._remote, self._port = remote.split(':')
     else:
@@ -249,8 +252,15 @@ class RemoteExecutor(object):
 
     output_handler = MinidumpFilter(RemoteOutputHandler())
     if self._attach_nacl_gdb_type:
-      output_handler = gdb_util.NaClGdbHandlerAdapter(
-          output_handler, None, self._attach_nacl_gdb_type, host=self._remote)
+      if OPTIONS.is_nacl_build():
+        output_handler = gdb_util.NaClGdbHandlerAdapter(
+            output_handler, None, self._attach_nacl_gdb_type, host=self._remote)
+      elif OPTIONS.is_bare_metal_build():
+        output_handler = gdb_util.BareMetalGdbHandlerAdapter(
+            output_handler, self._nacl_helper_binary,
+            self._attach_nacl_gdb_type, host=self._remote,
+            ssh_options=self.get_ssh_options())
+
     return run_command_with_filter(self._build_ssh_command(cmd),
                                    output_handler=output_handler)
 

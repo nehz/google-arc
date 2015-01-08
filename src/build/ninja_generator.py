@@ -2423,7 +2423,9 @@ class JavaNinjaGenerator(NinjaGenerator):
     # Makefile-style dependency file, that file will have multiple
     # targets and ninja does not support depfiles with multiple targets.
     n.rule('aapt_package',
-           (toolchain.get_tool('java', 'aapt') +
+           # aapt generates a broken APK if it already exists.
+           ('rm -f $out; ' +
+            toolchain.get_tool('java', 'aapt') +
             ' package $aaptflags -M $manifest ' +
             '$input_path > $tmpfile 2>&1 || ' +
             '(cat $tmpfile; exit 1)'),
