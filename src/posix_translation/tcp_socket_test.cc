@@ -9,6 +9,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
+#include <algorithm>
 #include <vector>
 
 #include "base/compiler_specific.h"
@@ -30,6 +31,12 @@ using ::testing::NiceMock;
 using ::testing::DoAll;
 
 namespace posix_translation {
+
+namespace {
+
+const char kStreamContents[] = "test";
+
+}  // namespace
 
 // Thin wrapper of base::WaitableEvent::Wait() to block the main thread.
 void WaitEvent(void* user_data, int32_t result) {
@@ -60,6 +67,8 @@ class PepperTCPSocketTest
   DECLARE_BACKGROUND_TEST(SetOptionFail);
   DECLARE_BACKGROUND_TEST(ConnectThenSetOption);
   DECLARE_BACKGROUND_TEST(SetOptionThenConnect);
+  DECLARE_BACKGROUND_TEST(Recv);
+  DECLARE_BACKGROUND_TEST(RecvMsgPeek);
 // TODO(crbug.com/362175): qemu-arm cannot reliably emulate threading
 // functions so run them in a real ARM device.
 #if defined(__arm__)
@@ -74,7 +83,8 @@ class PepperTCPSocketTest
   static const PP_Resource kTCPSocketResource = 74;
 
   PepperTCPSocketTest()
-      : default_executor_(&bg_, PP_OK),
+      : stream_pos_(0),
+        default_executor_(&bg_, PP_OK),
         fail_executor_(&bg_, PP_ERROR_FAILED),
         ppb_tcpsocket_(NULL) {
   }
@@ -103,6 +113,18 @@ class PepperTCPSocketTest
     pending_callbacks_.push_back(callback);
   }
 
+  int32_t OnRead(PP_Resource tcp_socket, char* buffer, int32_t len,
+                 PP_CompletionCallback callback) {
+    int32_t bytes_remaining = sizeof(kStreamContents) - stream_pos_;
+    int32_t bytes_read = std::min(len, bytes_remaining);
+    if (bytes_read > 0) {
+      memcpy(buffer, kStreamContents + stream_pos_, bytes_read);
+      stream_pos_ += bytes_read;
+      return bytes_read;
+    }
+    return 0;
+  }
+
   void ExpectTCPSocketInstance() {
     // Create and release.
     EXPECT_CALL(*ppb_tcpsocket_, Create(kInstanceNumber)).
@@ -123,6 +145,16 @@ class PepperTCPSocketTest
             WithArgs<3>(
                 Invoke(this, &PepperTCPSocketTest::AddPendingCallback)),
             Return(static_cast<int32_t>(PP_OK_COMPLETIONPENDING))));
+  }
+
+  void ExpectConnectSuccessWithData() {
+    EXPECT_CALL(*ppb_tcpsocket_, Connect(kTCPSocketResource, _, _)).
+        WillOnce(WithArgs<2>(
+            Invoke(&default_executor_,
+                   &CompletionCallbackExecutor::ExecuteOnMainThread)));
+
+    ON_CALL(*ppb_tcpsocket_, Read(kTCPSocketResource, _, _, _)).
+        WillByDefault(Invoke(this, &PepperTCPSocketTest::OnRead));
   }
 
   void ExpectConnectFail() {
@@ -181,6 +213,10 @@ class PepperTCPSocketTest
     return fcntl(sockfd, F_SETFL, opts | O_NONBLOCK);
   }
 
+  ssize_t recv(int sockfd, void* buf, size_t len, int flags) {
+    return file_system_->recv(sockfd, buf, len, flags);
+  }
+
   void ExpectSoError(int sockfd, int expected) {
     int optval;
     socklen_t optlen = SIZEOF_AS_SOCKLEN(optval);
@@ -199,6 +235,7 @@ class PepperTCPSocketTest
     EXPECT_EQ(expected_events, poller.revents);
   }
 
+  int32_t stream_pos_;
   CompletionCallbackExecutor default_executor_;
   CompletionCallbackExecutor fail_executor_;
   std::vector<PP_CompletionCallback> pending_callbacks_;
@@ -263,6 +300,47 @@ TEST_BACKGROUND_F(PepperTCPSocketTest, SetOptionThenConnect) {
   EXPECT_NE(0, sockfd);
   EXPECT_EQ(0, set_nodelay_option(sockfd));
   EXPECT_EQ(0, connect(sockfd));
+  EXPECT_EQ(0, file_system_->close(sockfd));
+}
+
+TEST_BACKGROUND_F(PepperTCPSocketTest, Recv) {
+  ExpectTCPSocketInstance();
+  ExpectConnectSuccessWithData();
+
+  int sockfd = file_system_->socket(AF_INET, SOCK_STREAM, 0);
+  char buffer[256];
+  EXPECT_NE(0, sockfd);
+  EXPECT_EQ(0, connect(sockfd));
+
+  memset(buffer, 0, sizeof(buffer));
+  EXPECT_EQ(sizeof(kStreamContents), recv(sockfd, buffer, sizeof(buffer), 0));
+  EXPECT_STREQ(kStreamContents, buffer);
+
+  // Verify that the stream is closed.
+  EXPECT_EQ(0, recv(sockfd, buffer, sizeof(buffer), 0));
+  EXPECT_EQ(0, file_system_->close(sockfd));
+}
+
+TEST_BACKGROUND_F(PepperTCPSocketTest, RecvMsgPeek) {
+  ExpectTCPSocketInstance();
+  ExpectConnectSuccessWithData();
+
+  int sockfd = file_system_->socket(AF_INET, SOCK_STREAM, 0);
+  char buffer[256];
+  EXPECT_NE(0, sockfd);
+  EXPECT_EQ(0, connect(sockfd));
+
+  memset(buffer, 0, sizeof(buffer));
+  EXPECT_EQ(sizeof(kStreamContents), recv(sockfd, buffer, sizeof(buffer),
+                                          MSG_PEEK));
+  EXPECT_STREQ(kStreamContents, buffer);
+
+  memset(buffer, 0, sizeof(buffer));
+  EXPECT_EQ(sizeof(kStreamContents), recv(sockfd, buffer, sizeof(buffer), 0));
+  EXPECT_STREQ(kStreamContents, buffer);
+
+  // Verify that the stream is closed.
+  EXPECT_EQ(0, recv(sockfd, buffer, sizeof(buffer), 0));
   EXPECT_EQ(0, file_system_->close(sockfd));
 }
 

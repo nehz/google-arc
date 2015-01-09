@@ -107,6 +107,7 @@ class TCPSocket : public SocketStream {
   void Read(int32_t result);
   void ReadLocked();
   void OnRead(int32_t result);
+  void OnReadLocked(int32_t result);
 
   void Write(int32_t result);
   void WriteLocked();

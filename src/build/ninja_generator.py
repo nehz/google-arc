@@ -14,7 +14,6 @@ import logging
 import re
 import os
 import StringIO
-import subprocess
 import sys
 
 import analyze_diffs
@@ -1663,7 +1662,8 @@ class TopLevelNinjaGenerator(NinjaGenerator):
     # ninja wanting to immediately re-run configure.
     self.rule('regen_ninja',
               'python $in $$(cat %s)' % OPTIONS.get_configure_options_file(),
-              description='Regenerating ninja files due to dependency')
+              description='Regenerating ninja files due to dependency',
+              generator=True)
     # Use the paths from the regen computer, but transform them to staging
     # paths as we want to make sure we get mods/ paths when appropriate.
     input_dependencies = map(
@@ -2873,7 +2873,7 @@ class JavaNinjaGenerator(NinjaGenerator):
     """
     return build_common.get_android_fs_path('.' + install_path)
 
-  def _pre_dexopt_secondary_dex_files(self, secondary_dex_files,
+  def _pre_dexopt_secondary_dex_files(self, input_apk, secondary_dex_files,
                                       dexopt_variables, implicit_deps,
                                       multidex_output_dir):
     """Perform dexopt to Multidex dex files and install them.
@@ -2900,7 +2900,7 @@ class JavaNinjaGenerator(NinjaGenerator):
       output_odex = self._get_build_path(
           os.path.join(dexname, output_filename + '.odex'))
 
-      self.build(output_zip, 'create_multidex_zip', self._aligned_apk_archive,
+      self.build(output_zip, 'create_multidex_zip', input_apk,
                  variables={'dexname': dexname})
       self.build(output_odex, 'dex_preopt', output_zip,
                  variables=dexopt_variables,
@@ -2969,7 +2969,7 @@ class JavaNinjaGenerator(NinjaGenerator):
               os.path.join(self._install_path, os.path.basename(output_odex))))
       implicit.append(output_odex)
 
-      self._pre_dexopt_secondary_dex_files(secondary_dex_files,
+      self._pre_dexopt_secondary_dex_files(input_zip, secondary_dex_files,
                                            dexopt_variables,
                                            implicit, multidex_output_dir)
 
@@ -3329,11 +3329,6 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
     self._output_classes_dex = os.path.join(self._aapt_input_path,
                                             'classes.dex')
     self._dex_preopt = install_path is not None
-
-    self._aligned_apk_archive = self._get_build_path(
-        subpath='package.apk.aligned')
-    self._unaligned_apk_archive = self._get_build_path(
-        subpath='package.apk.unaligned')
     if self._dex_preopt:
       self._output_odex_file = self._get_build_path(
           subpath='package.odex', is_target=True)
@@ -3424,18 +3419,15 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
   def _build_zipalign(self, aligned_apk, unaligned_apk):
     return self.build(aligned_apk, 'zipalign', unaligned_apk)
 
-  def _build_classes_apk(self):
+  def _build_classes_apk(self, output_apk):
     """Builds the .apk file from the .class files, and optionally installs it
     to the target root/app subdirectory."""
     self._build_classes_dex_from_class_files(outputs=[self._output_classes_dex])
 
-    # Bundle up everything as an unsigned/unaligned .apk
-    self._build_aapt(output_apk=self._unaligned_apk_archive,
+    # Bundle up everything as an unsigned/unpredexopted/unaligned .apk
+    self._build_aapt(output_apk=output_apk,
                      implicit=[self._output_classes_dex],
                      input_path=self._aapt_input_path)
-
-    # Optimize the .apk layout
-    self._build_zipalign(self._aligned_apk_archive, self._unaligned_apk_archive)
     return self
 
   # TODO(crbug.com/394394): We could make the build system detect secondary dex
@@ -3443,35 +3435,29 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
   # framework level, we should refactor the way pre-dexopt is done here when we
   # uprev to L.
   def package(self, secondary_dex_files=None, multidex_output_dir=None):
-    if not self._canned_classes_apk:
-      self._build_classes_apk()
-    else:
-      # Check the alignment if the canned apk file exists; usually the apk is
-      # present at configure time, but apks built from internal/ may not.
-      if (os.path.isfile(self._canned_classes_apk) and
-          subprocess.call([toolchain.get_tool('java', 'zipalign'), '-c', '4',
-                           self._canned_classes_apk]) != 0):
-        # An un-zipaligned apk can cause some performance issue.  See
-        # crbug.com/420295.
-        raise Exception('Canned APK is not zipaligned: ' +
-                        self._canned_classes_apk)
-      self.build(self._aligned_apk_archive, 'cp', self._canned_classes_apk)
+    original_apk = self._get_build_path(subpath='package.apk.original')
+    unaligned_apk = self._get_build_path(subpath='package.apk.unaligned')
 
-    # We differ from upstream in the apk packaging names.  Upstream
-    # moves package.apk.aligned to package.apk and then optionally
-    # modifies it in place if pre-dexopt'ing is done.  We leave each
-    # build artifact in place to improve debugging (and because Ninja
-    # will not allow doing modifications in place).
+    # Build the apk, or use the canned one.
+    if self._canned_classes_apk:
+      self.build(original_apk, 'cp', self._canned_classes_apk)
+    else:
+      self._build_classes_apk(original_apk)
+
+    # Optionally pre-dexopt the apk.  This will remove .dex files from the apk.
     if self._dex_preopt:
       self._build_odex_and_stripped_javalib(
           self._output_odex_file,
-          self.get_final_package(),
-          self._aligned_apk_archive,
+          unaligned_apk,
+          original_apk,
           secondary_dex_files=secondary_dex_files,
           multidex_output_dir=multidex_output_dir)
     else:
-      self.build(self.get_final_package(), 'cp',
-                 self._aligned_apk_archive)
+      self.build(unaligned_apk, 'cp', original_apk)
+
+    # Finally, optimize the .apk layout to avoid memory copy.  See also
+    # ensureAlighment in frameworks/base/libs/androidfw/Asset.cpp.
+    self._build_zipalign(self.get_final_package(), unaligned_apk)
     return self.get_final_package()
 
   def install(self):

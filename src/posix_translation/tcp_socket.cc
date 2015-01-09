@@ -371,6 +371,11 @@ off64_t TCPSocket::lseek(off64_t offset, int whence) {
 }
 
 ssize_t TCPSocket::read(void* buf, size_t count) {
+  return recv(buf, count, 0);
+}
+
+ssize_t TCPSocket::recv(void *buf, size_t len, int flags) {
+  // TODO(crbug.com/242604): Handle flags such as MSG_DONTWAIT
   if (connect_state_ == TCP_SOCKET_NEW ||
       connect_state_ == TCP_SOCKET_LISTENING) {
     errno = ENOTCONN;
@@ -398,12 +403,14 @@ ssize_t TCPSocket::read(void* buf, size_t count) {
     return -1;
   }
 
-  size_t nread = std::min(count, in_buf_.size());
+  size_t nread = std::min(len, in_buf_.size());
   if (nread) {
     std::copy(in_buf_.begin(), in_buf_.begin() + nread,
               reinterpret_cast<char*>(buf));
-    in_buf_.erase(in_buf_.begin(), in_buf_.begin() + nread);
+    if (!(flags & MSG_PEEK))
+      in_buf_.erase(in_buf_.begin(), in_buf_.begin() + nread);
     PostReadTaskLocked();
+
     return nread;
   }
 
@@ -414,16 +421,10 @@ ssize_t TCPSocket::read(void* buf, size_t count) {
   return -1;
 }
 
-ssize_t TCPSocket::recv(void *buf, size_t len, int flags) {
-  // TODO(crbug.com/242604): Handle flags such as MSG_DONTWAIT
-  return read(buf, len);
-}
-
 ssize_t TCPSocket::recvfrom(void* buf, size_t len, int flags, sockaddr* addr,
                             socklen_t* addrlen) {
-  // TODO(crbug.com/242604): Handle flags such as MSG_DONTWAIT
   if (!addr && !addrlen)
-    return read(buf, len);
+    return recv(buf, len, flags);
   errno = EINVAL;
   return -1;
 }
@@ -448,6 +449,11 @@ ssize_t TCPSocket::recvmsg(struct msghdr* msg, int flags) {
 }
 
 ssize_t TCPSocket::write(const void* buf, size_t count) {
+  return send(buf, count, 0);
+}
+
+ssize_t TCPSocket::send(const void* buf, size_t len, int flags) {
+  // TODO(crbug.com/242604): Handle flags such as MSG_DONTWAIT
   if (!is_connected()) {
     errno = EPIPE;
     return -1;
@@ -479,12 +485,12 @@ ssize_t TCPSocket::write(const void* buf, size_t count) {
   if (out_buf_.size() < kBufSize) {
     out_buf_.insert(out_buf_.end(),
                     reinterpret_cast<const char*>(buf),
-                    reinterpret_cast<const char*>(buf) + count);
+                    reinterpret_cast<const char*>(buf) + len);
     if (!write_sent_) {
       pp::Module::Get()->core()->CallOnMainThread(
           0, factory_.NewCallback(&TCPSocket::Write));
     }
-    return count;
+    return len;
   }
 
   ALOG_ASSERT(!is_blocking);
@@ -493,16 +499,10 @@ ssize_t TCPSocket::write(const void* buf, size_t count) {
   return -1;
 }
 
-ssize_t TCPSocket::send(const void* buf, size_t len, int flags) {
-  // TODO(crbug.com/242604): Handle flags such as MSG_DONTWAIT
-  return write(buf, len);
-}
-
 ssize_t TCPSocket::sendto(const void* buf, size_t len, int flags,
                           const sockaddr* dest_addr, socklen_t addrlen) {
-  // TODO(crbug.com/242604): Handle flags such as MSG_DONTWAIT
   if (!dest_addr && !addrlen)
-    return write(buf, len);
+    return send(buf, len, flags);
   errno = EINVAL;
   return -1;
 }
@@ -812,15 +812,35 @@ void TCPSocket::ReadLocked() {
     return;
   }
 
+  pp::CompletionCallback callback = factory_.NewCallback(&TCPSocket::OnRead);
   int32_t pp_error = socket_->socket()->Read(
       &read_buf_[0], read_buf_.size(),
-      factory_.NewCallback(&TCPSocket::OnRead));
-  ALOG_ASSERT(pp_error == PP_OK_COMPLETIONPENDING);
+      callback);
+  if (pp_error >= 0) {
+    // This usually only happens on tests. We need to cancel the original
+    // callback to avoid leaks, and to use OnReadLocked instead of OnRead in
+    // order to avoid re-acquiring sys->mutex() and crashing.
+    callback.Run(PP_ERROR_USERCANCEL);
+    OnReadLocked(pp_error);
+  } else {
+    ALOG_ASSERT(pp_error == PP_OK_COMPLETIONPENDING);
+  }
 }
 
 void TCPSocket::OnRead(int32_t result) {
+  if (result == PP_ERROR_USERCANCEL) {
+    // The callback was cancelled since it was possible to run it synchronously
+    // on the same thread that requested the read.
+    return;
+  }
   VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
   base::AutoLock lock(sys->mutex());
+  OnReadLocked(result);
+}
+
+void TCPSocket::OnReadLocked(int32_t result) {
+  VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
+  sys->mutex().AssertAcquired();
 
   read_sent_ = false;
   if (IsTerminated()) {

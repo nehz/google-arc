@@ -34,8 +34,12 @@ const socklen_t kUnspecMinAddrLen =
 bool SetSocketOption(pp::UDPSocket* socket,
                      PP_UDPSocket_Option name,
                      const pp::Var& value) {
-  int32_t pp_error ALLOW_UNUSED =
-      socket->SetOption(name, value, pp::BlockUntilComplete());
+  int32_t pp_error ALLOW_UNUSED;
+  {
+    base::AutoUnlock unlock(
+        VirtualFileSystem::GetVirtualFileSystem()->mutex());
+    pp_error = socket->SetOption(name, value, pp::BlockUntilComplete());
+  }
   ARC_STRACE_REPORT_PP_ERROR(pp_error);
 
   // We should handle errors as follows:

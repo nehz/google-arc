@@ -400,3 +400,6 @@
 [submodule "third_party/android/external/webrtc"]
 	path = third_party/android/external/webrtc
 	url = https://android.googlesource.com/platform/external/webrtc
+[submodule "third_party/android/packages/providers/DownloadProvider"]
+	path = third_party/android/packages/providers/DownloadProvider
+	url = https://android.googlesource.com/platform/packages/providers/DownloadProvider
