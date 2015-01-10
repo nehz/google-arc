@@ -47,9 +47,6 @@ struct Options {
   // be empty.
   std::string country;
 
-  // Whether or not the ARC accessibility service is enabled.
-  bool enable_accessibility;
-
   // If true, enable adb support.
   bool enable_adb;
 

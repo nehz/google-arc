@@ -51,8 +51,8 @@ class Performance {
     return plugin_start_time_;
   }
 
-  void SetAppLaunchTimeInMilliseconds(int64_t ms) {
-    app_launch_time_ = ms * 1000;
+  void SetAppLaunchTimeInMicroseconds(int64_t us) {
+    app_launch_time_ = us;
   }
 
  private:
@@ -61,8 +61,14 @@ class Performance {
   Performance();
   ~Performance() {}
 
+  // Converts |tick| obtained by calling GetTicksInMicroseconds() to time in
+  // milliseconds since epoch.
+  int64_t TickToTime(int64_t tick) const;
+
   int64_t app_launch_time_;
   int64_t plugin_start_time_;
+  int64_t tick_base_;  // a tick that roughly corresponds to plugin_start_time_
+
   int start_virtual_bytes_;
   int start_resident_bytes_;
   PrintCallback print_callback_;

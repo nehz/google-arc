@@ -44,7 +44,7 @@ class JavaScriptTestRunner(suite_runner.SuiteRunnerBase):
             build_common.get_build_path_for_gen_test_template(self._name),
             '--run-test-as-app']
     if self._additional_launch_chrome_args:
-      args.append(self._additional_launch_chrome_args)
+      args.extend(self._additional_launch_chrome_args)
     if test_methods_to_run:
       js_full_test_list = sorted(
           test_name.replace('#', '.')

@@ -32,8 +32,9 @@ namespace {
 
 const int64_t kMicrosecondsPerSecond = 1000000;
 
-// TODO(crbug.com/242295): Use Time and TimeDelta defined in base/time/time.h.
 float TimeDiffSecond(int64_t begin, int64_t end) {
+  if (end < begin)
+    ALOGE("Clock skew detected! begin=%lld, end=%lld", begin, end);
   return static_cast<float>(end - begin) / kMicrosecondsPerSecond;
 }
 
@@ -44,12 +45,13 @@ Performance* Performance::GetInstance() {
 }
 
 Performance::Performance()
-  : app_launch_time_(0), plugin_start_time_(0),
+  : app_launch_time_(0), plugin_start_time_(0), tick_base_(0),
     start_virtual_bytes_(0), start_resident_bytes_(0),
     print_callback_(NULL) {}
 
 void Performance::Start() {
   plugin_start_time_ = GetTimeInMicroseconds();
+  tick_base_ = GetTicksInMicroseconds();
   GetMemoryUsage(&start_virtual_bytes_, &start_resident_bytes_);
 }
 
@@ -60,21 +62,18 @@ void Performance::Print(const char* description) {
   TRACE_EVENT_INSTANT1("ARC", "Performance",
                        "description", TRACE_STR_COPY(description));
 
-  int64_t now = GetTimeInMicroseconds();
+  const int64_t now = GetTicksInMicroseconds();
   int virtual_bytes = 0;
   int resident_bytes = 0;
   GetMemoryUsage(&virtual_bytes, &resident_bytes);
   std::string message = base::StringPrintf(
       "%.03fs + %.03fs = %.03fs (+%dM virt, +%dM res): %s\n",
       TimeDiffSecond(app_launch_time_, plugin_start_time_),
-      TimeDiffSecond(plugin_start_time_, now),
-      TimeDiffSecond(app_launch_time_, now),
+      TimeDiffSecond(plugin_start_time_, TickToTime(now)),
+      TimeDiffSecond(app_launch_time_, TickToTime(now)),
       (virtual_bytes - start_virtual_bytes_) / 1024 / 1024,
       (resident_bytes - start_resident_bytes_) / 1024 / 1024,
       description);
-#if PRINT_TICKS
-  base::StringAppendF(&message, "Ticks: %lld\n", Performance::GetTicks());
-#endif
   if (arc::Options::GetInstance()->GetMinStderrLogPriority() <=
       ARC_LOG_WARN) {
     fprintf(stderr, "--------------------------------\n");
@@ -146,6 +145,13 @@ bool Performance::GetMemoryUsage(int* virtual_bytes,
   // We do not have this information for native client, so returning zero.
   *resident_bytes = 0;
   return true;
+}
+
+int64_t Performance::TickToTime(int64_t tick) const {
+  // Note: Unlike JavaScript's performance.now(), (tick - tick_base_) does
+  // not include any time that the system is suspended as long as the ticks
+  // are obtained by calling clock_gettime(CLOCK_MONOTONIC).
+  return plugin_start_time_ + (tick - tick_base_);
 }
 
 }  // namespace arc

@@ -67,7 +67,6 @@ void Options::Reset() {
   app_width = 0;
   command.clear();
   country.clear();
-  enable_accessibility = false;
   enable_adb = false;
   enable_arc_strace = false;
   enable_compositor = false;
