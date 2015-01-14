@@ -10,8 +10,10 @@
 #include "base/strings/stringprintf.h"
 #include "common/process_emulator.h"
 #include "gtest/gtest.h"
+#include "posix_translation/mount_point_manager.h"
 #include "posix_translation/procfs_file.h"
 #include "posix_translation/test_util/file_system_test_common.h"
+#include "posix_translation/test_util/stub_file_system_handler.h"
 #include "posix_translation/test_util/sysconf_util.h"
 
 namespace posix_translation {
@@ -179,14 +181,36 @@ TEST_F(ProcfsHandlerTest, TestCmdlineFileContents) {
   EXPECT_STREQ("proc_201_1000", buf);
 }
 
-// TODO(crbug.com/438051): Create unit tests for /proc/*/mounts files when
-// a mount pointer manager is passed.
 TEST_F(ProcfsHandlerTest, TestMountsFileContentsWhenNoMountPointManager) {
   scoped_refptr<FileStream> stream = handler_->open(-1, "/proc/201/mounts",
                                                     O_RDONLY, 0);
   char buf[128] = {};
   // Without passing a mount point manager, the mounts file is empty.
   EXPECT_EQ(0, stream->read(buf, sizeof(buf)));
+}
+
+TEST_F(ProcfsHandlerTest, TestMountsFileContentsWhenMountPointManagerIsPassed) {
+  MountPointManager mount_points;
+  StubFileSystemHandler stub_file_system_handler;
+
+  mount_points.Add("/path/to/file", &stub_file_system_handler);
+  mount_points.ChangeOwner("/path/to/file", 100);
+  mount_points.Add("/path/to/dir/", &stub_file_system_handler);
+  mount_points.ChangeOwner("/path/to/dir/", 1000);
+  handler_->SetMountPointManager(&mount_points);
+
+  scoped_refptr<FileStream> stream = handler_->open(-1, "/proc/201/mounts",
+                                                    O_RDONLY, 0);
+  char buf[256] = {};  // for easier \0 termination.
+  EXPECT_LT(0, stream->read(buf, sizeof(buf)));
+  const std::string& file_system_name = stub_file_system_handler.name();
+  EXPECT_TRUE(strstr(buf, base::StringPrintf(
+      "none /path/to/file %s uid=100,single_file 0 0\n",
+      file_system_name.c_str()).c_str()));
+  EXPECT_TRUE(strstr(buf, base::StringPrintf(
+      "none /path/to/dir %s uid=1000 0 0\n",
+      file_system_name.c_str()).c_str()));
+  handler_->SetMountPointManager(NULL);
 }
 
 }  // namespace posix_translation

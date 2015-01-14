@@ -57,7 +57,7 @@ def _generate_chromium_ppapi_fpabi_shim_ninja():
                   ' && touch $out.tmp && mv $out.tmp $out'),
          description=rule_name + ' $out')
 
-  idls = n.find_all_files(api_dir, 'idl')
+  idls = n.find_all_files(api_dir, '.idl', use_staging=False)
   n.build(out_file, rule_name, idls, implicit=[script_path])
 
 

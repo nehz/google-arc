@@ -88,6 +88,41 @@ def get_libgcc_for_bionic():
   return map(staging.third_party_to_staging, _get_libgcc_for_bionic_realpath())
 
 
+def get_configuration_dependencies():
+  deps = [
+      'src/build/DEPS.android-sdk',
+      'src/build/DEPS.chrome',
+      'src/build/DEPS.naclsdk',
+      'src/build/DEPS.ndk',
+      'src/build/build_common.py',
+      'src/build/build_options.py',
+      'src/build/check_arc_int.py',
+      'src/build/config.py',
+      'src/build/config_loader.py',
+      'src/build/config_runner.py',
+      'src/build/download_sdk_and_ndk.py',
+      'src/build/make_to_ninja.py',
+      'src/build/ninja_generator.py',
+      'src/build/sync_adb.py',
+      'src/build/sync_chrome_deps.py',
+      'src/build/sync_gdb_multiarch.py',
+      'src/build/sync_nacl_sdk.py',
+      'src/build/toolchain.py',
+      'src/build/wrapped_functions.py',
+      'third_party/android/build/target/product/core_base.mk']
+
+  if not open_source.is_open_source_repo():
+    deps += [
+        'src/build/sync_chrome.py',
+        'src/packaging/runtime/active_window_back.png',
+        'src/packaging/runtime/active_window_close.png',
+        'src/packaging/runtime/active_window_extdir.png',
+        'src/packaging/runtime/active_window_maximize.png',
+        'src/packaging/runtime/active_window_minimize.png',
+        'src/packaging/runtime/style.css']
+  return deps
+
+
 class _TargetGroupInfo(object):
   def __init__(self):
     self.outputs = set()
@@ -1211,7 +1246,8 @@ class CNinjaGenerator(NinjaGenerator):
     # The host C flags are kept minimal as relevant flags, such as -Wall, are
     # provided from MakefileNinjaTranslator, and most of the host binaries
     # are built via MakefileNinjaTranslator.
-    hostcflags = (' -I' + staging.as_staging('src') +
+    hostcflags = (CNinjaGenerator._get_debug_cflags() +
+                  ' -I' + staging.as_staging('src') +
                   ' -I' + staging.as_staging('android_libcommon') +
                   ' -I' + staging.as_staging('android') +
                   # Allow gtest/gtest_prod.h to be included by anything.
@@ -1563,38 +1599,7 @@ class RegenDependencyComputer(object):
                                  filenames='config.py',
                                  use_staging=False,
                                  include_tests=True)
-
-    self._input += [
-        'src/build/DEPS.android-sdk',
-        'src/build/DEPS.chrome',
-        'src/build/DEPS.naclsdk',
-        'src/build/DEPS.ndk',
-        'src/build/build_common.py',
-        'src/build/build_options.py',
-        'src/build/check_arc_int.py',
-        'src/build/config.py',
-        'src/build/config_loader.py',
-        'src/build/config_runner.py',
-        'src/build/download_sdk_and_ndk.py',
-        'src/build/make_to_ninja.py',
-        'src/build/ninja_generator.py',
-        'src/build/sync_adb.py',
-        'src/build/sync_chrome_deps.py',
-        'src/build/sync_gdb_multiarch.py',
-        'src/build/sync_nacl_sdk.py',
-        'src/build/toolchain.py',
-        'src/build/wrapped_functions.py',
-        'third_party/android/build/target/product/core_base.mk']
-
-    if not open_source.is_open_source_repo():
-      self._input += [
-          'src/build/sync_chrome.py',
-          'src/packaging/runtime/active_window_back.png',
-          'src/packaging/runtime/active_window_close.png',
-          'src/packaging/runtime/active_window_extdir.png',
-          'src/packaging/runtime/active_window_maximize.png',
-          'src/packaging/runtime/active_window_minimize.png',
-          'src/packaging/runtime/style.css']
+    self._input += get_configuration_dependencies()
 
     self._output = [OPTIONS.get_configure_options_file()]
 

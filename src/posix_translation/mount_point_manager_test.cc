@@ -6,27 +6,9 @@
 #include "gtest/gtest.h"
 #include "posix_translation/file_system_handler.h"
 #include "posix_translation/mount_point_manager.h"
+#include "posix_translation/test_util/stub_file_system_handler.h"
 
 namespace posix_translation {
-
-namespace {
-
-class StubFileSystemHandler : public FileSystemHandler {
- public:
-  StubFileSystemHandler() : FileSystemHandler("StubFileSystemHandler") {}
-
-  virtual scoped_refptr<FileStream> open(int, const std::string&, int,
-                                         mode_t) OVERRIDE {
-    return NULL;
-  }
-  virtual Dir* OnDirectoryContentsNeeded(const std::string&) OVERRIDE {
-    return NULL;
-  }
-  virtual int stat(const std::string&, struct stat*) OVERRIDE { return -1; }
-  virtual int statfs(const std::string&, struct statfs*) OVERRIDE { return -1; }
-};
-
-}  // namespace
 
 TEST(MountPointManagerTest, MountUnmountTest) {
   MountPointManager mount_points;
