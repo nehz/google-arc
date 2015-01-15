@@ -49,8 +49,10 @@ class VirtualFileSystemInterface {
                          int timeout) = 0;
   virtual int fcntl(int fd, int cmd, va_list v) = 0;
   virtual int fdatasync(int fd) = 0;
+  virtual int fpathconf(int fd, int name) = 0;
   virtual void freeaddrinfo(struct addrinfo* res) = 0;
   virtual int fstat(int fd, struct stat* buf) = 0;
+  virtual int fstatfs(int fd, struct statfs* out) = 0;
   virtual int fsync(int fd) = 0;
   virtual int ftruncate(int fd, off64_t length) = 0;
   virtual int getaddrinfo(const char* node,  // NULL is allowed.
@@ -105,6 +107,7 @@ class VirtualFileSystemInterface {
 
   virtual int open(const std::string& pathname, int oflag,
                    mode_t cmode) = 0;
+  virtual int pathconf(const std::string& pathname, int name) = 0;
   virtual int pipe2(int pipefd[2], int flags) = 0;
   virtual int poll(struct pollfd* fds, nfds_t nfds, int timeout) = 0;
   virtual ssize_t pread(int fd, void* buf, size_t count, off64_t offset) = 0;
