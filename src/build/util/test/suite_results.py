@@ -600,10 +600,10 @@ def initialize(suite_states, args, prepare_only):
   global SuiteResults
   if prepare_only:
     SuiteResults = Synchronized(SuiteResultsPrepare(suite_states, args))
-  elif args.buildbot:
-    SuiteResults = Synchronized(SuiteResultsBuildBot(suite_states, args))
-  else:
+  elif args.ansi:
     SuiteResults = Synchronized(SuiteResultsAnsi(suite_states, args))
+  else:
+    SuiteResults = Synchronized(SuiteResultsBuildBot(suite_states, args))
 
 
 def summarize():

@@ -109,7 +109,7 @@ def launch_remote_chrome(parsed_args, argv):
 def run_remote_integration_tests(parsed_args, argv,
                                  configs_for_integration_tests):
   executor = _create_remote_executor(
-      parsed_args, enable_pseudo_tty=not parsed_args.buildbot)
+      parsed_args, enable_pseudo_tty=parsed_args.ansi)
   try:
     executor.rsync(
         remote_executor_util.get_integration_test_files_and_directories() +

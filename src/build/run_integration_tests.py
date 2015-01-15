@@ -303,6 +303,8 @@ def parse_args(args):
   parser = argparse.ArgumentParser(description=description)
   parser.add_argument('--buildbot', action='store_true', help='Run tests '
                       'for the buildbot.')
+  parser.add_argument('--ansi', action='store_true',
+                      help='Color output using ansi escape sequence')
   parser.add_argument('--cts-bot', action='store_true',
                       help='Run with CTS bot specific config.')
   parser.add_argument('--enable-osmesa', action='store_true',
