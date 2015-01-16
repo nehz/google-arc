@@ -86,6 +86,7 @@ void Options::Reset() {
   track_focus = true;
   min_stderr_log_priority_ = ARC_LOG_ERROR;
   android_density_dpi = 0;
+  can_rotate = false;
 }
 
 inline static bool IsValidPriorityChar(char c) {

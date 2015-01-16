@@ -111,6 +111,9 @@ struct Options {
   // Track app window focus
   bool track_focus;
 
+  // If true, the app can rotate the screen with setRequestedOrientation() API.
+  bool can_rotate;
+
  private:
   friend struct DefaultSingletonTraits<Options>;
   FRIEND_TEST(OptionsTest, HandleFilterspecMessage);
