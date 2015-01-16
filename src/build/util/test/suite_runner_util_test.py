@@ -83,3 +83,32 @@ class SuiteRunnerUtilTest(unittest.TestCase):
       # Raise an exception if suite_expectations contains an unknown test name.
       suite_runner_util.merge_test_expectations(
           base_expectations, {'test3': flags.PASS})
+
+  def test_create_gtest_filter_list(self):
+    # Result should be empty for an empty list.
+    self.assertEquals(
+        [],
+        suite_runner_util.create_gtest_filter_list([], 10))
+
+    # Normal case.
+    self.assertEquals(
+        ['aaa:bbb', 'ccc:ddd'],
+        suite_runner_util.create_gtest_filter_list(
+            ['aaa', 'bbb', 'ccc', 'ddd'], 10))
+
+    # "aaa:bbb:cc" is just fit to the max_length (=10).
+    self.assertEquals(
+        ['aaa:bbb:cc', 'ddd:eee'],
+        suite_runner_util.create_gtest_filter_list(
+            ['aaa', 'bbb', 'cc', 'ddd', 'eee'], 10))
+
+    # Boundary test for an element.
+    self.assertEquals(
+        ['aaa', 'b' * 10, 'ccc'],
+        suite_runner_util.create_gtest_filter_list(
+            ['aaa', 'b' * 10, 'ccc'], 10))
+
+    # The second element exceeds the limit.
+    with self.assertRaises(ValueError):
+      suite_runner_util.create_gtest_filter_list(
+          ['aaa', 'b' * 11, 'ccc'], 10)

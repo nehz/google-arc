@@ -859,20 +859,6 @@ void* __wrap_mmap(
         MapCurrentStackFrame(result, length);
 #endif
 
-  // Overwrite |errno| to emulate Bionic's behavior. See the comment in
-  // mods/android/bionic/libc/unistd/mmap.c.
-  if (result && (flags & (MAP_PRIVATE | MAP_ANONYMOUS))) {
-    if ((result != MAP_FAILED) &&
-        (flags & MAP_PRIVATE) && (flags & MAP_ANONYMOUS)) {
-      // In this case, madvise(MADV_MERGEABLE) in mmap.c will likely succeed.
-      // Do not update |errno|.
-    } else {
-      // Overwrite |errno| with EINVAL even when |result| points to a valid
-      // address.
-      errno = EINVAL;
-    }
-  }
-
   if (result == MAP_FAILED) {
     DANGERF("addr=%p length=%zu prot=%d flags=%d fd=%d offset=%lld: %s",
             addr, length, prot, flags, fd, static_cast<int64_t>(offset),

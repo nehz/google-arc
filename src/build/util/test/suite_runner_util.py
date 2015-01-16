@@ -53,3 +53,39 @@ def read_test_list(path):
   with open(path) as stream:
     data = stream.read()
   return dict.fromkeys(data.splitlines(), flags.PASS)
+
+
+def create_gtest_filter_list(test_list, max_length):
+  # We use 'adb shell' command to run an executable gtest binary on ARC.
+  # However, adb_client.c defines a maximum command line length of 1024
+  # characters. We have many test methods, so that just concatenating
+  # them can easily exceed the limit. To avoid such an error, we split
+  # the test_list into some groups which fit, and return them.
+  # If one test name length exceeds |max_length|, raises ValueError.
+  # Note: |test_list| is a list of 'TestCase#TestMethod' formatted test names.
+  result = []
+
+  current_list = []
+  current_length = 0
+  for test_name in test_list:
+    # Convert to gtest_filter test name format.
+    test_name = test_name.replace('#', '.')
+    test_name_len = len(test_name)
+
+    if test_name_len > max_length:
+      raise ValueError(
+          'TestName \'%s\' (len: %d) exceeds the max_length (%d)' % (
+              test_name, test_name_len, max_length))
+
+    # |current_list| can be empty at the first iteration. We should not
+    # create an empty group. Otherwise, |current_list| should not be empty,
+    # it means, we need a separator. +1 below means a separator length.
+    if current_list and (current_length + test_name_len + 1 > max_length):
+      result.append(current_list)
+      current_list = []
+      current_length = 0
+    current_length += test_name_len + (1 if current_list else 0)
+    current_list.append(test_name)
+  if current_list:
+    result.append(current_list)
+  return [':'.join(group) for group in result]
