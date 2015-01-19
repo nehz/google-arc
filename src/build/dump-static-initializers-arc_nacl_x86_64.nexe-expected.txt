@@ -1,4 +1,3 @@
-# app_runtime.cc android::kDefaultStandbyTimeInNsecs
 # mods/android/frameworks/native/arc/binder/driver.cc guard variable for arc::binder::Singleton<arc::binder::BinderDriverImpl>::mutex_
 # mods/android/frameworks/native/arc/binder/driver.cc arc::binder::Singleton<arc::binder::BinderDriverImpl>::mutex_
 # mods/android/frameworks/native/arc/binder/driver.cc android::Mutex::~Mutex()
