@@ -33,8 +33,7 @@ class AtfGTestSuiteRunner(atf_suite_runner.AtfSuiteRunnerBase):
         suite_runner_util.read_test_list(test_list_path), **kwargs)
 
   def handle_output(self, line):
-    if self._result_parser:
-      self._result_parser.process_line(line)
+    self._result_parser.process_line(line)
 
   def _build_launch_chrome_command(self, test_methods_to_run):
     # Handle a special case where there is no explicit listing of tests in this
@@ -67,6 +66,3 @@ class AtfGTestSuiteRunner(atf_suite_runner.AtfSuiteRunnerBase):
     self._result_parser = (
         result_parser.GoogleTestResultParser(self.get_scoreboard()))
     self._first_run = False
-
-  def tearDown(self, test_methods_to_run):
-    self._result_parser = None
