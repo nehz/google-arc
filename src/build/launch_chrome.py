@@ -132,6 +132,8 @@ class StartupStats:
                'on_resume_time_ms',
                'app_virt_mem',
                'app_res_mem']
+  DERIVED_STAT_VARS = ['boot_time_ms']
+  ALL_STAT_VARS = STAT_VARS + DERIVED_STAT_VARS
 
   def __init__(self, num_runs=1):
     self.num_runs = num_runs
@@ -175,9 +177,17 @@ class StartupStats:
       return True
     return False
 
+  @property
+  def boot_time_ms(self):
+    return self.pre_plugin_time_ms + self.on_resume_time_ms
+
+  def PrintRawStats(self):
+    rawstats = {key: [getattr(self, key)] for key in StartupStats.ALL_STAT_VARS}
+    print ('VRAWPERF=%s' % rawstats)
+
   def PrintDetailedStats(self):
-    rawstats = {key: [] for key in ['boot_time_ms'] + StartupStats.STAT_VARS}
-    for num in ['boot_time_ms'] + StartupStats.STAT_VARS:
+    rawstats = {key: [] for key in StartupStats.ALL_STAT_VARS}
+    for num in StartupStats.ALL_STAT_VARS:
       for run in getattr(self, 'raw'):
         rawstats[num].append(getattr(run, num))
       unit = 'ms' if num.endswith('_ms') else 'MB'
@@ -205,12 +215,10 @@ class StartupStats:
     # Skip incomplete stats (probably crashed during this run).  We collect
     # enough runs to make up for an occasional missed run.
     stat_list = filter(lambda s: s.is_complete(), stat_list)
-    for s in stat_list:
-      s.boot_time_ms = s.pre_plugin_time_ms + s.on_resume_time_ms
 
     result = StartupStats(len(stat_list))
     setattr(result, 'raw', stat_list)
-    for num in ['boot_time_ms'] + StartupStats.STAT_VARS:
+    for num in StartupStats.ALL_STAT_VARS:
       values = [getattr(s, num) for s in stat_list]
       percentiles = util.statistics.compute_percentiles(values, (50, 90))
 
@@ -234,8 +242,20 @@ def set_environment_for_chrome():
   os.environ['TMPDIR'] = tmp
 
 
+def _maybe_wait_iteration_lock(parsed_args):
+  if not parsed_args.iteration_lock_file:
+    return
+  with open(parsed_args.iteration_lock_file, 'w'):
+    pass
+  # This message is hard-coded in interleaved_perftest.py. Don't change it.
+  sys.stderr.write('waiting for next iteration\n')
+  while os.path.exists(parsed_args.iteration_lock_file):
+    time.sleep(0.1)
+
+
 def _run_chrome_iterations(parsed_args):
   if not parsed_args.no_cache_warming:
+    _maybe_wait_iteration_lock(parsed_args)
     stats = StartupStats()
     _run_chrome(parsed_args, stats, cache_warming=True)
     if parsed_args.mode == 'perftest':
@@ -245,14 +265,19 @@ def _run_chrome_iterations(parsed_args):
                                      stats.pre_embed_time_ms,
                                      stats.plugin_load_time_ms,
                                      stats.on_resume_time_ms)
+      stats.PrintRawStats()
+      sys.stdout.flush()
 
   if parsed_args.iterations > 0:
     stat_list = []
     for i in xrange(parsed_args.iterations):
+      _maybe_wait_iteration_lock(parsed_args)
       stats = StartupStats()
       sys.stderr.write('\nStarting Chrome, test run #%s\n' %
                        (len(stat_list) + 1))
       _run_chrome(parsed_args, stats)
+      stats.PrintRawStats()
+      sys.stdout.flush()
       stat_list.append(stats)
     stats = StartupStats.compute_stats(stat_list)
     if stats.num_runs:

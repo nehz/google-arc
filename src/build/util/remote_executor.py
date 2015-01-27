@@ -74,6 +74,14 @@ def add_remote_arguments(parser):
                       'image, MacOS, or cygwin\'s sshd on Windows.')
   parser.add_argument('--ssh-key', help='The ssh-key file to login to remote '
                       'host. Used only when --remote option is specified.')
+  parser.add_argument('--no-remote-machine-setup',
+                      dest='remote_machine_setup', action='store_false',
+                      help='Do not perform remote machine setup. Used to run '
+                      'multiple launch_chrome instances concurrently.')
+  parser.add_argument('--remote-arc-dir-name', metavar='<name>',
+                      help='The directory name of a remote ARC checkout '
+                      'directory. Used to run multiple launch_chrome '
+                      'instances concurrently.')
 
 
 def copy_remote_arguments(parsed_args, args):

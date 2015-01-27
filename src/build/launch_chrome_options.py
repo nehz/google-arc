@@ -124,6 +124,8 @@ def _validate_perftest_settings(parser, args):
       parser.error("--minimum-lifetime only valid in 'perftest' mode")
     if args.minimum_steady:
       parser.error("--minimum-steady only valid in 'perftest' mode")
+    if args.iteration_lock_file:
+      parser.error("--iteration-lock-file only valid in 'perftest' mode")
 
 
 def _validate_system_settings(parser, args):
@@ -406,6 +408,11 @@ Native Client Debugging
                       '"wait", the plugin will not run until you attach GDB '
                       'by yourself. Currently "wait" is supported only for '
                       'NaCl plugins.')
+
+  parser.add_argument('--iteration-lock-file', metavar='<path>',
+                      help='If a filename is specified, launch_chrome.py '
+                      'touches a file and waits for it to be removed before '
+                      'every perftest iteration.')
 
   parser.add_argument('--iterations', type=int, metavar='<N>', help='Works '
                       'with perftest command only.  Starts the plugin page <N> '

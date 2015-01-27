@@ -39,8 +39,9 @@ def is_in_staging(input_path):
   Examples are src/*, android/*, libyuv/*, chromium-ppapi/*.
   """
   top_level = input_path.split(os.path.sep)[0]
-  return (top_level in ['android', 'src', 'android_libcommon'] or
-          os.path.exists(os.path.join('third_party', top_level)))
+  return (top_level == 'src' or
+          os.path.exists(os.path.join('third_party', top_level)) or
+          os.path.exists(os.path.join('mods', top_level)))
 
 
 def get_default_tracking_path(our_path):

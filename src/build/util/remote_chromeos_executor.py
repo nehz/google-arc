@@ -55,12 +55,13 @@ _UNNEEDED_PARAM_PREFIXES = (
 
 
 def _create_remote_executor(parsed_args, enable_pseudo_tty=False,
-                            attach_nacl_gdb_type=None, nacl_helper_binary=None):
+                            attach_nacl_gdb_type=None, nacl_helper_binary=None,
+                            arc_dir_name=None):
   return remote_executor_util.RemoteExecutor(
       'root', parsed_args.remote, remote_env=_REMOTE_ENV,
       ssh_key=parsed_args.ssh_key, enable_pseudo_tty=enable_pseudo_tty,
       attach_nacl_gdb_type=attach_nacl_gdb_type,
-      nacl_helper_binary=nacl_helper_binary)
+      nacl_helper_binary=nacl_helper_binary, arc_dir_name=arc_dir_name)
 
 
 def _get_param_name(param):
@@ -149,10 +150,11 @@ def _restore_remote_processes(executor):
                                               _CHROME_COMMAND_LINE_FILE))
 
 
-def _setup_remote_environment(executor, copied_files):
+def _setup_remote_environment(parsed_args, executor, copied_files):
   try:
     _setup_remote_arc_root(executor, copied_files)
-    _setup_remote_processes(executor)
+    if parsed_args.remote_machine_setup:
+      _setup_remote_processes(executor)
   except subprocess.CalledProcessError as e:
     # Print the stack trace if any preliminary command fails so that the
     # failing command can be examined easily, and rethrow the exception to pass
@@ -184,13 +186,14 @@ def launch_remote_chrome(parsed_args, argv):
 
     executor = _create_remote_executor(
         parsed_args, attach_nacl_gdb_type=attach_nacl_gdb_type,
-        nacl_helper_binary=nacl_helper_binary)
+        nacl_helper_binary=nacl_helper_binary,
+        arc_dir_name=parsed_args.remote_arc_dir_name)
 
     copied_files = (
         remote_executor_util.get_launch_chrome_files_and_directories(
             parsed_args) +
         [_get_adb_path()])
-    _setup_remote_environment(executor, copied_files)
+    _setup_remote_environment(parsed_args, executor, copied_files)
 
     if need_copy_nacl_helper_binary:
       executor.copy_remote_files([_REMOTE_NACL_HELPER_BINARY], tmpdir)
@@ -291,7 +294,7 @@ def run_remote_unittest(parsed_args):
       parsed_args)
   try:
     executor = _create_remote_executor(parsed_args)
-    _setup_remote_environment(executor, copied_files)
+    _setup_remote_environment(parsed_args, executor, copied_files)
     _copy_unittest_executables_to_arc_with_exec(executor, parsed_args.tests)
 
     verbose = ['--verbose'] if parsed_args.verbose else []
@@ -314,7 +317,7 @@ def run_remote_integration_tests(parsed_args, argv,
         remote_executor_util.get_integration_test_files_and_directories() +
         [_get_adb_path()] +
         configs_for_integration_tests)
-    _setup_remote_environment(executor, copied_files)
+    _setup_remote_environment(parsed_args, executor, copied_files)
     _copy_unittest_executables_to_arc_with_exec(
         executor, unittest_util.get_all_tests())
     executor.run(_copy_to_arc_root_with_exec(

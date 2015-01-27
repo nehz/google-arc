@@ -3234,7 +3234,7 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
   """Builds an APK using the Android SDK directly."""
 
   def __init__(self, module_name, base_path=None, install_path=None,
-               use_ndk=False, **kwargs):
+               use_ndk=False, use_gtest=False, **kwargs):
     super(ApkFromSdkNinjaGenerator, self).__init__(
         module_name,
         ninja_name=module_name + '_apk',
@@ -3245,6 +3245,10 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
           ApkFromSdkNinjaGenerator.get_install_path_for_module(module_name)
     self._install_path = install_path
     self._use_ndk = use_ndk
+
+    # If use_gtest is set, some dependencies to use gtest are automatically
+    # added to the build. See also build_default_all_sources() below.
+    self._use_gtest = use_gtest
 
   @staticmethod
   def get_install_path_for_module(module_name):
@@ -3277,6 +3281,23 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
     implicit += map(staging.third_party_to_staging,
                     build_common.get_android_sdk_ndk_dependencies())
     implicit += [build_script]
+
+    if self._use_gtest:
+      # Add dependency to googletest library.
+      gtest_dependencies = ['googletest/Android.mk']
+      gtest_dependencies.extend(build_common.find_all_files(
+          base_paths=['googletest/include', 'googletest/src'],
+          include_tests=True))
+
+      # Add src/integration_tests/common, which include an adapter code to
+      # use gtest via ATF.
+      gtest_dependencies.extend(build_common.find_all_files(
+          base_paths=['src/integration_tests/common'],
+          include_tests=True))
+
+      # Implicit path must be staging paths relative to the ARC root.
+      implicit.extend(staging.as_staging(path) for path in gtest_dependencies)
+
     args = ''
     if self._use_ndk:
       args = '--use_ndk'

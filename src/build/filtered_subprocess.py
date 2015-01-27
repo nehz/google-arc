@@ -311,8 +311,20 @@ class Popen(subprocess.Popen):
 
     If stop_on_done is True, the run loop stops trying to filter output as soon
     as the output_handler signals it is done, and just waits for process
-    termination."""
+    termination.
+    """
+    for _ in self.run_process_filtering_output_generator(
+        output_handler, timeout=timeout, output_timeout=output_timeout,
+        stop_on_done=stop_on_done):
+      pass
 
+  def run_process_filtering_output_generator(
+      self, output_handler, timeout=None, output_timeout=None,
+      stop_on_done=False):
+    """Generator version of run_process_filtering_output().
+
+    This generator yields after processing process output chunk.
+    """
     assert self._state == self._STATE_RUNNING
 
     if timeout:
@@ -324,6 +336,9 @@ class Popen(subprocess.Popen):
     self._output_handler = output_handler
     self._stop_on_done = stop_on_done
 
+    # Yield before processing any output.
+    yield
+
     while not self._are_all_pipes_closed():
       self._wait_for_child_output()
       if not self._handle_output():
@@ -332,6 +347,9 @@ class Popen(subprocess.Popen):
         if self.poll() is not None:
           self._close_all_pipes()
           break
+
+      # Yield after processing the output.
+      yield
 
       if self._is_done():
         # Step towards shutting down the child process

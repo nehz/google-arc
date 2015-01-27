@@ -149,7 +149,7 @@ class RemoteOutputHandler(object):
 class RemoteExecutor(object):
   def __init__(self, user, remote, remote_env=None, ssh_key=None,
                enable_pseudo_tty=False, attach_nacl_gdb_type=None,
-               nacl_helper_binary=None):
+               nacl_helper_binary=None, arc_dir_name=None):
     self._user = user
     self._remote_env = remote_env or {}
     if not ssh_key:
@@ -165,6 +165,7 @@ class RemoteExecutor(object):
     self._enable_pseudo_tty = enable_pseudo_tty
     self._attach_nacl_gdb_type = attach_nacl_gdb_type
     self._nacl_helper_binary = nacl_helper_binary
+    self._arc_dir_name = arc_dir_name or 'arc'
     if ':' in remote:
       self._remote, self._port = remote.split(':')
     else:
@@ -189,8 +190,8 @@ class RemoteExecutor(object):
     return self._remote_env.get('TMPDIR', '/tmp')
 
   def get_remote_arc_root(self):
-    """Returns the path of used as the arc root on the remote host."""
-    return os.path.join(self.get_remote_tmpdir(), 'arc')
+    """Returns the arc root path on the remote host."""
+    return os.path.join(self.get_remote_tmpdir(), self._arc_dir_name)
 
   def get_remote_env(self):
     """Returns the environmental variables for the remote host."""

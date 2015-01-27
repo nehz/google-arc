@@ -6,7 +6,6 @@
 
 import argparse
 import ast
-import atexit
 import collections
 import logging
 import os
@@ -14,14 +13,22 @@ import random
 import re
 import subprocess
 import sys
-import tempfile
 
 import build_common
 from build_options import OPTIONS
+import filtered_subprocess
 from util import statistics
 
 # Prefixes for stash directories.
 _STASH_DIR_PREFIX = '.stash'
+
+# Location of the test SSH key.
+_TEST_SSH_KEY = (
+    'third_party/tools/crosutils/mod_for_test_scripts/ssh_keys/testing_rsa')
+
+# File name pattern used for ssh connection sharing (%r: remote login name,
+# %h: host name, and %p: port). See man ssh_config for the detail.
+_SSH_CONTROL_PATH = '/tmp/perftest-ssh-%r@%h:%p'
 
 
 def get_abs_arc_root():
@@ -67,6 +74,9 @@ Typical usage:
       '--noninja', dest='run_ninja', action='store_false',
       help='Do not attempt build before running the above command.')
   base_parser.add_argument(
+      '--allow-debug-builds', action='store_true',
+      help='Allow comparing debug builds.')
+  base_parser.add_argument(
       '--verbose', '-v', action='store_true',
       help='Show verbose logging.')
 
@@ -98,6 +108,10 @@ Typical usage:
       '--launch-chrome-opt', action='append', default=[], metavar='OPTIONS',
       help=('An Option to pass on to launch_chrome. Repeat as needed for any '
             'options to pass on.'))
+  compare_parser.add_argument(
+      '--remote', metavar='<HOST>',
+      help=('The host name of the Chrome OS remote host to run perftest on. '
+            'Other OSs are not currently supported.'))
   compare_parser.set_defaults(entrypoint=handle_compare)
 
   clean_parser = subparsers.add_parser(
@@ -114,11 +128,12 @@ Typical usage:
   return parsed_args
 
 
-def load_and_check_configure_options(arc_root):
+def load_and_check_configure_options(arc_root, parsed_args):
   """Checks if configure options is good for comparison.
 
   Args:
     arc_root: A path to ARC root directory.
+    parsed_args: An argparse.Namespace object.
 
   Returns:
     Configure options as a string.
@@ -128,57 +143,184 @@ def load_and_check_configure_options(arc_root):
     options = f.read().strip()
 
   # Require --opt build.
-  if not ('--official-build' in options or '--opt' in options):
-    sys.exit('configure option bad: either --opt or --official-build '
-             'must be specified')
+  if (not parsed_args.allow_debug_builds and
+      not ('--official-build' in options or '--opt' in options)):
+    sys.exit(
+        'configure option bad: either --opt or --official-build '
+        'must be specified. If you want to compare debug builds, '
+        'please use --allow-debug-builds.')
 
   return options
 
 
-def run_perftest(arc_root, user_data_dir, parsed_args, cache_warming=False):
-  """Runs launch_chrome perftest and scrapes the PERF result.
+class InteractivePerfTestOutputHandler(object):
+  """Output handler for InteractivePerfTestRunner."""
 
-  Args:
-    arc_root: A path to ARC root directory.
-    user_data_dir: A path to the user data directory.
-    parsed_args: An argparse.Namespace object.
-    cache_warming: Whether this is a cache-warming run.
+  def __init__(self, runner):
+    self._runner = runner
 
-  Returns:
-    A VRAWPERF dictionary.
+  def handle_stdout(self, text):
+    sys.stdout.write(text)
+    sys.stdout.flush()
+    return self._handle_common(text)
+
+  def handle_stderr(self, text):
+    sys.stderr.write(text)
+    sys.stderr.flush()
+    return self._handle_common(text)
+
+  def _handle_common(self, text):
+    m = re.search(r'VRAWPERF=(.*)', text)
+    if m:
+      self._runner._on_perf(ast.literal_eval(m.group(1)))
+    m = re.search(r'waiting for next iteration', text)
+    if m:
+      self._runner._on_ready()
+
+  def handle_timeout(self):
+    pass
+
+  def is_done(self):
+    return False
+
+
+class InteractivePerfTestRunner(object):
+  """Provides a programmatic interface of launch_chrome interactive perftest.
+
+  launch_chrome script supports command line options to allow running perftest
+  interactively. Here, "interactive" means that it pauses before each perftest
+  iteration and waits to be instructed to start an iteration.
+
+  Usage of this class is simple:
+
+  >>> runner = InteractivePerfTestRunner('/path/to/arc')
+  >>> runner.start()
+  >>> runner.run()
+  {'app_res_mem': [49.08984375], 'on_resume_time_ms': [1545], ...}
+  >>> runner.run()
+  {'app_res_mem': [49.07812525], 'on_resume_time_ms': [3110], ...}
+  >>> runner.close()
+
+  Also it is worth noting that you can run multiple instances in parallel by
+  passing different instance_id to the constructor, provided that the "master"
+  runner with instance_id=0 must be start()ed first.
   """
-  args = [
-      './launch_chrome',
-      'perftest',
-      '--iterations=1',
-      '--noninja',
-      '--user-data-dir=%s' % user_data_dir,
-  ]
-  # Let launch_chrome perftest do cache-warming run that saves NaCl
-  # validation cache.
-  if not cache_warming:
-    args.append('--no-cache-warming')
-  args.extend(parsed_args.launch_chrome_opt)
 
-  for _ in xrange(3):  # Retry up to 3 times for transient failures.
-    logging.debug('cd %s; %s', arc_root, ' '.join(args))
-    try:
-      output = subprocess.check_output(args, cwd=arc_root)
-      break
-    except subprocess.CalledProcessError as e:
-      logging.error(
-          'launch_chrome perftest failed with returncode=%d. retrying.',
-          e.returncode)
-  else:
-    sys.exit('all attempts failed.')
+  def __init__(
+      self, arc_root, remote=None, launch_chrome_opts=(), instance_id=0):
+    """Initializes a runner.
 
-  # Scrape VRAWPERF from launch_chrome output.
-  m = re.search(r'VRAWPERF=(.*)', output)
-  if not m:
-    sys.exit('launch_chrome did not output VRAWPERF.\n' + output)
-  perf = ast.literal_eval(m.group(1))
-  logging.debug('VRAWPERF=%r', perf)
-  return perf
+    Args:
+      arc_root: A path to ARC root directory.
+      remote: The host name of the Chrome OS remote host to run perftest on.
+          If not specified, perftest is run on local workstation.
+      launch_chrome_opts: Optional arguments to launch_chrome.
+      instance_id: An integer ID of this instance. You can create multiple
+          instances in parallel by passing different instance_id, provided that
+          the "master" runner with instance_id=0 must be start()ed first.
+    """
+    self._arc_root = arc_root
+    self._remote = remote
+    self._launch_chrome_opts = launch_chrome_opts
+    self._instance_id = instance_id
+    self._iteration_lock_file = '/var/tmp/iteration-lock-arc%d' % instance_id
+    self._process = None
+    self._process_generator = None
+
+  def start(self):
+    """Starts launch_chrome script and performs warmup.
+
+    If instance_id is 0, launch_chrome script will also do extra setup if
+    it's running on remote machine.
+    """
+    assert not self._process
+    args = [
+        './launch_chrome',
+        'perftest',
+        # We set the number of iterations to arbitrary large number and
+        # terminate the instance by signals.
+        '--iterations=99999999',
+        '--noninja',
+        '--use-temporary-data-dirs',
+        '--iteration-lock-file=%s' % self._iteration_lock_file]
+    if self._remote:
+      args.extend([
+          '--remote=%s' % self._remote,
+          '--remote-arc-dir-name=arc%d' % self._instance_id])
+      if self._instance_id > 0:
+        args.append('--no-remote-machine-setup')
+    args.extend(self._launch_chrome_opts)
+
+    self._process = filtered_subprocess.Popen(args, cwd=self._arc_root)
+    self._process_generator = (
+        self._process.run_process_filtering_output_generator(
+            InteractivePerfTestOutputHandler(self)))
+
+    # Remove the lock file in case it's left.
+    self._remove_iteration_lock_file()
+    self._iteration_ready = False
+
+    # Process a warmup run.
+    self.run()
+
+  def run(self):
+    """Runs a perftest iteration.
+
+    Returns:
+      VRAWPERF dictionary scraped from launch_chrome output.
+    """
+    # Wait until launch_chrome gets ready for an iteration.
+    while not self._iteration_ready:
+      self._process_generator.next()
+    self._iteration_ready = False
+
+    # Remove the lock file so launch_chrome starts an iteration.
+    self._remove_iteration_lock_file()
+
+    # Watch the output to scrape VRAWPERF.
+    self._last_perf = None
+    while not self._last_perf:
+      self._process_generator.next()
+    return self._last_perf
+
+  def close(self):
+    """Terminates launch_chrome."""
+    self._process.terminate()
+    while True:
+      try:
+        self._process_generator.next()
+      except StopIteration:
+        break
+    self._process = None
+    self._process_generator = None
+
+  def _remove_iteration_lock_file(self):
+    """Removes the iteration lock file, possibly on remote machine."""
+    if self._remote:
+      args = [
+          'ssh',
+          '-o', 'StrictHostKeyChecking=no',
+          '-o', 'UserKnownHostsFile=/dev/null',
+          '-o', 'PasswordAuthentication=no',
+          '-o', 'ControlMaster=auto',
+          '-o', 'ControlPersist=60s',
+          '-o', 'ControlPath=%s' % _SSH_CONTROL_PATH,
+          '-i', _TEST_SSH_KEY,
+          'root@%s' % self._remote]
+      os.chmod(os.path.join(self._arc_root, _TEST_SSH_KEY), 0600)
+    else:
+      args = ['bash', '-c']
+    args.append('rm -f "%s"' % self._iteration_lock_file)
+    build_common.log_subprocess_popen(args, cwd=self._arc_root)
+    subprocess.check_call(args, cwd=self._arc_root)
+
+  def _on_perf(self, perf):
+    """Called back from output handler to notify VRAWPERF is scraped."""
+    self._last_perf = perf
+
+  def _on_ready(self):
+    """Called back from output handler to notify launch_chrome is ready."""
+    self._iteration_ready = True
 
 
 def merge_perfs(a, b):
@@ -232,7 +374,7 @@ def handle_stash(parsed_args):
   arc_root = get_abs_arc_root()
   stash_root = get_abs_stash_root()
 
-  options = load_and_check_configure_options(arc_root)
+  options = load_and_check_configure_options(arc_root, parsed_args)
   logging.info('options: %s', options)
   if parsed_args.run_ninja:
     build_common.run_ninja()
@@ -278,6 +420,8 @@ def handle_stash(parsed_args):
       stash_root)
   subprocess.check_call(args)
 
+  logging.info('stashed the arc tree at %s.', stash_root)
+
 
 def handle_clean(parsed_args):
   """The entry point for clean command.
@@ -303,8 +447,8 @@ def handle_compare(parsed_args):
     sys.exit('%s not found; run "interleaved_perftest.py stash" first to save '
              'control binaries' % ctrl_root)
 
-  ctrl_options = load_and_check_configure_options(ctrl_root)
-  expt_options = load_and_check_configure_options(expt_root)
+  ctrl_options = load_and_check_configure_options(ctrl_root, parsed_args)
+  expt_options = load_and_check_configure_options(expt_root, parsed_args)
 
   logging.info('iterations: %d', parsed_args.iterations)
   logging.info('ctrl_options: %s', ctrl_options)
@@ -313,31 +457,30 @@ def handle_compare(parsed_args):
   if parsed_args.run_ninja:
     build_common.run_ninja()
 
-  ctrl_user_data_dir = tempfile.mkdtemp(
-      prefix=build_common.CHROME_USER_DATA_DIR_PREFIX + '-')
-  expt_user_data_dir = tempfile.mkdtemp(
-      prefix=build_common.CHROME_USER_DATA_DIR_PREFIX + '-')
-  atexit.register(lambda: build_common.rmtree_with_retries(ctrl_user_data_dir))
-  atexit.register(lambda: build_common.rmtree_with_retries(expt_user_data_dir))
+  ctrl_runner = InteractivePerfTestRunner(
+      arc_root=ctrl_root,
+      remote=parsed_args.remote,
+      launch_chrome_opts=parsed_args.launch_chrome_opt,
+      instance_id=0)
+  expt_runner = InteractivePerfTestRunner(
+      arc_root=expt_root,
+      remote=parsed_args.remote,
+      launch_chrome_opts=parsed_args.launch_chrome_opt,
+      instance_id=1)
 
-  print '*** warming up ***'
-
-  run_perftest(
-      ctrl_root, ctrl_user_data_dir, parsed_args, cache_warming=True)
-  run_perftest(
-      expt_root, expt_user_data_dir, parsed_args, cache_warming=True)
+  ctrl_runner.start()
+  expt_runner.start()
 
   ctrl_perfs = collections.defaultdict(list)
   expt_perfs = collections.defaultdict(list)
 
   for iteration in xrange(parsed_args.iterations):
     print '*** iteration %d/%d ***' % (iteration + 1, parsed_args.iterations)
-    merge_perfs(
-        ctrl_perfs,
-        run_perftest(ctrl_root, ctrl_user_data_dir, parsed_args))
-    merge_perfs(
-        expt_perfs,
-        run_perftest(expt_root, expt_user_data_dir, parsed_args))
+    merge_perfs(ctrl_perfs, ctrl_runner.run())
+    merge_perfs(expt_perfs, expt_runner.run())
+
+  ctrl_runner.close()
+  expt_runner.close()
 
   print
   print 'VRAWPERF_CTRL=%r' % dict(ctrl_perfs)  # Convert from defaultdict.
