@@ -283,7 +283,7 @@ class DiffLinter(object):
   def _invoke_analyze_diffs(cls, input_filename, output_filename):
     cmd = ['src/build/analyze_diffs.py', input_filename, output_filename]
     try:
-      subprocess.check_call(cmd, stderr=subprocess.STDOUT)
+      subprocess.check_output(cmd, stderr=subprocess.STDOUT)
       return True
     except OSError:
       logging.error('Unable to invoke %s', cmd[0])

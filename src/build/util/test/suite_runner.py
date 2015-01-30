@@ -13,7 +13,6 @@ import os
 import subprocess
 import sys
 import threading
-import types
 
 import build_common
 from util import launch_chrome_util
@@ -21,7 +20,6 @@ from util.test.scoreboard import Scoreboard
 from util.test.suite_runner_config import SuiteExpectationsLoader
 from util.test.suite_runner_config import default_run_configuration
 from util.test.suite_runner_config_flags import FAIL
-from util.test.suite_runner_config_flags import PASS
 from util.test.suite_runner_config_flags import TIMEOUT
 from util.test.test_method_result import TestMethodResult
 
@@ -216,26 +214,6 @@ class SuiteRunnerBase(object):
     if (len(self._suite_test_expectations) > 1 and
         Scoreboard.ALL_TESTS_DUMMY_NAME in self._suite_test_expectations):
       del self._suite_test_expectations[Scoreboard.ALL_TESTS_DUMMY_NAME]
-
-  def register_tests(self, test_names):
-    if isinstance(test_names, types.DictType):
-      updated_expectations = test_names.copy()
-    elif isinstance(test_names, (types.ListType, types.GeneratorType)):
-      updated_expectations = dict((test_name, PASS) for test_name in test_names)
-    else:
-      assert False, 'Unexpected type for test_names: %s' % type(test_names)
-
-    unknown_test_expectations = []
-    for test_name, result in self._suite_test_expectations.iteritems():
-      # Verify that the name of each test out of our configured expectations.
-      if (test_name != Scoreboard.ALL_TESTS_DUMMY_NAME and
-          test_name not in updated_expectations):
-        unknown_test_expectations.append(
-            'Test %s is not a known test in suite %s' % (
-                test_name, self._name))
-      updated_expectations[test_name] = result
-    assert not unknown_test_expectations, '\n'.join(unknown_test_expectations)
-    self.set_suite_test_expectations(updated_expectations)
 
   def get_scoreboard(self):
     return self._scoreboard

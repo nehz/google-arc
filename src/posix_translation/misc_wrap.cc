@@ -7,6 +7,7 @@
  */
 
 #include <errno.h>
+#include <sched.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
@@ -37,7 +38,11 @@ ARC_EXPORT int __wrap_getpriority(int which, int who);
 ARC_EXPORT int __wrap_getrlimit(int resource, struct rlimit *rlim);
 ARC_EXPORT int __wrap_kill(pid_t pid, int sig);
 ARC_EXPORT int __wrap_madvise(void* addr, size_t length, int advice);
+ARC_EXPORT int __wrap_pthread_setschedparam(pthread_t thread, int policy,
+                                            const struct sched_param* param);
 ARC_EXPORT int __wrap_pthread_kill(pthread_t thread, int sig);
+ARC_EXPORT int __wrap_sched_setscheduler(pid_t pid, int policy,
+                                         const struct sched_param* param);
 ARC_EXPORT int __wrap_setpriority(int which, int who, int prio);
 ARC_EXPORT int __wrap_setrlimit(int resource, const struct rlimit *rlim);
 ARC_EXPORT int __wrap_sigaction(int signum, const struct sigaction *act,
@@ -236,8 +241,27 @@ int __wrap_kill(pid_t pid, int sig) {
   ARC_STRACE_RETURN(-1);
 }
 
+int __wrap_pthread_setschedparam(pthread_t thread, int policy,
+                                 const struct sched_param* param) {
+  ARC_STRACE_ENTER("pthread_setschedparam", "%s, %p sched_priority=%d",
+                   arc::GetSchedSetSchedulerPolicyStr(policy).c_str(),
+                   param,
+                   (param ? param->sched_priority : 0));
+  ARC_STRACE_RETURN_INT(ENOSYS, false);
+}
+
 int __wrap_pthread_kill(pthread_t thread, int sig) {
   ARC_STRACE_ENTER("pthread_kill", "\"%s\"", strsignal(sig));
+  ARC_STRACE_RETURN_INT(ENOSYS, false);
+}
+
+int __wrap_sched_setscheduler(pid_t pid, int policy,
+                              const struct sched_param* param) {
+  ARC_STRACE_ENTER("sched_setscheduler", "%d, %s, %p sched_priority=%d",
+                   pid,
+                   arc::GetSchedSetSchedulerPolicyStr(policy).c_str(),
+                   param,
+                   (param ? param->sched_priority : 0));
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }
@@ -443,6 +467,17 @@ int __wrap_pthread_create(
   // TODO(crbug.com/241955): Stringify |attr|?
   ARC_STRACE_ENTER("pthread_create", "%p, %p, %p, %p",
                    thread_out, attr, start_routine, arg);
+
+  if (arc::StraceEnabled() && attr) {
+    int policy = SCHED_OTHER;
+    struct sched_param param = {};
+    if (pthread_attr_getschedpolicy(attr, &policy) == 0 &&
+        pthread_attr_getschedparam(attr, &param) == 0) {
+      ARC_STRACE_REPORT("schedpolicy: %s, priority: %d",
+                        arc::GetSchedSetSchedulerPolicyStr(policy).c_str(),
+                        param.sched_priority);
+    }
+  }
 
   arc::ProcessEmulator::UpdateAndAllocatePthreadCreateArgsIfNewEmulatedProcess(
       &start_routine, &arg);

@@ -187,7 +187,7 @@ class _AnalyzeDiffState(object):
   def _consider_potentially_deleted_lines_deleted(self):
     if self._potentially_deleted_line is not None:
       show_error(self._stats, 'Line removed outside mod region:\n' +
-                 self._potentially_deleted_line + '\n')
+                 self._potentially_deleted_line)
       self._potentially_deleted_line = None
 
   def _handle_hunk_header(self, line):

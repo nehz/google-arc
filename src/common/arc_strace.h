@@ -84,6 +84,7 @@ std::string GetMadviseAdviceStr(int advice);
 std::string GetMmapProtStr(int prot);
 std::string GetMmapFlagStr(int flag);
 std::string GetPollEventStr(int16_t events);
+std::string GetSchedSetSchedulerPolicyStr(int policy);
 std::string GetSocketDomainStr(int domain);
 std::string GetSocketTypeStr(int type);
 std::string GetSocketProtocolStr(int protocol);

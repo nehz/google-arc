@@ -5,14 +5,18 @@
 # Code shared between configure.py and generate_chrome_launch_script.py
 
 import atexit
+import cStringIO
+import contextlib
 import errno
 import fnmatch
+import functools
 import json
 import logging
 import modulefinder
 import os
 import pipes
 import platform
+import random
 import re
 import shutil
 import subprocess
@@ -20,6 +24,7 @@ import sys
 import tempfile
 import time
 import urllib2
+import zipfile
 
 from build_options import OPTIONS
 from util import launch_chrome_util
@@ -869,3 +874,59 @@ def get_gsutil_executable():
   if not os.access(gsutil, os.X_OK):
     raise Exception('%s is not available' % gsutil)
   return gsutil
+
+
+def with_retry_on_exception(func):
+  """Decorator to run a function with retry on exception.
+
+  On failure (when an exception is raised), recalls the function with the
+  same arguments after certain sleep. If retry does not work for several
+  times (currently it attempts 5 retries, i.e. 6 trials in total), re-raises
+  the last exception.
+  """
+  @functools.wraps(func)
+  def wrapper(*args, **kwargs):
+    # On first failure, we retry with 5 secs sleep. If it still fails,
+    # we wait 30 secs, 1 min, 2 mins and then 4 mins, before retry.
+    # The sleeping duration is chosen just heuristically.
+    # cf) Exponential backoff.
+    backoff_list = [5, 30, 60, 120, 240]
+    while True:
+      try:
+        return func(*args, **kwargs)
+      except Exception:
+        # Let bot mark warning.
+        print '@@@STEP_WARNINGS@@@'
+        if not backoff_list:
+          raise
+        # Add small randomness to avoid continuous conflicting.
+        sleep_duration = backoff_list.pop(0) + random.randint(0, 15)
+        logging.exception('Retrying after %d s sleeping', sleep_duration)
+        time.sleep(sleep_duration)
+  return wrapper
+
+
+def download_content(url):
+  """Downloads the content at the URL.
+
+  Considering server/network flakiness and error, this tries downloading on
+  failure several times.
+  """
+  logging.info('Downloading... %s', url)
+
+  @with_retry_on_exception
+  def internal():
+    with contextlib.closing(urllib2.urlopen(url)) as stream:
+      return stream.read()
+  return internal()
+
+
+def inflate_zip(content, dest_dir):
+  """Inflates the zip content into the dest_dir."""
+  makedirs_safely(dest_dir)
+  with zipfile.ZipFile(cStringIO.StringIO(content)) as archive:
+    logging.info('Extracting...')
+    for info in archive.infolist():
+      logging.info('  inflating: %s', info.filename)
+      archive.extract(info, path=dest_dir)
+    logging.info('Done.')

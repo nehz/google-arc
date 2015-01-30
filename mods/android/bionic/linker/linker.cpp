@@ -1069,6 +1069,12 @@ static soinfo* load_library(const char* name) {
       si->entry = header.e_entry + elf_reader.load_bias();
     if (!si->phdr)
       DL_ERR("Cannot locate a program header in \"%s\".", name);
+
+    // Set is_ndk appropriately. NDK libraries in APKs are in
+    // /data/app-lib/<app-name>.
+    const char kNdkLibraryDir[] = "/data/app-lib/";
+    si->is_ndk = (!strncmp(name, kNdkLibraryDir, sizeof(kNdkLibraryDir) - 1) ||
+                  !strncmp(name, kVendorLibDir, sizeof(kVendorLibDir) - 1));
 #endif
     // ARC MOD END
     return si;
@@ -1337,8 +1343,8 @@ static int soinfo_relocate(soinfo* si, Elf32_Rel* rel, unsigned count,
               lsi = si;
             } else {
 #if defined(__native_client__) || defined(BARE_METAL_BIONIC)
-              // If |g_resolve_symbol| is injected, try this first.
-              if (g_resolve_symbol) {
+              // If |g_resolve_symbol| is injected, try this first for NDK.
+              if (si->is_ndk && g_resolve_symbol) {
                   sym_addr = reinterpret_cast<Elf32_Addr>(
                       g_resolve_symbol(sym_name));
                   if (sym_addr) {

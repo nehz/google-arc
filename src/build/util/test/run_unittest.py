@@ -22,6 +22,7 @@ import argparse
 import json
 import os
 import shlex
+import signal
 import subprocess
 import sys
 import string
@@ -43,7 +44,7 @@ def _read_test_info(filename):
     return json.load(f)
 
 
-def _construct_command(test_info):
+def _construct_command(test_info, gtest_filter):
   variables = test_info['variables'].copy()
   variables.setdefault('argv', '')
   variables.setdefault('qemu_arm', '')
@@ -81,12 +82,14 @@ def _construct_command(test_info):
     variables['argv'] = variables['argv'].replace(
         build_dir, os.path.join(arc_root_with_exec, build_dir))
 
+  if gtest_filter:
+    variables['gtest_options'] = '--gtest_filter=' + gtest_filter
   # Test is run as a command to build a test results file.
   command_template = string.Template(test_info['command'])
   return command_template.substitute(variables)
 
 
-def _run_unittest(tests, verbose):
+def _run_unittest(tests, verbose, use_gdb, gtest_filter):
   """Runs the unit tests specified in test_info.
 
   This can run unit tests without depending on ninja and is mainly used on the
@@ -105,13 +108,18 @@ def _run_unittest(tests, verbose):
         if index == 1:
           unfound_tests.append(test)
         break
-      command = _construct_command(test_info)
+      command = _construct_command(test_info, gtest_filter)
       if verbose:
         print 'Running:', command
-      returncode = subprocess.call(shlex.split(command))
-      if returncode != 0:
-        print 'FAILED: ' + test
-        failed_tests.append('%s.%d' % (test, index))
+      args = shlex.split(command)
+      if use_gdb:
+        print args
+        util.test.unittest_util.run_gdb(args)
+      else:
+        returncode = subprocess.call(args)
+        if returncode != 0:
+          print 'FAILED: ' + test
+          failed_tests.append('%s.%d' % (test, index))
       index += 1
   if unfound_tests:
     print 'The following tests were not found: \n' + '\n'.join(unfound_tests)
@@ -120,6 +128,15 @@ def _run_unittest(tests, verbose):
   if unfound_tests or failed_tests:
     return -1
   return 0
+
+
+def _check_args(parsed_args):
+  if parsed_args.gdb:
+    if len(parsed_args.tests) != 1:
+      raise Exception('You should specify only one test with --gdb.')
+    # TODO(crbug.com/439369): Support --gdb with --remote.
+    if parsed_args.remote:
+      raise Exception('Setting both --gdb and --remote is not supported yet.')
 
 
 def main():
@@ -131,19 +148,39 @@ def main():
                       help=('The name of a unit test, such as libcommon_test.'
                             'If tests argument is not given, all unit tests '
                             'are run.'))
+  parser.add_argument('--gdb', action='store_true', default=False,
+                      help='Run the test under GDB.')
+  parser.add_argument('-f', '--gtest-filter',
+                      help='A \':\' separated list of googletest test filters')
+  parser.add_argument('--list', action='store_true',
+                      help='List the names of tests.')
   parser.add_argument('-v', '--verbose', action='store_true',
                       default=False, dest='verbose',
                       help=('Show verbose output, including commands run'))
   util.remote_executor.add_remote_arguments(parser)
   parsed_args = parser.parse_args()
 
+  if parsed_args.list:
+    for test_name in util.test.unittest_util.get_all_tests():
+      print test_name
+    return 0
+
   if not parsed_args.tests:
     parsed_args.tests = util.test.unittest_util.get_all_tests()
+
+  _check_args(parsed_args)
+
+  if parsed_args.gdb:
+    # This script must not die by Ctrl-C while GDB is running. We simply
+    # ignore SIGINT. Note that GDB will still handle Ctrl-C properly
+    # because GDB sets its signal handler by itself.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
   if parsed_args.remote:
     return util.remote_executor.run_remote_unittest(parsed_args)
   else:
-    return _run_unittest(parsed_args.tests, parsed_args.verbose)
+    return _run_unittest(parsed_args.tests, parsed_args.verbose,
+                         parsed_args.gdb, parsed_args.gtest_filter)
 
 
 if __name__ == '__main__':

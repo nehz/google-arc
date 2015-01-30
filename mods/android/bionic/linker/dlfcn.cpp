@@ -371,4 +371,8 @@ soinfo libdl_info = {
     load_bias: 0,
     has_text_relocations: false,
     has_DT_SYMBOLIC: true,
+    // ARC MOD BEGIN
+    // Initialize |is_ndk|.
+    is_ndk: false,
+    // ARC MOD END
 };

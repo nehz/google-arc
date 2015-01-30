@@ -157,7 +157,8 @@ class StartupStats:
     return True
 
   def parse_pre_plugin_perf_message(self, line):
-    match = self.pre_plugin_perf_message_pattern.match(line)
+    # We use re.search instead of re.match to work around stdout mixing.
+    match = self.pre_plugin_perf_message_pattern.search(line)
     if match:
       print line
       self.pre_plugin_time_ms = int(match.group(1))
@@ -169,7 +170,8 @@ class StartupStats:
   def parse_app_start_message(self, line):
     if self.on_resume_time_ms is not None:
       return  # Ignore subsequent messages
-    match = self.start_message_pattern.match(line)
+    # We use re.search instead of re.match to work around stdout mixing.
+    match = self.start_message_pattern.search(line)
     if match:
       self.on_resume_time_ms = int(float(match.group(1)) * 1000)
       self.app_virt_mem = int(match.group(2))

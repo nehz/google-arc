@@ -86,6 +86,11 @@ def _cleanup_orphaned_pyc_files():
           os.unlink(fullpath)
 
 
+def _cleanup_remote_unittest_info():
+  if os.path.exists(build_common.get_remote_unittest_info_path()):
+    shutil.rmtree(build_common.get_remote_unittest_info_path())
+
+
 def _gclient_sync_third_party():
   gclient_filename = 'third_party/.gclient'
 
@@ -273,6 +278,7 @@ def main():
   _gclient_sync_third_party()
   _check_javac_version()
   _cleanup_orphaned_pyc_files()
+  _cleanup_remote_unittest_info()
 
   _set_up_git_hooks()
 

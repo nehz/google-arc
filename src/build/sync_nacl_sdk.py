@@ -12,7 +12,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 import urllib
 
@@ -45,13 +44,17 @@ def _log_check_call(log_function, *args, **kwargs):
     # Unlike subprocess.check_call, as we do not use 'args' kw-arg in this
     # module, we do not check it.
     cmd = args[0]
-    raise subprocess.CalledProcessError(cmd, return_code)
+    raise subprocess.CalledProcessError(return_code, cmd)
 
 
 def _roll_forward_pinned_manifest():
   """Roll forward the pinned manifest to the latest version."""
   logging.info('Rolling forward the pinned NaCl manifest...')
-  urllib.urlretrieve(_LATEST_MANIFEST_URL, _PINNED_MANIFEST)
+
+  @build_common.with_retry_on_exception
+  def retrieve_manifest():
+    urllib.urlretrieve(_LATEST_MANIFEST_URL, _PINNED_MANIFEST)
+  retrieve_manifest()
   logging.info('Done.')
 
 
@@ -67,49 +70,45 @@ def _should_delete_nacl_sdk():
   return not filecmp.cmp(_PINNED_MANIFEST, _STAMP_PATH)
 
 
-def _update_nacl_sdk():
-  """Download and sync the NaCl SDK."""
-  if _should_delete_nacl_sdk():
-    # Deleting the obsolete SDK tree usually takes only <1s.
-    logging.info('Deleting old NaCl SDK...')
-    shutil.rmtree(_NACL_SDK_DIR)
+def _ensure_naclsdk_downloaded():
+  """Downloads the naclsdk script if necessary."""
+  if (not _should_delete_nacl_sdk() and
+      os.path.exists(os.path.join(_NACL_SDK_DIR, 'naclsdk'))):
+    return
+
+  # Deleting the obsolete SDK tree usually takes only <1s.
+  logging.info('Deleting old NaCl SDK...')
+  shutil.rmtree(_NACL_SDK_DIR, ignore_errors=True)
 
   # Download sdk zip if needed. The zip file only contains a set of Python
   # scripts that download the actual SDK. This step usually takes only <1s.
-  if (not os.path.exists(_NACL_SDK_DIR) or
-      not os.path.exists(os.path.join(_NACL_SDK_DIR, 'naclsdk'))):
-    logging.info('NaCl SDK Updater not present, downloading...')
-    work_dir = tempfile.mkdtemp(suffix='.tmp', prefix='naclsdk')
-    try:
-      zip_path = os.path.join(work_dir, 'nacl_sdk.zip')
-      urllib.urlretrieve(_NACL_SDK_ZIP_URL, zip_path)
-      logging.info('Extracting...')
-      build_common.makedirs_safely(_NACL_SDK_DIR)
-      _log_check_call(
-          logging.info, ['unzip', zip_path],
-          cwd=os.path.dirname(_NACL_SDK_DIR))
-    except:
-      logging.error('Extracting SDK Updater failed, cleaning up...')
-      shutil.rmtree(_NACL_SDK_DIR, ignore_errors=True)
-      logging.error('Cleaned up.')
-      raise
-    finally:
-      shutil.rmtree(work_dir)
-    logging.info('Done.')
+  logging.info('Downloading nacl_sdk.zip...')
+  zip_content = build_common.download_content(_NACL_SDK_ZIP_URL)
+  # The archived path starts with nacl_sdk/, so we inflate the contents
+  # into the one level higher directory.
+  build_common.inflate_zip(zip_content, os.path.dirname(_NACL_SDK_DIR))
+  os.chmod(os.path.join(_NACL_SDK_DIR, 'naclsdk'), 0700)
 
-  # Update based on pinned manifest. This part can be as slow as 1-2 minutes
-  # regardless of whether it is a fresh install or an update.
-  start = time.time()
-  logging.info('Updating NaCl SDK...')
-  _log_check_call(
-      logging.info, ['./naclsdk', 'update', '-U', 'file://' + _PINNED_MANIFEST,
-                     '--force', 'pepper_canary'],
-      cwd=_NACL_SDK_DIR)
-  total_time = time.time() - start
-  if total_time > 1:
-    print 'NaCl SDK update took %0.3fs' % total_time
-  else:
-    logging.info('Done. [%fs]' % total_time)
+
+def _update_nacl_sdk():
+  """Syncs the NaCL SDK. based on pinned manifest."""
+
+  # In ./naclsdk execution, it sometimes fails due to the server-side or
+  # network errors. So, here we retry on failure sometimes.
+  @build_common.with_retry_on_exception
+  def internal():
+    start = time.time()
+    logging.info('Updating NaCl SDK...')
+    _log_check_call(
+        logging.info,
+        ['./naclsdk', 'update', '-U', 'file://' + _PINNED_MANIFEST,
+         '--force', 'pepper_canary'],
+        cwd=_NACL_SDK_DIR)
+    elapsed_time = time.time() - start
+    if elapsed_time > 1:
+      print 'NaCl SDK update took %0.3fs' % elapsed_time
+    logging.info('Done. [%fs]' % elapsed_time)
+  return internal()
 
 
 def _update_stamp():
@@ -134,10 +133,10 @@ def main(args):
 
   if args.roll:
     _roll_forward_pinned_manifest()
+
+  _ensure_naclsdk_downloaded()
   _update_nacl_sdk()
   _update_stamp()
-
-  return 0
 
 
 if __name__ == '__main__':

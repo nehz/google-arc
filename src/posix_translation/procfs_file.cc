@@ -196,7 +196,7 @@ const char kProcStatusFormat[] =
     "VmSwap:        0 kB\n";
 
 // This file was previously a canned file.
-// TODO(kmixter): Construct a valid map.
+// TODO(crbug.com/452367): Construct a valid map.
 const char kProcMapsFormat[] =
     "00008000-0002e000 r-xp 00000000 00:01 26         /sbin/adbd\n"
     "0002f000-00031000 rw-p 00026000 00:01 26         /sbin/adbd\n"

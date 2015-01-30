@@ -7,7 +7,6 @@ src/build/tests/analyze_diffs/mods/android_hardware_UsbDeviceConnection.cpp
 
 Line 24: Line removed outside mod region:
 
-
 Line 33: Line added outside mod region:
 
 Line 47: Modification description file does not exist: src/build/tests/analyze_diffs/mods/fork/test-named-fork

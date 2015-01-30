@@ -24,6 +24,11 @@ namespace arc {
 
 class InputManagerInterface;
 
+class ResizeObserver {
+ public:
+  virtual void OnResize(int width, int height) = 0;
+};
+
 class RendererInterface {
  public:
   struct RenderParams {
@@ -36,11 +41,22 @@ class RendererInterface {
     // Like crx_render_to_view_pixels, controls the size of the
     // Graphics3D/Image2D resource. See also common/options.h.
     float crx_render_to_view_pixels;
+
+    bool operator==(const RenderParams& params) const {
+      return width == params.width && height == params.height &&
+          device_render_to_view_pixels == params.device_render_to_view_pixels &&
+          crx_render_to_view_pixels == params.crx_render_to_view_pixels;
+    }
+    bool operator!=(const RenderParams& params) const {
+      return !operator==(params);
+    }
   };
   virtual ~RendererInterface() {}
 
   // Get the plugin's render characteristics.
   virtual void GetRenderParams(RenderParams* params) const = 0;
+
+  virtual void SetResizeObserver(ResizeObserver* observer) = 0;
 };
 
 class SWRendererInterface {

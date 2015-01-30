@@ -12,11 +12,9 @@ Line 585: End tag does not match the start:
 Line 632: Upstream description file does not exist: src/build/tests/analyze_diffs/mods/upstream/test_nonexisting
 Line 769: Line removed outside mod region:
 }        
-
 Line 769: Line added outside mod region:
 }
 Line 843: Line removed outside mod region:
   
-
 Line 843: Line added outside mod region:
 

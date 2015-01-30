@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <linux/ashmem.h>  // ASHMEM_*
+#include <linux/sched.h>  // SCHED_BATCH
 #include <linux/sync.h>  // SYNC_IOC_*
 #include <nacl_stat.h>
 #include <netinet/in.h>
@@ -834,6 +835,18 @@ std::string GetPollEventStr(int16_t events) {
   APPEND_ENUM_STR(events, POLLNVAL, result);
   if (events)
     AppendResult(base::StringPrintf("%hd???", events), &result);
+  return result;
+}
+
+std::string GetSchedSetSchedulerPolicyStr(int policy) {
+  std::string result;
+  switch (policy) {
+    CASE_APPEND_ENUM_STR(SCHED_OTHER, result);
+    CASE_APPEND_ENUM_STR(SCHED_BATCH, result);
+    CASE_APPEND_ENUM_STR(SCHED_FIFO, result);
+    CASE_APPEND_ENUM_STR(SCHED_RR, result);
+    default: AppendResult(base::StringPrintf("%d???", policy), &result);
+  }
   return result;
 }
 

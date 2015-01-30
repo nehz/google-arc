@@ -3320,11 +3320,13 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
     return build_common.get_build_path_for_apk(
         apk_name, subpath=apk_name + '.apk')
 
-  def build_google_test_list(self):
+  def build_google_test_list(self, sources=None):
+    if sources is None:
+      sources = self.find_all_contained_files('_test.cc', include_tests=True)
     return self.build(
         [build_common.get_integration_test_list_path(self._module_name)],
         'extract_google_test_list',
-        inputs=self.find_all_contained_files('_test.cc', include_tests=True),
+        inputs=sources,
         implicit=[build_common.get_extract_google_test_list_path()])
 
 

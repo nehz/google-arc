@@ -32,7 +32,7 @@ _ALLOWED_ORIENTATIONS = ['landscape', 'portrait']
 
 _ALLOWED_ORIENTATION_MAPPING = {'l': 'landscape', 'p': 'portrait'}
 
-_ALLOWED_RESIZES = ['disabled', 'scale']
+_ALLOWED_RESIZES = ['disabled', 'reconfigure', 'scale']
 
 _ALLOWED_STDERR_LOGS = ['V', 'D', 'I', 'W', 'E', 'F', 'S']
 

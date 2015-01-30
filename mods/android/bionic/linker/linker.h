@@ -259,6 +259,10 @@ struct soinfo {
 
   bool has_text_relocations;
   bool has_DT_SYMBOLIC;
+  // ARC MOD BEGIN
+  // A flag to distinguish NDK libraries.
+  bool is_ndk;
+  // ARC MOD END
 
   void CallConstructors();
   void CallDestructors();

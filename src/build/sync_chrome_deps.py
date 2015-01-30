@@ -36,7 +36,7 @@ def main():
 
   # TODO(crbug.com/385310): Use chrome_hash once we start using correct repo.
   git_log_line = subprocess.check_output(
-      ['git', 'log', '--remotes', '--grep',
+      ['git', 'log', '--remotes=*/master', '--grep',
        'Cr-Commit-Position: refs/heads/master@{#%s}' % chrome_revision,
        '-n', '1', '--oneline'],
       cwd=_PPAPI_DIR)

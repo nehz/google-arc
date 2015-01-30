@@ -17,12 +17,13 @@ from util.test import suite_runner_util
 class JavaScriptTestRunner(suite_runner.SuiteRunnerBase):
   """A test runner for running JavaScript tests."""
 
-  def __init__(self, name, apk=None, additional_launch_chrome_args=None,
+  def __init__(self, name, apks=None, additional_launch_chrome_args=None,
                **kwargs):
-    if apk is None:
-      apk = ApkFromSdkNinjaGenerator.get_install_path_for_module('HelloAndroid')
+    if apks is None:
+      apks = [ApkFromSdkNinjaGenerator.get_install_path_for_module(
+          'HelloAndroid')]
     self._name = name
-    self._apk = apk
+    self._apks = apks
     self._additional_launch_chrome_args = additional_launch_chrome_args
     super(JavaScriptTestRunner, self).__init__(name, **kwargs)
     self.set_suite_test_expectations(
@@ -38,11 +39,11 @@ class JavaScriptTestRunner(suite_runner.SuiteRunnerBase):
   def _get_js_test_options(self, test_methods_to_run):
     if test_methods_to_run == [scoreboard.Scoreboard.ALL_TESTS_DUMMY_NAME]:
       test_methods_to_run = None
-    args = ['atftest',
-            self._apk,
-            '--app-template',
-            build_common.get_build_path_for_gen_test_template(self._name),
-            '--run-test-as-app']
+    args = ['atftest']
+    args.extend(self._apks)
+    args.extend(['--app-template',
+                 build_common.get_build_path_for_gen_test_template(self._name),
+                '--run-test-as-app'])
     if self._additional_launch_chrome_args:
       args.extend(self._additional_launch_chrome_args)
     if test_methods_to_run:

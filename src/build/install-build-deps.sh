@@ -85,5 +85,11 @@ libtinfo5:i386
 libtinfo5
 "
 
-sudo apt-get install --no-install-recommends \
+FORCE=
+if [ "${1-}" == "--force" ];
+then 
+FORCE="-y"
+fi
+
+sudo apt-get install --no-install-recommends $FORCE \
   ${arc_list} ${chrome32_list} ${nacl_list}
