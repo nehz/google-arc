@@ -19,6 +19,39 @@ from build_options import OPTIONS
 _WRAPPED_FUNCTIONS_CC_TEMPLATE = string.Template("""
 // Auto-generated file - DO NOT EDIT!
 
+#include <dirent.h>
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <grp.h>
+#include <netdb.h>
+#include <poll.h>
+#include <pthread.h>
+#include <pwd.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/epoll.h>
+#include <sys/eventfd.h>
+#include <sys/file.h>
+#include <sys/inotify.h>
+#include <sys/mman.h>
+#include <sys/mount.h>
+#include <sys/resource.h>
+#include <sys/signalfd.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/statvfs.h>
+#include <sys/syscall.h>
+#include <sys/time.h>
+#include <sys/timerfd.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <sys/utsname.h>
+#include <sys/vfs.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <utime.h>
+
 #include "common/wrapped_functions.h"
 #include "common/wrapped_function_declarations.h"
 

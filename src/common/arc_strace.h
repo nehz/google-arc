@@ -85,6 +85,8 @@ std::string GetMmapProtStr(int prot);
 std::string GetMmapFlagStr(int flag);
 std::string GetPollEventStr(int16_t events);
 std::string GetSchedSetSchedulerPolicyStr(int policy);
+std::string GetSetPriorityPrioStr(int prio);
+std::string GetSetPriorityWhichStr(int which);
 std::string GetSocketDomainStr(int domain);
 std::string GetSocketTypeStr(int type);
 std::string GetSocketProtocolStr(int protocol);

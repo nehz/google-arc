@@ -24,9 +24,11 @@
 #include <sys/epoll.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/resource.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/un.h>
 
@@ -46,6 +48,7 @@
 #include "common/logd_write.h"
 #include "common/options.h"
 #include "common/process_emulator.h"
+#include "common/thread_priorities.h"
 #include "ppapi/c/pp_errors.h"
 
 #undef LOG_TAG
@@ -846,6 +849,34 @@ std::string GetSchedSetSchedulerPolicyStr(int policy) {
     CASE_APPEND_ENUM_STR(SCHED_FIFO, result);
     CASE_APPEND_ENUM_STR(SCHED_RR, result);
     default: AppendResult(base::StringPrintf("%d???", policy), &result);
+  }
+  return result;
+}
+
+std::string GetSetPriorityWhichStr(int which) {
+  std::string result;
+  switch (which) {
+    CASE_APPEND_ENUM_STR(PRIO_PROCESS, result);
+    CASE_APPEND_ENUM_STR(PRIO_PGRP, result);
+    CASE_APPEND_ENUM_STR(PRIO_USER, result);
+    default: AppendResult(base::StringPrintf("%d???", which), &result);
+  }
+  return result;
+}
+
+std::string GetSetPriorityPrioStr(int prio) {
+  std::string result;
+  switch (prio) {
+    CASE_APPEND_ENUM_STR(ANDROID_PRIORITY_LOWEST, result);
+    CASE_APPEND_ENUM_STR(ANDROID_PRIORITY_BACKGROUND, result);
+    CASE_APPEND_ENUM_STR(ANDROID_PRIORITY_NORMAL, result);
+    CASE_APPEND_ENUM_STR(ANDROID_PRIORITY_FOREGROUND, result);
+    CASE_APPEND_ENUM_STR(ANDROID_PRIORITY_DISPLAY, result);
+    CASE_APPEND_ENUM_STR(ANDROID_PRIORITY_URGENT_DISPLAY, result);
+    CASE_APPEND_ENUM_STR(ANDROID_PRIORITY_AUDIO, result);
+    CASE_APPEND_ENUM_STR(ANDROID_PRIORITY_URGENT_AUDIO, result);
+    CASE_APPEND_ENUM_STR(ANDROID_PRIORITY_HIGHEST, result);
+    default: result = "???";
   }
   return result;
 }

@@ -27,10 +27,10 @@ def _get_defined_functions(library):
   return functions
 
 
-def _check_wrapper_functions_are_defined(functions, arc_nexe):
-  arc_nexe_funcs = _get_defined_functions(arc_nexe)
+def _check_wrapper_functions_are_defined(functions, libpt_so):
+  libpt_so_funcs = _get_defined_functions(libpt_so)
   wrapper_funcs = set()
-  for func in arc_nexe_funcs:
+  for func in libpt_so_funcs:
     if func.startswith('__wrap_'):
       wrapper_funcs.add(func.replace('__wrap_', ''))
 
@@ -38,7 +38,8 @@ def _check_wrapper_functions_are_defined(functions, arc_nexe):
   for func in sorted(functions - wrapper_funcs):
     ok = False
     print ('--wrap=%s is specified in wrapped_functions.py, '
-           'but __wrap_%s is not defined in arc.nexe' % (func, func))
+           'but __wrap_%s is not defined in libposix_translation.so' % (
+           func, func))
 
   # We internally use them to implement IRT wrappers.
   whitelist = set(['close',
@@ -51,32 +52,18 @@ def _check_wrapper_functions_are_defined(functions, arc_nexe):
   for func in sorted(wrapper_funcs - functions - whitelist):
     ok = False
     print ('--wrap=%s is not specified in wrapped_functions.py, '
-           'but __wrap_%s is defined in arc.nexe' % (func, func))
+           'but __wrap_%s is defined in libposix_translation.so' % (func, func))
 
   return ok
 
 
 def _check_wrapped_functions_are_defined(functions, libc_libraries):
-  def _get_whitelist():
-    # They are glibc-only functions, but we provide wrappers for them
-    # as they might be added to Bionic in future.
-    # TODO(crbug.com/350701): Remove them once we have removed glibc
-    # support and had some kind of check for symbols in Bionic.
-    return ['epoll_create1',
-            'epoll_pwait',
-            'inotify_init1',
-            'mkostemp',
-            'mkostemps',
-            'ppoll',
-            'preadv',
-            'pwritev']
-
   libc_funcs = set()
   for lib in libc_libraries:
     libc_funcs |= set(_get_defined_functions(lib))
 
   ok = True
-  for func in sorted(functions - libc_funcs - set(_get_whitelist())):
+  for func in sorted(functions - libc_funcs):
     ok = False
     print ('--wrap=%s is specified in wrapped_functions.py, '
            'but __wrap_%s is not defined in libc' % (func, func))
@@ -88,14 +75,14 @@ def main():
   OPTIONS.parse_configure_file()
 
   if len(sys.argv) < 3:
-    print 'Usage: %s arc.nexe libc.so...'
+    print 'Usage: %s libposix_translation.so libc.so...'
     return 1
 
-  arc_nexe = sys.argv[1]
+  libpt_so = sys.argv[1]
   libc_libraries = sys.argv[2:]
   functions = set(wrapped_functions.get_wrapped_functions())
 
-  ok = _check_wrapper_functions_are_defined(functions, arc_nexe)
+  ok = _check_wrapper_functions_are_defined(functions, libpt_so)
   ok = ok & _check_wrapped_functions_are_defined(functions, libc_libraries)
   if not ok:
     print 'FAILED'

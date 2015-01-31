@@ -267,7 +267,10 @@ int __wrap_sched_setscheduler(pid_t pid, int policy,
 }
 
 int __wrap_setpriority(int which, int who, int prio) {
-  ARC_STRACE_ENTER("setpriority", "%d, %d, %d", which, who, prio);
+  ARC_STRACE_ENTER("setpriority", "%s, %d, %d %s",
+                   arc::GetSetPriorityWhichStr(which).c_str(),
+                   who, prio,
+                   arc::GetSetPriorityPrioStr(prio).c_str());
   if (which == PRIO_PROCESS) {
     if (prio < 0) {
       // Warn when Android or apps attempt to use higher thread priorities.

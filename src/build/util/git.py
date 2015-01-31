@@ -163,12 +163,14 @@ def get_commit_message(commit, cwd=None):
 def get_remote_branch(treeish, cwd=None):
   cmd = ['git', 'branch', '-r', '--contains', treeish]
   output = subprocess.check_output(cmd, cwd=cwd).splitlines()
+  branches = []
   for line in output:
     if '/HEAD' in line:
       continue
     branch = line.strip().split('/')[-1]
-    return branch
-  return None
+    branches.append(branch)
+  assert len(branches) == 1, '%s exists in multiple remote branches' % treeish
+  return branches[0]
 
 
 def has_remote_branch(branch, cwd=None):

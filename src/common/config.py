@@ -84,10 +84,8 @@ def generate_ninjas():
   n.add_compiler_flags('-Werror')
   if build_common.use_ndk_direct_execution():
     n.add_compiler_flags('-DUSE_NDK_DIRECT_EXECUTION')
-  # Specify the few include directories needed for building code in
-  # common directories.  Common code really should not reach out into
-  # external.
-  n.add_include_paths('android/system/core/include', 'android_libcommon')
+  # Common code really should not reach out into external.
+  n.add_include_paths('android_libcommon')
   _add_compile_flags(n)
   sources = n.find_all_sources()
   sources.remove('src/common/plugin_handle.cc')
