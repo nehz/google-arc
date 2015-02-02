@@ -594,6 +594,14 @@ def is_common_editor_tmp_file(filename):
   return bool(COMMON_EDITOR_TMP_FILE_REG.match(filename))
 
 
+def store_remote_unittest_info(test_name, counter, test_info):
+  filename = '%s.%d.json' % (test_name, counter)
+  test_info_path = get_remote_unittest_info_path(filename)
+  makedirs_safely(os.path.dirname(test_info_path))
+  with open(test_info_path, 'w') as f:
+    json.dump(test_info, f, indent=2, sort_keys=True)
+
+
 def use_ppapi_fpabi_shim():
   return OPTIONS.is_arm()
 

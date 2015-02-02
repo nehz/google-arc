@@ -33,6 +33,10 @@ def get_test_executables(tests):
   return [build_common.get_build_path_for_executable(test) for test in tests]
 
 
+def is_bionic_fundamental_test(test_name):
+  return test_name.startswith('bionic_fundamental_')
+
+
 def get_all_tests():
   """Returns the list of all unittest names."""
   test_info_dir = build_common.get_remote_unittest_info_path('')

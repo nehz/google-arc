@@ -9,7 +9,6 @@ import collections
 import copy
 import fnmatch
 import hashlib
-import json
 import logging
 import re
 import os
@@ -2135,8 +2134,8 @@ class TestNinjaGenerator(ExecNinjaGenerator):
         'valgrind_runner': toolchain.get_tool(OPTIONS.target(),
                                               'valgrind_runner'),
     }
-    if OPTIONS.is_bare_metal_build() and OPTIONS.is_arm():
-        variables['qemu_arm'] = ' '.join(toolchain.get_qemu_arm_args())
+    if OPTIONS.is_bare_metal_arm():
+      variables['qemu_arm'] = ' '.join(toolchain.get_qemu_arm_args())
     return variables
 
   @staticmethod
@@ -2190,11 +2189,7 @@ class TestNinjaGenerator(ExecNinjaGenerator):
         'variables': merged_variables,
         'command': rules[rule][0],
     }
-    filename = '%s.%d.json' % (test_name, counter)
-    test_info_path = build_common.get_remote_unittest_info_path(filename)
-    build_common.makedirs_safely(os.path.dirname(test_info_path))
-    with open(test_info_path, 'w') as f:
-      json.dump(test_info, f, indent=2, sort_keys=True)
+    build_common.store_remote_unittest_info(test_name, counter, test_info)
 
   def find_all_contained_test_sources(self):
     all_sources = self.find_all_files(self._base_path,

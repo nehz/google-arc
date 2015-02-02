@@ -44,7 +44,7 @@ def _read_test_info(filename):
     return json.load(f)
 
 
-def _construct_command(test_info, gtest_filter):
+def _construct_command(test_info, gtest_filter, gtest_list_tests):
   variables = test_info['variables'].copy()
   variables.setdefault('argv', '')
   variables.setdefault('qemu_arm', '')
@@ -84,12 +84,14 @@ def _construct_command(test_info, gtest_filter):
 
   if gtest_filter:
     variables['gtest_options'] = '--gtest_filter=' + gtest_filter
+  if gtest_list_tests:
+    variables['gtest_options'] = '--gtest_list_tests'
   # Test is run as a command to build a test results file.
   command_template = string.Template(test_info['command'])
   return command_template.substitute(variables)
 
 
-def _run_unittest(tests, verbose, use_gdb, gtest_filter):
+def _run_unittest(tests, verbose, use_gdb, gtest_filter, gtest_list_tests):
   """Runs the unit tests specified in test_info.
 
   This can run unit tests without depending on ninja and is mainly used on the
@@ -108,7 +110,7 @@ def _run_unittest(tests, verbose, use_gdb, gtest_filter):
         if index == 1:
           unfound_tests.append(test)
         break
-      command = _construct_command(test_info, gtest_filter)
+      command = _construct_command(test_info, gtest_filter, gtest_list_tests)
       if verbose:
         print 'Running:', command
       args = shlex.split(command)
@@ -137,6 +139,10 @@ def _check_args(parsed_args):
     # TODO(crbug.com/439369): Support --gdb with --remote.
     if parsed_args.remote:
       raise Exception('Setting both --gdb and --remote is not supported yet.')
+  if (parsed_args.remote and
+      filter(util.test.unittest_util.is_bionic_fundamental_test,
+             parsed_args.tests)):
+    raise Exception('You cannot use --remote for bionic_fundamental_*_test')
 
 
 def main():
@@ -152,6 +158,8 @@ def main():
                       help='Run the test under GDB.')
   parser.add_argument('-f', '--gtest-filter',
                       help='A \':\' separated list of googletest test filters')
+  parser.add_argument('--gtest-list-tests', action='store_true', default=False,
+                      help='Lists the test names to run')
   parser.add_argument('--list', action='store_true',
                       help='List the names of tests.')
   parser.add_argument('-v', '--verbose', action='store_true',
@@ -165,10 +173,15 @@ def main():
       print test_name
     return 0
 
+  _check_args(parsed_args)
+
   if not parsed_args.tests:
     parsed_args.tests = util.test.unittest_util.get_all_tests()
-
-  _check_args(parsed_args)
+    # Bionic fundamental tests are not supported on remote host.
+    if parsed_args.remote:
+      parsed_args.tests = [
+          t for t in parsed_args.tests
+          if not util.test.unittest_util.is_bionic_fundamental_test(t)]
 
   if parsed_args.gdb:
     # This script must not die by Ctrl-C while GDB is running. We simply
@@ -180,7 +193,8 @@ def main():
     return util.remote_executor.run_remote_unittest(parsed_args)
   else:
     return _run_unittest(parsed_args.tests, parsed_args.verbose,
-                         parsed_args.gdb, parsed_args.gtest_filter)
+                         parsed_args.gdb, parsed_args.gtest_filter,
+                         parsed_args.gtest_list_tests)
 
 
 if __name__ == '__main__':

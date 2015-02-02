@@ -30,12 +30,7 @@ static void* DoNothing(void*) {
 
 // TODO(crbug.com/362175): qemu-arm cannot reliably emulate threading
 // functions so run them in a real ARM device.
-#if defined(__arm__)
-TEST(pthread_thread_stack, DISABLED_pthread_create_detached)
-#else
-TEST(pthread_thread_stack, pthread_create_detached)
-#endif
-{
+TEST(pthread_thread_stack, QEMU_DISABLED_pthread_create_detached) {
   pthread_t thread;
   pthread_attr_t attr;
   pthread_attr_init(&attr);
@@ -54,12 +49,7 @@ TEST(pthread_thread_stack, pthread_create_detached)
 
 // TODO(crbug.com/362175): qemu-arm cannot reliably emulate threading
 // functions so run them in a real ARM device.
-#if defined(__arm__)
-TEST(pthread_thread_stack, DISABLED_pthread_create_join)
-#else
-TEST(pthread_thread_stack, pthread_create_join)
-#endif
-{
+TEST(pthread_thread_stack, QEMU_DISABLED_pthread_create_join) {
   // Running 100 threads in parallel should be very safe in terms of free R/W
   // pages.
   static const size_t kRunThreads = 100;
@@ -84,12 +74,7 @@ static void* DetachSelf(void*) {
 
 // TODO(crbug.com/362175): qemu-arm cannot reliably emulate threading
 // functions so run them in a real ARM device.
-#if defined(__arm__)
-TEST(pthread_thread_stack, DISABLED_pthread_detach)
-#else
-TEST(pthread_thread_stack, pthread_detach)
-#endif
-{
+TEST(pthread_thread_stack, QEMU_DISABLED_pthread_detach) {
   pthread_t thread;
   for (size_t i = 0; i < kNumThreads; ++i) {
     int ret = pthread_create(&thread, NULL, DetachSelf, NULL);

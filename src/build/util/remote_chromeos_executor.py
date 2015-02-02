@@ -281,7 +281,8 @@ def _get_adb_path():
 def _copy_unittest_executables_to_arc_with_exec(executor, tests):
   """Copies executables for unit tests to a directory mounted with exec."""
   noexec_paths = [build_common.get_build_path_for_executable(test)
-                  for test in tests]
+                  for test in tests
+                  if not unittest_util.is_bionic_fundamental_test(test)]
   noexec_paths.append(build_common.get_load_library_path())
   noexec_paths.extend(unittest_util.get_nacl_tools())
   for noexec_path in noexec_paths:

@@ -550,17 +550,17 @@ class BionicFundamentalTest(object):
   ALL_OUTPUT_BINARIES = []
 
   @staticmethod
-  def _get_src_dir():
+  def get_src_dir():
     return staging.as_staging('android/bionic/tests/fundamental')
 
   @staticmethod
-  def _get_out_dir():
+  def get_out_dir():
     return os.path.join(build_common.get_build_dir(), 'bionic_tests')
 
   def __init__(self, test_binary_name, inputs, output, build_commands):
     self._test_binary_name = test_binary_name
     self._build_commands = build_commands
-    out = os.path.join(BionicFundamentalTest._get_out_dir(), test_binary_name)
+    out = os.path.join(BionicFundamentalTest.get_out_dir(), test_binary_name)
     asmflags = ninja_generator.CNinjaGenerator.get_archasmflags()
     if OPTIONS.is_bare_metal_build():
       asmflags += ' -DBARE_METAL_BIONIC '
@@ -596,8 +596,8 @@ class BionicFundamentalTest(object):
         'cc': toolchain.get_tool(OPTIONS.target(), 'cc'),
         'cxx': toolchain.get_tool(OPTIONS.target(), 'cxx'),
         'lib_dir': build_common.get_load_library_path(),
-        'in_dir': BionicFundamentalTest._get_src_dir(),
-        'out_dir': BionicFundamentalTest._get_out_dir(),
+        'in_dir': BionicFundamentalTest.get_src_dir(),
+        'out_dir': BionicFundamentalTest.get_out_dir(),
         'out': out,
         'crtbegin_exe': build_common.get_bionic_crtbegin_o(),
         'crtbegin_so': build_common.get_bionic_crtbegin_so_o(),
@@ -628,6 +628,80 @@ class BionicFundamentalTest(object):
            description=rule_name + ' $in')
     n.build(self._output, rule_name, self._inputs,
             implicit=build_common.get_bionic_objects(need_stlport=False))
+
+
+def _generate_bionic_fundamental_test_runners(n):
+  rule_name = 'run_bionic_fundamental_test'
+  script_name = os.path.join(BionicFundamentalTest.get_src_dir(),
+                             'run_bionic_fundamental_test.py')
+  n.rule(rule_name,
+         command=script_name + ' $test_name' +
+         build_common.get_test_output_handler(use_crash_analyzer=True),
+         description=rule_name + ' $test_name')
+
+  test_out_dir = BionicFundamentalTest.get_out_dir()
+  tests = []
+  # This uses NaCl syscalls directly and is not compatible with Bare
+  # Metal mode.
+  if OPTIONS.is_nacl_build():
+    # If this passes, the loader is working.
+    tests.append(('loader_test', [], [], {}))
+  # (name, extra LD_LIBRARY_PATH, extra argv, extra envs)
+  tests.extend([
+      # If this passes, IRT calls are ready.
+      ('write_test', [], [], {}),
+      # If this passes, stdio and malloc are ready.
+      ('printf_test', [], [], {}),
+      # If this passes, arguments and environment variables are OK.
+      ('args_test', [], ['foobar'], {}),
+      # If this passes, .ctors and .dtors are working.
+      ('structors_test', [], [], {}),
+      # If this passes, symbols are available for subsequently loaded binaries.
+      ('resolve_parent_sym_test', [test_out_dir], [], {}),
+      # If this passes, .ctors and .dtors with DT_NEEDED are working.
+      ('so_structors_test', [test_out_dir], [], {}),
+      # If this passes, .ctors and .dtors with dlopen are working.
+      ('dlopen_structors_test', [test_out_dir], [], {}),
+      # If this passes, dlopen fails properly when there is a missing symbol.
+      ('dlopen_error_test', [test_out_dir], [], {})
+  ])
+  # Bionic does not restart .fini_array when exit() is called in global
+  # destructors. This works only for environments which use
+  # .fini/.dtors. Currently, Bare Metal uses .fini_array.
+  if OPTIONS.is_nacl_build():
+    # If this passes, exit() in global destructors is working. Note
+    # that Bionic does not continue atexit handlers in an exit call so
+    # we cannot test this case with other structors_tests.
+    tests.append(('dlopen_structors_test-with_exit',
+                  [test_out_dir], [], {'CALL_EXIT_IN_DESTRUCTOR': '1'}))
+
+  for test_name, library_paths, test_argv, test_env in tests:
+    test_binary_basename = re.sub(r'-.*', '', test_name)
+    test_binary = os.path.abspath(os.path.join(test_out_dir,
+                                               test_binary_basename))
+    runner = toolchain.get_target_runner(extra_library_paths=library_paths,
+                                         extra_envs=test_env)
+    qemu_arm = (' '.join(toolchain.get_qemu_arm_args())
+                if OPTIONS.is_arm() else '')
+    test_name = 'bionic_fundamental_' + test_name
+    variables = {
+        'runner': ' '.join(runner),
+        'in': test_binary,
+        'argv': ' '.join(test_argv),
+        'qemu_arm': qemu_arm
+    }
+    test_info = {
+        'variables': variables,
+        'command': '$qemu_arm $runner $in $argv'
+    }
+    build_common.store_remote_unittest_info(test_name, 1, test_info)
+
+    result = os.path.join(test_out_dir, test_name + '.result')
+    test_deps = BionicFundamentalTest.ALL_OUTPUT_BINARIES + [script_name]
+    if OPTIONS.is_bare_metal_build():
+       test_deps.append(build_common.get_bare_metal_loader())
+    n.build(result, rule_name, implicit=test_deps,
+            variables={'test_name': test_name})
 
 
 def _generate_bionic_fundamental_tests():
@@ -733,19 +807,7 @@ def _generate_bionic_fundamental_tests():
   for test in bionic_tests:
     test.emit(n)
 
-  rule_name = 'run_bionic_fundamental_tests'
-  script_name = os.path.join(BionicFundamentalTest._get_src_dir(),
-                             'run_bionic_fundamental_tests.py')
-  n.rule(rule_name,
-         command=script_name +
-         build_common.get_test_output_handler(use_crash_analyzer=True),
-         description=rule_name + ' $in')
-  result = os.path.join(BionicFundamentalTest._get_out_dir(),
-                        rule_name + '.result')
-  test_deps = BionicFundamentalTest.ALL_OUTPUT_BINARIES + [script_name]
-  if OPTIONS.is_bare_metal_build():
-    test_deps.append(build_common.get_bare_metal_loader())
-  n.build(result, rule_name, implicit=test_deps)
+  _generate_bionic_fundamental_test_runners(n)
 
 
 def _generate_crt_bionic_ninja():

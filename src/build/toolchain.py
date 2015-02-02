@@ -118,7 +118,10 @@ def get_nacl_irt_core(bitsize):
   return get_nacl_tool('irt_core_x86_%d.nexe' % bitsize)
 
 
-def get_nacl_runner(bitsize, bin_dir=None):
+def get_nacl_runner(bitsize, bin_dir=None,
+                    extra_library_paths=None, extra_envs=None):
+  extra_library_paths = extra_library_paths or []
+  extra_envs = extra_envs or {}
   # We use the NACL_IRT_DEV_FILENAME interface for unit tests.
   args = ['env', 'NACL_DANGEROUS_ENABLE_FILE_ACCESS=1']
 
@@ -132,12 +135,18 @@ def get_nacl_runner(bitsize, bin_dir=None):
   library_path = build_common.get_load_library_path()
   if bin_dir:
     library_path = os.path.join(bin_dir, library_path)
-  args.extend(['-E', 'LD_LIBRARY_PATH=' + library_path,
-               '%s/runnable-ld.so' % library_path])
+  args.extend(['-E', 'LD_LIBRARY_PATH=' +
+               ':'.join([library_path] + extra_library_paths)])
+  for key, value in extra_envs.iteritems():
+    args.extend(['-E', '%s=%s' % (key, value)])
+  args.append('%s/runnable-ld.so' % library_path)
   return args
 
 
-def get_bare_metal_runner(use_qemu_arm=False, bin_dir=None):
+def get_bare_metal_runner(use_qemu_arm=False, bin_dir=None,
+                          extra_library_paths=None, extra_envs=None):
+  extra_library_paths = extra_library_paths or []
+  extra_envs = extra_envs or {}
   args = []
   if use_qemu_arm:
     args.extend(get_qemu_arm_args())
@@ -146,9 +155,24 @@ def get_bare_metal_runner(use_qemu_arm=False, bin_dir=None):
   if bin_dir:
     load_library_path = os.path.join(bin_dir, load_library_path)
     loader = os.path.join(bin_dir, loader)
-  args.extend([loader, '-E', 'LD_LIBRARY_PATH=' + load_library_path])
+  args.append(loader)
+  args.extend(['-E', 'LD_LIBRARY_PATH=' +
+               ':'.join([load_library_path] + extra_library_paths)])
+  for key, value in extra_envs.iteritems():
+    args.extend(['-E', '%s=%s' % (key, value)])
   args.append(os.path.join(load_library_path, 'runnable-ld.so'))
   return args
+
+
+def get_target_runner(bin_dir=None, extra_library_paths=None, extra_envs=None):
+  if OPTIONS.is_bare_metal_build():
+    return get_bare_metal_runner(bin_dir=bin_dir,
+                                 extra_library_paths=extra_library_paths,
+                                 extra_envs=extra_envs)
+  else:
+    return get_nacl_runner(OPTIONS.get_target_bitsize(), bin_dir=bin_dir,
+                           extra_library_paths=extra_library_paths,
+                           extra_envs=extra_envs)
 
 
 def get_qemu_arm_args():
