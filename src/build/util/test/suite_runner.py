@@ -22,6 +22,7 @@ from util.test.suite_runner_config import default_run_configuration
 from util.test.suite_runner_config_flags import FAIL
 from util.test.suite_runner_config_flags import TIMEOUT
 from util.test.test_method_result import TestMethodResult
+from util.test import suite_runner_util
 
 
 # Number of times to retry because of Chrome startup flake.
@@ -127,7 +128,8 @@ class SuiteRunnerBase(object):
             '--server-args', '-screen 0 640x480x24',
             '--error-file', output_filename]
 
-  def __init__(self, name, expectations_loader=None, config=None):
+  def __init__(self, name, base_expectation_map,
+               expectations_loader=None, config=None):
     # TODO(crbug.com/384028): expectation_loader will become mandatory.
     if expectations_loader:
       assert not config, 'Unexpected entries in config: %s' % config
@@ -140,23 +142,20 @@ class SuiteRunnerBase(object):
     self._lock = threading.Lock()
     self._name = name
     self._terminated = False
-    self._flags = merged_config.pop('flags')
-    self._set_suite_test_expectations(
-        merged_config.pop('suite_test_expectations'))
     self._deadline = merged_config.pop('deadline')
     self._bug = merged_config.pop('bug')
     self._metadata = merged_config.pop('metadata')
     self._test_order = merged_config.pop('test_order')
+
+    default_expectation = merged_config.pop('flags')
+    override_expectation_map = merged_config.pop('suite_test_expectations')
     assert not merged_config, ('Unexpected keyword arguments %s' %
                                merged_config.keys())
 
-    # For scoreboard, we pass a slightly modified expectations. If the
-    # expectation for '*' is not filled, we propagate the top level
-    # expectation.
-    scoreboard_expectations = self._suite_test_expectations.copy()
-    scoreboard_expectations.update(
-        {Scoreboard.ALL_TESTS_DUMMY_NAME: self._flags})
-    self._scoreboard = Scoreboard(name, scoreboard_expectations)
+    expectation_map = suite_runner_util.merge_expectation_map(
+        base_expectation_map, override_expectation_map, default_expectation)
+    self._scoreboard = Scoreboard(name, expectation_map)
+    self._expectation_map = expectation_map
 
     # These will be set up later, in prepare_to_run(), and run_subprocess().
     self._args = None
@@ -164,11 +163,6 @@ class SuiteRunnerBase(object):
     self._xvfb_output_filename = None
     self._subprocess = None
     self._user_data_dir = None
-
-  def _ensure_test_method_details(self):
-    if not self._suite_test_expectations:
-      self._suite_test_expectations = {
-          Scoreboard.ALL_TESTS_DUMMY_NAME: self._flags}
 
   @property
   def name(self):
@@ -181,15 +175,13 @@ class SuiteRunnerBase(object):
     return self._deadline
 
   @property
-  def suite_expectation(self):
-    """Returns the expected result of the whole suite."""
-    return self._flags
+  def expectation_map(self):
+    """Returns a map from test name to its expectation.
 
-  @property
-  def suite_test_expectations(self):
-    """Returns the expected result of individual tests."""
-    self._ensure_test_method_details()
-    return self._suite_test_expectations.copy()
+    Note that the test name does not contain the suite prefix.
+    (i.e. "fixture_name#method_name" style).
+    """
+    return self._expectation_map.copy()
 
   @property
   def terminated(self):
@@ -198,22 +190,6 @@ class SuiteRunnerBase(object):
   @property
   def user_data_dir(self):
     return self._user_data_dir
-
-  def _set_suite_test_expectations(self, suite_test_expectations):
-    # Propagate flags set at the suite level to all the tests contained within
-    # (FLAKY, LARGE, etc). Note that the suite expectation must be first to
-    # allow the test expectation to properly override it.
-    suite_expectation = self._flags
-    self._suite_test_expectations = dict(
-        (name, suite_expectation | expectation)
-        for name, expectation in suite_test_expectations.iteritems())
-
-  def set_suite_test_expectations(self, suite_test_expectations):
-    self._set_suite_test_expectations(suite_test_expectations)
-    self._scoreboard.set_expectations(self._suite_test_expectations)
-    if (len(self._suite_test_expectations) > 1 and
-        Scoreboard.ALL_TESTS_DUMMY_NAME in self._suite_test_expectations):
-      del self._suite_test_expectations[Scoreboard.ALL_TESTS_DUMMY_NAME]
 
   def get_scoreboard(self):
     return self._scoreboard

@@ -56,13 +56,11 @@ class AtfSuiteRunnerBase(suite_runner.SuiteRunnerBase):
   If you want to run ATF based test suite, this is probably not the one you
   need. Please see also AtfSuiteRunner and CtsSuiteRunner.
   """
-  def __init__(self, test_name, test_apk, expectation_map,
+  def __init__(self, test_name, test_apk, base_expectation_map,
                target_apk=None, app_namespace=None, runner=None,
                extra_args=None, extra_env=None, config=None):
-    super(AtfSuiteRunnerBase, self).__init__(test_name, config=config)
-    self.set_suite_test_expectations(
-        suite_runner_util.merge_test_expectations(
-            expectation_map, self.suite_test_expectations))
+    super(AtfSuiteRunnerBase, self).__init__(
+        test_name, base_expectation_map, config=config)
 
     self._test_apk = test_apk
     self._target_apk = target_apk

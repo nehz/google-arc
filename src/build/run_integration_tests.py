@@ -138,7 +138,7 @@ def _select_tests_to_run(all_suite_runners, args):
     updated_suite_test_expectations = {}
     is_runnable = suite_runner.is_runnable()
     for test_name, test_expectation in (
-        suite_runner.suite_test_expectations.iteritems()):
+        suite_runner.expectation_map.iteritems()):
       # Check if the test is selected.
       if not test_filter_instance.should_include(
           '%s:%s' % (suite_runner.name, test_name), test_expectation):

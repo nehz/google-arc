@@ -133,6 +133,10 @@ def _generate_apk_to_crx_args(parsed_args, metadata=None,
     crx_args.extend(['--use-test-app'])
   if parsed_args.use_all_play_services:
     crx_args.extend(['--use-all-play-services'])
+  if parsed_args.obb_main:
+    crx_args.extend(['--obb-main', parsed_args.obb_main])
+  if parsed_args.obb_patch:
+    crx_args.extend(['--obb-patch', parsed_args.obb_patch])
   if parsed_args.mode == 'system':
     crx_args.extend(['--system'])
   crx_args.extend(['--badging-check', 'suppress'])

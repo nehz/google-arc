@@ -9,8 +9,8 @@ from util.test import suite_runner_config_flags as flags
 
 
 class SuiteRunnerUtilTest(unittest.TestCase):
-  def test_merge_test_expectations(self):
-    base_expectations = {
+  def test_merge_expectation_map(self):
+    base_map = {
         'test1': flags.PASS,
         'test2': flags.FAIL,
     }
@@ -21,7 +21,7 @@ class SuiteRunnerUtilTest(unittest.TestCase):
             'test1': flags.PASS,
             'test2': flags.FAIL,
         },
-        suite_runner_util.merge_test_expectations(base_expectations, {}))
+        suite_runner_util.merge_expectation_map(base_map, {}, None))
 
     # "'*': PASS" does not override anything.
     self.assertEquals(
@@ -29,8 +29,8 @@ class SuiteRunnerUtilTest(unittest.TestCase):
             'test1': flags.PASS,
             'test2': flags.FAIL,
         },
-        suite_runner_util.merge_test_expectations(
-            base_expectations, {'*': flags.PASS}))
+        suite_runner_util.merge_expectation_map(
+            base_map, {}, flags.PASS))
 
     # Both should be overriden.
     self.assertEquals(
@@ -38,8 +38,8 @@ class SuiteRunnerUtilTest(unittest.TestCase):
             'test1': flags.NOT_SUPPORTED,
             'test2': flags.NOT_SUPPORTED,
         },
-        suite_runner_util.merge_test_expectations(
-            base_expectations, {'*': flags.NOT_SUPPORTED}))
+        suite_runner_util.merge_expectation_map(
+            base_map, {}, flags.NOT_SUPPORTED))
 
     # Only "test1" should be overriden.
     self.assertEquals(
@@ -47,8 +47,8 @@ class SuiteRunnerUtilTest(unittest.TestCase):
             'test1': flags.FAIL,
             'test2': flags.FAIL,
         },
-        suite_runner_util.merge_test_expectations(
-            base_expectations, {'test1': flags.FAIL}))
+        suite_runner_util.merge_expectation_map(
+            base_map, {'test1': flags.FAIL}, None))
 
     # Only "test1" should be overriden.
     self.assertEquals(
@@ -56,8 +56,8 @@ class SuiteRunnerUtilTest(unittest.TestCase):
             'test1': flags.FAIL,
             'test2': flags.FAIL,
         },
-        suite_runner_util.merge_test_expectations(
-            base_expectations, {'test1': flags.FAIL, '*': flags.PASS}))
+        suite_runner_util.merge_expectation_map(
+            base_map, {'test1': flags.FAIL}, flags.PASS))
 
     # Only "test1" should be overriden to FAIL, and "test2" to
     # NOT_SUPPORTED (default value).
@@ -66,9 +66,8 @@ class SuiteRunnerUtilTest(unittest.TestCase):
             'test1': flags.FAIL,
             'test2': flags.NOT_SUPPORTED,
         },
-        suite_runner_util.merge_test_expectations(
-            base_expectations,
-            {'test1': flags.FAIL, '*': flags.NOT_SUPPORTED}))
+        suite_runner_util.merge_expectation_map(
+            base_map, {'test1': flags.FAIL}, flags.NOT_SUPPORTED))
 
     self.assertEquals(
         # Each should be overriden.
@@ -76,13 +75,14 @@ class SuiteRunnerUtilTest(unittest.TestCase):
             'test1': flags.FAIL,
             'test2': flags.PASS,
         },
-        suite_runner_util.merge_test_expectations(
-            base_expectations, {'test1': flags.FAIL, 'test2': flags.PASS}))
+        suite_runner_util.merge_expectation_map(
+            base_map,
+            {'test1': flags.FAIL, 'test2': flags.PASS}, None))
 
     with self.assertRaises(AssertionError):
       # Raise an exception if suite_expectations contains an unknown test name.
-      suite_runner_util.merge_test_expectations(
-          base_expectations, {'test3': flags.PASS})
+      suite_runner_util.merge_expectation_map(
+          base_map, {'test3': flags.PASS}, None)
 
   def test_create_gtest_filter_list(self):
     # Result should be empty for an empty list.

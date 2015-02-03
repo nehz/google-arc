@@ -18,7 +18,6 @@ import prep_launch_chrome
 from util.test import atf_instrumentation_result_parser as result_parser
 from util.test import atf_instrumentation_scoreboard_updater as scoreboard_updater  # NOQA
 from util.test import suite_runner
-from util.test import suite_runner_util
 from util.test import system_mode
 
 
@@ -28,11 +27,10 @@ _DEVICE_TMP_PATH = '/data/local/tmp'
 
 class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
   def __init__(self, name, apk_path, jar_path, main_activity,
-               expectation_map, additional_launch_chrome_opts=None, **kwargs):
-    super(UiAutomatorSuiteRunner, self).__init__(name, **kwargs)
-    self.set_suite_test_expectations(
-        suite_runner_util.merge_test_expectations(
-            expectation_map, self.suite_test_expectations))
+               base_expectation_map,
+               additional_launch_chrome_opts=None, **kwargs):
+    super(UiAutomatorSuiteRunner, self).__init__(
+        name, base_expectation_map, **kwargs)
 
     self._apk_path = apk_path
     self._jar_path = jar_path

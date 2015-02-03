@@ -20,18 +20,17 @@ class JavaScriptTestRunner(suite_runner.SuiteRunnerBase):
   def __init__(self, name, apks=None, additional_launch_chrome_args=None,
                **kwargs):
     if apks is None:
-      apks = [ApkFromSdkNinjaGenerator.get_install_path_for_module(
-          'HelloAndroid')]
-    self._name = name
+      apks = [
+          ApkFromSdkNinjaGenerator.get_install_path_for_module('HelloAndroid')]
+
+    super(JavaScriptTestRunner, self).__init__(
+        name,
+        suite_runner_util.read_test_list(
+            build_common.get_integration_test_list_path(
+                'test_template_' + name)),
+        **kwargs)
     self._apks = apks
     self._additional_launch_chrome_args = additional_launch_chrome_args
-    super(JavaScriptTestRunner, self).__init__(name, **kwargs)
-    self.set_suite_test_expectations(
-        suite_runner_util.merge_test_expectations(
-            suite_runner_util.read_test_list(
-                build_common.get_integration_test_list_path('test_template_' +
-                                                            self._name)),
-            self.suite_test_expectations))
 
   def handle_output(self, line):
     self._result_parser.process_line(line)
@@ -48,8 +47,7 @@ class JavaScriptTestRunner(suite_runner.SuiteRunnerBase):
       args.extend(self._additional_launch_chrome_args)
     if test_methods_to_run:
       js_full_test_list = sorted(
-          test_name.replace('#', '.')
-          for test_name in self.suite_test_expectations.keys())
+          test_name.replace('#', '.') for test_name in self.expectation_map)
       js_test_filter_list = sorted(
           test_name.replace('#', '.') for test_name in test_methods_to_run)
       args.extend(['--additional-metadata',

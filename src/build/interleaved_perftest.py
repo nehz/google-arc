@@ -128,29 +128,32 @@ Typical usage:
   return parsed_args
 
 
-def load_and_check_configure_options(arc_root, parsed_args):
-  """Checks if configure options is good for comparison.
+def check_current_configure_options(parsed_args):
+  """Checks if the current configure options are good for comparison.
+
+  Args:
+    parsed_args: An argparse.Namespace object.
+  """
+  # Require --opt build.
+  if not OPTIONS.is_optimized_build() and not parsed_args.allow_debug_builds:
+    sys.exit(
+        'configure option bad: either --opt or --official-build '
+        'must be specified. If you want to compare debug builds, '
+        'please use --allow-debug-builds.')
+
+
+def load_configure_options(arc_root):
+  """Returns configure options for the specific ARC tree.
 
   Args:
     arc_root: A path to ARC root directory.
-    parsed_args: An argparse.Namespace object.
 
   Returns:
     Configure options as a string.
   """
   with open(os.path.join(
       arc_root, build_common.OUT_DIR, 'configure.options')) as f:
-    options = f.read().strip()
-
-  # Require --opt build.
-  if (not parsed_args.allow_debug_builds and
-      not ('--official-build' in options or '--opt' in options)):
-    sys.exit(
-        'configure option bad: either --opt or --official-build '
-        'must be specified. If you want to compare debug builds, '
-        'please use --allow-debug-builds.')
-
-  return options
+    return f.read().strip()
 
 
 class InteractivePerfTestOutputHandler(object):
@@ -374,7 +377,9 @@ def handle_stash(parsed_args):
   arc_root = get_abs_arc_root()
   stash_root = get_abs_stash_root()
 
-  options = load_and_check_configure_options(arc_root, parsed_args)
+  check_current_configure_options(parsed_args)
+
+  options = load_configure_options(arc_root)
   logging.info('options: %s', options)
   if parsed_args.run_ninja:
     build_common.run_ninja()
@@ -447,8 +452,10 @@ def handle_compare(parsed_args):
     sys.exit('%s not found; run "interleaved_perftest.py stash" first to save '
              'control binaries' % ctrl_root)
 
-  ctrl_options = load_and_check_configure_options(ctrl_root, parsed_args)
-  expt_options = load_and_check_configure_options(expt_root, parsed_args)
+  check_current_configure_options(parsed_args)
+
+  ctrl_options = load_configure_options(ctrl_root)
+  expt_options = load_configure_options(expt_root)
 
   logging.info('iterations: %d', parsed_args.iterations)
   logging.info('ctrl_options: %s', ctrl_options)

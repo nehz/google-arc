@@ -7,7 +7,6 @@
 import collections
 import unittest
 
-from util.test.scoreboard import Scoreboard
 from util.test.suite_runner import SuiteRunnerBase
 from util.test.suite_runner_config import _SuiteRunConfiguration
 from util.test.suite_runner_config import DEFAULT_OUTPUT_TIMEOUT
@@ -168,7 +167,7 @@ class SuiteRunConfigIntegrationTests(unittest.TestCase):
                       'method1': FAIL,
                       'method2': FLAKY,
                   },
-                  'test3': TIMEOUT,
+                  'Class2#method1': TIMEOUT,
               },
           }],
       },
@@ -179,40 +178,62 @@ class SuiteRunConfigIntegrationTests(unittest.TestCase):
 
   def _make_suite_runner(self, name):
     return SuiteRunnerBase(
-        name, config=SuiteRunConfigIntegrationTests.my_config()[name])
+        name,
+        {
+            'Class1#method1': PASS,
+            'Class1#method2': PASS,
+            'Class2#method1': PASS,
+            'Class2#method2': PASS,
+        },
+        config=SuiteRunConfigIntegrationTests.my_config()[name])
 
   def test_works_as_intended(self):
     runner = self._make_suite_runner('dummy_suite_1')
-    self.assertEquals(PASS, runner.suite_expectation)
-    self.assertEquals({Scoreboard.ALL_TESTS_DUMMY_NAME: PASS},
-                      runner.suite_test_expectations)
     self.assertEquals(60, runner.deadline)
+    self.assertEquals(
+        {
+            'Class1#method1': PASS,
+            'Class1#method2': PASS,
+            'Class2#method1': PASS,
+            'Class2#method2': PASS,
+        },
+        runner.expectation_map)
     self.assertEquals(None, runner.bug)
 
     runner = self._make_suite_runner('dummy_suite_2')
-    self.assertEquals(PASS, runner.suite_expectation)
-    self.assertEquals({Scoreboard.ALL_TESTS_DUMMY_NAME: PASS},
-                      runner.suite_test_expectations)
     self.assertEquals(60, runner.deadline)
+    self.assertEquals(
+        {
+            'Class1#method1': PASS,
+            'Class1#method2': PASS,
+            'Class2#method1': PASS,
+            'Class2#method2': PASS,
+        },
+        runner.expectation_map)
     self.assertEquals(None, runner.bug)
 
     runner = self._make_suite_runner('dummy_suite_3')
-    self.assertEquals(FAIL, runner.suite_expectation)
-    self.assertEquals({Scoreboard.ALL_TESTS_DUMMY_NAME: FAIL},
-                      runner.suite_test_expectations)
     self.assertEquals(60, runner.deadline)
+    self.assertEquals(
+        {
+            'Class1#method1': FAIL,
+            'Class1#method2': FAIL,
+            'Class2#method1': FAIL,
+            'Class2#method2': FAIL,
+        },
+        runner.expectation_map)
     self.assertEquals('crbug.com/123123', runner.bug)
 
     runner = self._make_suite_runner('dummy_suite_4')
-    self.assertEquals(LARGE | PASS, runner.suite_expectation)
-    self.assertEquals(3, len(runner.suite_test_expectations))
-    self.assertIn(FAIL, runner.suite_test_expectations['Class1#method1'])
-    self.assertIn(LARGE, runner.suite_test_expectations['Class1#method1'])
-    self.assertIn(PASS, runner.suite_test_expectations['Class1#method2'])
-    self.assertIn(FLAKY, runner.suite_test_expectations['Class1#method2'])
-    self.assertIn(LARGE, runner.suite_test_expectations['Class1#method2'])
-    self.assertIn(TIMEOUT, runner.suite_test_expectations['test3'])
     self.assertEquals(60, runner.deadline)
+    self.assertEquals(
+        {
+            'Class1#method1': LARGE | FAIL,
+            'Class1#method2': LARGE | FLAKY | PASS,
+            'Class2#method1': LARGE | TIMEOUT,
+            'Class2#method2': LARGE | PASS,
+        },
+        runner.expectation_map)
     self.assertEquals(None, runner.bug)
     self.assertEquals(
         ['priMethod', 'abcMethod', 'xyzMethod'],

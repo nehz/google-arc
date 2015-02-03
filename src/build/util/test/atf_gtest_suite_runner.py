@@ -48,7 +48,7 @@ class AtfGTestSuiteRunner(atf_suite_runner.AtfSuiteRunnerBase):
     return self.get_launch_chrome_command(
         _build_atf_launch_chrome_args(
             self._test_apk,
-            sorted(self.suite_test_expectations.keys()),
+            sorted(self.expectation_map.keys()),
             test_methods_to_run))
 
   def setUp(self, test_methods_to_run):

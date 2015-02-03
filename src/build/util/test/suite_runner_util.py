@@ -7,43 +7,42 @@
 from util.test import suite_runner_config_flags as flags
 
 
-def merge_test_expectations(
-    base_test_expectations, override_test_expectations):
-  # In test cases, base_test_expectations is stubbed out as {'*': flags.PASS}.
+def merge_expectation_map(
+    base_expectation_map, override_expectation_map, default_expectation):
+  # In test cases, |base_expectation_map| is stubbed out as {'*': flags.PASS}.
   # cf) src/build/run_integration_tests_test.py.
   # We cannot easily avoid this situation, because the real files are
   # generated at build time, so the unittests do not know about them.
   # To avoid test failure, we temporarily handle it here, too.
   # TODO(crbug.com/432507): Once the '*' expansion work is done, we can
   # get rid of '*'. We should revisit here then.
-  if base_test_expectations == {'*': flags.PASS}:
-    return base_test_expectations
+  if base_expectation_map == {'*': flags.PASS}:
+    return base_expectation_map
 
-  # First, check the integrity of our CTS configuration. Note that this check
-  # may raise a false alarm for upstream CTS configuration which does not
-  # specify individual test methods. The only known instance of this is
-  # CtsDpiTestCases2, and we have no test expectations for the test.
-  # cf) android-cts/android-cts/repository/testcases/CtsDpiTestCases2.xml
-  unknown_test_list = []
-  for test_name in override_test_expectations:
-    if test_name != '*' and test_name not in base_test_expectations:
-      unknown_test_list.append(test_name)
+  # First, check the integrity of our CTS configuration.
+  unknown_test_list = [test_name for test_name in override_expectation_map
+                       if test_name not in base_expectation_map]
   assert not unknown_test_list, (
       'Unknown tests found:\n%s' % '\n'.join(unknown_test_list))
 
   # Then merge the expectation dicts as follows:
-  # 1) If the test's expectation is in |override_test_expectations|, choose it.
-  # 2) If there is default expectation (its key is '*') and it is not PASS,
-  #    choose it.
-  # 3) Otherwise (i.e. there is no default expectation or the default
-  #    expectation is PASS), then choose the original expectation.
-  default_expectation = override_test_expectations.get('*')
+  # 1) If the test's expectation is in |override_expectation_map|, choose it.
+  # 2) If there is default expectation and it is not PASS, choose it.
+  # 3) Otherwise, choose the original expectation.
+  # In any case, default expectation is applied again if specified,
+  # in order to expand some flags, such as LARGE or FLAKY.
   if default_expectation and default_expectation == flags.PASS:
     default_expectation = None
+
   result = {}
-  for test_name, original_expectation in base_test_expectations.iteritems():
-    expectation = override_test_expectations.get(
+  for test_name, original_expectation in base_expectation_map.iteritems():
+    expectation = override_expectation_map.get(
         test_name, default_expectation or original_expectation)
+    if default_expectation:
+      # |default_expectation| must be left hand side, because '|' operator for
+      # the expectation set is asymmetric. (cf suite_runner_config_flags.py).
+      # TODO(crbug.com/437402): Clean up this.
+      expectation = default_expectation | expectation
     result[test_name] = expectation
   return result
 

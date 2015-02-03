@@ -487,6 +487,14 @@ Native Client Debugging
                       help='Do not attempt build before running the above '
                       'command.')
 
+  parser.add_argument('--obb-main', type=str, default=None, metavar='<path>',
+                      help=('The main expansion file, e.g. '
+                            'main.123.com.example.app.obb.'))
+
+  parser.add_argument('--obb-patch', type=str, default=None, metavar='<path>',
+                      help=('The patch expansion file, e.g. '
+                            'patch.123.com.example.app.obb.'))
+
   parser.add_argument('--orientation', '-o', choices=_ALLOWED_ORIENTATIONS,
                       type=_parse_orientation,
                       help='Set desired orientation in manifest.')
