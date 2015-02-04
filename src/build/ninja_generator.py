@@ -440,6 +440,13 @@ class NinjaGenerator(ninja_syntax.Writer):
   def _get_target_ld_flags(target, is_so=False, is_system_library=False):
     flags = []
 
+    # This should be specified before $ldflags so we can overwrite it
+    # for no-elf-hash-table-library.so.
+    if target != 'host' and OPTIONS.is_bare_metal_build():
+      # Goobuntu's GCC uses --hash-style=gnu by default, but the
+      # Bionic loader cannot handle GNU hash.
+      flags.append('-Wl,--hash-style=sysv')
+
     if is_so:
       flag_variable = '$hostldflags' if target == 'host' else '$ldflags'
       flags.extend(['-shared', flag_variable, '-Wl,-Bsymbolic', '@$out.files'])
@@ -458,10 +465,6 @@ class NinjaGenerator(ninja_syntax.Writer):
                   '-Wl,--end-group',
                   '$ldadd'])
 
-    if target != 'host' and OPTIONS.is_bare_metal_build():
-      # arm-nacl-gcc and gcc of Goobuntu use --hash-style=gnu by
-      # default, but the bionic loader cannot handle gnu hash.
-      flags.append('-Wl,--hash-style=sysv')
     # --build-id is expected by 'perf report' tool to more reliably identify
     # original binaries when it looks for symbol information.
     # Additionally this flag is needed to match up symbol uploads for
@@ -763,15 +766,15 @@ class NinjaGenerator(ninja_syntax.Writer):
                              'src/build/symbol_tool.py'])
 
   @staticmethod
-  def get_installed_shared_libs(ninja_list):
-    """Returns installed shared libs in the given ninja_list."""
-    installed_shared_libs = []
+  def get_production_shared_libs(ninja_list):
+    """Returns production shared libs in the given ninja_list."""
+    production_shared_libs = []
     for ninja in ninja_list:
       if not isinstance(ninja, SharedObjectNinjaGenerator):
         continue
-      for path in ninja.installed_shared_library_list:
-        installed_shared_libs.append(build_common.get_build_dir() + path)
-    return installed_shared_libs
+      for path in ninja.production_shared_library_list:
+        production_shared_libs.append(build_common.get_build_dir() + path)
+    return production_shared_libs
 
   def get_notices_install_path(self):
     """Pick a name for describing this generated artifact in NOTICE.html."""
@@ -1784,7 +1787,7 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
   def __init__(self, module_name, install_path='/lib',
                disallowed_symbol_files=None,
                is_system_library=False, link_crtbegin=True, link_stlport=True,
-               **kwargs):
+               is_for_test=False, **kwargs):
     super(SharedObjectNinjaGenerator, self).__init__(
         module_name, ninja_name=module_name + '_so', **kwargs)
     # No need to install the shared library for the host.
@@ -1804,8 +1807,9 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
       self._shared_deps.append(
           os.path.join(build_common.get_load_library_path(),
                        'libposix_translation.so'))
-    self.installed_shared_library_list = []
+    self.production_shared_library_list = []
     self._link_crtbegin = link_crtbegin
+    self._is_for_test = is_for_test
 
   @classmethod
   def disable_linking(cls):
@@ -1871,7 +1875,8 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
     if self._install_path is not None:
       install_so = os.path.join(self._install_path, basename_so)
       self.install_to_build_dir(install_so, intermediate_so)
-      self.installed_shared_library_list.append(install_so)
+      if not self._is_for_test:
+        self.production_shared_library_list.append(install_so)
 
       # Create TOC file next to the installed shared library.
       self.build(self._get_toc_file_for_so(install_so),

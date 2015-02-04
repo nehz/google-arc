@@ -219,11 +219,7 @@ TEST(dlfcn, dladdr_invalid) {
 #if defined(__BIONIC__)
 // GNU-style ELF hash tables are incompatible with the MIPS ABI.
 // MIPS requires .dynsym to be sorted to match the GOT but GNU-style requires sorting by hash code.
-/* ARC MOD BEGIN */
-// TODO(crbug.com/329055): Investigate if disabling the test is all that can
-// be done, or if this should be passing.
-#if !defined(__mips__) && !defined(HAVE_ARC)
-/* ARC MOD END */
+#if !defined(__mips__)
 TEST(dlfcn, dlopen_library_with_only_gnu_hash) {
   dlerror(); // Clear any pending errors.
   void* handle = dlopen("no-elf-hash-table-library.so", RTLD_NOW);

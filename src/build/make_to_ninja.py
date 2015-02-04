@@ -117,6 +117,7 @@ _DEFAULT_VARS = ['_include_stack',  # for _import_node
                  'BUILD_HOST_64bit',
                  'BUILD_HOST_DALVIK_JAVA_LIBRARY',  # for art
                  'BUILD_HOST_static',
+                 'BUILD_TINY_ANDROID',  # for no-elf-hash-table-library.so
                  'CALLED_FROM_SETUP',
                  'clcore_LLVM_LD',
                  'common_SHARED_LIBRARIES',

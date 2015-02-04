@@ -23,7 +23,7 @@ from util.minidump_filter import MinidumpFilter
 from util.test import unittest_util
 
 
-RUN_UNIT_TEST = 'src/build/util/test/run_unittest.py'
+RUN_UNIT_TEST = 'src/build/run_unittest.py'
 SYNC_ADB = 'src/build/sync_adb.py'
 SYNC_CHROME = 'src/build/sync_chrome.py'
 

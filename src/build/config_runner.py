@@ -196,19 +196,19 @@ def _generate_shared_lib_depending_ninjas(ninja_list):
 
   timer.start('Generating plugin and packaging ninjas', OPTIONS.verbose())
   # We must generate plugin/nexe ninjas after make->ninja lazy generation
-  # so that we have the full list of shared libraries to pass to
-  # the load test.
+  # so that we have the full list of production shared libraries to
+  # pass to the load test.
   # These modules depend on shared libraries generated in the previous phase.
-  installed_shared_libs = (
-      ninja_generator.NinjaGenerator.get_installed_shared_libs(ninja_list[:]))
+  production_shared_libs = (
+      ninja_generator.NinjaGenerator.get_production_shared_libs(ninja_list[:]))
   ninja_generators = _find_ninja_generators(
       _config_loader, 'generate_shared_lib_depending_ninjas')
-  task_list = [(m, (f, installed_shared_libs)) for m, f in ninja_generators]
+  task_list = [(m, (f, production_shared_libs)) for m, f in ninja_generators]
 
   if OPTIONS.run_tests():
     test_ninja_generators = _find_ninja_generators(
         _config_loader, 'generate_shared_lib_depending_test_ninjas')
-    task_list.extend([(m, (f, installed_shared_libs))
+    task_list.extend([(m, (f, production_shared_libs))
                      for m, f in test_ninja_generators])
 
   result_list = ninja_generator_runner.run_in_parallel([

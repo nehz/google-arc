@@ -194,10 +194,10 @@ static soinfo* gLdPreloads[LDPRELOAD_MAX + 1];
 // directly. Note that this value will be updated to -1 in
 // __linker_init for --disable-debug-code build.
 //
-// run_under_gdb.py is also useful to debug crashes when porting the linker:
+// run_unittest.py --gdb is also useful to debug crashes when porting
+// the linker:
 //  $ ninja out/target/nacl_x86_64_dbg/bionic_tests/loader_test
-//  $ src/build/run_under_gdb.py
-//     out/target/nacl_x86_64_dbg/bionic_tests/loader_test
+//  $ src/build/run_unittest.py bionic_fundamental_loader_test
 // ARC MOD END
 __LIBC_HIDDEN__ int gLdDebugVerbosity;
 
@@ -2434,7 +2434,7 @@ static Elf32_Addr __linker_init_post_relocation(KernelArgumentBlock& args, Elf32
   // Wait for gdb attaching to this process.
   // If __bare_metal_irt_notify_gdb_of_libraries exists, the Bionic
   // loader is launched by bare_metal_loader and not by nacl_helper,
-  // so we should not wait. Note that run_under_gdb.py does not rely
+  // so we should not wait. Note that run_unittest.py does not rely
   // on /tmp/bare_metal_gdb.
   // TODO(crbug.com/354290): Remove this hack. Use __nacl_irt_open and
   // __nacl_irt_close instead of the direct syscalls when we add more

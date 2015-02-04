@@ -35,5 +35,5 @@ class UnittestRunner(suite_runner.SuiteRunnerBase):
     assert test_methods_to_run == [UnittestRunner._TEST_NAME]
     test_name = self._name.replace('unittest.', '', 1)
     return self.run_subprocess_test(
-        ['python', 'src/build/util/test/run_unittest.py', test_name],
+        ['python', 'src/build/run_unittest.py', test_name],
         test_name=UnittestRunner._TEST_NAME)

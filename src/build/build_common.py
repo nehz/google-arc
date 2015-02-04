@@ -687,21 +687,31 @@ def _build_matcher(exclude_filenames, include_tests, include_suffixes,
   return factory.build_matcher()
 
 
-def _generate_all_files(base_paths, matcher, use_staging, relative,
+def _enumerate_files(base_path, include_subdirectories):
+  for root, dirs, files in os.walk(base_path, followlinks=True):
+    if not include_subdirectories:
+      dirs[:] = []
+    for one_file in files:
+      yield os.path.join(root, one_file)
+
+
+def _maybe_relpath(path, root):
+  return path if root is None else os.path.relpath(path, root)
+
+
+def _maybe_join(root, path):
+  return path if root is None else os.path.join(root, path)
+
+
+def _generate_all_files(base_paths, matcher, root, relative,
                         include_subdirectories):
   for base_path in as_list(base_paths):
-    base = base_path
-    if use_staging:
-      base_path = os.path.join(get_staging_root(), base_path)
-    for root, dirs, files in os.walk(base_path, followlinks=True):
-      if not include_subdirectories:
-        dirs[:] = []
-      if use_staging:
-        root = os.path.relpath(root, get_staging_root())
-      for one_file in files:
-        file_path = os.path.join(root, one_file)
-        if matcher.match(file_path):
-          yield file_path if not relative else os.path.relpath(file_path, base)
+    listing_root = _maybe_join(root, base_path)
+    result_root = listing_root if relative else root
+
+    for file_path in _enumerate_files(listing_root, include_subdirectories):
+      if matcher.match(_maybe_relpath(file_path, root)):
+        yield _maybe_relpath(file_path, result_root)
 
 
 def find_all_files(base_paths, suffixes=None, include_tests=False,
@@ -728,8 +738,10 @@ def find_all_files(base_paths, suffixes=None, include_tests=False,
   # For debugging/diffing purposes, sort the file list.
   return sorted(_generate_all_files(
       base_paths,
-      matcher=_build_matcher(exclude, include_tests, suffixes, filenames),
-      use_staging=use_staging, relative=relative,
+      matcher=_build_matcher(exclude, include_tests,
+                             suffixes, filenames),
+      root=get_staging_root() if use_staging else None,
+      relative=relative,
       include_subdirectories=include_subdirectories))
 
 

@@ -9,14 +9,37 @@
 #
 # Usage:
 # Run unit tests locally:
-# $ src/build/util/test/run_unittest.py test0 test1 ...
+# $ src/build/run_unittest.py test0 test1 ...
 #
 # Run unit tests remotely on a Chrome OS device.
-# $ src/build/util/test/run_unittest.py test0 test1 ... --remote=<REMOTE>
+# $ src/build/run_unittest.py test0 test1 ... --remote=<REMOTE>
 #
 # When --remote is specified, the test binaries and other necessary files are
 # copied to the remote Chrome OS device. The the unit tests need to be built
 # before running this script.
+#
+# Some examples:
+#
+# To see the list of unittest binaries:
+#
+# $ src/build/run_unittest.py --list
+#
+# To debug a unittest with GDB:
+#
+# $ src/build/run_unittest.py bionic_test --gdb
+#
+# To run a unittest on a Chromebook:
+#
+# $ src/build/run_unittest.py posix_translation_test --remote=yoshi
+#
+# To see the list of test cases in a unittest binary:
+#
+# $ src/build/run_unittest.py libndk_test --gtest-list-tests
+#
+# To run the unittest with a GTEST_FILTER:
+#
+# $ src/build/run_unittest.py libndk_test --gtest-filter 'NdkTest.Opt*'
+#
 
 import argparse
 import json

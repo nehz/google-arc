@@ -1018,7 +1018,16 @@ def _generate_bionic_tests():
   for f in ['bzero', 'memcmp', 'memset', 'nearbyint', 'nearbyintf',
             'nearbyintl', 'sqrt', 'strcmp', 'strcpy', 'strlen']:
     n.add_compiler_flags('-fno-builtin-' + f)
-  n.run(n.link(variables={'ldflags': ldflags}))
+  n.run(n.link(variables={'ldflags': ldflags}),
+        implicit=os.path.join(build_common.get_load_library_path(),
+                              'no-elf-hash-table-library.so'))
+
+  # Build the shared object for dlfcn.dlopen_library_with_only_gnu_hash.
+  def _filter(vars):
+    if vars.get_module_name() == 'no-elf-hash-table-library':
+      vars.get_generator_args()['is_for_test'] = True
+      return True
+  MakefileNinjaTranslator('android/bionic/tests').generate(_filter)
 
 
 def _generate_libgcc_ninja():

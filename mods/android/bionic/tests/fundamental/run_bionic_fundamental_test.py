@@ -33,7 +33,7 @@ def main(args):
     return 0
 
   for test_name in args[1:]:
-    pipe = subprocess.Popen(['python', 'src/build/util/test/run_unittest.py',
+    pipe = subprocess.Popen(['python', 'src/build/run_unittest.py',
                              test_name],
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT)
