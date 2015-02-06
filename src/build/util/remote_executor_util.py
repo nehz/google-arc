@@ -18,6 +18,7 @@ import tempfile
 import build_common
 from build_options import OPTIONS
 import filtered_subprocess
+from util import file_util
 from util import gdb_util
 from util.minidump_filter import MinidumpFilter
 from util.test import unittest_util
@@ -26,6 +27,7 @@ from util.test import unittest_util
 RUN_UNIT_TEST = 'src/build/run_unittest.py'
 SYNC_ADB = 'src/build/sync_adb.py'
 SYNC_CHROME = 'src/build/sync_chrome.py'
+SYNC_ANDROID_SDK_BUILD_TOOLS = 'src/build/sync_android_sdk_build_tools.py'
 
 # Following lists contain files or directories to be copied to the remote host.
 _COMMON_FILE_PATTERNS = ['out/configure.options',
@@ -66,6 +68,7 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     'out/target/common/obj/APPS/perf_tests_codec_intermediates/perf_tests_codec.apk',  # NOQA
     'out/target/common/obj/JAVA_LIBRARIES/uiautomator.*/javalib.jar',
     'out/target/common/vmHostTests',
+    'out/tools/apk_to_crx.py',
     'run_integration_tests',
     'src/integration_tests',
     'third_party/android-cts/android-cts/repository/plans/CTS.xml',
@@ -104,7 +107,7 @@ def _get_temp_dir():
   global _TEMP_DIR
   if not _TEMP_DIR:
     _TEMP_DIR = tempfile.mkdtemp()
-    atexit.register(lambda: build_common.rmtree_with_retries(_TEMP_DIR))
+    atexit.register(lambda: file_util.rmtree_with_retries(_TEMP_DIR))
   return _TEMP_DIR
 
 

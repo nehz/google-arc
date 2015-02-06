@@ -25,17 +25,17 @@ import re
 import subprocess
 import sys
 
-import build_common
 import dashboard_submit
 import filtered_subprocess
 import run_integration_tests
 from build_options import OPTIONS
-from config_loader import ConfigLoader
 from ninja_generator import ApkFromSdkNinjaGenerator
+from util import file_util
 from util import launch_chrome_util
 from util import remote_executor
-from util.test.suite_runner import SuiteRunnerBase
-from util.test.suite_runner_config_flags import PASS
+from util.test import dalvik_vm_test_runner
+from util.test import suite_runner
+from util.test import suite_runner_config_flags as flags
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _ARC_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))
@@ -63,9 +63,6 @@ _OUTPUT_DUMP_FORMAT = """
 
 *** END ***
 """
-
-_config_loader = ConfigLoader()
-_config_loader.load_from_default_path()
 
 
 class InvalidResultError(Exception):
@@ -309,18 +306,19 @@ class VMPerfDriver(BaseDriver):
     super(VMPerfDriver, self).__init__(args)
 
   def _run(self, benchmark):
-    DalvikVMTest = list(_config_loader.find_name('DalvikVMTest'))[0]
-    inst = DalvikVMTest('401-perf', config={'flags': PASS})
+    runner = dalvik_vm_test_runner.DalvikVMTestRunner(
+        '401-perf', config={'flags': flags.PASS})
     args = _prepare_integration_tests_args(100)
 
     # Call set_up_common_test_directory and prepare_to_run iff source files
     # to build tests exist. Perf builders do not have them, and can skip it.
     # The buidlers have downloaded pre-built files.
-    if os.path.exists(os.path.join(inst.get_tests_root(), 'etc')):
-      inst.set_up_common_test_directory()
-      inst.prepare_to_run([], args)
+    if os.path.exists(os.path.join(
+        dalvik_vm_test_runner.DalvikVMTestRunner.DALVIK_TESTS_DIR, 'etc')):
+      runner.set_up_common_test_directory()
+      runner.prepare_to_run([benchmark], args)
 
-    output, _ = inst.run_with_setup([benchmark], args)
+    output, _ = runner.run_with_setup([benchmark], args)
     for line in output.splitlines():
       # Result line format is 'Benchmark <name>: <result> ms'.
       match = _BENCHMARK_RESULT_RE.match(line)
@@ -404,7 +402,8 @@ def main():
   # that out/integration_tests exists. It is true if integration tests ran
   # before calling perf_test.py, but not true for perf builders.
   # Let's create it if it does not exist.
-  build_common.makedirs_safely(SuiteRunnerBase.get_output_directory())
+  file_util.makedirs_safely(
+      suite_runner.SuiteRunnerBase.get_output_directory())
 
   OPTIONS.parse_configure_file()
   parser = argparse.ArgumentParser(

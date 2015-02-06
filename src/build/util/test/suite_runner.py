@@ -6,23 +6,19 @@
 
 import filtered_subprocess
 import fnmatch
-import glob
-import imp
 import json
 import os
 import subprocess
-import sys
 import threading
 
 import build_common
+from util import file_util
 from util import launch_chrome_util
-from util.test.scoreboard import Scoreboard
-from util.test.suite_runner_config import SuiteExpectationsLoader
-from util.test.suite_runner_config import default_run_configuration
-from util.test.suite_runner_config_flags import FAIL
-from util.test.suite_runner_config_flags import TIMEOUT
-from util.test.test_method_result import TestMethodResult
+from util.test import scoreboard
+from util.test import suite_runner_config
+from util.test import suite_runner_config_flags as flags
 from util.test import suite_runner_util
+from util.test import test_method_result
 
 
 # Number of times to retry because of Chrome startup flake.
@@ -128,16 +124,10 @@ class SuiteRunnerBase(object):
             '--server-args', '-screen 0 640x480x24',
             '--error-file', output_filename]
 
-  def __init__(self, name, base_expectation_map,
-               expectations_loader=None, config=None):
-    # TODO(crbug.com/384028): expectation_loader will become mandatory.
-    if expectations_loader:
-      assert not config, 'Unexpected entries in config: %s' % config
-      merged_config = expectations_loader.get(name)
-    else:
-      merged_config = default_run_configuration()
-      if config:
-        merged_config.update(config)
+  def __init__(self, name, base_expectation_map, config=None):
+    merged_config = suite_runner_config.default_run_configuration()
+    if config:
+      merged_config.update(config)
 
     self._lock = threading.Lock()
     self._name = name
@@ -154,7 +144,7 @@ class SuiteRunnerBase(object):
 
     expectation_map = suite_runner_util.merge_expectation_map(
         base_expectation_map, override_expectation_map, default_expectation)
-    self._scoreboard = Scoreboard(name, expectation_map)
+    self._scoreboard = scoreboard.Scoreboard(name, expectation_map)
     self._expectation_map = expectation_map
 
     # These will be set up later, in prepare_to_run(), and run_subprocess().
@@ -197,7 +187,7 @@ class SuiteRunnerBase(object):
   @property
   def expect_failure(self):
     """Returns the expected result of the whole suite."""
-    return FAIL in self._flags or TIMEOUT in self._flags
+    return flags.FAIL in self._flags or flags.TIMEOUT in self._flags
 
   @property
   def bug(self):
@@ -385,7 +375,7 @@ class SuiteRunnerBase(object):
       return args
 
     args_dir = os.path.join(build_common.get_build_dir(), 'integration_tests')
-    build_common.makedirs_safely(args_dir)
+    file_util.makedirs_safely(args_dir)
 
     args_file = os.path.join(args_dir, self._name + '_args')
     with open(args_file, 'w') as f:
@@ -428,7 +418,7 @@ class SuiteRunnerBase(object):
   def run_subprocess_test(self, args, test_name=None, env=None, cwd=None):
     """Runs a test which runs subprocess and sets status appropriately."""
     result = None
-    test_name = test_name or Scoreboard.ALL_TESTS_DUMMY_NAME
+    test_name = test_name or scoreboard.Scoreboard.ALL_TESTS_DUMMY_NAME
     # We cannot use the normal retry methods used in test_driver to
     # determine whether to run the test suites that are failing because of
     # Chrome launch failures.  This is because most of the suite runners have
@@ -440,7 +430,8 @@ class SuiteRunnerBase(object):
     while True:
       try:
         raw_output = self.run_subprocess(args, env=env, cwd=cwd)
-        result = TestMethodResult(test_name, TestMethodResult.PASS)
+        result = test_method_result.TestMethodResult(
+            test_name, test_method_result.TestMethodResult.PASS)
         break
       except subprocess.CalledProcessError:
         raw_output = self._get_subprocess_output()
@@ -462,25 +453,11 @@ class SuiteRunnerBase(object):
           raw_output += '-' * 10 + ' XVFB output starts ' + '-' * 10
           raw_output += self._get_xvfb_output()
         if is_timeout:
-          result = TestMethodResult(test_name, TestMethodResult.INCOMPLETE)
+          status = test_method_result.TestMethodResult.INCOMPLETE
         else:
-          result = TestMethodResult(test_name, TestMethodResult.FAIL)
+          status = test_method_result.TestMethodResult.FAIL
+        result = test_method_result.TestMethodResult(test_name, status)
         break
 
     self._scoreboard.update([result])
     return raw_output, {test_name: result}
-
-
-def load_from_suite_definitions(definitions_base_path, expectations_base_path):
-  expectations_loader = SuiteExpectationsLoader(expectations_base_path)
-  runners = []
-
-  for suite_filename in glob.glob(os.path.join(definitions_base_path, '*.py')):
-    with open(suite_filename) as suite_definitions:
-      sys.dont_write_bytecode = True
-      definitions_module = imp.load_source('', definitions_base_path,
-                                           suite_definitions)
-      sys.dont_write_bytecode = False
-      runners += definitions_module.get_integration_test_runners(
-          expectations_loader)
-  return runners

@@ -18,8 +18,8 @@ import errno
 import subprocess
 import sys
 
-import build_common
 import toolchain
+from util import file_util
 
 
 def make_table_of_contents(target, input_so_path):
@@ -67,7 +67,7 @@ def main(args):
   toc = make_table_of_contents(target, input_so_path)
 
   if should_update_toc_file(toc, output_toc_path):
-    build_common.write_atomically(output_toc_path, toc)
+    file_util.write_atomically(output_toc_path, toc)
   return 0
 
 

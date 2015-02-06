@@ -20,6 +20,7 @@ import sys
 
 import build_common
 import build_options
+from util import file_util
 
 _GIT_DIR = '.git'
 _SRC_DIR = 'src'
@@ -178,7 +179,7 @@ def _create_symlink_tree(mods_root, third_party_root, staging_root):
   third_party/android/...
   """
   staging_root_parent = os.path.dirname(staging_root)
-  build_common.makedirs_safely(staging_root_parent)
+  file_util.makedirs_safely(staging_root_parent)
 
   if os.path.exists('mods/chromium-ppapi/base'):
     # See comments in _create_overlay_base.

@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/bin/sh
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -85,11 +85,10 @@ libtinfo5:i386
 libtinfo5
 "
 
-FORCE=
-if [ "${1-}" == "--force" ];
-then 
+if test "$1" = '--force'; then
 FORCE="-y"
+else
+FORCE=
 fi
-
 sudo apt-get install --no-install-recommends $FORCE \
   ${arc_list} ${chrome32_list} ${nacl_list}

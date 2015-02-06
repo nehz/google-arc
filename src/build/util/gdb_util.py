@@ -19,6 +19,7 @@ import time
 import build_common
 import toolchain
 from build_options import OPTIONS
+from util import file_util
 from util import platform_util
 
 
@@ -62,7 +63,7 @@ def _create_command_file(command):
   # After gdb is finished, we expect SIGINT is sent to this process.
   command = command + [';', 'kill', '-INT', str(os.getpid())]
 
-  with build_common.create_tempfile_deleted_at_exit(
+  with file_util.create_tempfile_deleted_at_exit(
       prefix='arc-gdb-', suffix='.sh') as command_file:
     # Escape by wrapping double-quotes if an argument contains a white space.
     command_file.write(' '.join(
@@ -84,21 +85,34 @@ def maybe_launch_gdb(gdb_target_list, gdb_type, chrome_pid):
     _launch_gdb('browser', str(chrome_pid), gdb_type)
 
 
-def _get_xterm_gdb_startup(title, gdb):
+def _get_xterm_gdb(title, gdb, extra_argv):
   return ['xterm',
           '-display', __DISPLAY,
           '-title', title, '-e',
           gdb, '--tui',  # Run gdb with text UI mode.
           '--tty', os.ttyname(sys.stdin.fileno()),
-          '-ex', 'set use-deprecated-index-sections on']
+          '-ex', 'set use-deprecated-index-sections on'] + extra_argv
 
 
-def _get_screen_gdb_startup(title, gdb):
+def _get_screen_gdb(title, gdb, extra_argv):
   return ['screen',
           '-t', title,
           gdb,
           '--tty', os.ttyname(sys.stdin.fileno()),
-          '-ex', 'set use-deprecated-index-sections on']
+          '-ex', 'set use-deprecated-index-sections on'] + extra_argv
+
+
+def _get_emacsclient_gdb(title, gdb, extra_argv):
+  command = [gdb,
+             # First parameter gets used as the buffer name and current
+             # directory. Make it somewhat unique non-directory name.
+             '-ex', 'echo %s' % title,
+             '-ex', 'set use-deprecated-index-sections on'] + extra_argv
+  # Emacs lisp instruction sent through emacsclient, needs to have " escaped.
+  elisp = '(gud-gdb "%s")' % (
+      subprocess.list2cmdline(command).replace('"', '\\"'))
+  return ['emacsclient',
+          '-e', elisp]
 
 
 def _run_gdb_watch_thread(gdb_process):
@@ -114,14 +128,15 @@ def _run_gdb_watch_thread(gdb_process):
 def _launch_gdb(title, pid_string, gdb_type):
   """Launches GDB for a non-plugin process."""
   host_gdb = toolchain.get_tool('host', 'gdb')
-  if gdb_type == 'xterm':
-    command = _get_xterm_gdb_startup(title, host_gdb)
-  elif gdb_type == 'screen':
-    command = _get_screen_gdb_startup(title, host_gdb)
-
-  command.extend(['-p', pid_string])
+  command = ['-p', pid_string]
   if title in ('gpu', 'renderer'):
     command.extend(['-ex', r'echo To start: signal SIGUSR1\n'])
+  if gdb_type == 'xterm':
+    command = _get_xterm_gdb(title, host_gdb, command)
+  elif gdb_type == 'screen':
+    command = _get_screen_gdb(title, host_gdb, command)
+  elif gdb_type == 'emacsclient':
+    command = _get_emacsclient_gdb(title, host_gdb, command)
   gdb_process = subprocess.Popen(command)
 
   if gdb_type == 'xterm':
@@ -133,18 +148,30 @@ def _launch_plugin_gdb(gdb_args, gdb_type):
   gdb = toolchain.get_tool(OPTIONS.target(), 'gdb')
   if gdb_type == 'xterm':
     # For "xterm" mode, just run the gdb process.
-    xterm_args = _get_xterm_gdb_startup('plugin', gdb)
-    command = xterm_args + gdb_args
+    command = _get_xterm_gdb('plugin', gdb, gdb_args)
     subprocess.Popen(command)
   elif gdb_type == 'screen':
-    screen_args = _get_screen_gdb_startup('plugin', gdb)
-    command = screen_args + gdb_args
+    command = _get_screen_gdb('plugin', gdb, gdb_args)
     subprocess.Popen(command)
     print '''
 
 =====================================================================
 
 Now gdb should be running in another screen. Set breakpoints as you
+like and start debugging by
+
+(gdb) continue
+
+=====================================================================
+'''
+  elif gdb_type == 'emacsclient':
+    command = _get_emacsclient_gdb('plugin', gdb, gdb_args)
+    subprocess.Popen(command)
+    print '''
+
+=====================================================================
+
+Now gdb should be running in your emacs session. Set breakpoints as you
 like and start debugging by
 
 (gdb) continue
@@ -298,7 +325,7 @@ def _accept_tcp_connection_on_chromeos(port):
 def create_or_remove_bare_metal_gdb_lock_dir(gdb_target_list):
   shutil.rmtree(_BARE_METAL_GDB_LOCK_DIR, ignore_errors=True)
   if 'plugin' in gdb_target_list and OPTIONS.is_bare_metal_build():
-    build_common.makedirs_safely(_BARE_METAL_GDB_LOCK_DIR)
+    file_util.makedirs_safely(_BARE_METAL_GDB_LOCK_DIR)
 
 
 def is_no_sandbox_needed(gdb_target_list):

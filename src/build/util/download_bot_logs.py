@@ -33,8 +33,8 @@ import sys
 import urllib2
 
 sys.path.insert(0, 'src/build')
-import build_common
 import util.concurrent
+from util import file_util
 
 _BUILDBOT_URL = 'https://chromegw.corp.google.com/i/client.arc'
 _LOG_URL_TMPL = ('%(buildbot_url)s/builders/%(builder)s/builds/'
@@ -71,7 +71,7 @@ def download_log(builder, build_number, logs_dir):
                          'target': deduce_target_from_builder(builder)}
   try:
     with contextlib.closing(urllib2.urlopen(url)) as stream:
-      build_common.write_atomically(log_path, stream.read())
+      file_util.write_atomically(log_path, stream.read())
   except urllib2.URLError:
     print 'Download failed: ' + url
 
@@ -137,7 +137,7 @@ def make_download_args_list(builders_info, outdir, number_of_logs):
   download_args_list = []
   for builder, build_number in builders_info.iteritems():
     logs_dir = os.path.join(outdir, builder)
-    build_common.makedirs_safely(logs_dir)
+    file_util.makedirs_safely(logs_dir)
     build_range = range(max(build_number - number_of_logs + 1, 0),
                         build_number + 1)
     download_args_list += [(builder, build_number, logs_dir)

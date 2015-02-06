@@ -18,6 +18,7 @@ import tempfile
 import analyze_diffs
 import build_common
 import open_source
+from util import file_util
 
 _GROUP_ASM = 'Assembly'
 _GROUP_CPP = 'C/C++'
@@ -421,7 +422,7 @@ def read_ignore_rules(ignore_file_path):
   if not ignore_file_path:
     return {}
   return json.loads('\n'.join(
-      build_common.read_metadata_file(ignore_file_path)))
+      file_util.read_metadata_file(ignore_file_path)))
 
 
 def process(files, ignore_file=None, output_file=None):

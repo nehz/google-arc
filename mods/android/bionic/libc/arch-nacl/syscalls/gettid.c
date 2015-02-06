@@ -73,7 +73,10 @@ pid_t __allocate_tid() {
       return -1;
     }
   }
-  pid_t tid = g_next_tid;
+  // For pthread_create => pthread_join => pthread_create, Linux
+  // kernel creates the two threads with different thread
+  // IDs. Increment |g_next_tid| to emulate this behavior.
+  pid_t tid = g_next_tid++;
   g_tid_map[tid] = 1;
   pthread_mutex_unlock(&g_mu);
   return tid;

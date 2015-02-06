@@ -16,6 +16,7 @@ import build_common
 import toolchain
 from build_options import OPTIONS
 from util import concurrent
+from util import file_util
 
 
 _MINIDUMP_DUMP_TOOL = toolchain.get_nacl_tool('minidump_dump')
@@ -47,14 +48,14 @@ def _extract_symbols_from_one_binary(binary):
   symhash = syms.splitlines()[0].split()[3]
   base = os.path.basename(binary)
   sympath = os.path.join(_SYMBOL_OUT_DIR, base, symhash, base + '.sym')
-  build_common.makedirs_safely(os.path.dirname(sympath))
+  file_util.makedirs_safely(os.path.dirname(sympath))
 
   with open(sympath, 'w') as f:
     f.write(syms)
 
   # Create the marker directory so we will not need to extract symbols
   # in the next time.
-  build_common.makedirs_safely(marker_path)
+  file_util.makedirs_safely(marker_path)
 
 
 def _extract_symbols():

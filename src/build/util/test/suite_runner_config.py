@@ -4,6 +4,7 @@
 
 import collections
 import copy
+import glob
 import imp
 import os.path
 import re
@@ -11,9 +12,7 @@ import sys
 
 from build_options import OPTIONS
 from util import platform_util
-from util.test.suite_runner_config_flags import ExclusiveFlagSet
-from util.test.suite_runner_config_flags import FLAKY
-from util.test.suite_runner_config_flags import PASS
+from util.test import suite_runner_config_flags as flags
 
 
 DEFAULT_OUTPUT_TIMEOUT = 300
@@ -45,7 +44,7 @@ class _SuiteRunConfiguration(object):
     return self
 
   def _validate_flags(self, value):
-    assert isinstance(value, ExclusiveFlagSet), (
+    assert isinstance(value, flags.ExclusiveFlagSet), (
         'Not a recognized flag: %s' % value)
 
   def _validate_deadline(self, value):
@@ -73,14 +72,14 @@ class _SuiteRunConfiguration(object):
     for outer_name, outer_expectation in class_config_dict.iteritems():
       assert isinstance(outer_name, basestring), (
           'suite_test_expectations %s is not a string' % outer_name)
-      if isinstance(outer_expectation, ExclusiveFlagSet):
+      if isinstance(outer_expectation, flags.ExclusiveFlagSet):
         pass  # Not much more to validate.
       elif isinstance(outer_expectation, dict):
         for inner_name, inner_expectation in outer_expectation.iteritems():
           assert isinstance(inner_name, basestring), (
               'suite_test_expectations %s.%s is not a string' % (
                   outer_name, outer_expectation))
-          assert isinstance(inner_expectation, ExclusiveFlagSet), (
+          assert isinstance(inner_expectation, flags.ExclusiveFlagSet), (
               'suite_test_expectations %s.%s is not an expectation flag '
               'combination' % (outer_name, inner_name, inner_expectation))
       else:
@@ -127,7 +126,7 @@ class _SuiteRunConfiguration(object):
     self.validate()
 
     output = dict(bug=None, deadline=DEFAULT_OUTPUT_TIMEOUT,
-                  flags=PASS, test_order=collections.OrderedDict(),
+                  flags=flags.PASS, test_order=collections.OrderedDict(),
                   suite_test_expectations={})
     if defaults:
       # We need to make a deep copy so that we do not modify any dictionary or
@@ -162,9 +161,9 @@ class _SuiteRunConfiguration(object):
       if isinstance(outer_expectation, dict):
         for inner_name, inner_expectation in outer_expectation.iteritems():
           test_name = '%s#%s' % (outer_name, inner_name)
-          expectations[test_name] = PASS | inner_expectation
+          expectations[test_name] = flags.PASS | inner_expectation
       else:
-        expectations[outer_name] = PASS | outer_expectation
+        expectations[outer_name] = flags.PASS | outer_expectation
 
   def _eval_enable_if(self, output, value):
     # We don't expect this configuration section to be evaluated at all unless
@@ -202,20 +201,21 @@ class _SuiteRunConfiguration(object):
   _eval_config_deadline = _eval_deadline
 
 
-default_run_configuration = lambda: _SuiteRunConfiguration(None, config={
-    'flags': PASS,
-    'suite_test_expectations': {},
-    'deadline': 300,  # Seconds
-    'configurations': [{
-        'enable_if': OPTIONS.weird(),
-        'flags': FLAKY,
-    }, {
-        'enable_if': platform_util.is_running_on_cygwin(),
-        'bug': 'crbug.com/361474',
-        'flags': FLAKY,
-    }],
-    'metadata': {}
-}).evaluate()
+def default_run_configuration():
+  return _SuiteRunConfiguration(None, config={
+      'flags': flags.PASS,
+      'suite_test_expectations': {},
+      'deadline': 300,  # Seconds
+      'configurations': [{
+          'enable_if': OPTIONS.weird(),
+          'flags': flags.FLAKY,
+      }, {
+          'enable_if': platform_util.is_running_on_cygwin(),
+          'bug': 'crbug.com/361474',
+          'flags': flags.FLAKY,
+      }],
+      'metadata': {}
+  }).evaluate()
 
 
 def make_suite_run_configs(raw_config):
@@ -276,3 +276,35 @@ class SuiteExpectationsLoader(object):
         self._cache[partial_name] = config
       parent_config = config
     return config
+
+
+def get_suite_definitions_module(suite_filename):
+  with open(suite_filename) as suite_definitions:
+    sys.dont_write_bytecode = True
+    definitions_module = imp.load_source(
+        '', suite_filename, suite_definitions)
+    sys.dont_write_bytecode = False
+    return definitions_module
+
+
+def load_from_suite_definitions(definitions_base_path, expectations_base_path):
+  """Loads all the suite definitions from a given path.
+
+  |definitions_base_path| gives the path to the python files to load.
+  |expectations_base_path| gives the path to the expectation files to load,
+  which are matched up with each suite automatically.
+  """
+  expectations_loader = SuiteExpectationsLoader(expectations_base_path)
+  runners = []
+
+  definition_files = glob.glob(os.path.join(definitions_base_path, '*.py'))
+
+  # Filter out anything that is a unit test of a definition file.
+  definition_files = [name for name in definition_files
+                      if not name.endswith(('_test.py', '/config.py'))]
+
+  for suite_filename in definition_files:
+    definitions_module = get_suite_definitions_module(suite_filename)
+    runners += definitions_module.get_integration_test_runners(
+        expectations_loader)
+  return runners

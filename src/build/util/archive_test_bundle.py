@@ -19,6 +19,7 @@ import build_common
 import run_integration_tests
 import toolchain
 from build_options import OPTIONS
+from util import file_util
 from util import remote_executor_util
 
 
@@ -89,7 +90,7 @@ def _strip_binaries(paths):
   for path in paths:
     if _should_strip(path):
       stripped_path = os.path.join(_get_stripped_dir(), path)
-      build_common.makedirs_safely(os.path.dirname(stripped_path))
+      file_util.makedirs_safely(os.path.dirname(stripped_path))
       subprocess.check_call(['strip', path, '-o', stripped_path])
       stripped_paths.append(stripped_path)
     else:

@@ -27,6 +27,7 @@ from ninja_generator import ExecNinjaGenerator
 from ninja_generator import JarNinjaGenerator
 from ninja_generator import NinjaGenerator
 from ninja_generator import SharedObjectNinjaGenerator
+from util import file_util
 
 
 # The directory inside Android build/ where all shared scripts reside.
@@ -309,7 +310,7 @@ _INITIALIZED = False
 
 def _create_dir_for_file(name):
   dir_name = os.path.dirname(name)
-  build_common.makedirs_safely(dir_name)
+  file_util.makedirs_safely(dir_name)
 
 
 def _open_for_write(name, executable=None):
@@ -641,7 +642,7 @@ def prepare_make_to_ninja():
   _copy_canned_generated_sources()
   _create_tool_scripts()
 
-  build_common.makedirs_safely(_MAKE_BUILD_DIR)
+  file_util.makedirs_safely(_MAKE_BUILD_DIR)
 
 
 def _filter_make_output(stdout, stderr):

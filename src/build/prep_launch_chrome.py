@@ -23,6 +23,7 @@ import build_common
 import launch_chrome_options
 
 from build_options import OPTIONS
+from util import file_util
 
 _DOGFOOD_METADATA_PATH = 'third_party/examples/apk/dogfood.meta'
 _ROOT_DIR = build_common.get_arc_root()
@@ -144,7 +145,7 @@ def _generate_apk_to_crx_args(parsed_args, metadata=None,
   if parsed_args.app_template:
     crx_args.extend(['--template', parsed_args.app_template])
   if metadata:
-    with build_common.create_tempfile_deleted_at_exit() as metadata_file:
+    with file_util.create_tempfile_deleted_at_exit() as metadata_file:
       json.dump(metadata, metadata_file)
     crx_args.extend(['--metadata', metadata_file.name])
   if combined_metadata_file:
@@ -227,6 +228,6 @@ def remove_crx_at_exit_if_needed(parsed_args):
   """
   def remove_arc_data_dir():
     if os.path.exists(parsed_args.arc_data_dir):
-      build_common.rmtree_with_retries(parsed_args.arc_data_dir)
+      file_util.rmtree_with_retries(parsed_args.arc_data_dir)
   if parsed_args.use_temporary_data_dirs and parsed_args.build_crx:
     atexit.register(remove_arc_data_dir)

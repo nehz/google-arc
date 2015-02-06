@@ -18,7 +18,6 @@ running that test suite.
 """
 
 import argparse
-import fnmatch
 import logging
 import multiprocessing
 import os
@@ -34,18 +33,19 @@ from build_options import OPTIONS
 # configs.
 from config_loader import ConfigLoader
 from cts import expected_driver_times
-from cts import generate_cts_runners
 from util import color
 from util import concurrent
 from util import debug
+from util import file_util
 from util import platform_util
 from util import remote_executor
 from util.test import scoreboard_constants
+from util.test import suite_results
+from util.test import suite_runner
+from util.test import suite_runner_config
 from util.test import test_driver
 from util.test import test_filter
-from util.test.suite_results import report_expected_results
-from util.test.suite_runner import SuiteRunnerBase
-from util.test.test_options import TEST_OPTIONS
+from util.test import test_options
 
 
 _BOT_TEST_SUITE_MAX_RETRY_COUNT = 5
@@ -65,7 +65,7 @@ _config_loader.load_from_default_path()
 
 
 def _get_all_suite_runners_from_defs():
-  return util.test.suite_runner.load_from_suite_definitions(
+  return suite_runner_config.load_from_suite_definitions(
       _DEFINITIONS_ROOT, _EXPECTATIONS_ROOT)
 
 
@@ -79,17 +79,16 @@ def get_all_suite_runners():
   # and run each test.
   get_runners_list = list(
       _config_loader.find_name('get_integration_test_runners'))
-  get_runners_list.append(generate_cts_runners.get_integration_test_runners)
   get_runners_list.append(_get_all_suite_runners_from_defs)
 
   for get_runners in get_runners_list:
-    for suite_runner in get_runners():
-      assert suite_runner.name not in used_names, (
-          'Test case "%s" is multiply defined.' % suite_runner.name)
-      used_names.add(suite_runner.name)
-      all_suite_runners.append(suite_runner)
+    for runner in get_runners():
+      assert runner.name not in used_names, (
+          'Test case "%s" is multiply defined.' % runner.name)
+      used_names.add(runner.name)
+      all_suite_runners.append(runner)
 
-  return sorted(all_suite_runners, key=lambda suite_runner: suite_runner.name)
+  return sorted(all_suite_runners, key=lambda runner: runner.name)
 
 
 def get_dependencies_for_integration_tests():
@@ -130,18 +129,18 @@ def _select_tests_to_run(all_suite_runners, args):
       include_requires_opengl=(OPTIONS.is_hw_renderer() and not args.use_xvfb))
 
   test_driver_list = []
-  for suite_runner in all_suite_runners:
+  for runner in all_suite_runners:
     # Form a list of selected tests for this suite, by forming a fully qualified
     # name as "<suite-name>:<test-name>", which is what the patterns given on
     # as command line arguments expect to match.
     tests_to_run = []
     updated_suite_test_expectations = {}
-    is_runnable = suite_runner.is_runnable()
+    is_runnable = runner.is_runnable()
     for test_name, test_expectation in (
-        suite_runner.expectation_map.iteritems()):
+        runner.expectation_map.iteritems()):
       # Check if the test is selected.
       if not test_filter_instance.should_include(
-          '%s:%s' % (suite_runner.name, test_name), test_expectation):
+          '%s:%s' % (runner.name, test_name), test_expectation):
         continue
 
       # Add this test and its updated expectation to the dictionary of all
@@ -164,7 +163,7 @@ def _select_tests_to_run(all_suite_runners, args):
 
     # Create TestDriver to run the test suite with setting test expectations.
     test_driver_list.append(test_driver.TestDriver(
-        suite_runner, updated_suite_test_expectations, tests_to_run,
+        runner, updated_suite_test_expectations, tests_to_run,
         _TEST_METHOD_MAX_RETRY_COUNT if not args.keep_running else sys.maxint,
         stop_on_unexpected_failures=not args.keep_running))
 
@@ -381,7 +380,7 @@ def parse_args(args):
 
 
 def set_test_options(args):
-  TEST_OPTIONS.set_is_running_on_buildbot(args.buildbot)
+  test_options.TEST_OPTIONS.set_is_running_on_buildbot(args.buildbot)
 
 
 def set_test_global_state(args):
@@ -389,7 +388,7 @@ def set_test_global_state(args):
   # These settings need to be made for consistency, and allow the test framework
   # itself to be tested.
   retry_count = 0
-  if TEST_OPTIONS.is_buildbot:
+  if test_options.TEST_OPTIONS.is_buildbot:
     retry_count = _BOT_TEST_SUITE_MAX_RETRY_COUNT
   if args.keep_running:
     retry_count = sys.maxint
@@ -398,10 +397,11 @@ def set_test_global_state(args):
 
 def _prepare_output_directory(args):
   if args.output_dir:
-    SuiteRunnerBase.set_output_directory(args.output_dir)
-  if os.path.exists(SuiteRunnerBase.get_output_directory()):
-    shutil.rmtree(SuiteRunnerBase.get_output_directory())
-  build_common.makedirs_safely(SuiteRunnerBase.get_output_directory())
+    suite_runner.SuiteRunnerBase.set_output_directory(args.output_dir)
+  if os.path.exists(suite_runner.SuiteRunnerBase.get_output_directory()):
+    shutil.rmtree(suite_runner.SuiteRunnerBase.get_output_directory())
+  file_util.makedirs_safely(
+      suite_runner.SuiteRunnerBase.get_output_directory())
 
 
 def _run_suites_and_output_results_remote(args, raw_args):
@@ -487,7 +487,8 @@ def main(raw_args):
 
   if args.plan_report:
     util.test.suite_results.initialize(test_driver_list, args, False)
-    report_expected_results(driver.scoreboard for driver in test_driver_list)
+    suite_results.report_expected_results(
+        driver.scoreboard for driver in test_driver_list)
     return 0
   elif args.list:
     list_fully_qualified_test_names(

@@ -7,7 +7,7 @@
 import fnmatch
 import os
 
-import build_common
+from util import file_util
 
 METADATA_FILE = 'OPEN_SOURCE'
 
@@ -55,13 +55,13 @@ def is_open_sourced(path, skip_directory_contents_check=False):
     # the whole directory open sourced if either it is listed in the parent
     # (what is checked later) or if it has an OPEN_SOURCE file with only '*' in
     # it.
-    rules = build_common.read_metadata_file(paths_metadata_file)
+    rules = file_util.read_metadata_file(paths_metadata_file)
     if len(rules) == 1 and rules[0] == '*':
       return _cache_open_sourced(path, True)
   parent = os.path.dirname(path)
   parent_metadata_file = os.path.join(parent, METADATA_FILE)
   if os.path.exists(parent_metadata_file):
-    open_source_rules = build_common.read_metadata_file(parent_metadata_file)
+    open_source_rules = file_util.read_metadata_file(parent_metadata_file)
     return _cache_open_sourced(path,
                                is_basename_open_sourced(os.path.basename(path),
                                                         open_source_rules))

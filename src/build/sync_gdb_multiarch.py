@@ -15,6 +15,7 @@ import sys
 import urllib2
 
 import build_common
+from util import file_util
 
 
 _UBUNTU_BASE_URL = 'http://us.archive.ubuntu.com/ubuntu/pool'
@@ -73,7 +74,7 @@ def main():
     return 0
 
   print 'Need to download gdb-multiarch'
-  build_common.makedirs_safely(build_common.get_gdb_multiarch_dir())
+  file_util.makedirs_safely(build_common.get_gdb_multiarch_dir())
   with _change_directory(build_common.get_gdb_multiarch_dir()):
     for url, checksum in _GDB_PACKAGES:
       deb_filename = posixpath.basename(url)

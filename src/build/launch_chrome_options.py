@@ -402,7 +402,8 @@ Native Client Debugging
                       'targets to debug. Possible values include: plugin, gpu, '
                       'browser, renderer.')
 
-  parser.add_argument('--gdb-type', choices=('xterm', 'wait', 'screen'),
+  parser.add_argument('--gdb-type', choices=('xterm', 'wait', 'screen',
+                                             'emacsclient'),
                       default='xterm', help='Specifies how GDB is launched. '
                       'By default, it is launched under GDB. If you specify '
                       '"wait", the plugin will not run until you attach GDB '

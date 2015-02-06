@@ -24,6 +24,7 @@ import toolchain
 import util.statistics
 from build_options import OPTIONS
 from util import debug
+from util import file_util
 from util import gdb_util
 from util import nonblocking_io
 from util import platform_util
@@ -118,7 +119,7 @@ def _prepare_chrome_user_data_dir(parsed_args):
   if parsed_args.use_temporary_data_dirs:
     _USER_DATA_DIR = tempfile.mkdtemp(
         prefix=build_common.CHROME_USER_DATA_DIR_PREFIX + '-')
-    atexit.register(lambda: build_common.rmtree_with_retries(_USER_DATA_DIR))
+    atexit.register(lambda: file_util.rmtree_with_retries(_USER_DATA_DIR))
   elif parsed_args.user_data_dir:
     _USER_DATA_DIR = parsed_args.user_data_dir
   else:
@@ -235,13 +236,6 @@ def set_environment_for_chrome():
   # about undefined symbol "menu_proxy_module_load"
   if 'UBUNTU_MENUPROXY' in os.environ:
     del os.environ['UBUNTU_MENUPROXY']
-
-  # TODO(https://code.google.com/p/nativeclient/issues/detail?id=1981):
-  # Remove this TMPDIR setup.
-  tmp = tempfile.mkdtemp()
-  assert(tmp != '/')
-  atexit.register(lambda: build_common.rmtree_with_retries(tmp))
-  os.environ['TMPDIR'] = tmp
 
 
 def _maybe_wait_iteration_lock(parsed_args):
@@ -411,9 +405,9 @@ class ChromeProcess(filtered_subprocess.Popen):
     # We also stdout and stderr of Chrome to temporary files and pass them to
     # tail so that the outputs from both Chrome and NaCl are filtered by the
     # output handler.
-    chrome_stdout = build_common.create_tempfile_deleted_at_exit(
+    chrome_stdout = file_util.create_tempfile_deleted_at_exit(
         prefix='Chrome-stdout')
-    chrome_stderr = build_common.create_tempfile_deleted_at_exit(
+    chrome_stderr = file_util.create_tempfile_deleted_at_exit(
         prefix='Chrome-stderr')
     super(ChromeProcess, self).__init__(params,
                                         stdout=chrome_stdout,
@@ -816,7 +810,7 @@ def _run_chrome(parsed_args, stats, **kwargs):
   # Write the PID to a file, so that other launch_chrome process sharing the
   # same user data can find the process. In common case, the file will be
   # removed by _terminate_chrome() defined above.
-  build_common.makedirs_safely(_USER_DATA_DIR)
+  file_util.makedirs_safely(_USER_DATA_DIR)
   with open(_CHROME_PID_PATH, 'w') as pid_file:
     pid_file.write('%d\n' % p.pid)
 

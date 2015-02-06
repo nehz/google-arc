@@ -20,4 +20,5 @@ os.system('find . \\( '
           '-name \\*.h \\) '
           '-and \\! -wholename ./out/staging/\\* '  # ignore out/staging
           '-and \\! -xtype l '  # ignore broken symlinks
-          '| xargs etags --append --output=' + tag_file)
+          '-print0 '  # support filenames with spaces, with xargs -0
+          '| xargs -0 etags --append --output=' + tag_file)

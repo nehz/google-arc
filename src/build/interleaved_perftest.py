@@ -395,6 +395,9 @@ def handle_stash(parsed_args):
   + /{out}/target/common/
   - /{out}/target/*
   - /{out}/staging/
+  # No internal-apks build artifacts.
+  - /{out}/gms-core-build/
+  - /{out}/google-contacts-sync-adapter-build/
   + /{out}/
   + /src/
   # aapt etc.

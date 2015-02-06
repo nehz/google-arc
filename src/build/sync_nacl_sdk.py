@@ -16,6 +16,7 @@ import time
 import urllib
 
 import build_common
+from util import file_util
 
 
 _ROOT_DIR = build_common.get_arc_root()
@@ -86,7 +87,7 @@ def _ensure_naclsdk_downloaded():
   zip_content = build_common.download_content(_NACL_SDK_ZIP_URL)
   # The archived path starts with nacl_sdk/, so we inflate the contents
   # into the one level higher directory.
-  build_common.inflate_zip(zip_content, os.path.dirname(_NACL_SDK_DIR))
+  file_util.inflate_zip(zip_content, os.path.dirname(_NACL_SDK_DIR))
   os.chmod(os.path.join(_NACL_SDK_DIR, 'naclsdk'), 0700)
 
 

@@ -24,6 +24,7 @@ import sync_gdb_multiarch
 import sync_nacl_sdk
 import toolchain
 from build_options import OPTIONS
+from util import file_util
 
 
 def _set_up_git_hooks():
@@ -44,7 +45,7 @@ def _set_up_git_hooks():
   git_hooks_dir = os.path.join(build_common.get_arc_root(), '.git', 'hooks')
   for git_hook, source_path in hooks.iteritems():
     symlink_path = os.path.join(git_hooks_dir, git_hook)
-    build_common.create_link(symlink_path, source_path, overwrite=True)
+    file_util.create_link(symlink_path, source_path, overwrite=True)
 
   for git_hook in obsolete_hooks:
     symlink_path = os.path.join(git_hooks_dir, git_hook)
@@ -185,7 +186,7 @@ def _configure_build_options():
       os.remove(old_path)
 
   # Create an empty directory as a placeholder if necessary.
-  build_common.makedirs_safely(new_path)
+  file_util.makedirs_safely(new_path)
 
   # Create a symlink from new place to old place to keep as compatible as
   # possible.
@@ -250,7 +251,7 @@ def _set_up_chromium_org_submodules():
     # not care for real directories and files, but old symlinks.
     if not os.path.islink(symlink) and os.path.isdir(symlink):
       shutil.rmtree(symlink)
-    build_common.create_link(symlink, source, overwrite=True)
+    file_util.create_link(symlink, source, overwrite=True)
 
 
 def main():

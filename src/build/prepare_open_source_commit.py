@@ -5,7 +5,6 @@
 # found in the LICENSE file.
 
 import argparse
-import build_common
 import logging
 import open_source
 import os
@@ -14,6 +13,7 @@ import subprocess
 import sys
 
 import util.git
+from util import file_util
 
 
 _gitignore_checker = util.git.GitIgnoreChecker()
@@ -135,7 +135,7 @@ def _find_sync_set(src, src_submodules_paths):
                               lambda x, y: all_included,
                               None, sync_set)
     else:
-      new_open_source_rules = build_common.read_metadata_file(
+      new_open_source_rules = file_util.read_metadata_file(
           os.path.join(src_dir, open_source.METADATA_FILE))
       _add_directory_sync_set(src, rel_src_dir, basenames,
                               open_source.is_basename_open_sourced,

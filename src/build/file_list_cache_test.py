@@ -97,5 +97,21 @@ class FileListCacheUnittest(unittest.TestCase):
     query2.matcher = re.compile('.*\.cc')
     self.assertEquals(query, query2)
 
+  def testSaveAndLoad(self):
+    query = file_list_cache.Query(['foo'], re.compile('.*\.cc'), True)
+    cache = file_list_cache.FileListCache(query)
+    self.assertFalse(cache.refresh_cache())
+
+    try:
+      fd, path = tempfile.mkstemp()
+      cache.save_to_file(path)
+      cache2 = file_list_cache.load_from_file(path)
+    finally:
+      os.close(fd)
+      os.remove(path)
+
+    self.assertEquals(query, cache2.query)
+    self.assertTrue(cache.refresh_cache())
+
 if __name__ == '__main__':
   unittest.main()

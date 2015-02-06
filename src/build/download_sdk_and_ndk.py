@@ -14,6 +14,7 @@ import sys
 import build_common
 import download_common
 import toolchain
+from util import file_util
 
 _ROOT_DIR = build_common.get_arc_root()
 
@@ -55,7 +56,7 @@ class AndroidSDKFiles(BaseAndroidCompressedTarDownload):
 
   @classmethod
   def post_update_work(cls):
-    api_tag = build_common.read_metadata_file(cls.DEPS_FILE)[1]
+    api_tag = file_util.read_metadata_file(cls.DEPS_FILE)[1]
     android_tool = os.path.join(cls.FINAL_DIR, 'tools', 'android')
     packages = subprocess.Popen([android_tool, 'list', 'sdk'],
                                 stdout=subprocess.PIPE).communicate()[0]

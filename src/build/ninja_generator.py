@@ -3649,11 +3649,13 @@ def _generate_python_test_ninja(top_path, python_test):
   n.run(top_path, python_test, implicit_dependencies=implicit_dependencies)
 
 
-def generate_python_test_ninjas_for_path(top_path):
-  python_tests = build_common.find_all_files(top_path, suffixes='_test.py',
-                                             include_tests=True)
-  request_run_in_parallel(*[(_generate_python_test_ninja, top_path, python_test)
-                          for python_test in python_tests])
+def generate_python_test_ninjas_for_path(top_path, use_staging=True):
+  python_tests = build_common.find_all_files(
+      top_path, suffixes='_test.py', include_tests=True,
+      use_staging=use_staging)
+  request_run_in_parallel(
+      *[(_generate_python_test_ninja, top_path, python_test)
+        for python_test in python_tests])
 
 
 def build_default(n, root, files, **kwargs):

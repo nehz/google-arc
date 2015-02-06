@@ -42,6 +42,7 @@ def run_remote_integration_tests(parsed_args, argv,
         ['cd', executor.get_remote_arc_root(), '&&',
          remote_executor_util.SYNC_CHROME, '--verbose', '&&',
          remote_executor_util.SYNC_ADB, '--target=mac-x86_64', '&&',
+         remote_executor_util.SYNC_ANDROID_SDK_BUILD_TOOLS, '&&',
          './run_integration_tests'] +
         remote_executor_util.create_launch_remote_chrome_param(argv) +
         # Some tests rely on the error message, which can be localized.

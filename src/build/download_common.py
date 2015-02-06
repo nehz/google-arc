@@ -9,6 +9,7 @@ import tempfile
 import urllib
 
 import build_common
+from util import file_util
 
 
 class BaseGetAndUnpackArchiveFromURL(object):
@@ -71,7 +72,7 @@ class BaseGetAndUnpackArchiveFromURL(object):
     """Checks the current and dependency stamps, and performs the update if
     they are different."""
 
-    deps_file = build_common.read_metadata_file(cls.DEPS_FILE)
+    deps_file = file_util.read_metadata_file(cls.DEPS_FILE)
     url = deps_file[0]
     stamp_file = build_common.StampFile(
         ','.join(deps_file), os.path.join(cls.FINAL_DIR, 'URL'))

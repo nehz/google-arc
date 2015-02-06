@@ -4,9 +4,14 @@
 
 import errno
 import hashlib
+import logging
+import marshal
 import os
 import pickle
 import stat
+
+
+_CACHE_FILE_VERSION = 0
 
 
 # Splits given |cache_entries| into |cache_hit|, |cache_miss| and removed
@@ -63,9 +68,9 @@ class CacheEntry:
 
 
 class FileListCache:
-  def __init__(self, query):
+  def __init__(self, query, entries=None):
     self.query = query
-    self.cache_entries = {}
+    self.cache_entries = {} if entries is None else entries
 
   # Searches cached entries and refreshes them if needed.
   def refresh_cache(self):
@@ -121,3 +126,41 @@ class FileListCache:
     for cached_dir_path in self.cache_entries:
       for path in self.cache_entries[cached_dir_path].contents:
         yield path
+
+  def _enumerate_entries(self):
+    for path, cache in self.cache_entries.iteritems():
+      yield (path, cache.mtime, cache.content_hash, cache.contents)
+
+  def _to_dict(self):
+    return {
+        'version': _CACHE_FILE_VERSION,
+        'query': pickle.dumps(self.query),
+        'cache_entries': list(self._enumerate_entries()),
+    }
+
+  def save_to_file(self, file_path):
+    with open(file_path, 'w') as f:
+      marshal.dump(self._to_dict(), f)
+
+
+def _entries_from_list(list):
+  for (path, mtime, content_hash, contents) in list:
+    yield [path, CacheEntry(mtime, content_hash, contents)]
+
+
+def load_from_file(file_path):
+  try:
+    with open(file_path) as f:
+      data = marshal.load(f)
+  except IOError as e:
+    if e.errno == errno.ENOENT:
+      logging.warn('Cache file is not found: %s', file_path)
+      return None
+
+  if data['version'] != _CACHE_FILE_VERSION:
+    logging.warn('Version mismatch: %d', data['version'])
+    return None
+
+  query = pickle.loads(data['query'])
+  entries = dict(_entries_from_list(data['cache_entries']))
+  return FileListCache(query, entries)
