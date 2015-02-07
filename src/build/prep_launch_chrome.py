@@ -104,9 +104,8 @@ def _convert_launch_chrome_options_to_external_metadata(parsed_args):
     if value is not None:
       metadata[metadata_name] = value
 
-  is_slow_debug_run = bool(parsed_args.jdb_port or parsed_args.gdb)
-  if is_slow_debug_run:
-    metadata['isSlowDebugRun'] = is_slow_debug_run
+  if bool(parsed_args.jdb_port or parsed_args.gdb):
+    metadata['disableHeartbeat'] = True
     metadata['sleepOnBlur'] = False
 
   if (parsed_args.mode == 'atftest' or parsed_args.mode == 'system' or
