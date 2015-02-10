@@ -26,25 +26,6 @@ class TestGitPrepareCommit(unittest.TestCase):
         git_prepare_commit.add_mandatory_lines(
             ['TEST=foobar\n', 'PERF=N/A\n', '\n', 'Change-Id:']))
 
-  def test_get_changed_files(self):
-    commit_lines = '''foobar
-
-TEST=something
-
-# Changes to be committed:
-#       new file: path/to/added_file
-#       modified: path/to/modified_file
-#        renamed: path/to/src_file -> path/to/dest_file
-#       modified: mods/path/to/chromium/modified_file
-#       modified: mods/path/to/android/modified_file
-#
-# Untracked files:
-# ...'''.splitlines()
-    self.assertEqual(['path/to/added_file',
-                      'path/to/modified_file',
-                      'mods/path/to/android/modified_file'],
-                     git_prepare_commit.get_changed_files(commit_lines))
-
   def test_get_bug_ids_from_diff(self):
     diffs = ['''diff --git a/path/to/x b/path/to/x
 index 1d91473..f56a7aa 100755

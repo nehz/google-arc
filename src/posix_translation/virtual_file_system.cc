@@ -180,8 +180,13 @@ FileSystemHandler* VirtualFileSystem::GetFileSystemHandlerLocked(
   // |handler->name()| rather than |kVirtualFileSystemHandlerStr|.
   ARC_STRACE_REPORT_HANDLER(handler->name().c_str());
 
-  if (!handler->IsInitialized())
+  if (!handler->IsInitialized()) {
+    ALOGI("Initializing %s...", handler->name().c_str());
+    const base::TimeTicks now = base::TimeTicks::Now();
     handler->Initialize();
+    ALOGI("Initialized %s: %lld ms", handler->name().c_str(),
+          (base::TimeTicks::Now() - now).InMillisecondsRoundedUp());
+  }
   ALOG_ASSERT(handler->IsInitialized());
 
   if (out_permission) {
@@ -1895,6 +1900,7 @@ void VirtualFileSystem::SetBrowserReady() {
   base::AutoLock lock(mutex_);
   ALOG_ASSERT(!browser_ready_);
   browser_ready_ = true;
+  ALOGI("VirtualFileSystem::SetBrowserReady: the browser is ready to run ARC");
   cond_.Broadcast();
 }
 

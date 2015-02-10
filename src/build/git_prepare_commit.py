@@ -55,35 +55,6 @@ def add_mandatory_lines(lines):
   return output_lines + lines
 
 
-def get_changed_files(lines):
-  changed_files = []
-  for i in xrange(len(lines)):
-    line = lines[i]
-    # The comment lines contain something like:
-    #
-    # # Changes to be committed:
-    # #       new file: path/to/added_file
-    # #       modified: path/to/modified_file
-    # #
-    # # Untracked files:
-    # # ...
-    if line.startswith('# Changes to be committed'):
-      for line in lines[i + 1:]:
-        # We do not handle file rename.
-        if 'renamed' in line:
-          continue
-        matched = _CHANGED_FILE_RE.match(line)
-        if not matched:
-          break
-        filename = matched.group(1)
-        # MOD for Chromium code may contain non-ARC bugs.
-        if filename.startswith('mods/') and 'chromium' in filename:
-          continue
-        changed_files.append(filename)
-      break
-  return changed_files
-
-
 def get_bug_ids_from_diffs(diffs):
   """Gets removed bug IDs from diffs.
 
@@ -135,6 +106,20 @@ def update_bug_line(lines, bug_ids):
   return lines
 
 
+def _get_changed_files(base_git_commit):
+  git_diff_output = subprocess.check_output([
+      'git', 'diff', '--staged',
+      '--diff-filter=ADM',  # List only {Add,Delete,Modify} changes.
+      '--name-status', base_git_commit])
+  # The output format of 'git diff --name-status' is something like:
+  #
+  # A       path/to/added_file
+  # D       path/to/deleted_file
+  # M       path/to/modified_file
+  # ...
+  return [line.split('\t')[1] for line in git_diff_output.splitlines()]
+
+
 def _detect_and_update_bug_id(lines):
   """Updates BUG= line based on the change."""
   optional_args = sys.argv[2:]
@@ -150,23 +135,17 @@ def _detect_and_update_bug_id(lines):
     # but we do not support them as we do not use them often.
     return
 
-  # Find all changed files from the comment lines. Note that we cannot
-  # do just "git diff HEAD" because its result will contain the diff
-  # of unstaged files.
-  changed_files = get_changed_files(lines)
+  changed_files = _get_changed_files(base_git_commit)
 
   diffs = []
   for changed_file in changed_files:
-    # This contains the diff of unstaged changes. We can not
-    # distinguish whether the git commit was with -a or not, so we
-    # cannot decide whether we should use --staged or not.
-    # TODO(crbug.com/374776): When you were in a sub-directory of
-    # arc, changed_file may contain "../". As git changes the
-    # current directory to the top directory before it runs this
-    # script, "../" may be invalid and this "git diff" may fail.
-    # Use "git status" to get the list of changed files.
-    diffs.append(subprocess.check_output(['git', 'diff', base_git_commit,
-                                          '--', changed_file]))
+    # MOD for Chromium code may contain non-ARC bugs.
+    if changed_file.startswith('mods/') and 'chromium' in changed_file:
+      continue
+    # Whether or not the commit was -a, hooks run under the index staging all
+    # changes to be committed. Thus, the desired diff is printed by --staged.
+    diffs.append(subprocess.check_output(['git', 'diff', '--staged',
+                                          base_git_commit, '--', changed_file]))
 
   bug_ids = get_bug_ids_from_diffs(diffs)
   lines = update_bug_line(lines, bug_ids)

@@ -602,7 +602,7 @@ def use_ppapi_fpabi_shim():
 
 
 def use_ndk_direct_execution():
-  return OPTIONS.is_arm() and not OPTIONS.enable_ndk_translation()
+  return OPTIONS.is_arm()
 
 
 def has_internal_checkout():

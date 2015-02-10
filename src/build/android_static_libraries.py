@@ -8,6 +8,9 @@ from build_options import OPTIONS
 
 
 def get_android_static_library_deps():
+  # This is the list of Android libraries which are linked to arc.nexe
+  # statically. ARC specific libraries should be specified in
+  # src/plugin/config.py.
   deps = [
       'libandroid.a',
       'libandroid_runtime.a',
@@ -57,18 +60,6 @@ def get_android_static_library_deps():
       'libmediaplayerservice.a',
       'libmemtrack.a',
       'libnbaio.a',  # used by audioflinger
-      'libndk_libandroid.a',
-      'libndk_libandroid_runtime.a',
-      'libndk_libcrypto_unstable.a',
-      'libndk_libcutils_unstable.a',
-      'libndk_libEGL.a',
-      'libndk_libGLESv1_CM.a',
-      'libndk_libGLESv2.a',
-      'libndk_libOpenSLES.a',
-      'libndk_libjnigraphics.a',
-      'libndk_liblog.a',
-      'libndk_libnativehelper.a',
-      'libndk_libz.a',
       'libOpenMAXAL.a',
       'libopensles_helper.a',  # used by libOpenMAXAL
       'libOpenSLES.a',  # used by libOpenMAXAL

@@ -20,6 +20,7 @@
 #include <map>
 
 #include "base/memory/singleton.h"
+#include "base/safe_strerror_posix.h"
 #include "base/synchronization/lock.h"
 #include "common/arc_strace.h"
 #include "common/backtrace.h"
@@ -27,6 +28,7 @@
 #include "common/export.h"
 #include "common/plugin_handle.h"
 #include "common/process_emulator.h"
+#include "common/thread_priorities.h"
 
 template <typename T> struct DefaultSingletonTraits;
 
@@ -83,9 +85,6 @@ ARC_EXPORT int __wrap_setuid(uid_t uid);
 
 namespace {
 
-// Highest possible priority, see frameworks/native/include/utils/ThreadDefs.h.
-const int ANDROID_PRIORITY_HIGHEST = -20;
-
 // Initial value is set to a value that is usually not used. This will
 // happen if atexit handler is called without __wrap_exit being
 // called. For example, when user returns from main().
@@ -95,17 +94,16 @@ const int DEFAULT_EXIT_STATUS = 111;
 // which is registered to atexit().
 int g_exit_status = DEFAULT_EXIT_STATUS;
 
-// get/setpriority is not currently supported. It is not yet clear how we
-// should deal with thread priorities in ARC. Remember and return
-// them for now.
+// NaCl supports setpriority, but does not support getpriority. To implement
+// the latter, PriorityMap remembers mapping from a thread ID to its priority.
 class PriorityMap {
  public:
   static PriorityMap* GetInstance() {
     return Singleton<PriorityMap, LeakySingletonTraits<PriorityMap> >::get();
   }
 
-  int GetPriority(int pid);
-  void SetPriority(int pid, int priority);
+  int GetPriority(int which, int who);
+  int SetPriority(int which, int who, int priority);
 
  private:
   friend struct DefaultSingletonTraits<PriorityMap>;
@@ -113,22 +111,47 @@ class PriorityMap {
   PriorityMap() {}
   ~PriorityMap() {}
 
-  base::Lock mu_;
-  // This actually maps 'tid' to priority, but because get/setpriority
-  // specifies that we use process identifiers we name the map as pid-based.
-  std::map<int, int> pid_to_priority_;
+  base::Lock mu_;  // for guarding |tid_to_priority_|.
+  std::map<int, int> tid_to_priority_;
 
   DISALLOW_COPY_AND_ASSIGN(PriorityMap);
 };
 
-int PriorityMap::GetPriority(int pid) {
+int PriorityMap::GetPriority(int which, int who) {
+  if (which != PRIO_PROCESS) {
+    errno = EPERM;
+    return -1;
+  }
   base::AutoLock lock(mu_);
-  return pid_to_priority_[pid];
+  return tid_to_priority_[who];
 }
 
-void PriorityMap::SetPriority(int pid, int priority) {
+int PriorityMap::SetPriority(int which, int who, int priority) {
+  if ((which == PRIO_PROCESS) && (priority < ANDROID_PRIORITY_HIGHEST))
+    priority = ANDROID_PRIORITY_HIGHEST;  // CTS tests expect successful result.
+  const int errno_orig = errno;
+  if (setpriority(which, who, priority)) {
+    // On Android, calling setprority(negative_value) after calling
+    // setpriority(positive_value) apparently succeeds, but this is not the
+    // case on Linux and Chrome OS. To emulate Android's behavior, conditionally
+    // ignore -1 returns from Bionic. This is necessary for at least one CTS
+    // test: cts.CtsOsTestCases:android.os.cts.ProcessTest#testMiscMethods.
+    const bool ignore_error = (which == PRIO_PROCESS) && (errno == EPERM);
+
+    DANGERF("which=%s, who=%d, priority=%d %s, gettid=%d (%s)",
+            arc::GetSetPriorityWhichStr(which).c_str(),
+            who, priority,
+            arc::GetSetPriorityPrioStr(priority).c_str(),
+            gettid(), safe_strerror(errno).c_str());
+    if (!ignore_error)
+      return -1;
+
+    ARC_STRACE_REPORT("Ignoring EPERM from Bionic for Android compatibility");
+    errno = errno_orig;
+  }
   base::AutoLock lock(mu_);
-  pid_to_priority_[pid] = priority;
+  tid_to_priority_[who] = priority;
+  return 0;
 }
 
 }  // namespace
@@ -175,13 +198,10 @@ int __wrap_fork() {
 }
 
 int __wrap_getpriority(int which, int who) {
-  ARC_STRACE_ENTER("getpriority", "%d, %d", which, who);
-  if (which == PRIO_PROCESS) {
-    int result = PriorityMap::GetInstance()->GetPriority(who);
-    ARC_STRACE_RETURN(result);
-  }
-  errno = ESRCH;
-  ARC_STRACE_RETURN(-1);
+  ARC_STRACE_ENTER("getpriority", "%s, %d",
+                   arc::GetSetPriorityWhichStr(which).c_str(), who);
+  const int result = PriorityMap::GetInstance()->GetPriority(which, who);
+  ARC_STRACE_RETURN(result);
 }
 
 int __wrap_getrlimit(int resource, struct rlimit *rlim) {
@@ -271,24 +291,8 @@ int __wrap_setpriority(int which, int who, int prio) {
                    arc::GetSetPriorityWhichStr(which).c_str(),
                    who, prio,
                    arc::GetSetPriorityPrioStr(prio).c_str());
-  if (which == PRIO_PROCESS) {
-    if (prio < 0) {
-      // Warn when Android or apps attempt to use higher thread priorities.
-      DANGERF("Called for tid %d prio %d", who, prio);
-    }
-    if (who == -1) {
-      // For CtsOsTestCases's ProcessTest.testMiscMethods().
-      errno = ESRCH;
-      ARC_STRACE_RETURN(-1);
-    }
-    if (prio < ANDROID_PRIORITY_HIGHEST)
-      prio = ANDROID_PRIORITY_HIGHEST;  // CTS tests expect successful result.
-    PriorityMap::GetInstance()->SetPriority(who, prio);
-    ARC_STRACE_RETURN(0);
-  }
-  ALOGW("Only PRIO_PROCESS is supported in setpriority()");
-  errno = EPERM;
-  ARC_STRACE_RETURN(-1);
+  const int result = PriorityMap::GetInstance()->SetPriority(which, who, prio);
+  ARC_STRACE_RETURN(result);
 }
 
 int __wrap_setrlimit(int resource, const struct rlimit *rlim) {
@@ -467,11 +471,11 @@ int __wrap_pthread_create(
     const pthread_attr_t* attr,
     void* (*start_routine)(void*),  // NOLINT(readability/casting)
     void* arg) {
-  // TODO(crbug.com/241955): Stringify |attr|?
   ARC_STRACE_ENTER("pthread_create", "%p, %p, %p, %p",
                    thread_out, attr, start_routine, arg);
 
   if (arc::StraceEnabled() && attr) {
+    // Dump important thread attributes if arc-strace is enabled.
     int policy = SCHED_OTHER;
     struct sched_param param = {};
     if (pthread_attr_getschedpolicy(attr, &policy) == 0 &&

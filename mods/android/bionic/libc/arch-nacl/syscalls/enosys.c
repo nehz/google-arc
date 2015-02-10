@@ -196,7 +196,6 @@ DEFINE_ENOSYS_SYSCALL(int, setitimer, int which,
                       const struct itimerval *new_value,
                       struct itimerval *old_value)
 DEFINE_ENOSYS_SYSCALL(int, setpgid, pid_t pid, pid_t pgid)
-DEFINE_ENOSYS_SYSCALL(int, setpriority, int which, int who, int prio)
 DEFINE_ENOSYS_SYSCALL(int, setregid, gid_t rgid, gid_t egid)
 DEFINE_ENOSYS_SYSCALL(int, setresgid, gid_t rgid, gid_t egid, gid_t sgid)
 DEFINE_ENOSYS_SYSCALL(int, setrlimit, int resource, const struct rlimit *rlim)

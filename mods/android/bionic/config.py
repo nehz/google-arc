@@ -205,6 +205,7 @@ def _filter_libc_common(vars):
       'android/bionic/libc/arch-nacl/syscalls/nacl_timespec.c',
       'android/bionic/libc/arch-nacl/syscalls/nacl_timeval.c',
       'android/bionic/libc/arch-nacl/syscalls/read.c',
+      'android/bionic/libc/arch-nacl/syscalls/setpriority.c',
       'android/bionic/libc/arch-nacl/syscalls/stat.c',
       'android/bionic/libc/arch-nacl/syscalls/unlink.c',
       'android/bionic/libc/arch-nacl/syscalls/write.c',

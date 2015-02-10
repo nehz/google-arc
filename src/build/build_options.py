@@ -341,12 +341,6 @@ class _Options(object):
     parser.add_argument('--enable-dalvik-jit', action='store_true', help='Run '
                         'Dalvik VM with JIT mode enabled.')
 
-    parser.add_argument('--enable-ndk-translation', action='store_true',
-                        help='Enable NDK translation even when direct '
-                        'execution is possible (on Bare Metal ARM).  Has no '
-                        'effect on SFI targets.  This is to allow testing NDK '
-                        'translation.')
-
     parser.add_argument('--enable-touch-overlay', action='store_true', help=
                         '[EXPERIMENTAL]  Overlay touch spots on the screen in '
                         'the plugin after the app renders.')
@@ -456,12 +450,6 @@ class _Options(object):
       return -1
     return 0
 
-  def _check_bare_metal_arm_args(self, args):
-    if args.target != _TARGET_BARE_METAL_ARM and args.enable_ndk_translation:
-      return '--enable-ndk-translation makes sense only on Bare Metal ARM.'
-
-    return None
-
   def _check_enable_dalvik_jit_args(self, args):
     if args.enable_dalvik_jit and self.is_nacl_build():
       return 'Dalvik JIT mode is not supported on NaCl targets.'
@@ -480,8 +468,7 @@ class _Options(object):
     if args.enable_valgrind and not self.is_bare_metal_i686():
       return '--enable-valgrind works only on Bare Metal i686 target.'
 
-    return (self._check_bare_metal_arm_args(args) or
-            self._check_enable_dalvik_jit_args(args))
+    return self._check_enable_dalvik_jit_args(args)
 
   @staticmethod
   def _is_goma_path(dirname):

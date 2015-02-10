@@ -47,7 +47,7 @@ class FileListCacheUnittest(unittest.TestCase):
     _reset_timestamp()
 
     query = file_list_cache.Query(
-        ['foo'], re.compile('.*\.cc'), True)
+        ['foo'], re.compile('.*\.cc'), None, True)
     cache = file_list_cache.FileListCache(query)
 
     # Cache should not be fresh here.
@@ -75,30 +75,37 @@ class FileListCacheUnittest(unittest.TestCase):
     self.assertFalse(cache.refresh_cache())
 
   def testListingFiles(self):
-    self.assertEquals(_list_files(['foo'], re.compile('.*\.cc'), True),
+    self.assertEquals(_list_files(['foo'], re.compile('.*\.cc'), None, True),
                       ['foo/bar/baz/hoge.cc'])
 
     # include_subdirectory == False case.
     _touch('foo/oo.cc')
-    self.assertEquals(_list_files(['foo'], re.compile('.*\.cc'), False),
+    self.assertEquals(_list_files(['foo'], re.compile('.*\.cc'), None, False),
                       ['foo/oo.cc'])
 
     # Multiple base_paths case.
     os.makedirs('oof/rab/zab')
     _touch('oof/rab/zab/aguf.py')
-    self.assertEquals(_list_files(['foo', 'oof'], re.compile('.*\.py'), True),
+    self.assertEquals(_list_files(['foo', 'oof'], re.compile('.*\.py'),
+                                  None, True),
                       ['oof/rab/zab/aguf.py', 'foo/bar/baz/fuga.py'])
 
+    # If the matching root path is specified, the path matching should be done
+    # on the relative path to it.
+    self.assertEquals(_list_files(['foo'], re.compile('foo/.*\.cc'),
+                                  'foo/bar', True),
+                      [])
+
   def testQueryEquality(self):
-    query = file_list_cache.Query(['foo'], re.compile('.*\.cc'), True)
-    query2 = file_list_cache.Query(['foo'], re.compile('.*\.h'), True)
+    query = file_list_cache.Query(['foo'], re.compile('.*\.cc'), None, True)
+    query2 = file_list_cache.Query(['foo'], re.compile('.*\.h'), None, True)
     self.assertNotEquals(query, query2)
 
     query2.matcher = re.compile('.*\.cc')
     self.assertEquals(query, query2)
 
   def testSaveAndLoad(self):
-    query = file_list_cache.Query(['foo'], re.compile('.*\.cc'), True)
+    query = file_list_cache.Query(['foo'], re.compile('.*\.cc'), None, True)
     cache = file_list_cache.FileListCache(query)
     self.assertFalse(cache.refresh_cache())
 

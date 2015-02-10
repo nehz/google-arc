@@ -47,9 +47,10 @@ def _calculate_dir_contents_hash(dirs, files):
 
 
 class Query:
-  def __init__(self, base_paths, matcher, include_subdirectories):
+  def __init__(self, base_paths, matcher, root, include_subdirectories):
     self.base_paths = sorted(base_paths)
     self.matcher = matcher
+    self.root = root
     self.include_subdirectories = include_subdirectories
 
   def __eq__(self, other):
@@ -88,7 +89,15 @@ class FileListCache:
         matched_files = []
         for file in files:
           file_path = os.path.join(root, file)
-          if not self.query.matcher or self.query.matcher.match(file_path):
+          if not self.query.matcher:
+            matched_files.append(file_path)
+            continue
+
+          if self.query.root is None:
+            match_path = file_path
+          else:
+            match_path = os.path.relpath(file_path, self.query.root)
+          if self.query.matcher.match(match_path):
             matched_files.append(file_path)
         matched_files = sorted(matched_files)
 
