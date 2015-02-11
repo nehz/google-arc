@@ -11,34 +11,45 @@
 
 namespace arc {
 
-Matrix::Matrix(float m00, float m01, float m02, float m03,
-               float m10, float m11, float m12, float m13,
-               float m20, float m21, float m22, float m23,
-               float m30, float m31, float m32, float m33) {
-  Set(0, 0, m00);
-  Set(0, 1, m01);
-  Set(0, 2, m02);
-  Set(0, 3, m03);
-  Set(1, 0, m10);
-  Set(1, 1, m11);
-  Set(1, 2, m12);
-  Set(1, 3, m13);
-  Set(2, 0, m20);
-  Set(2, 1, m21);
-  Set(2, 2, m22);
-  Set(2, 3, m23);
-  Set(3, 0, m30);
-  Set(3, 1, m31);
-  Set(3, 2, m32);
-  Set(3, 3, m33);
+Matrix::Matrix(float row0col0, float row0col1, float row0col2, float row0col3,
+               float row1col0, float row1col1, float row1col2, float row1col3,
+               float row2col0, float row2col1, float row2col2, float row2col3,
+               float row3col0, float row3col1, float row3col2, float row3col3) {
+  entries_[0][0] = row0col0;
+  entries_[1][0] = row0col1;
+  entries_[2][0] = row0col2;
+  entries_[3][0] = row0col3;
+  entries_[0][1] = row1col0;
+  entries_[1][1] = row1col1;
+  entries_[2][1] = row1col2;
+  entries_[3][1] = row1col3;
+  entries_[0][2] = row2col0;
+  entries_[1][2] = row2col1;
+  entries_[2][2] = row2col2;
+  entries_[3][2] = row2col3;
+  entries_[0][3] = row3col0;
+  entries_[1][3] = row3col1;
+  entries_[2][3] = row3col2;
+  entries_[3][3] = row3col3;
 }
 
 void Matrix::AssignIdentity() {
-  memset(&entries_, 0, sizeof(entries_));
-  Set(0, 0, 1.f);
-  Set(1, 1, 1.f);
-  Set(2, 2, 1.f);
-  Set(3, 3, 1.f);
+  entries_[0][0] = 1;
+  entries_[0][1] = 0;
+  entries_[0][2] = 0;
+  entries_[0][3] = 0;
+  entries_[1][0] = 0;
+  entries_[1][1] = 1;
+  entries_[1][2] = 0;
+  entries_[1][3] = 0;
+  entries_[2][0] = 0;
+  entries_[2][1] = 0;
+  entries_[2][2] = 1;
+  entries_[2][3] = 0;
+  entries_[3][0] = 0;
+  entries_[3][1] = 0;
+  entries_[3][2] = 0;
+  entries_[3][3] = 1;
 }
 
 void Matrix::Transpose() {
@@ -62,161 +73,103 @@ void Matrix::RescaleNormal() {
 }
 
 void Matrix::Inverse() {
-  float inv[kEntries];
-  inv[0] = entries_[5]  * entries_[10] * entries_[15] -
-           entries_[5]  * entries_[11] * entries_[14] -
-           entries_[9]  * entries_[6]  * entries_[15] +
-           entries_[9]  * entries_[7]  * entries_[14] +
-           entries_[13] * entries_[6]  * entries_[11] -
-           entries_[13] * entries_[7]  * entries_[10];
+  const float a00 = entries_[0][0];
+  const float a01 = entries_[0][1];
+  const float a02 = entries_[0][2];
+  const float a03 = entries_[0][3];
+  const float a10 = entries_[1][0];
+  const float a11 = entries_[1][1];
+  const float a12 = entries_[1][2];
+  const float a13 = entries_[1][3];
+  const float a20 = entries_[2][0];
+  const float a21 = entries_[2][1];
+  const float a22 = entries_[2][2];
+  const float a23 = entries_[2][3];
+  const float a30 = entries_[3][0];
+  const float a31 = entries_[3][1];
+  const float a32 = entries_[3][2];
+  const float a33 = entries_[3][3];
 
-  inv[4] = -entries_[4]  * entries_[10] * entries_[15] +
-            entries_[4]  * entries_[11] * entries_[14] +
-            entries_[8]  * entries_[6]  * entries_[15] -
-            entries_[8]  * entries_[7]  * entries_[14] -
-            entries_[12] * entries_[6]  * entries_[11] +
-            entries_[12] * entries_[7]  * entries_[10];
+  float b00 = a00 * a11 - a01 * a10;
+  float b01 = a00 * a12 - a02 * a10;
+  float b02 = a00 * a13 - a03 * a10;
+  float b03 = a01 * a12 - a02 * a11;
+  float b04 = a01 * a13 - a03 * a11;
+  float b05 = a02 * a13 - a03 * a12;
+  float b06 = a20 * a31 - a21 * a30;
+  float b07 = a20 * a32 - a22 * a30;
+  float b08 = a20 * a33 - a23 * a30;
+  float b09 = a21 * a32 - a22 * a31;
+  float b10 = a21 * a33 - a23 * a31;
+  float b11 = a22 * a33 - a23 * a32;
 
-  inv[8] = entries_[4]  * entries_[9] * entries_[15] -
-           entries_[4]  * entries_[11] * entries_[13] -
-           entries_[8]  * entries_[5] * entries_[15] +
-           entries_[8]  * entries_[7] * entries_[13] +
-           entries_[12] * entries_[5] * entries_[11] -
-           entries_[12] * entries_[7] * entries_[9];
+  // Calculate the determinant
+  const float det =
+    b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+  LOG_ALWAYS_FATAL_IF(det == 0);
 
-  inv[12] = -entries_[4]  * entries_[9] * entries_[14] +
-             entries_[4]  * entries_[10] * entries_[13] +
-             entries_[8]  * entries_[5] * entries_[14] -
-             entries_[8]  * entries_[6] * entries_[13] -
-             entries_[12] * entries_[5] * entries_[10] +
-             entries_[12] * entries_[6] * entries_[9];
+  const float invdet = 1.0 / det;
+  b00 *= invdet;
+  b01 *= invdet;
+  b02 *= invdet;
+  b03 *= invdet;
+  b04 *= invdet;
+  b05 *= invdet;
+  b06 *= invdet;
+  b07 *= invdet;
+  b08 *= invdet;
+  b09 *= invdet;
+  b10 *= invdet;
+  b11 *= invdet;
 
-  inv[1] = -entries_[1]  * entries_[10] * entries_[15] +
-            entries_[1]  * entries_[11] * entries_[14] +
-            entries_[9]  * entries_[2] * entries_[15] -
-            entries_[9]  * entries_[3] * entries_[14] -
-            entries_[13] * entries_[2] * entries_[11] +
-            entries_[13] * entries_[3] * entries_[10];
-
-  inv[5] = entries_[0]  * entries_[10] * entries_[15] -
-           entries_[0]  * entries_[11] * entries_[14] -
-           entries_[8]  * entries_[2] * entries_[15] +
-           entries_[8]  * entries_[3] * entries_[14] +
-           entries_[12] * entries_[2] * entries_[11] -
-           entries_[12] * entries_[3] * entries_[10];
-
-  inv[9] = -entries_[0]  * entries_[9] * entries_[15] +
-            entries_[0]  * entries_[11] * entries_[13] +
-            entries_[8]  * entries_[1] * entries_[15] -
-            entries_[8]  * entries_[3] * entries_[13] -
-            entries_[12] * entries_[1] * entries_[11] +
-            entries_[12] * entries_[3] * entries_[9];
-
-  inv[13] = entries_[0]  * entries_[9] * entries_[14] -
-            entries_[0]  * entries_[10] * entries_[13] -
-            entries_[8]  * entries_[1] * entries_[14] +
-            entries_[8]  * entries_[2] * entries_[13] +
-            entries_[12] * entries_[1] * entries_[10] -
-            entries_[12] * entries_[2] * entries_[9];
-
-  inv[2] = entries_[1]  * entries_[6] * entries_[15] -
-           entries_[1]  * entries_[7] * entries_[14] -
-           entries_[5]  * entries_[2] * entries_[15] +
-           entries_[5]  * entries_[3] * entries_[14] +
-           entries_[13] * entries_[2] * entries_[7] -
-           entries_[13] * entries_[3] * entries_[6];
-
-  inv[6] = -entries_[0]  * entries_[6] * entries_[15] +
-            entries_[0]  * entries_[7] * entries_[14] +
-            entries_[4]  * entries_[2] * entries_[15] -
-            entries_[4]  * entries_[3] * entries_[14] -
-            entries_[12] * entries_[2] * entries_[7] +
-            entries_[12] * entries_[3] * entries_[6];
-
-  inv[10] = entries_[0]  * entries_[5] * entries_[15] -
-            entries_[0]  * entries_[7] * entries_[13] -
-            entries_[4]  * entries_[1] * entries_[15] +
-            entries_[4]  * entries_[3] * entries_[13] +
-            entries_[12] * entries_[1] * entries_[7] -
-            entries_[12] * entries_[3] * entries_[5];
-
-  inv[14] = -entries_[0]  * entries_[5] * entries_[14] +
-             entries_[0]  * entries_[6] * entries_[13] +
-             entries_[4]  * entries_[1] * entries_[14] -
-             entries_[4]  * entries_[2] * entries_[13] -
-             entries_[12] * entries_[1] * entries_[6] +
-             entries_[12] * entries_[2] * entries_[5];
-
-  inv[3] = -entries_[1] * entries_[6] * entries_[11] +
-            entries_[1] * entries_[7] * entries_[10] +
-            entries_[5] * entries_[2] * entries_[11] -
-            entries_[5] * entries_[3] * entries_[10] -
-            entries_[9] * entries_[2] * entries_[7] +
-            entries_[9] * entries_[3] * entries_[6];
-
-  inv[7] = entries_[0] * entries_[6] * entries_[11] -
-           entries_[0] * entries_[7] * entries_[10] -
-           entries_[4] * entries_[2] * entries_[11] +
-           entries_[4] * entries_[3] * entries_[10] +
-           entries_[8] * entries_[2] * entries_[7] -
-           entries_[8] * entries_[3] * entries_[6];
-
-  inv[11] = -entries_[0] * entries_[5] * entries_[11] +
-             entries_[0] * entries_[7] * entries_[9] +
-             entries_[4] * entries_[1] * entries_[11] -
-             entries_[4] * entries_[3] * entries_[9] -
-             entries_[8] * entries_[1] * entries_[7] +
-             entries_[8] * entries_[3] * entries_[5];
-
-  inv[15] = entries_[0] * entries_[5] * entries_[10] -
-            entries_[0] * entries_[6] * entries_[9] -
-            entries_[4] * entries_[1] * entries_[10] +
-            entries_[4] * entries_[2] * entries_[9] +
-            entries_[8] * entries_[1] * entries_[6] -
-            entries_[8] * entries_[2] * entries_[5];
-
-  float det = entries_[0] * inv[0] + entries_[1] * inv[4]
-            + entries_[2] * inv[8] + entries_[3] * inv[12];
-
-  LOG_ALWAYS_FATAL_IF(det == 0.f);
-  if (det != 0.f) {
-    det = 1.0f / det;
-    for (int i = 0; i < kEntries; ++i) {
-      entries_[i] = inv[i] * det;
-    }
-  }
+  entries_[0][0] = a11 * b11 - a12 * b10 + a13 * b09;
+  entries_[0][1] = a02 * b10 - a01 * b11 - a03 * b09;
+  entries_[0][2] = a31 * b05 - a32 * b04 + a33 * b03;
+  entries_[0][3] = a22 * b04 - a21 * b05 - a23 * b03;
+  entries_[1][0] = a12 * b08 - a10 * b11 - a13 * b07;
+  entries_[1][1] = a00 * b11 - a02 * b08 + a03 * b07;
+  entries_[1][2] = a32 * b02 - a30 * b05 - a33 * b01;
+  entries_[1][3] = a20 * b05 - a22 * b02 + a23 * b01;
+  entries_[2][0] = a10 * b10 - a11 * b08 + a13 * b06;
+  entries_[2][1] = a01 * b08 - a00 * b10 - a03 * b06;
+  entries_[2][2] = a30 * b04 - a31 * b02 + a33 * b00;
+  entries_[2][3] = a21 * b02 - a20 * b04 - a23 * b00;
+  entries_[3][0] = a11 * b07 - a10 * b09 - a12 * b06;
+  entries_[3][1] = a00 * b09 - a01 * b07 + a02 * b06;
+  entries_[3][2] = a31 * b01 - a30 * b03 - a32 * b00;
+  entries_[3][3] = a20 * b03 - a21 * b01 + a22 * b00;
 }
 
 void Matrix::AssignMatrixMultiply(const Matrix& a, const Matrix& b) {
-  // We need a separate copy of the result since we cannot assume that
-  // this->entries_ is different from a's and b's entries.
-  Matrix result;
+  // If a or b is this matrix, we cannot store result in place, so have to use
+  // an extra matrix object.
+  const bool use_storage = (this == &a || this == &b);
+  Matrix storage(UNINITIALIZED_CONSTRUCTOR);
+  Matrix* result = use_storage ? &storage : this;
+
   for (int a_row = 0; a_row < kN; ++a_row) {
     for (int b_col = 0; b_col < kN; ++b_col) {
       float dp = 0.0f;
-      for (int k = 0; k < kN; ++k)
+      for (int k = 0; k < kN; ++k) {
         dp += a.Get(a_row, k) * b.Get(k, b_col);
-      result.Set(a_row, b_col, dp);
+      }
+      result->Set(a_row, b_col, dp);
     }
   }
-  *this = result;
-}
 
-Matrix Matrix::GenerateColumnMajor(const float* entries) {
-  // It's safe to memcpy because entries are stored in column-major order.
-  Matrix result;
-  memcpy(result.entries_, entries, sizeof(result.entries_));
-  return result;
-}
-
-float* Matrix::GetColumnMajorArray(float (&entries)[kEntries]) const {
-  return GetColumnMajorArray(entries, kEntries);
+  if (use_storage) {
+    *this = storage;
+  }
 }
 
 float* Matrix::GetColumnMajorArray(float* entries, size_t count) const {
   // It's safe to memcpy because entries are stored in column-major order.
   memcpy(entries, entries_, count * sizeof(entries[0]));
   return entries;
+}
+
+void Matrix::SetColumnMajorArray(const float *entries) {
+  memcpy(entries_, entries, sizeof(entries[0]) * kEntries);
 }
 
 Matrix Matrix::GeneratePerspective(float left, float right,
@@ -227,13 +180,13 @@ Matrix Matrix::GeneratePerspective(float left, float right,
   LOG_ALWAYS_FATAL_IF(z_near == z_far);
 
   // See http://www.songho.ca/opengl/gl_projectionmatrix.html.
-  return Matrix((2.f * z_near) / (right - left),
+  return Matrix((2.0f * z_near) / (right - left),
                 0.0f,
                 (right + left) / (right - left),
                 0.0f,
 
                 0.0f,
-                (2.f * z_near) / (top - bottom),
+                (2.0f * z_near) / (top - bottom),
                 (top + bottom) / (top - bottom),
                 0.0f,
 
@@ -275,19 +228,19 @@ Matrix Matrix::GenerateOrthographic(float left, float right,
 }
 
 Matrix Matrix::GenerateScale(const Vector& v) {
-  Matrix m;
+  Matrix result;
   for (int i = 0; i < kN; ++i) {
-    m.Set(i, i, v.Get(i));
+    result.Set(i, i, v.Get(i));
   }
-  return m;
+  return result;
 }
 
 Matrix Matrix::GenerateTranslation(const Vector& v) {
-  Matrix m;
+  Matrix result;
   for (int i = 0; i < kN; ++i) {
-    m.Set(i, 3, v.Get(i));
+    result.Set(i, 3, v.Get(i));
   }
-  return m;
+  return result;
 }
 
 Matrix Matrix::GenerateRotationByDegrees(float degrees,

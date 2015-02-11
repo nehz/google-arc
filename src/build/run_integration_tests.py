@@ -126,7 +126,7 @@ def _select_tests_to_run(all_suite_runners, args):
       include_fail=args.include_failing,
       include_large=args.include_large,
       include_timeout=args.include_timeouts,
-      include_requires_opengl=(OPTIONS.is_hw_renderer() and not args.use_xvfb))
+      include_requires_opengl=(not args.use_xvfb))
 
   test_driver_list = []
   for runner in all_suite_runners:

@@ -25,19 +25,23 @@ class Matrix {
     AssignIdentity();
   }
 
-  Matrix(float m00, float m01, float m02, float m03,
-         float m10, float m11, float m12, float m13,
-         float m20, float m21, float m22, float m23,
-         float m30, float m31, float m32, float m33);
+  explicit Matrix(const float* entries) {
+    SetColumnMajorArray(entries);
+  }
+
+  Matrix(float row0col0, float row0col1, float row0col2, float row0col3,
+         float row1col0, float row1col1, float row1col2, float row1col3,
+         float row2col0, float row2col1, float row2col2, float row2col3,
+         float row3col0, float row3col1, float row3col2, float tow3col3);
 
   void Set(int row, int col, float value) {
     // The entries are stored in column-major order.
-    entries_[col * kN + row] = value;
+    entries_[col][row] = value;
   }
 
   float Get(int row, int col) const {
     // The entries are stored in column-major order.
-    return entries_[col * kN + row];
+    return entries_[col][row];
   }
 
   void Inverse();
@@ -56,10 +60,13 @@ class Matrix {
     return *this;
   }
 
-  float* GetColumnMajorArray(float (&entries)[kEntries]) const;
+  float* GetColumnMajorArray(float (&entries)[kEntries]) const {
+    return GetColumnMajorArray(entries, kEntries);
+  }
+
   float* GetColumnMajorArray(float* entries, size_t count) const;
 
-  static Matrix GenerateColumnMajor(const float* entries);
+  void SetColumnMajorArray(const float *entries);
 
   static Matrix GenerateScale(const Vector& v);
 
@@ -77,7 +84,14 @@ class Matrix {
                                      float z_near, float z_far);
 
  private:
-  float entries_[kEntries];
+  enum UninitializedConstructor {
+    UNINITIALIZED_CONSTRUCTOR
+  };
+
+  explicit Matrix(UninitializedConstructor) {
+  }
+
+  float entries_[kN][kN];
 };
 
 inline Matrix operator* (Matrix a, const Matrix& b) {

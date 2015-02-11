@@ -59,33 +59,6 @@ class RendererInterface {
   virtual void SetResizeObserver(ResizeObserver* observer) = 0;
 };
 
-class SWRendererInterface {
- public:
-  enum BitmapFormat {
-    RGBA8,
-    BGRA8
-  };
-  struct SWRenderParams {
-    // Image format that will be presented to Chrome in the software
-    // renderer.
-    BitmapFormat format;
-    // Bytes per pixel in software renderer.
-    int stride;
-    // Total size in bytes of software rendered image.
-    int size;
-  };
-  virtual ~SWRendererInterface() {}
-
-  // Render the given bitmap.  The bitmap data must match
-  // the render parameters returned by GetRenderParams.  The
-  // memory of bitmap will be copied by the time this function
-  // returns, so it can be invalidated immediately after.
-  virtual void RenderBitmap(void* bitmap) = 0;
-
-  // Get the plugin's render characteristics.
-  virtual void GetSWRenderParams(SWRenderParams* params) = 0;
-};
-
 // Opaque type of GPU context pointers.
 struct ContextGPU;
 
@@ -402,7 +375,6 @@ class PluginInterface {
  public:
   virtual RendererInterface* GetRenderer() = 0;
   virtual GPURendererInterface* GetGPURenderer() = 0;
-  virtual SWRendererInterface* GetSWRenderer() = 0;
   virtual InputManagerInterface* GetInputManager() = 0;
   virtual AudioManagerInterface* GetAudioManager() = 0;
   virtual CameraManagerInterface* GetCameraManager() = 0;

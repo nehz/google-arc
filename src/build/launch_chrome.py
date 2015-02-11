@@ -549,8 +549,7 @@ def _compute_chrome_graphics_params(parsed_args):
   # driver even there is secondary Matrox GPU(http://crbug.com/145600). It
   # happens with low memory but seems safe for buildbot. So passing
   # ignore-gpu-blacklist to be able to use hardware acceleration.
-  if OPTIONS.is_hw_renderer():
-    params.append('--ignore-gpu-blacklist')
+  params.append('--ignore-gpu-blacklist')
 
   return params
 

@@ -22,10 +22,6 @@ class PluginHandle {
     LOG_ALWAYS_FATAL_IF(!plugin_);
     return plugin_->GetRenderer();
   }
-  SWRendererInterface* GetSWRenderer() const {
-    LOG_ALWAYS_FATAL_IF(!plugin_);
-    return plugin_->GetSWRenderer();
-  }
   GPURendererInterface* GetGPURenderer() const {
     LOG_ALWAYS_FATAL_IF(!plugin_);
     return plugin_->GetGPURenderer();

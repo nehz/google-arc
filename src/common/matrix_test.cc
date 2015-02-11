@@ -70,7 +70,7 @@ TEST(Matrix, GenerateColumnMajor) {
   for (int i = 0; i < Matrix::kEntries; ++i) {
     arr[i] = static_cast<float>(i+1);
   }
-  Matrix m = Matrix::GenerateColumnMajor(arr);
+  Matrix m(arr);
   EXPECT_TRUE(AlmostEquals(m, kTransposedFunMatrix));
 }
 

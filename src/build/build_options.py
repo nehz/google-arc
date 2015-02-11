@@ -55,12 +55,6 @@ _ALLOWED_INTERNAL_APKS_SOURCES = ['internal',  # for the corp builder
                                   'prebuilt']  # for everyone else
 _DEFAULT_INTERNAL_APKS_SOURCES = 'prebuilt'
 
-# --renderer= options
-_RENDERER_HW = 'hw'
-_RENDERER_SW = 'sw'
-_ALLOWED_RENDERERS = [_RENDERER_HW, _RENDERER_SW]
-_DEFAULT_RENDERER = _RENDERER_HW
-
 # --logging=
 _ANSI_FB_LOGGING = 'ansi-fb'
 _ANSI_SF_LAYER_LOGGING = 'ansi-sf-layer'
@@ -215,9 +209,6 @@ class _Options(object):
   def is_posix_translation_debug(self):
     return _POSIX_TRANSLATION_DEBUG in self._loggers
 
-  def is_hw_renderer(self):
-    return self.renderer() == _RENDERER_HW
-
   def internal_apks_source_is_internal(self):
     return self.internal_apks_source().startswith('internal')
 
@@ -286,11 +277,6 @@ class _Options(object):
       args.opt = True
       args.disable_debug_code = True
       args.regen_build_prop = True
-
-    # SW renderer only works with hwui disabled.
-    if args.renderer == _RENDERER_SW:
-      args.disable_hwui = True
-
     return args
 
   def parse(self, args):
@@ -382,11 +368,6 @@ class _Options(object):
                         'contains git HEAD information for release purposes.  '
                         'Pass this option to make sure the file '
                         'is up to date.  Note: requires rebuilding the rootfs.')
-
-    parser.add_argument('--renderer',
-                        choices=_ALLOWED_RENDERERS,
-                        default=_DEFAULT_RENDERER,
-                        help='Renderer type to use.')
 
     parser.add_argument('--restart-goma', action='store_true', help=
                         'Restart goma. This is mainly for buildbots.')

@@ -119,7 +119,6 @@ static int nacl_irt_open_resource_injected(const char *pathname, int *newfd) {
   } else if (!strcmp(pathname, "audio_policy.default.so") ||
              !strcmp(pathname, "audio.primary.arc.so") ||
              !strcmp(pathname, "gralloc.arc.so") ||
-             !strcmp(pathname, "gralloc.default.so") ||
              !strcmp(pathname, "local_time.default.so")) {
     strcat(strcat(realpath, "hw/"), pathname);
   } else if (!strcmp(pathname, "libEGL_emulation.so") ||
