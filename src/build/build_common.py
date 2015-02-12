@@ -20,6 +20,7 @@ import sys
 import time
 import urllib2
 
+import dependency_inspection
 from build_options import OPTIONS
 from util import file_util
 from util import launch_chrome_util
@@ -686,8 +687,13 @@ def _maybe_join(root, path):
 
 def _generate_all_files(base_paths, matcher, root, relative,
                         include_subdirectories):
-  for base_path in as_list(base_paths):
-    listing_root = _maybe_join(root, base_path)
+  listing_roots = [_maybe_join(root, base_path)
+                   for base_path in as_list(base_paths)]
+  if listing_roots:
+    dependency_inspection.add_file_listing(
+        listing_roots, matcher, root, include_subdirectories)
+
+  for listing_root in listing_roots:
     result_root = listing_root if relative else root
 
     for file_path in _enumerate_files(listing_root, include_subdirectories):

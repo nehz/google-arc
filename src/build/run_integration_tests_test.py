@@ -157,6 +157,11 @@ def _make_atf_output_generator(results):
   instrumentation status code. If the status code is ATF_CODE_FAKE_CRASH then
   the output from a crash is simulated.
   """
+  # To avoid triggering Chrome-flaky retrying code, we generates
+  # enough empty log lines.
+  for _ in xrange(16):  # _LAUNCH_CHROME_MINIMUM_LINES
+    yield ''
+
   for i, (name, status_code) in enumerate(results):
     class_name, test_name = name.split('#', 1)
 

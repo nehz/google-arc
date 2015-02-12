@@ -11,7 +11,6 @@ import re
 import sys
 
 from build_options import OPTIONS
-from util import platform_util
 from util.test import suite_runner_config_flags as flags
 
 
@@ -208,10 +207,6 @@ def default_run_configuration():
       'deadline': 300,  # Seconds
       'configurations': [{
           'enable_if': OPTIONS.weird(),
-          'flags': flags.FLAKY,
-      }, {
-          'enable_if': platform_util.is_running_on_cygwin(),
-          'bug': 'crbug.com/361474',
           'flags': flags.FLAKY,
       }],
       'metadata': {}

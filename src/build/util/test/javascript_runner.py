@@ -70,7 +70,7 @@ class JavaScriptTestRunner(suite_runner.SuiteRunnerBase):
     args = self.get_launch_chrome_command(
         self._get_js_test_options(test_methods_to_run))
     try:
-      raw_output = self.run_subprocess(args)
-    except subprocess.CalledProcessError:
-      raw_output = self._get_subprocess_output()
+      raw_output = self.launch_chrome(args)
+    except subprocess.CalledProcessError as e:
+      raw_output = e.output or ''
     return raw_output, self._result_parser.test_method_results

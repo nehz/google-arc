@@ -415,49 +415,67 @@ class SuiteRunnerBase(object):
       print xvfb_output
     return output
 
-  def run_subprocess_test(self, args, test_name=None, env=None, cwd=None):
-    """Runs a test which runs subprocess and sets status appropriately."""
-    result = None
-    test_name = test_name or scoreboard.Scoreboard.ALL_TESTS_DUMMY_NAME
-    # We cannot use the normal retry methods used in test_driver to
-    # determine whether to run the test suites that are failing because of
-    # Chrome launch failures.  This is because most of the suite runners have
-    # default expectations, and the set of tests that is run is
-    # ALL_TESTS_DUMMY_NAME, both of which do not track 'incompletes' properly in
-    # the scoreboard.  Keep our own count here.
-    chrome_flake_retry = LAUNCH_CHROME_FLAKE_RETRY_COUNT
-    self._scoreboard.start_test(test_name)
-    while True:
+  def launch_chrome(self, command, *args, **kwargs):
+    """Runs ./launch_chrome.
+
+    This method automatically and heuristically finds timeout caused by
+    Chrome flakiness. On that failure, retries several times automatically.
+    - command: a list of strings. ./launch_chrome command line including its
+      arguments.
+    - *args, **kwargs: these will be (eventually) passed to subprocess.Popen.
+    """
+    assert launch_chrome_util.is_launch_chrome_command(command), (
+        'launch_chrome() is invoked with non-launch_chrome '
+        'command line args: %s' % str(command))
+
+    for trial in xrange(LAUNCH_CHROME_FLAKE_RETRY_COUNT):
       try:
-        raw_output = self.run_subprocess(args, env=env, cwd=cwd)
-        result = test_method_result.TestMethodResult(
-            test_name, test_method_result.TestMethodResult.PASS)
-        break
-      except subprocess.CalledProcessError:
-        raw_output = self._get_subprocess_output()
-        is_timeout = raw_output.endswith("[  TIMEOUT  ]\n")
-        # TODO(crbug.com/359859): Remove this hack when it is no longer
-        # necessary.  Workaround for what we suspect is a problem with Chrome
-        # failing on launch a few times a day on the waterfall.  The symptom is
-        # that we get 3-5 lines of raw output followed by a TIMEOUT message.
-        if (is_timeout and
-            len(raw_output.split('\n')) < _LAUNCH_CHROME_MINIMUM_LINES and
-            chrome_flake_retry > 0 and
-            launch_chrome_util.is_launch_chrome_command(args)):
+        return self.run_subprocess(command, *args, **kwargs)
+      except subprocess.CalledProcessError as e:
+        output = e.output or ''
+        # Detect Chrome flakiness error heuristically.
+        # Workaround for what we suspect is a problem with Chrome failing on
+        # launch a few times a day on the waterfall.  The symptom is that we
+        # get 3-5 lines of raw output followed by a TIMEOUT message.
+        if (output.endswith('[  TIMEOUT  ]\n') and
+            output.count('\n') < _LAUNCH_CHROME_MINIMUM_LINES):
           print '@@@STEP_WARNINGS@@@'
           print '@@@STEP_TEXT@Retrying ' + self.name + ' (Chrome flake)@@@'
-          chrome_flake_retry -= 1
           continue
+        raise
+    else:
+      # Here, we hit the Chrome flakiness retry count limit,
+      # so raise an exception. Note that |output| is available, because
+      # except-block above should have run several times.
+      # Note that we should think about the better way to return |output|.
+      # For example, the output of xvfb is ignored. Also, the output of
+      # former trials is also ignored. These may be useful to investigate
+      # on failure.
+      # TODO(crbug.com/455560): Revisit and improve logging output.
+      raise subprocess.CalledProcessError(1, command, output)
 
-        if self._xvfb_output_filename is not None:
-          raw_output += '-' * 10 + ' XVFB output starts ' + '-' * 10
-          raw_output += self._get_xvfb_output()
-        if is_timeout:
-          status = test_method_result.TestMethodResult.INCOMPLETE
-        else:
-          status = test_method_result.TestMethodResult.FAIL
-        result = test_method_result.TestMethodResult(test_name, status)
-        break
+  def run_subprocess_test(self, test_name, command, env=None):
+    """Runs a test which runs subprocess and sets status appropriately.
 
+    - test_name: The name of this test. This should be
+      'test_fixter#test_method' style.
+    - command: A list of strings. Command line to run subprocess.
+    - env: Environment dict for the subprocess. Maybe None.
+    """
+    assert not launch_chrome_util.is_launch_chrome_command(command), (
+        'For testing with ./launch_chrome, you should use launch_chrome() '
+        'method instead.: %s' % str(command))
+
+    self._scoreboard.start_test(test_name)
+    try:
+      raw_output = self.run_subprocess(command, env=env)
+      status = test_method_result.TestMethodResult.PASS
+    except subprocess.CalledProcessError as e:
+      raw_output = e.output
+      if self._xvfb_output_filename is not None:
+        raw_output += '-' * 10 + ' XVFB output starts ' + '-' * 10
+        raw_output += self._get_xvfb_output()
+      status = test_method_result.TestMethodResult.FAIL
+    result = test_method_result.TestMethodResult(test_name, status)
     self._scoreboard.update([result])
     return raw_output, {test_name: result}

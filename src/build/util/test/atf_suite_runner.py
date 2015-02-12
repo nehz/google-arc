@@ -123,9 +123,9 @@ class AtfSuiteRunnerBase(suite_runner.SuiteRunnerBase):
       if self._extra_env:
         env = os.environ.copy()
         env.update(self._extra_env)
-      raw_output = self.run_subprocess(args, env=env)
-    except subprocess.CalledProcessError:
-      raw_output = self._get_subprocess_output()
+      raw_output = self.launch_chrome(args, env=env)
+    except subprocess.CalledProcessError as e:
+      raw_output = e.output or ''
     return raw_output, self._result_parser.test_method_results
 
   def finalize(self, test_methods_to_run):

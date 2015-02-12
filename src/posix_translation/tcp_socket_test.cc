@@ -69,15 +69,10 @@ class PepperTCPSocketTest
   DECLARE_BACKGROUND_TEST(SetOptionThenConnect);
   DECLARE_BACKGROUND_TEST(Recv);
   DECLARE_BACKGROUND_TEST(RecvMsgPeek);
-// TODO(crbug.com/362175): qemu-arm cannot reliably emulate threading
-// functions so run them in a real ARM device.
-#if defined(__arm__)
+  // TODO(crbug.com/362175): qemu-arm cannot reliably emulate threading
+  // functions so run them in a real ARM device.
   DECLARE_BACKGROUND_TEST(QEMU_DISABLED_NonBlockingConnectSuccess);
   DECLARE_BACKGROUND_TEST(QEMU_DISABLED_NonBlockingConnectFail);
-#else
-  DECLARE_BACKGROUND_TEST(NonBlockingConnectSuccess);
-  DECLARE_BACKGROUND_TEST(NonBlockingConnectFail);
-#endif
 
  protected:
   static const PP_Resource kTCPSocketResource = 74;
@@ -346,12 +341,8 @@ TEST_BACKGROUND_F(PepperTCPSocketTest, RecvMsgPeek) {
 
 // TODO(crbug.com/362175): qemu-arm cannot reliably emulate threading
 // functions so run them in a real ARM device.
-#if defined(__arm__)
-TEST_BACKGROUND_F(PepperTCPSocketTest, QEMU_DISABLED_NonBlockingConnectSuccess)
-#else
-TEST_BACKGROUND_F(PepperTCPSocketTest, NonBlockingConnectSuccess)
-#endif
-{
+TEST_BACKGROUND_F(PepperTCPSocketTest,
+                  QEMU_DISABLED_NonBlockingConnectSuccess) {
   ExpectTCPSocketInstance();
   ExpectConnectSuccess();
 
@@ -394,12 +385,8 @@ TEST_BACKGROUND_F(PepperTCPSocketTest, NonBlockingConnectSuccess)
 
 // TODO(crbug.com/362175): qemu-arm cannot reliably emulate threading
 // functions so run them in a real ARM device.
-#if defined(__arm__)
-TEST_BACKGROUND_F(PepperTCPSocketTest, QEMU_DISABLED_NonBlockingConnectFail)
-#else
-TEST_BACKGROUND_F(PepperTCPSocketTest, NonBlockingConnectFail)
-#endif
-{
+TEST_BACKGROUND_F(PepperTCPSocketTest,
+                  QEMU_DISABLED_NonBlockingConnectFail) {
   ExpectTCPSocketInstance();
   ExpectConnectFail();
 

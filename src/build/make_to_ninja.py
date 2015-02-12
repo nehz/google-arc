@@ -16,6 +16,7 @@ import subprocess
 import tarfile
 
 import build_common
+import dependency_inspection
 import ninja_generator
 import staging
 import toolchain
@@ -63,7 +64,7 @@ _CANNED_GEN_SOURCES_TAR = os.path.join(
 
 _VARS_PREFIX = '=== VARIABLES FOR: '
 _VAR_PREFIX = '=== VARIABLE '
-_READING_MAKEFILE_PREFIX = 'Reading makefile '
+_READING_MAKEFILE_RE = re.compile('Reading makefile `([^\']+)\'')
 
 _TARGET_MAKEFILE = 'TARGET_MAKEFILE'
 
@@ -645,7 +646,7 @@ def prepare_make_to_ninja():
   file_util.makedirs_safely(_MAKE_BUILD_DIR)
 
 
-def _filter_make_output(stdout, stderr):
+def _filter_make_output(workdir, stdout, stderr):
   # Check if stderr from make contains any error info.
   errors = []
   for line in stderr.split('\n'):
@@ -659,15 +660,22 @@ def _filter_make_output(stdout, stderr):
   result = []
   has_logging = OPTIONS.is_make_to_ninja_logging()
   for line in stdout.split('\n'):
-    if has_logging and line.startswith(_READING_MAKEFILE_PREFIX):
-      print line
+    match = _READING_MAKEFILE_RE.match(line)
+    if match:
+      if has_logging:
+        print line
+      submake = os.path.join(workdir, match.group(1))
+      if not submake.startswith(_MAKE_TO_NINJA_DIR):
+        dependency_inspection.add_files(submake)
     elif line:
       result.append(line)
 
   return result
 
 
-def _run_make(in_file, extra_env_vars):
+def _run_make(workdir, in_file, extra_env_vars):
+  dependency_inspection.add_file_listing([workdir], None, None, True)
+
   target = OPTIONS.target()
   main_makefile = _create_main_makefile(in_file, extra_env_vars)
   env = {
@@ -686,13 +694,13 @@ def _run_make(in_file, extra_env_vars):
       'PATH': ':'.join([_MAKE_TO_NINJA_BIN_DIR, os.environ['PATH']])
   }
 
+  # "--debug=v" indicates when Make reads makefiles.
   make_cmd = [
       'make', '-f', '-', '-I', _MAKE_BUILD_DIR, '--always-make',
       '--silent', '--no-print-directory', '--warn-undefined-variables',
-      '--no-builtin-rules']
+      '--no-builtin-rules', '--debug=v']
 
   if OPTIONS.is_make_to_ninja_logging():
-    make_cmd.append('--debug=v')  # Indicates when Make reads makefiles.
     print 'Running make like this:'
     print ('$ cd %s; cat <<"EOF" > /tmp/makefile\n%s\nEOF\ncat /tmp/makefile | '
            'env %s %s' %
@@ -704,7 +712,7 @@ def _run_make(in_file, extra_env_vars):
   p = subprocess.Popen(
       make_cmd, cwd=_MAKE_TO_NINJA_DIR, env=env,
       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-  return _filter_make_output(*p.communicate(main_makefile))
+  return _filter_make_output(workdir, *p.communicate(main_makefile))
 
 
 def _filter_var_name(name):
@@ -2043,8 +2051,14 @@ class MakefileNinjaTranslator:
     executables as shared objects.
     """
     in_file = staging.as_staging(in_file)
+    workdir = None
     if os.path.isdir(in_file):
+      workdir = in_file
       in_file = os.path.join(in_file, 'Android.mk')
+    else:
+      workdir = os.path.dirname(in_file)
+
+    self._workdir = workdir
     self._in_file = in_file
     self._extra_env_vars = extra_env_vars
     self._filters = []
@@ -2084,7 +2098,7 @@ class MakefileNinjaTranslator:
       if OPTIONS.verbose():
         print 'Converting ' + self._in_file
       self._vars_list = MakefileNinjaTranslator._read_modules(
-          self._in_file, self._extra_env_vars)
+          self._workdir, self._in_file, self._extra_env_vars)
 
   def _apply_filters(self, vars):
     """Applies filters and returns True if all filters pass."""
@@ -2159,8 +2173,8 @@ class MakefileNinjaTranslator:
     return self._out_intermediates[module_name]
 
   @staticmethod
-  def _read_modules(file_name, extra_env_vars):
-    make_output_lines = _run_make(file_name, extra_env_vars)
+  def _read_modules(workdir, file_name, extra_env_vars):
+    make_output_lines = _run_make(workdir, file_name, extra_env_vars)
 
     vars_list = []
     build_type = ''

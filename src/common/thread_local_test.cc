@@ -24,12 +24,7 @@ void* SetInt(void* data) {
 
 // TODO(crbug.com/362175): qemu-arm cannot reliably emulate threading
 // functions so run them in a real ARM device.
-#if defined(__arm__)
-TEST(ThreadLocalTest, QEMU_DISABLED_Basic)
-#else
-TEST(ThreadLocalTest, Basic)
-#endif
-{
+TEST(ThreadLocalTest, QEMU_DISABLED_Basic) {
   static const int kNumThreads = 100;
   std::vector<pthread_t> threads(kNumThreads);
 
