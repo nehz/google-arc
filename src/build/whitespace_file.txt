@@ -106,3 +106,5 @@ Test updated ChromeOS machines in 3... 2... 1...
 ping pong bang
 
 testing bots (after?) infra nightmare
+
+testing bots after m3 -> m7a masters move.

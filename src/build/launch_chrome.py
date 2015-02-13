@@ -16,7 +16,6 @@ import time
 import urlparse
 
 import build_common
-import eclipse_connector
 import filtered_subprocess
 import launch_chrome_options
 import prep_launch_chrome
@@ -26,6 +25,7 @@ from build_options import OPTIONS
 from util import debug
 from util import file_util
 from util import gdb_util
+from util import jdb_util
 from util import nonblocking_io
 from util import platform_util
 from util import remote_executor
@@ -745,6 +745,10 @@ def _select_output_handler(parsed_args, stats, chrome_process, **kwargs):
 
   output_handler = CrashAddressFilter(output_handler)
 
+  if parsed_args.jdb_port:
+    output_handler = jdb_util.JdbHandlerAdapter(
+        output_handler, parsed_args.jdb_port, parsed_args.jdb_type)
+
   if not platform_util.is_running_on_remote_host():
     output_handler = MinidumpFilter(output_handler)
 
@@ -797,14 +801,7 @@ def _run_chrome(parsed_args, stats, **kwargs):
   atexit.register(_terminate_chrome, p)
 
   gdb_util.maybe_launch_gdb(parsed_args.gdb, parsed_args.gdb_type, p.pid)
-
-  # If jdb option is specified jdb_port exists. Now it is time to
-  # check which Java debugger to start (currently Eclipse).
-  if parsed_args.jdb_port:
-    if parsed_args.jdb_type == 'eclipse':
-      if not eclipse_connector.connect_eclipse_debugger(parsed_args.jdb_port):
-        # We already should have error message now. Just exit.
-        sys.exit(1)
+  jdb_util.maybe_launch_jdb(parsed_args.jdb_port, parsed_args.jdb_type)
 
   # Write the PID to a file, so that other launch_chrome process sharing the
   # same user data can find the process. In common case, the file will be

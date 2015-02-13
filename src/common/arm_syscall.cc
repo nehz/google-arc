@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "common/alog.h"
+#include "common/arc_strace.h"
 
 namespace arc {
 
@@ -37,14 +38,21 @@ void RunCacheFlush(va_list ap) {
 int RunArmKernelSyscallImpl(int sysno, va_list ap) {
   int result = -1;
   switch (sysno) {
+    case 178:  // rt_sigqueueinfo
+      ALOGE("rt_sigqueueinfo is not supported, returning ENOSYS");
+      return -ENOSYS;
     case 186:  // sigaltstack
+      ALOGE("sigaltstack is not supported, returning ENOSYS");
       return -ENOSYS;
     case 224:  // gettid
       result = gettid();
       break;
     case 241:  // sched_setaffinity
-      // Pretend to succeed.
-      return 0;
+      ALOGI("sched_setaffinity is not supported, returning 0");
+      return 0;  // pretend to succeed.
+    case 307:  // shmget
+      ALOGE("shmget is not supported, returning ENOSYS");
+      return -ENOSYS;
     case kCacheFlushSysno:  // cacheflush
 #if defined(USE_NDK_DIRECT_EXECUTION)
       RunCacheFlush(ap);
@@ -63,15 +71,19 @@ int RunArmKernelSyscallImpl(int sysno, va_list ap) {
 }  // namespace
 
 int RunArmKernelSyscall(int sysno, ...) {
+  // TODO(crbug.com/241955): Stringify |number|.
+  ARC_STRACE_ENTER("syscall_ndk", "%d, ...", sysno);
   va_list ap;
   va_start(ap, sysno);
   int result = RunArmKernelSyscallImpl(sysno, ap);
   va_end(ap);
-  return result;
+  ARC_STRACE_RETURN_INT(result, false);
 }
 
 #if defined(USE_NDK_DIRECT_EXECUTION)
 int RunArmLibcSyscall(int sysno, ...) {
+  // TODO(crbug.com/241955): Stringify |number|.
+  ARC_STRACE_ENTER("syscall_libc", "%d, ...", sysno);
   va_list ap;
   va_start(ap, sysno);
   int result = RunArmKernelSyscallImpl(sysno, ap);
@@ -81,9 +93,9 @@ int RunArmLibcSyscall(int sysno, ...) {
   // third_party/android/bionic/libc/arch-arm/bionic/syscall.S.
   if (-4096 < result && result < 0) {
     errno = -result;
-    return -1;
+    result = -1;
   }
-  return result;
+  ARC_STRACE_RETURN(result);
 }
 #endif
 

@@ -131,12 +131,19 @@ int PriorityMap::SetPriority(int which, int who, int priority) {
     priority = ANDROID_PRIORITY_HIGHEST;  // CTS tests expect successful result.
   const int errno_orig = errno;
   if (setpriority(which, who, priority)) {
-    // On Android, calling setprority(negative_value) after calling
-    // setpriority(positive_value) apparently succeeds, but this is not the
-    // case on Linux and Chrome OS. To emulate Android's behavior, conditionally
-    // ignore -1 returns from Bionic. This is necessary for at least one CTS
-    // test: cts.CtsOsTestCases:android.os.cts.ProcessTest#testMiscMethods.
-    const bool ignore_error = (which == PRIO_PROCESS) && (errno == EPERM);
+    const bool ignore_error =
+        // On Android, calling setprority(negative_value) after calling
+        // setpriority(positive_value) apparently succeeds, but this is not the
+        // case on Linux and Chrome OS. To emulate Android's behavior,
+        // conditionally ignore -1 returns from Bionic. This is necessary for at
+        // least one CTS test:
+        // cts.CtsOsTestCases:android.os.cts.ProcessTest#testMiscMethods.
+        ((which == PRIO_PROCESS) && (errno == EPERM)) ||
+        // Linux allows a thread to change another thread's priority, but NaCl
+        // IRT does not provide such an interface. To make this function
+        // compatible with Linux (i.e. real Android), ignore ESRCH as long as
+        // who is not -1. The -1 check is again for ProcessTest#testMiscMethods.
+        ((which == PRIO_PROCESS) && (errno == ESRCH) && (who != -1));
 
     DANGERF("which=%s, who=%d, priority=%d %s, gettid=%d (%s)",
             arc::GetSetPriorityWhichStr(which).c_str(),
@@ -146,7 +153,8 @@ int PriorityMap::SetPriority(int which, int who, int priority) {
     if (!ignore_error)
       return -1;
 
-    ARC_STRACE_REPORT("Ignoring EPERM from Bionic for Android compatibility");
+    ARC_STRACE_REPORT(
+        "Ignoring an error %d from Bionic for Android compatibility", errno);
     errno = errno_orig;
   }
   base::AutoLock lock(mu_);

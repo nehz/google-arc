@@ -431,7 +431,8 @@ Native Client Debugging
                       'connect.  Once the user resumes, booting will resume.')
 
   parser.add_argument('--jdb-type', dest='jdb_type',
-                      choices=('eclipse', 'none'), default='eclipse',
+                      choices=('eclipse', 'emacsclient', 'none'),
+                      default='eclipse',
                       help='Specifies which java debugger is launched. If you '
                       'specify "none" it is launched in mode which waits JDWP '
                       'compliant debugger (such as jdb) to connect. Once the '

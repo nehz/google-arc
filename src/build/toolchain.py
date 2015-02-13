@@ -394,7 +394,7 @@ def get_gcc_raw_version(target):
   raw_version = _GCC_RAW_VERSION_CACHE.get(target, 0)
   if raw_version:
     return raw_version
-  cc = get_tool(target, 'cc')
+  cc = get_tool(target, 'cc', with_cc_wrapper=False)
   # Should call split() as cc might be prefixed with a wrapper like goma.
   raw_version = subprocess.check_output(cc.split() + ['-dumpversion']).strip()
 
