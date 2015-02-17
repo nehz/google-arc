@@ -76,7 +76,7 @@ ColorBufferHandle ColorBuffer::Create(EGLDisplay dpy, GLuint width,
                                       GLuint height, GLenum format,
                                       GLenum type, bool sw_write) {
   LOG_ALWAYS_FATAL_IF(
-      format != GL_RGB && format != GL_RGBA,
+      format != GL_RGB && format != GL_RGBA && format != GL_ALPHA,
       "format(%s) is not supported!", GetEnumString(format));
   LOG_ALWAYS_FATAL_IF(type != GL_UNSIGNED_BYTE &&
                       type != GL_UNSIGNED_SHORT_5_6_5 &&

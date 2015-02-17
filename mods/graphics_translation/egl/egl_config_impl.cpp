@@ -382,6 +382,9 @@ void EglConfigImpl::GetPixelFormat(EGLenum* format, EGLenum* type) const {
   } else if (r == 8 && g == 8 && b == 8 && a == 0) {
     *format = GL_RGB;
     *type = GL_UNSIGNED_BYTE;
+  } else if (r == 0 && g == 0 && b == 0 && a == 8) {
+    *format = GL_ALPHA;
+    *type = GL_UNSIGNED_BYTE;
   } else if (r == 5 && g == 6 && b == 5 && a == 0) {
     *format = GL_RGB;
     *type = GL_UNSIGNED_SHORT_5_6_5;
