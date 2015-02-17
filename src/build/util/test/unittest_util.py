@@ -1,15 +1,15 @@
-#!/usr/bin/env python
-#
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import os
 import re
+import subprocess
+
 import build_common
 import build_options
-import subprocess
 import toolchain
+from util import file_util
 from util import gdb_util
 
 
@@ -39,12 +39,12 @@ def is_bionic_fundamental_test(test_name):
 
 def get_all_tests():
   """Returns the list of all unittest names."""
-  test_info_dir = build_common.get_remote_unittest_info_path('')
-  test_info_files = os.listdir(test_info_dir)
+  test_info_files = file_util.read_metadata_file(
+      build_common.get_all_unittest_info_path())
   tests = set()
   for test_info_file in test_info_files:
-    # test info file name is something like bionic_test.1.json.
-    m = re.match(r'(.+)\.[0-9]+\.json', test_info_file)
+    # The basename of |test_info_file| is something like bionic_test.1.json.
+    m = re.match(r'(.+)\.[0-9]+\.json', os.path.basename(test_info_file))
     if not m:
       continue
     tests.add(m.group(1))

@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -124,3 +126,7 @@ class JavaScriptTestResultParser(unittest.TestCase):
                      update_result[0].name)
     self.assertTrue(update_result[0].failed)
     self.assertAlmostEqual(1.5, update_result[0].duration)
+
+
+if __name__ == '__main__':
+  unittest.main()

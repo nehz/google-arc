@@ -37,3 +37,7 @@ class TestUtilGit(unittest.TestCase):
 
     def test_is_not_initial_commit(self):
       self.assertTrue(util.git.has_initial_commit())
+
+
+if __name__ == '__main__':
+  unittest.main()

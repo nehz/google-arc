@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -253,6 +251,15 @@ def _generate_dependent_ninjas(ninja_list):
   notice_ninja = ninja_generator.NoticeNinjaGenerator('notices')
   notice_ninja.build_notices(ninja_list + dependent_ninjas)
   dependent_ninjas.append(notice_ninja)
+
+  all_test_lists_ninja = ninja_generator.NinjaGenerator('all_test_lists')
+  all_test_lists_ninja.build_all_test_lists(ninja_list)
+  dependent_ninjas.append(all_test_lists_ninja)
+
+  all_unittest_info_ninja = ninja_generator.NinjaGenerator('all_unittest_info')
+  all_unittest_info_ninja.build_all_unittest_info(ninja_list)
+  dependent_ninjas.append(all_unittest_info_ninja)
+
   return dependent_ninjas
 
 

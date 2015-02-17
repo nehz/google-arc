@@ -53,3 +53,7 @@ class TestColorUtil(unittest.TestCase):
     color.write_ansi_escape(stream, None, TestColorUtil.TEXT)
     self.assertEqual(TestColorUtil.TEXT, stream.getvalue())
     stream.close()
+
+
+if __name__ == '__main__':
+  unittest.main()

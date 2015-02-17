@@ -542,3 +542,7 @@ class ScoreboardTests(unittest.TestCase):
     self.assertEquals(1, len(expectations))
     self.assertEquals(scoreboard.EXPECT_FAIL,
                       expectations[sb.ALL_TESTS_DUMMY_NAME])
+
+
+if __name__ == '__main__':
+  unittest.main()

@@ -82,6 +82,9 @@ def add_remote_arguments(parser):
                       help='The directory name of a remote ARC checkout '
                       'directory. Used to run multiple launch_chrome '
                       'instances concurrently.')
+  parser.add_argument('--login-user', help='The user name(typically email '
+                      'address) to be used for signing-in in remote host. This '
+                      'value is only available for Chrome OS devices')
 
 
 def copy_remote_arguments(parsed_args, args):

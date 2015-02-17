@@ -84,7 +84,7 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     'third_party/ndk/sources/cxx-stl/stlport/libs/armeabi-v7a/libstlport_shared.so']  # NOQA
 _UNIT_TEST_FILE_PATTERNS = ['out/target/%(target)s/lib',
                             'out/target/%(target)s/posix_translation_fs_images',
-                            'out/target/%(target)s/remote_unittest_info']
+                            'out/target/%(target)s/unittest_info']
 
 # Dictionary to cache the result of remote host type auto detection.
 _REMOTE_HOST_TYPE_CACHE = dict()
@@ -187,6 +187,11 @@ class RemoteExecutor(object):
     scp.append('%s@%s:%s' % (self._user, self._remote, remote_file_pattern))
     scp.append(local_dir)
     run_command(scp)
+
+  def set_enable_pseudo_tty(self, enabled):
+    original_value = self._enable_pseudo_tty
+    self._enable_pseudo_tty = enabled
+    return original_value
 
   def get_remote_tmpdir(self):
     """Returns the path used as a temporary directory on the remote host."""

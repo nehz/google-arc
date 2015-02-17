@@ -477,8 +477,11 @@ def _compute_chrome_plugin_params(parsed_args):
       remote_executor.resolve_path(build_common.get_handler_dir())]
   params.append('--load-extension=' + ','.join(extensions))
 
-  params.append(
-      '--user-data-dir=' + remote_executor.resolve_path(_USER_DATA_DIR))
+  # Do not use user defined data directory if user name for remote host is
+  # provided. The mounted cryptohome directory is used instead.
+  if not parsed_args.login_user:
+    params.append(
+        '--user-data-dir=' + remote_executor.resolve_path(_USER_DATA_DIR))
 
   # Not all targets can use nonsfi mode (even with the whitelist).
   if OPTIONS.is_bare_metal_build():

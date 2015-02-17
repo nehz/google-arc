@@ -42,6 +42,7 @@ _CHROME_COMMAND_LINE_FILE = '/var/tmp/chrome_command_line'
 
 _REMOTE_CHROME_EXE_BINARY = '/opt/google/chrome/chrome'
 _REMOTE_NACL_HELPER_BINARY = '/opt/google/chrome/nacl_helper'
+_CRYPTOHOME = '/usr/sbin/cryptohome'
 
 _UNNEEDED_PARAM_PREFIXES = (
     '--ash-default-wallpaper',
@@ -143,6 +144,17 @@ def _setup_remote_processes(executor):
   atexit.register(lambda: _restore_remote_processes(executor))
 
 
+def _setup_remote_profile(executor, user):
+  """Mounts the cryptohome for |user|. """
+  # To abort launch with showing error messages on failure, need to grep the
+  # output line since cryptohome's status code is 0 even if mount fails due to
+  # incorrect password or unknown users.
+  executor.run_commands([
+      'echo -n "Enter the password for <%s>: "' % user,
+      '%s --action=mount --user=%s | grep "Mount succeeded."' %
+      (_CRYPTOHOME, user)])
+
+
 def _restore_remote_processes(executor):
   print 'Restarting remote UI...'
   # Allow session_manager to restart Chrome and do restart.
@@ -161,6 +173,21 @@ def _setup_remote_environment(parsed_args, executor, copied_files):
     # the exit code.
     traceback.print_exc()
     raise e
+
+  # To disable password echo, temporary enable pseudo tty.
+  original_pseudo_tty = executor.set_enable_pseudo_tty(True)
+  try:
+    if parsed_args.login_user:
+      _setup_remote_profile(executor, parsed_args.login_user)
+  except subprocess.CalledProcessError as e:
+    print 'Mounting cryptohome failed.'
+    print 'Please check your username and password.'
+    print ('Also note that you need to login to the device with the specified '
+           'username at least once beforehand.')
+    traceback.print_exc()
+    raise e
+  finally:
+    executor.set_enable_pseudo_tty(original_pseudo_tty)
 
 
 def get_chrome_exe_path():
@@ -216,6 +243,16 @@ def launch_remote_chrome(parsed_args, argv):
     sys.exit(e.returncode)
 
 
+def _get_user_hash(user):
+  """Returns the user hash.
+
+  The returned hash is used for launching Chrome with mounted cryptohome
+  directory.
+  """
+  return subprocess.check_output([_CRYPTOHOME, '--action=obfuscate_user',
+                                  '--user=%s' % user]).strip()
+
+
 def extend_chrome_params(parsed_args, params):
   # Do not show the New Tab Page because showing NTP during perftest makes the
   # benchmark score look unnecessarily bad especially on ARM Chromebooks where
@@ -224,8 +261,13 @@ def extend_chrome_params(parsed_args, params):
   # use --keep-alive-for-test then.
   params.append('--no-startup-window')
 
-  # Login as a fake test user.
-  params.append('--login-user=' + _FAKE_TEST_USER)
+  if parsed_args.login_user:
+    user = parsed_args.login_user
+    params.append('--login-user=%s' % user)
+    params.append('--login-profile=%s' % _get_user_hash(user))
+  else:
+    # Login as a fake test user when login_user is not specified.
+    params.append('--login-user=' + _FAKE_TEST_USER)
 
   if OPTIONS.is_arm() and parsed_args.mode in ('atftest', 'system'):
     # On ARM Chromebooks, there is a bug (crbug.com/270064) that causes X server

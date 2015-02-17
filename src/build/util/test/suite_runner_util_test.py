@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -112,3 +114,7 @@ class SuiteRunnerUtilTest(unittest.TestCase):
     with self.assertRaises(ValueError):
       suite_runner_util.create_gtest_filter_list(
           ['aaa', 'b' * 11, 'ccc'], 10)
+
+
+if __name__ == '__main__':
+  unittest.main()

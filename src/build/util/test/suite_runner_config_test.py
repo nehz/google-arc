@@ -238,3 +238,7 @@ class SuiteRunConfigIntegrationTests(unittest.TestCase):
     self.assertEquals(
         ['priMethod', 'abcMethod', 'xyzMethod'],
         runner.apply_test_ordering(['xyzMethod', 'abcMethod', 'priMethod']))
+
+
+if __name__ == '__main__':
+  unittest.main()

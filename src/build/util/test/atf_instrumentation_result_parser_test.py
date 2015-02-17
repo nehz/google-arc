@@ -121,3 +121,7 @@ INSTRUMENTATION_STATUS_CODE: 1
     self.assertFalse(testResult.failed)
     self.assertTrue(testResult.incomplete)
     self.assertEquals('', testResult.message)
+
+
+if __name__ == '__main__':
+  unittest.main()

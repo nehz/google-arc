@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -146,3 +148,7 @@ class TestFilterTest(unittest.TestCase):
                                    include_requires_opengl=True)
 
     self._test_should_run_internal(flags.NOT_SUPPORTED, expected=False)
+
+
+if __name__ == '__main__':
+  unittest.main()

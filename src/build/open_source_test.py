@@ -62,3 +62,7 @@ class TestOpenSource(unittest.TestCase):
   def test_is_third_party_open_sourced_true(self):
     for p in ['third_party/android']:
       self.assertTrue(open_source.is_open_sourced(p))
+
+
+if __name__ == '__main__':
+  unittest.main()
