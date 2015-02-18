@@ -56,7 +56,8 @@ class RendererInterface {
   // Get the plugin's render characteristics.
   virtual void GetRenderParams(RenderParams* params) const = 0;
 
-  virtual void SetResizeObserver(ResizeObserver* observer) = 0;
+  virtual void AddResizeObserver(ResizeObserver* observer) = 0;
+  virtual void RemoveResizeObserver(ResizeObserver* observer) = 0;
 };
 
 // Opaque type of GPU context pointers.

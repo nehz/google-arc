@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import collections
 import copy
 import glob
 import imp
@@ -14,226 +13,217 @@ from build_options import OPTIONS
 from util.test import suite_runner_config_flags as flags
 
 
-DEFAULT_OUTPUT_TIMEOUT = 300
-
 # For use in the suite configuration files, to identify a default configuration
 # to use for a list of related suites.
 SUITE_DEFAULTS = 'SUITE-DEFAULTS'
 
+# Default timeout is 300 secs.
+_DEFAULT_OUTPUT_TIMEOUT = 300
 
-class _SuiteRunConfiguration(object):
-  _BUG_PATTERN = re.compile(r'crbug.com/\d+$')
+# 'bug' field must be matched with the following pattern.
+_BUG_PATTERN = re.compile(r'crbug.com/\d+$')
 
-  def __init__(self, name, config=None):
-    self._name = name
-    self._config = config if config else {}
 
-  def validate(self):
-    validators = dict(
-        flags=self._validate_flags,
-        deadline=self._validate_deadline,
-        bug=self._validate_bug,
-        configurations=self._validate_configurations,
-        suite_test_expectations=self._validate_suite_test_expectations,
-        metadata=self._validate_metadata)
+def _validate(raw_config):
+  """Validates raw_config dict.
 
-    for key, value in self._config.iteritems():
-      validators[key](value)
+  Here is the check list.
+  - Types.
+  - Whether there are unknown field names or not.
+  - Nested structure of suite_test_expectations.
+  - 'configurations' field must be at top-level.
+  - bug's format check.
+  """
+  if raw_config is None:
+    return
+  _validate_internal(raw_config, True)
 
-    return self
 
-  def _validate_flags(self, value):
-    assert isinstance(value, flags.ExclusiveFlagSet), (
-        'Not a recognized flag: %s' % value)
+def _validate_internal(raw_config, is_root):
+  validator_map = {
+      'flags': _validate_flags,
+      'deadline': _validate_deadline,
+      'bug': _validate_bug,
+      'suite_test_expectations': _validate_suite_test_expectations,
+      'metadata': _validate_metadata,
+      'test_order': _validate_test_order,
+  }
 
-  def _validate_deadline(self, value):
-    assert isinstance(value, int) and int > 0, (
-        'Not a valid integer: %s' % value)
+  if is_root:
+    validator_map['configurations'] = _validate_configurations
+  else:
+    validator_map['enable_if'] = _validate_enable_if
 
-  def _validate_bug(self, value):
-    for bug_url in value.split(','):
-      assert self._BUG_PATTERN.match(bug_url.strip()), (
-          'Not a valid bug url (crbug.com/NNNNNN): %s' % bug_url)
+  unknown_field_list = [
+      name for name in raw_config if name not in validator_map]
+  assert not unknown_field_list, (
+      'Unknown fields are found in the test config: %s' % (
+          str(unknown_field_list)))
 
-  def _validate_configurations(self, configuration_list):
-    if configuration_list is None:
-      return
-    assert isinstance(configuration_list, list), (
-        'configurations is not a list')
-    for configuration in configuration_list:
-      self._validate_configuration(configuration)
+  # Apply validator to all the fields.
+  for name, value in raw_config.iteritems():
+    validator_map[name](value)
 
-  def _validate_suite_test_expectations(self, class_config_dict):
-    if class_config_dict is None:
-      return
-    assert isinstance(class_config_dict, dict), (
-        'suite_test_expectations is not a dictionary')
-    for outer_name, outer_expectation in class_config_dict.iteritems():
-      assert isinstance(outer_name, basestring), (
-          'suite_test_expectations %s is not a string' % outer_name)
-      if isinstance(outer_expectation, flags.ExclusiveFlagSet):
-        pass  # Not much more to validate.
-      elif isinstance(outer_expectation, dict):
-        for inner_name, inner_expectation in outer_expectation.iteritems():
-          assert isinstance(inner_name, basestring), (
-              'suite_test_expectations %s.%s is not a string' % (
-                  outer_name, outer_expectation))
-          assert isinstance(inner_expectation, flags.ExclusiveFlagSet), (
-              'suite_test_expectations %s.%s is not an expectation flag '
-              'combination' % (outer_name, inner_name, inner_expectation))
-      else:
-        assert False, (
-            'suite_test_expectations %s needs to be a dictionary or an '
-            'expectation flag combination' % outer_name)
 
-  def _validate_enable_if(self, value):
-    assert isinstance(value, bool), (
-        'configuration enable_if is not a boolean')
+def _validate_flags(value):
+  assert isinstance(value, flags.ExclusiveFlagSet), (
+      'Not a recognized flag: %s' % value)
 
-  def _validate_metadata(self, value):
-    if value is None:
-      return
-    assert isinstance(value, dict), (
-        'metadata is not a dictionary')
 
-  def _validate_test_order(self, value):
-    assert isinstance(value, collections.OrderedDict), (
-        'test_order is not a collections.OrderedDict')
-    for k, v in value.iteritems():
-      assert isinstance(k, basestring), (
-          '"%s" is not a string.' % k)
-      unused = int(v)  # Ensure conversion  # NOQA
+def _validate_deadline(value):
+  assert isinstance(value, int) and value > 0, (
+      'Not a valid integer: %s' % value)
 
-  def _validate_configuration(self, config_dict):
-    assert isinstance(config_dict, dict), (
-        'configuration is not a dictionary')
 
-    validators = dict(
-        bug=self._validate_bug,
-        deadline=self._validate_deadline,
-        enable_if=self._validate_enable_if,
-        flags=self._validate_flags,
-        test_order=self._validate_test_order,
-        suite_test_expectations=self._validate_suite_test_expectations)
+def _validate_bug(value):
+  for bug_url in value.split(','):
+    assert _BUG_PATTERN.match(bug_url.strip()), (
+        'Not a valid bug url (crbug.com/NNNNNN): %s' % bug_url)
 
-    for key, value in config_dict.iteritems():
-      validators[key](value)
 
-  def evaluate(self, defaults=None):
-    # TODO(lpique): Combine validation and evaluation. We only need to walk
-    # through the data once.
-    self.validate()
+def _validate_suite_test_expectations(value):
+  assert isinstance(value, dict), (
+      'suite_test_expectations is not a dict: %s' % value)
 
-    output = dict(bug=None, deadline=DEFAULT_OUTPUT_TIMEOUT,
-                  flags=flags.PASS, test_order=collections.OrderedDict(),
-                  suite_test_expectations={})
-    if defaults:
-      # We need to make a deep copy so that we do not modify any dictionary or
-      # array data in place and affect the default values for subsequent use.
-      output.update(copy.deepcopy(defaults))
+  for outer_name, outer_expectation in value.iteritems():
+    # The key must be a string.
+    assert isinstance(outer_name, basestring), (
+        'suite_test_expectations %s is not a string' % outer_name)
 
-    evaluators = dict(
-        flags=self._eval_flags,
-        deadline=self._eval_deadline,
-        bug=self._eval_bug,
-        configurations=self._eval_configurations,
-        suite_test_expectations=self._eval_suite_test_expectations,
-        metadata=self._eval_metadata)
+    # The value must be an ExpectationFlagSet or a dict.
+    if isinstance(outer_expectation, flags.ExclusiveFlagSet):
+      continue
+    assert isinstance(outer_expectation, dict), (
+        'suite_test_expectations %s needs to be either a dict or an '
+        'expectation flag set: %s' % (outer_name, outer_expectation))
+    for inner_name, inner_expectation in outer_expectation.iteritems():
+      # Inner dict must be a map from string to an expectation flag set.
+      assert isinstance(inner_name, basestring), (
+          'suite_test_expectations %s#%s is not a string' % (
+              outer_name, inner_name))
+      assert isinstance(inner_expectation, flags.ExclusiveFlagSet), (
+          'suite_test_expectations %s#%s is not an expectation flag set: '
+          '%s' % (outer_name, inner_name, inner_expectation))
 
-    for key, value in self._config.iteritems():
-      evaluators[key](output, value)
 
-    return output
+def _validate_configurations(value):
+  assert isinstance(value, list), ('configurations is not a list: %s' % value)
+  # Recursively validate the elements.
+  for config in value:
+    _validate_internal(config, False)
 
-  def _eval_flags(self, output, value):
-    output['flags'] |= value
 
-  def _eval_deadline(self, output, value):
-    output['deadline'] = value
+def _validate_metadata(value):
+  assert isinstance(value, dict), ('metadata is not a dictionary: %s', value)
 
-  def _eval_bug(self, output, value):
-    output['bug'] = value
 
-  def _eval_suite_test_expectations(self, output, config_dict):
-    expectations = output['suite_test_expectations']
-    for outer_name, outer_expectation in config_dict.iteritems():
-      if isinstance(outer_expectation, dict):
-        for inner_name, inner_expectation in outer_expectation.iteritems():
-          test_name = '%s#%s' % (outer_name, inner_name)
-          expectations[test_name] = flags.PASS | inner_expectation
-      else:
-        expectations[outer_name] = flags.PASS | outer_expectation
+def _validate_enable_if(value):
+  assert isinstance(value, bool), (
+      'configuration enable_if is not a boolean: %s', value)
 
-  def _eval_enable_if(self, output, value):
-    # We don't expect this configuration section to be evaluated at all unless
-    # it has already been evaluated as enabled!
-    assert value
 
-  def _eval_metadata(self, output, value):
-    output['metadata'] = value
+def _validate_test_order(value):
+  assert isinstance(value, dict), ('test_order is not a dict: %s', value)
+  for name, order in value.iteritems():
+    assert isinstance(name, basestring), (
+        'test_order\'s key is not a string: %s' % name)
+    assert isinstance(order, int), (
+        'test_order\'s %s value is not an int: %s' % (name, order))
 
-  def _eval_test_order(self, output, value):
-    test_order = output['test_order']
-    for k, v in value.iteritems():
-      test_order[k] = v
 
-  def _eval_configurations(self, output, configuration_list):
-    if configuration_list is None:
-      return
+def _evaluate(raw_config, defaults=None):
+  """Flatten the raw_config based on the configuration"""
+  _validate(raw_config)
 
-    evaluators = dict(
-        bug=self._eval_bug,
-        deadline=self._eval_deadline,
-        enable_if=self._eval_enable_if,
-        flags=self._eval_flags,
-        test_order=self._eval_test_order,
-        suite_test_expectations=self._eval_suite_test_expectations)
+  result = {
+      'flags': flags.PASS,
+      'bug': None,
+      'deadline': _DEFAULT_OUTPUT_TIMEOUT,
+      'test_order': {},
+      'suite_test_expectations': {},
+      'metadata': {},
+  }
+  if defaults:
+    # We need to make a deep copy so that we do not modify any dictionary or
+    # array data in place and affect the default values for subsequent use.
+    result.update(copy.deepcopy(defaults))
 
-    for configuration in configuration_list:
-      if configuration.get('enable_if', True):
-        for key, value in configuration.iteritems():
-          evaluators[key](output, value)
+  if not raw_config:
+    return result
 
-  _eval_config_expected_failing_tests = _eval_suite_test_expectations
-  _eval_config_flags = _eval_flags
-  _eval_config_bug = _eval_bug
-  _eval_config_deadline = _eval_deadline
+  # Merge configurations.
+  _merge_config(raw_config, result)
+
+  # Apply conditional configurations.
+  for configuration in raw_config.get('configurations', []):
+    if not configuration.get('enable_if', True):
+      continue
+    _merge_config(configuration, result)
+
+  return result
+
+
+def _merge_config(raw_config, output):
+  """Merges the |raw_config| into |output|.
+
+  Merges values in raw_config (if exists) into output. Here is the storategy:
+  - flags: Use '|' operator.
+  - bug, deadline: simply overwrite by raw_config's.
+  - metadata, test_order, suite_test_expectations: merge by dict.update().
+  Note that: just before the merging, the nested suite_test_expectations
+  dict is flattened.
+  """
+  if 'flags' in raw_config:
+    output['flags'] |= raw_config['flags']
+  if 'bug' in raw_config:
+    output['bug'] = raw_config['bug']
+  if 'deadline' in raw_config:
+    output['deadline'] = raw_config['deadline']
+  if 'metadata' in raw_config:
+    output['metadata'].update(raw_config['metadata'])
+  if 'test_order' in raw_config:
+    output['test_order'].update(raw_config['test_order'])
+  if 'suite_test_expectations' in raw_config:
+    output['suite_test_expectations'].update(
+        _evaluate_suite_test_expectations(
+            raw_config['suite_test_expectations']))
+
+
+def _evaluate_suite_test_expectations(raw_dict):
+  """Flatten the (possibly-nested) suite_test_expectations dict."""
+  result = {}
+  for outer_name, outer_expectation in raw_dict.iteritems():
+    if isinstance(outer_expectation, flags.ExclusiveFlagSet):
+      result[outer_name] = flags.PASS | outer_expectation
+      continue
+    for inner_name, inner_expectation in outer_expectation.iteritems():
+      result['%s#%s' % (outer_name, inner_name)] = (
+          flags.PASS | inner_expectation)
+  return result
 
 
 def default_run_configuration():
-  return _SuiteRunConfiguration(None, config={
-      'flags': flags.PASS,
-      'suite_test_expectations': {},
-      'deadline': 300,  # Seconds
+  return _evaluate({
       'configurations': [{
           'enable_if': OPTIONS.weird(),
           'flags': flags.FLAKY,
-      }],
-      'metadata': {}
-  }).evaluate()
+      }]})
 
 
 def make_suite_run_configs(raw_config):
   def _deferred():
-    global_defaults = default_run_configuration()
+    defaults = default_run_configuration()
     raw_config_dict = raw_config()
 
     # Locate the defaults up front so they can be used to initialize
     # everything else.
-    defaults = raw_config_dict.get(SUITE_DEFAULTS)
-    if defaults is not None:
-      del raw_config_dict[SUITE_DEFAULTS]
-      defaults = _SuiteRunConfiguration(
-          None, config=defaults).evaluate(defaults=global_defaults)
-    else:
-      defaults = global_defaults
+    suite_defaults = raw_config_dict.get(SUITE_DEFAULTS)
+    if suite_defaults:
+      defaults = _evaluate(suite_defaults, defaults=defaults)
 
     # Evaluate the runner configuration of everything we might want to run.
-    configs = {}
-    for package_name, package_config in raw_config_dict.iteritems():
-      configs[package_name] = _SuiteRunConfiguration(
-          package_name, config=package_config).evaluate(defaults=defaults)
-    return configs
+    return dict((package_name, _evaluate(config, defaults=defaults))
+                for package_name, config in raw_config_dict.iteritems())
 
   return _deferred  # Defer to pick up runtime configuration options properly.
 
@@ -264,10 +254,8 @@ class SuiteExpectationsLoader(object):
       partial_name = '.'.join(components[:i]) if i else 'defaults'
       config = self._cache.get(partial_name)
       if config is None:
-        raw_expectations_dict = self._get_raw_expectations_dict(partial_name)
-        config = _SuiteRunConfiguration(
-            partial_name,
-            config=raw_expectations_dict).evaluate(defaults=parent_config)
+        raw_config = self._get_raw_expectations_dict(partial_name)
+        config = _evaluate(raw_config, defaults=parent_config)
         self._cache[partial_name] = config
       parent_config = config
     return config

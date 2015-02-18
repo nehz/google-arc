@@ -137,7 +137,7 @@ def _make_all_tests_flaky():
         flags=flags.FLAKY, bug=None, metadata=None, deadline=300,
         test_order={}, suite_test_expectations={})
   return patch(
-      'util.test.suite_runner_config._SuiteRunConfiguration.evaluate',
+      'util.test.suite_runner_config._evaluate',
       _make_flaky_suite_configuration)
 
 

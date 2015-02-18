@@ -140,7 +140,7 @@ class FileListCache:
     for path, cache in self.cache_entries.iteritems():
       yield (path, cache.mtime, cache.content_hash, cache.contents)
 
-  def _to_dict(self):
+  def to_dict(self):
     return {
         'version': _CACHE_FILE_VERSION,
         'query': pickle.dumps(self.query),
@@ -149,7 +149,7 @@ class FileListCache:
 
   def save_to_file(self, file_path):
     with open(file_path, 'w') as f:
-      marshal.dump(self._to_dict(), f)
+      marshal.dump(self.to_dict(), f)
 
 
 def _entries_from_list(list):
@@ -157,15 +157,7 @@ def _entries_from_list(list):
     yield [path, CacheEntry(mtime, content_hash, contents)]
 
 
-def load_from_file(file_path):
-  try:
-    with open(file_path) as f:
-      data = marshal.load(f)
-  except IOError as e:
-    if e.errno == errno.ENOENT:
-      logging.warn('Cache file is not found: %s', file_path)
-      return None
-
+def file_list_cache_from_dict(data):
   if data['version'] != _CACHE_FILE_VERSION:
     logging.warn('Version mismatch: %d', data['version'])
     return None
@@ -173,3 +165,14 @@ def load_from_file(file_path):
   query = pickle.loads(data['query'])
   entries = dict(_entries_from_list(data['cache_entries']))
   return FileListCache(query, entries)
+
+
+def load_from_file(file_path):
+  try:
+    with open(file_path) as f:
+      return file_list_cache_from_dict(marshal.load(f))
+  except IOError as e:
+    if e.errno == errno.ENOENT:
+      logging.warn('Cache file is not found: %s', file_path)
+      return None
+    raise

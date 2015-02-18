@@ -7,11 +7,8 @@
 import collections
 import unittest
 
+from util.test import suite_runner_config
 from util.test.suite_runner import SuiteRunnerBase
-from util.test.suite_runner_config import _SuiteRunConfiguration
-from util.test.suite_runner_config import DEFAULT_OUTPUT_TIMEOUT
-from util.test.suite_runner_config import make_suite_run_configs
-from util.test.suite_runner_config import SUITE_DEFAULTS
 from util.test.suite_runner_config_flags import _ExclusiveFlag
 from util.test.suite_runner_config_flags import ExclusiveFlagSet
 from util.test.suite_runner_config_flags import FAIL
@@ -89,45 +86,48 @@ class SuiteRunConfigInputTests(unittest.TestCase):
   """Tests the evaluation of the input configuration."""
 
   @staticmethod
-  def _evaluate(name, configuration, defaults=None):
-    c = _SuiteRunConfiguration(name, configuration)
-    c.validate()
-    return c.evaluate(defaults=defaults)
+  def _evaluate(raw_config, defaults=None):
+    return suite_runner_config._evaluate(raw_config, defaults=defaults)
 
   def test_defaults_applied(self):
-    result = self._evaluate('simple', dict(flags=PASS),
-                            defaults=dict(bug=1234, flags=FAIL))
-    self.assertEquals(1234, result['bug'])
-    self.assertEquals(DEFAULT_OUTPUT_TIMEOUT, result['deadline'])
+    result = self._evaluate({'flags': PASS},
+                            defaults={'bug': 'crbug.com/1234', 'flags': FAIL})
+    self.assertEquals('crbug.com/1234', result['bug'])
+    self.assertEquals(suite_runner_config._DEFAULT_OUTPUT_TIMEOUT,
+                      result['deadline'])
     self.assertIn(PASS, result['flags'])
     self.assertNotIn(FAIL, result['flags'])
 
   def test_simple_passing_test(self):
-    self.assertIn(PASS, self._evaluate('simple', None)['flags'])
-    self.assertIn(PASS, self._evaluate('simple', {})['flags'])
-    self.assertIn(PASS, self._evaluate('simple', dict(flags=PASS))['flags'])
+    self.assertIn(PASS, self._evaluate(None)['flags'])
+    self.assertIn(PASS, self._evaluate({})['flags'])
+    self.assertIn(PASS, self._evaluate({'flags': PASS})['flags'])
 
   def test_simple_failing_test(self):
-    result = self._evaluate('simple', dict(flags=FAIL))
+    result = self._evaluate({'flags': FAIL})
     self.assertNotIn(PASS, result['flags'])
     self.assertIn(FAIL, result['flags'])
 
   def test_configured_to_fail_for_target(self):
-    result = self._evaluate('', dict(configurations=[
-        dict(flags=FAIL | FLAKY)]))
+    result = self._evaluate({'configurations': [{'flags': FAIL | FLAKY}]})
     self.assertNotIn(PASS, result['flags'])
     self.assertIn(FAIL, result['flags'])
     self.assertIn(FLAKY, result['flags'])
 
-    result = self._evaluate('', dict(configurations=[
-        dict(enable_if=False, flags=FAIL | FLAKY)]))
+    result = self._evaluate({'configurations': [{
+        'enable_if': False,
+        'flags': FAIL | FLAKY
+    }]})
     self.assertIn(PASS, result['flags'])
     self.assertNotIn(FAIL, result['flags'])
     self.assertNotIn(FLAKY, result['flags'])
 
   def test_suite_test_expectations(self):
-    result = self._evaluate('simple', dict(suite_test_expectations=dict(
-        foo=dict(bar=FLAKY))))
+    result = self._evaluate({
+        'suite_test_expectations': {
+            'foo': {'bar': FLAKY}
+        }
+    })
     expectations = result['suite_test_expectations']
     self.assertIn(PASS, expectations['foo#bar'])
     self.assertIn(FLAKY, expectations['foo#bar'])
@@ -135,8 +135,11 @@ class SuiteRunConfigInputTests(unittest.TestCase):
     self.assertNotIn(NOT_SUPPORTED, expectations['foo#bar'])
 
   def test_suite_test_order(self):
-    result = self._evaluate('simple', dict(configurations=[
-        dict(test_order=collections.OrderedDict(foo=1))]))
+    result = self._evaluate({
+        'configurations': [{
+            'test_order': {'foo': 1}
+        }]
+    })
     test_order = result['test_order']
     self.assertIn('foo', test_order)
     self.assertEquals(test_order['foo'], 1)
@@ -146,8 +149,8 @@ class SuiteRunConfigIntegrationTests(unittest.TestCase):
   """Uses the module interface as intended."""
 
   # This is the configuration the tests will use:
-  my_config = staticmethod(make_suite_run_configs(lambda: {
-      SUITE_DEFAULTS: {
+  my_config = staticmethod(suite_runner_config.make_suite_run_configs(lambda: {
+      suite_runner_config.SUITE_DEFAULTS: {
           'flags': PASS,
           'deadline': 60,
       },

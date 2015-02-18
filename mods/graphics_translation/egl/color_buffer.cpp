@@ -237,7 +237,7 @@ uint32_t ColorBuffer::Release() {
   --refcount_;
   if (refcount_ == 0) {
     EglDisplayImpl* d = EglDisplayImpl::GetDisplay(display_);
-    d->GetColorBuffers().Unregister(this);
+    d->GetColorBuffers().Unregister(key_);
   }
   return refcount_;
 }

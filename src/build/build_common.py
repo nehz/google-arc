@@ -559,6 +559,10 @@ def get_generated_ninja_dir():
   return os.path.join(OUT_DIR, 'generated_ninja')
 
 
+def get_config_cache_dir():
+  return os.path.join(OUT_DIR, 'config_cache')
+
+
 def get_integration_test_list_dir():
   return os.path.join(get_target_common_dir(), 'integration_test')
 

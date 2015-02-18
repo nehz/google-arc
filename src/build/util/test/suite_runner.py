@@ -283,10 +283,13 @@ class SuiteRunnerBase(object):
 
   def apply_test_ordering(self, test_methods_to_run):
     def key_fn(name):
-      for pattern, order in self._test_order.iteritems():
-        if fnmatch.fnmatch(name, pattern):
-          return (order, name)
-      return (0, name)
+      matched_list = [(pattern, order)
+                      for pattern, order in self._test_order.iteritems()
+                      if fnmatch.fnmatch(name, pattern)]
+      assert len(matched_list) < 2, (
+          'Too many patterns match with the test. test_name: \'%s\', '
+          'patterns: \'%s\'' % (name, matched_list))
+      return ((matched_list[0][1] if matched_list else 0), name)
     return sorted(test_methods_to_run, key=key_fn)
 
   def get_launch_chrome_command(self, additional_args, mode=None,

@@ -73,7 +73,9 @@ def _run_task(generator_task):
     context = generator_task.context
     function = generator_task.function
     args = generator_task.args
+    context.set_up()
     function(*args)
+    context.tear_down()
     elapsed_time = time.time() - start_time
     if elapsed_time > 1:
       logging.info('Slow task: %s.%s %0.3fs',

@@ -3,32 +3,216 @@
 # found in the LICENSE file.
 
 import collections
+import errno
+import marshal
 import os
+import pickle
 
 import build_common
+import dependency_inspection
+import file_list_cache
 import make_to_ninja
 import ninja_generator
 import ninja_generator_runner
 import open_source
 from build_options import OPTIONS
 from config_loader import ConfigLoader
+from util import file_util
 
+
+_CONFIG_CACHE_VERSION = 0
 
 _config_loader = ConfigLoader()
 
 
-class ConfigResult:
-  def __init__(self, config_name, ninja_list):
+def _get_build_system_dependencies():
+  options_file = OPTIONS.get_configure_options_file()
+  return [options_file] + ninja_generator.get_configuration_dependencies()
+
+
+class ConfigResult(object):
+  """Represents a result of a task that ran in ninja_generator_runner.
+
+  The instance holds the output and dependencies of the task.
+  """
+
+  def __init__(self, config_name, entry_point, files, listing_queries,
+               ninja_list):
     self.config_name = config_name
-    self.ninja_list = ninja_list
+    self.entry_point = entry_point
+    self.files = files
+    self.listing_queries = listing_queries
+    self.generated_ninjas = ninja_list
+
+  def merge(self, other):
+    assert self.config_name == other.config_name
+    assert self.entry_point == other.entry_point
+    self.files.update(other.files)
+    self.listing_queries.update(other.listing_queries)
+    self.generated_ninjas.extend(other.generated_ninjas)
+
+  def get_file_dependency(self):
+    return self.files.union(_get_build_system_dependencies())
+
+
+class FileEntry(object):
+  def __init__(self, mtime):
+    self.mtime = mtime
+
+
+class ConfigCache(object):
+  """Represents an on-disk cache entry to persist the cache."""
+
+  def __init__(self, config_name, entry_point,
+               files, listings, generated_ninjas):
+    self.config_name = config_name
+    self.entry_point = entry_point
+    self.files = files
+    self.listings = listings
+    self.generated_ninjas = generated_ninjas
+
+  def refresh_with_config_result(self, config_result):
+    assert self.config_name == config_result.config_name
+    assert self.entry_point == config_result.entry_point
+    files = {}
+    for path in config_result.get_file_dependency():
+      try:
+        files[path] = FileEntry(os.stat(path).st_mtime)
+      except OSError as e:
+        if e.errno != errno.ENOENT:
+          raise
+    self.files = files
+
+    new_listings = set()
+    queries = config_result.listing_queries.copy()
+    for listing in self.listings:
+      if listing.query in queries:
+        new_listings.add(listing)
+        queries.remove(listing.query)
+    for query in queries:
+      new_listings.add(file_list_cache.FileListCache(query))
+    for listing in new_listings:
+      listing.refresh_cache()
+    self.listings = new_listings
+
+    self.generated_ninjas = config_result.generated_ninjas
+
+  def check_cache_freshness(self):
+    """Returns True if the cache is fresh."""
+
+    for path in self.files:
+      try:
+        if os.stat(path).st_mtime != self.files[path].mtime:
+          return False
+      except OSError as e:
+        if e.errno == errno.ENOENT:
+          return False
+        raise
+    for listing in self.listings:
+      if not listing.refresh_cache():
+        return False
+    return True
+
+  def to_config_result(self):
+    return ConfigResult(self.config_name, self.entry_point,
+                        set(self.files.keys()),
+                        {listing.query for listing in self.listings},
+                        self.generated_ninjas)
+
+  def to_dict(self):
+    return {
+        'version': _CONFIG_CACHE_VERSION,
+        'config_name': self.config_name,
+        'entry_point': self.entry_point,
+        'files': [(path, entry.mtime)
+                  for path, entry in self.files.iteritems()],
+        'listings': [listing.to_dict() for listing in self.listings],
+        'generated_ninjas': pickle.dumps(self.generated_ninjas),
+    }
+
+  def save_to_file(self, path):
+    file_util.makedirs_safely(os.path.dirname(path))
+    with open(path, 'w') as file:
+      marshal.dump(self.to_dict(), file)
+
+
+def _load_config_cache_from_file(path):
+  try:
+    with open(path, 'r') as file:
+      data = marshal.load(file)
+  except EOFError:
+    return None
+  except IOError as e:
+    if e.errno == errno.ENOENT:
+      return None
+    raise
+
+  if data['version'] != _CONFIG_CACHE_VERSION:
+    return None
+
+  config_name = data['config_name']
+  entry_point = data['entry_point']
+  files = {path: FileEntry(mtime) for path, mtime in data['files']}
+  listings = {file_list_cache.file_list_cache_from_dict(listing)
+              for listing in data['listings']}
+  generated_ninjas = pickle.loads(data['generated_ninjas'])
+
+  return ConfigCache(config_name, entry_point, files, listings,
+                     generated_ninjas)
+
+
+def _config_cache_from_config_result(config_result):
+  files = {}
+  for path in config_result.get_file_dependency():
+    try:
+      files[path] = FileEntry(os.stat(path).st_mtime)
+    except OSError as e:
+      if e.errno != errno.ENOENT:
+        raise
+
+  listings = set()
+  for query in config_result.listing_queries:
+    listing = file_list_cache.FileListCache(query)
+    listing.refresh_cache()
+    listings.add(listing)
+
+  return ConfigCache(
+      config_result.config_name,
+      config_result.entry_point,
+      files, listings,
+      config_result.generated_ninjas)
 
 
 class ConfigContext:
-  def __init__(self, config_name):
+  """A class that a task on ninja_generator_runner runs with.
+
+  The instance is created for each config.py, hooks each task invocation and
+  handles the results.
+  """
+
+  def __init__(self, config_name, entry_point):
     self.config_name = config_name
+    self.entry_point = entry_point
+    self.files = set()
+    self.listing_queries = set()
+
+  def set_up(self):
+    dependency_inspection.reset()
+
+  def tear_down(self):
+    self.files.update(dependency_inspection.get_files())
+    self.listing_queries.update(dependency_inspection.get_listings())
+
+    dependency_inspection.stop()
 
   def make_result(self, ninja_list):
-    return ConfigResult(self.config_name, ninja_list)
+    return ConfigResult(self.config_name, self.entry_point,
+                        self.files, self.listing_queries, ninja_list)
+
+
+def _get_cache_file_path(config_name, entry_point):
+  return os.path.join(build_common.get_config_cache_dir(),
+                      config_name, entry_point)
 
 
 def _filter_excluded_libs(vars):
@@ -141,9 +325,9 @@ def _filter_all_make_to_ninja(vars):
   return True
 
 
-def _find_ninja_generators(config_loader, name):
+def _list_ninja_generators(config_loader, name):
   for module in config_loader.find_config_modules(name):
-    yield (module.__name__, getattr(module, name))
+    yield (ConfigContext(module.__name__, name), getattr(module, name))
 
 
 def _set_up_generate_ninja():
@@ -172,20 +356,57 @@ def _generate_independent_ninjas():
   # Invoke an unordered set of ninja-generators distributed across config
   # modules by name, and if that generator is marked for it.
   timer.start('Generating independent generate_ninjas', True)
-  task_list = list(_find_ninja_generators(_config_loader, 'generate_ninjas'))
-  if OPTIONS.run_tests():
-    task_list.extend(_find_ninja_generators(
-        _config_loader, 'generate_test_ninjas'))
-  result_list = ninja_generator_runner.run_in_parallel([
-      ninja_generator_runner.GeneratorTask(ConfigContext(config_name), task)
-      for config_name, task in task_list],
-      OPTIONS.configure_jobs())
-  timer.done()
 
+  generator_list = list(_list_ninja_generators(
+      _config_loader, 'generate_ninjas'))
+  if OPTIONS.run_tests():
+    generator_list.extend(_list_ninja_generators(
+        _config_loader, 'generate_test_ninjas'))
+
+  task_list = []
+  cached_result_list = []
+  cache_miss = {}
+
+  for config_context, generator in generator_list:
+    cache_path = _get_cache_file_path(config_context.config_name,
+                                      config_context.entry_point)
+    config_cache = _load_config_cache_from_file(cache_path)
+
+    if config_cache is not None and config_cache.check_cache_freshness():
+      cached_result_list.append(config_cache.to_config_result())
+    else:
+      task_list.append(ninja_generator_runner.GeneratorTask(
+          config_context, generator))
+      cache_miss[cache_path] = config_cache
+
+  result_list = ninja_generator_runner.run_in_parallel(
+      task_list, OPTIONS.configure_jobs())
+
+  aggregated_result = {}
   ninja_list = []
   for config_result in result_list:
-    ninja_list.extend(config_result.ninja_list)
+    cache_path = _get_cache_file_path(config_result.config_name,
+                                      config_result.entry_point)
+    ninja_list.extend(config_result.generated_ninjas)
+    if cache_path in aggregated_result:
+      aggregated_result[cache_path].merge(config_result)
+    else:
+      aggregated_result[cache_path] = config_result
+
+  for cached_result in cached_result_list:
+    ninja_list.extend(cached_result.generated_ninjas)
+
+  for cache_path, config_result in aggregated_result.iteritems():
+    config_cache = cache_miss[cache_path]
+    if config_cache is None:
+      config_cache = _config_cache_from_config_result(config_result)
+    else:
+      config_cache.refresh_with_config_result(config_result)
+
+    config_cache.save_to_file(cache_path)
+
   ninja_list.sort(key=lambda ninja: ninja.get_module_name())
+  timer.done()
   return ninja_list
 
 
@@ -199,28 +420,25 @@ def _generate_shared_lib_depending_ninjas(ninja_list):
   # These modules depend on shared libraries generated in the previous phase.
   production_shared_libs = (
       ninja_generator.NinjaGenerator.get_production_shared_libs(ninja_list[:]))
-  ninja_generators = _find_ninja_generators(
-      _config_loader, 'generate_shared_lib_depending_ninjas')
-  task_list = [(m, (f, production_shared_libs)) for m, f in ninja_generators]
+  generator_list = list(_list_ninja_generators(
+      _config_loader, 'generate_shared_lib_depending_ninjas'))
 
   if OPTIONS.run_tests():
-    test_ninja_generators = _find_ninja_generators(
-        _config_loader, 'generate_shared_lib_depending_test_ninjas')
-    task_list.extend([(m, (f, production_shared_libs))
-                     for m, f in test_ninja_generators])
+    generator_list.extend(_list_ninja_generators(
+        _config_loader, 'generate_shared_lib_depending_test_ninjas'))
 
-  result_list = ninja_generator_runner.run_in_parallel([
-      ninja_generator_runner.GeneratorTask(
-          ConfigContext(config_name),
-          task)
-      for config_name, task in task_list],
+  result_list = ninja_generator_runner.run_in_parallel(
+      [ninja_generator_runner.GeneratorTask(
+          config_context,
+          (generator, production_shared_libs))
+       for config_context, generator in generator_list],
       OPTIONS.configure_jobs())
-  timer.done()
-
   ninja_list = []
   for config_result in result_list:
-    ninja_list.extend(config_result.ninja_list)
+    ninja_list.extend(config_result.generated_ninjas)
   ninja_list.sort(key=lambda ninja: ninja.get_module_name())
+
+  timer.done()
   return ninja_list
 
 
@@ -234,19 +452,18 @@ def _generate_dependent_ninjas(ninja_list):
   for n in ninja_list:
     root_dir_install_all_targets.extend(build_common.get_android_fs_path(p) for
                                         p in n._root_dir_install_targets)
-  task_list = _find_ninja_generators(
-      _config_loader, 'generate_binaries_depending_ninjas')
+
+  generator_list = _list_ninja_generators(_config_loader,
+                                          'generate_binaries_depending_ninjas')
   result_list = ninja_generator_runner.run_in_parallel(
       [ninja_generator_runner.GeneratorTask(
-          ConfigContext(config_name),
-          (job, root_dir_install_all_targets))
-          for config_name, job in task_list],
+          config_context,
+          (generator, root_dir_install_all_targets))
+          for config_context, generator in generator_list],
       OPTIONS.configure_jobs())
-
   dependent_ninjas = []
-  for config_result in result_list:
-    dependent_ninjas.extend(config_result.ninja_list)
-  dependent_ninjas.sort(key=lambda ninja: ninja.get_module_name())
+  for config_cache in result_list:
+    dependent_ninjas.extend(config_cache.generated_ninjas)
 
   notice_ninja = ninja_generator.NoticeNinjaGenerator('notices')
   notice_ninja.build_notices(ninja_list + dependent_ninjas)
@@ -260,6 +477,7 @@ def _generate_dependent_ninjas(ninja_list):
   all_unittest_info_ninja.build_all_unittest_info(ninja_list)
   dependent_ninjas.append(all_unittest_info_ninja)
 
+  timer.done()
   return dependent_ninjas
 
 
