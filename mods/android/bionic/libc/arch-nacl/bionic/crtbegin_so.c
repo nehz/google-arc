@@ -136,4 +136,9 @@ void _init(void *irt_query) {
 #endif
 }
 
+// Note we use arch-arm/bionic/crtbegin_so.c for ARM.
+#if defined(__arm__)
+#error "This is only for x86 architectures"
+#endif
+#include <arch-x86/bionic/atexit.h>
 #include <private/__dso_handle.h>

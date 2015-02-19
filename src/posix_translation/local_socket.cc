@@ -119,9 +119,8 @@ ssize_t LocalSocket::recvmsg(struct msghdr* msg, int flags) {
   // If no bytes are read in recvmsg, control messages are not returned either.
   if (bytes_read > 0 && !cmsg_fd_queue_.empty()) {
     std::vector<int>& fds = cmsg_fd_queue_.front();
-    size_t sizeof_int = sizeof(int);  // NOLINT(runtime/sizeof)
 
-    socklen_t cmsg_len = CMSG_LEN(fds.size() * sizeof_int);
+    socklen_t cmsg_len = CMSG_LEN(fds.size() * sizeof(int));
     while (CMSG_SPACE(cmsg_len) > msg->msg_controllen && !fds.empty()) {
       // Cleanup file descriptors that are not passed back to the client so we
       // do not leak them.  Close the last ones first so it acts like a FIFO.
@@ -129,7 +128,7 @@ ssize_t LocalSocket::recvmsg(struct msghdr* msg, int flags) {
       int fd = fds.back();
       sys->CloseLocked(fd);
       fds.pop_back();
-      cmsg_len = CMSG_LEN(fds.size() * sizeof_int);
+      cmsg_len = CMSG_LEN(fds.size() * sizeof(int));
       msg->msg_flags |= MSG_CTRUNC;
     }
 
@@ -138,7 +137,7 @@ ssize_t LocalSocket::recvmsg(struct msghdr* msg, int flags) {
       cmsg->cmsg_level = SOL_SOCKET;
       cmsg->cmsg_type = SCM_RIGHTS;
       cmsg->cmsg_len = cmsg_len;
-      memcpy(CMSG_DATA(cmsg), &fds[0], fds.size() * sizeof_int);
+      memcpy(CMSG_DATA(cmsg), &fds[0], fds.size() * sizeof(int));
     }
     cmsg_fd_queue_.pop_front();
   }
@@ -278,7 +277,6 @@ ssize_t LocalSocket::HandleSendmsgLocked(const struct msghdr* msg) {
 
   // If we did not send any bytes, do not process any control messages either.
   if (bytes_sent && msg->msg_controllen > 0) {
-    size_t sizeof_int = sizeof(int);  // NOLINT(runtime/sizeof)
     // The CMSG macros cannot deal with const msghdrs, so cast away constness
     // for this section, but make all access to the underlying data through
     // const local variables.
@@ -296,9 +294,9 @@ ssize_t LocalSocket::HandleSendmsgLocked(const struct msghdr* msg) {
           cmsg->cmsg_type == SCM_RIGHTS &&
           cmsg->cmsg_len >= CMSG_LEN(0)) {
         size_t payload_len = cmsg->cmsg_len - CMSG_LEN(0);
-        ALOG_ASSERT(payload_len % sizeof_int == 0);
+        ALOG_ASSERT(payload_len % sizeof(int) == 0);
         const int *wire_fds = reinterpret_cast<const int*>(CMSG_DATA(cmsg));
-        size_t wire_fds_len = payload_len / sizeof_int;
+        size_t wire_fds_len = payload_len / sizeof(int);
         // Dup the file descriptors before adding them to the control message.
         // This emulates what happens in Posix when sending file descriptors in
         // the same process (as webviewchromium does).

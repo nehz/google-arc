@@ -48,7 +48,8 @@ ARC_EXPORT int __wrap_sched_setscheduler(pid_t pid, int policy,
 ARC_EXPORT int __wrap_setpriority(int which, int who, int prio);
 ARC_EXPORT int __wrap_setrlimit(int resource, const struct rlimit *rlim);
 ARC_EXPORT int __wrap_sigaction(int signum, const struct sigaction *act,
-                     struct sigaction *oldact);
+                                struct sigaction *oldact);
+ARC_EXPORT int __wrap_sigsuspend(const sigset_t* mask);
 ARC_EXPORT int __wrap_tgkill(int tgid, int tid, int sig);
 ARC_EXPORT int __wrap_tkill(int tid, int sig);
 ARC_EXPORT int __wrap_uname(struct utsname* buf);
@@ -260,11 +261,8 @@ int __wrap_getrlimit(int resource, struct rlimit *rlim) {
 }
 
 int __wrap_kill(pid_t pid, int sig) {
-  // Although POSIX does not require it, Bionic's strsignal implementation
-  // uses a buffer returned by pthread_getspecific, and hence thread-safe
-  // even when |sig| is out-of-range.
-  ARC_STRACE_ENTER("kill", "%d, \"%s\"",
-                   static_cast<int>(pid), strsignal(sig));
+  ARC_STRACE_ENTER("kill", "%d, %s",
+                   static_cast<int>(pid), arc::GetSignalStr(sig).c_str());
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }
@@ -279,7 +277,7 @@ int __wrap_pthread_setschedparam(pthread_t thread, int policy,
 }
 
 int __wrap_pthread_kill(pthread_t thread, int sig) {
-  ARC_STRACE_ENTER("pthread_kill", "\"%s\"", strsignal(sig));
+  ARC_STRACE_ENTER("pthread_kill", "%s", arc::GetSignalStr(sig).c_str());
   ARC_STRACE_RETURN_INT(ENOSYS, false);
 }
 
@@ -312,20 +310,28 @@ int __wrap_setrlimit(int resource, const struct rlimit *rlim) {
 
 int __wrap_sigaction(int signum, const struct sigaction *act,
                      struct sigaction *oldact) {
-  ARC_STRACE_ENTER("sigaction", "\"%s\", %p, %p",
-                   strsignal(signum), act, oldact);
+  ARC_STRACE_ENTER("sigaction", "%s, %s, %p",
+                   arc::GetSignalStr(signum).c_str(),
+                   arc::GetSigActionStr(act).c_str(), oldact);
+  errno = ENOSYS;
+  ARC_STRACE_RETURN(-1);
+}
+
+int __wrap_sigsuspend(const sigset_t* mask) {
+  ARC_STRACE_ENTER("sigsuspend", "%s", arc::GetSigSetStr(mask).c_str());
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }
 
 int __wrap_tgkill(int tgid, int tid, int sig) {
-  ARC_STRACE_ENTER("tgkill", "%d, %d, \"%s\"", tgid, tid, strsignal(sig));
+  ARC_STRACE_ENTER("tgkill", "%d, %d, %s", tgid, tid,
+                   arc::GetSignalStr(sig).c_str());
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }
 
 int __wrap_tkill(int tid, int sig) {
-  ARC_STRACE_ENTER("tkill", "%d, \"%s\"", tid, strsignal(sig));
+  ARC_STRACE_ENTER("tkill", "%d, %s", tid, arc::GetSignalStr(sig).c_str());
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }

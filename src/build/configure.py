@@ -87,9 +87,9 @@ def _cleanup_orphaned_pyc_files():
           os.unlink(fullpath)
 
 
-def _cleanup_unittest_info():
-  if os.path.exists(build_common.get_unittest_info_path()):
-    shutil.rmtree(build_common.get_unittest_info_path())
+def _cleanup_remote_unittest_info():
+  if os.path.exists(build_common.get_remote_unittest_info_path()):
+    shutil.rmtree(build_common.get_remote_unittest_info_path())
 
 
 def _gclient_sync_third_party():
@@ -254,12 +254,21 @@ def _set_up_chromium_org_submodules():
     file_util.create_link(symlink, source, overwrite=True)
 
 
+def _update_arc_version_file():
+  stamp = build_common.StampFile(build_common.get_build_version(),
+                                 build_common.get_build_version_path())
+  if not stamp.is_up_to_date():
+    stamp.update()
+
+
 def main():
   # Disable line buffering
   sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
   if not _configure_build_options():
     return -1
+
+  _update_arc_version_file()
 
   _ensure_downloads_up_to_date()
 
@@ -279,7 +288,7 @@ def main():
   _gclient_sync_third_party()
   _check_javac_version()
   _cleanup_orphaned_pyc_files()
-  _cleanup_unittest_info()
+  _cleanup_remote_unittest_info()
 
   _set_up_git_hooks()
 

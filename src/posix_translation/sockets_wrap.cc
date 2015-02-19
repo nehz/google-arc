@@ -126,7 +126,6 @@ int __wrap_epoll_ctl(int epfd, int op, int fd, struct epoll_event* event) {
       arc::GetFdStr(fd).c_str(),
       // Recent Linux kernel accepts NULL |event| when |op| is EPOLL_CTL_DEL.
       event ? arc::GetEpollEventStr(event->events).c_str() : "(null)");
-  ARC_STRACE_ENTER_FD("epoll_ctl", "%d, %d, %d, %p", epfd, op, fd, event);
   int result = VirtualFileSystem::GetVirtualFileSystem()->epoll_ctl(
       epfd, op, fd, event);
   ARC_STRACE_RETURN(result);

@@ -275,14 +275,6 @@ def _generate_check_symbols_ninja():
             implicit=[script, staging.as_staging(so_file)])
 
 
-def _generate_expected_driver_times_test():
-  ninja_generator.generate_python_test_ninja(
-      'src/build',
-      python_test='src/build/cts/expected_driver_times_test.py',
-      implicit=[build_common.get_all_integration_test_lists_path(),
-                build_common.get_all_unittest_info_path()])
-
-
 def generate_ninjas():
   ninja_generator_runner.request_run_in_parallel(
       _generate_breakpad_ninja,
@@ -295,12 +287,6 @@ def generate_ninjas():
 
 def generate_test_ninjas():
   if not open_source.is_open_source_repo():
-    # expected_driver_times_test.py has extra implicit dependencies, so
-    # generate the ninja for it separately.
-    ninja_generator_runner.request_run_in_parallel(
-        _generate_expected_driver_times_test)
-    ninja_generator.generate_python_test_ninjas_for_path(
-        'src/build',
-        exclude=['cts/expected_driver_times_test.py'])
+    ninja_generator.generate_python_test_ninjas_for_path('src/build')
   ninja_generator_runner.request_run_in_parallel(
       _generate_lint_test_ninjas)

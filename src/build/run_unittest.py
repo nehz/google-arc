@@ -60,7 +60,7 @@ import util.test.unittest_util
 
 
 def _read_test_info(filename):
-  test_info_path = build_common.get_unittest_info_path(filename)
+  test_info_path = build_common.get_remote_unittest_info_path(filename)
   if not os.path.exists(test_info_path):
     return None
   with open(test_info_path, 'r') as f:

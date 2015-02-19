@@ -537,15 +537,11 @@ int TCPSocket::ioctl(int request, va_list ap) {
 bool TCPSocket::GetOptNameData(
     int level, int optname, socklen_t* len, void** storage,
     const void* user_data, socklen_t user_data_len) {
-  // We cannot use SIZEOF_AS_SOCKLEN(int) for this as the linter is
-  // confused by this and emits two warnings (readability/casting and
-  // readability/function).
-  static const socklen_t sizeof_int = sizeof(int);  // NOLINT(runtime/sizeof)
   if (level == IPPROTO_TCP) {
     switch (optname) {
       case TCP_NODELAY:
         *storage = &no_delay_;
-        *len = sizeof_int;
+        *len = SIZEOF_AS_SOCKLEN(int);
         ALOG_ASSERT(*len == sizeof(no_delay_));
         return true;
     }

@@ -1261,4 +1261,86 @@ std::string GetDlsymHandleStr(const void* handle) {
 }
 
 
+std::string GetSignalStr(int signo) {
+  std::string result;
+  switch (signo) {
+    CASE_APPEND_ENUM_STR(SIGABRT, result);
+    CASE_APPEND_ENUM_STR(SIGALRM, result);
+    CASE_APPEND_ENUM_STR(SIGBUS, result);
+    CASE_APPEND_ENUM_STR(SIGCHLD, result);
+    CASE_APPEND_ENUM_STR(SIGCONT, result);
+    CASE_APPEND_ENUM_STR(SIGFPE, result);
+    CASE_APPEND_ENUM_STR(SIGHUP, result);
+    CASE_APPEND_ENUM_STR(SIGILL, result);
+    CASE_APPEND_ENUM_STR(SIGINT, result);
+    CASE_APPEND_ENUM_STR(SIGIO, result);
+    CASE_APPEND_ENUM_STR(SIGKILL, result);
+    CASE_APPEND_ENUM_STR(SIGPIPE, result);
+    CASE_APPEND_ENUM_STR(SIGPROF, result);
+    CASE_APPEND_ENUM_STR(SIGPWR, result);
+    CASE_APPEND_ENUM_STR(SIGQUIT, result);
+    CASE_APPEND_ENUM_STR(SIGSEGV, result);
+    CASE_APPEND_ENUM_STR(SIGSTKFLT, result);
+    CASE_APPEND_ENUM_STR(SIGSTOP, result);
+#if defined(__arm__)
+    CASE_APPEND_ENUM_STR(SIGSWI, result);
+#endif
+    CASE_APPEND_ENUM_STR(SIGSYS, result);
+    CASE_APPEND_ENUM_STR(SIGTERM, result);
+    CASE_APPEND_ENUM_STR(SIGTRAP, result);
+    CASE_APPEND_ENUM_STR(SIGTSTP, result);
+    CASE_APPEND_ENUM_STR(SIGTTIN, result);
+    CASE_APPEND_ENUM_STR(SIGTTOU, result);
+    CASE_APPEND_ENUM_STR(SIGURG, result);
+    CASE_APPEND_ENUM_STR(SIGUSR1, result);
+    CASE_APPEND_ENUM_STR(SIGUSR2, result);
+    CASE_APPEND_ENUM_STR(SIGVTALRM, result);
+    CASE_APPEND_ENUM_STR(SIGWINCH, result);
+    CASE_APPEND_ENUM_STR(SIGXCPU, result);
+    CASE_APPEND_ENUM_STR(SIGXFSZ, result);
+    default:
+      result = base::StringPrintf("%d???", signo);
+  }
+  return result;
+}
+
+std::string GetSigSetStr(const sigset_t* ss) {
+  if (!ss)
+    return "null";
+  std::string result;
+  for (int signo = 1; signo <= NSIG; signo++) {
+    if (sigismember(ss, signo))
+      AppendResult(GetSignalStr(signo), &result);
+  }
+  if (result.empty())
+    result = "???";
+  return result;
+}
+
+static std::string GetSigActionFlagStr(int flags) {
+  std::string result;
+  APPEND_ENUM_STR(flags, SA_NOCLDSTOP, result);
+  APPEND_ENUM_STR(flags, SA_NOCLDWAIT, result);
+#if defined(__arm__)
+  APPEND_ENUM_STR(flags, SA_THIRTYTWO, result);
+#endif
+  APPEND_ENUM_STR(flags, SA_RESTORER, result);
+  APPEND_ENUM_STR(flags, SA_ONSTACK, result);
+  APPEND_ENUM_STR(flags, SA_RESTART, result);
+  APPEND_ENUM_STR(flags, SA_NODEFER, result);
+  APPEND_ENUM_STR(flags, SA_RESETHAND, result);
+  return result;
+}
+
+std::string GetSigActionStr(const struct sigaction* sa) {
+  if (!sa)
+    return "null";
+  // Note sa_handler is equivalent to sa_sigaction.
+  return base::StringPrintf("{sigaction=%p mask=%s flags=%s restorer=%p}",
+                            sa->sa_sigaction,
+                            GetSigSetStr(&sa->sa_mask).c_str(),
+                            GetSigActionFlagStr(sa->sa_flags).c_str(),
+                            sa->sa_restorer);
+}
+
 }  // namespace arc

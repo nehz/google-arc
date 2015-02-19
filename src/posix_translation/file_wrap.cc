@@ -418,8 +418,7 @@ int __wrap_open(const char* pathname, int flags, ...) {
     // passed to this vaarg function and fetching it as a short value
     // is not valid. This definition can be bad if mode_t is a 64bit
     // value, but such environment might not exist.
-    COMPILE_ASSERT(sizeof(mode) <= sizeof(int),  // NOLINT(runtime/sizeof)
-                   mode_t_is_too_big);
+    COMPILE_ASSERT(sizeof(mode) <= sizeof(int), mode_t_is_too_big);
     mode = va_arg(argp, int);
   }
   va_end(argp);

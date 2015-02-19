@@ -123,6 +123,7 @@ def get_wrapped_functions():
                        'setuid',
                        'shutdown',
                        'sigaction',
+                       'sigsuspend',
                        'socket',
                        'socketpair',
                        'statfs',

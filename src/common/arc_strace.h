@@ -31,6 +31,7 @@
 #define COMMON_ARC_STRACE_H_
 
 #include <dirent.h>
+#include <signal.h>
 #include <stdint.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -101,6 +102,9 @@ std::string GetSockaddrStr(const struct sockaddr* addr);
 std::string GetDirentStr(const struct dirent* ent);
 std::string GetStatStr(const struct stat* st);
 std::string GetNaClAbiStatStr(const struct nacl_abi_stat* st);
+std::string GetSignalStr(int signo);
+std::string GetSigSetStr(const sigset_t* ss);
+std::string GetSigActionStr(const struct sigaction* sa);
 
 // Pretty printers for other constants.
 std::string GetDlsymHandleStr(const void* handle);

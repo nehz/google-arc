@@ -312,7 +312,6 @@ def _filter_libc(vars):
 
   vars.get_sources().remove('android/bionic/libc/bionic/pthread_debug.cpp')
   vars.get_sources().extend([
-      'android/bionic/libc/arch-nacl/bionic/atexit.c',
       'android/bionic/libc/arch-nacl/syscalls/clock_nanosleep.c',
       'android/bionic/libc/arch-nacl/syscalls/irt_syscalls.c',
       'android/bionic/libc/arch-nacl/syscalls/nanosleep.c',
@@ -330,9 +329,6 @@ def _filter_libc(vars):
   if OPTIONS.is_arm():
     vars.get_sources().append(
         'android/bionic/libc/arch-arm/bionic/setjmp.S')
-    # Remove the sources that contain the functions we implement.
-    vars.get_sources().remove(
-        'android/bionic/libc/arch-arm/bionic/atexit_legacy.c')
     if OPTIONS.is_bare_metal_build():
       # TODO(crbug.com/319020): Use Bare Metal IRT instead of
       # calling a syscall directly.
@@ -695,8 +691,7 @@ def _generate_bionic_fundamental_test_runners(n):
         'variables': variables,
         'command': '$qemu_arm $runner $in $argv'
     }
-    test_path = os.path.join(test_out_dir, test_name)
-    n._build_test_info(test_path, 1, test_info)
+    build_common.store_remote_unittest_info(test_name, 1, test_info)
 
     result = os.path.join(test_out_dir, test_name + '.result')
     test_deps = BionicFundamentalTest.ALL_OUTPUT_BINARIES + [script_name]
