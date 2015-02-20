@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -10,144 +8,88 @@ from util.test import suite_runner_config_flags as flags
 from util.test import test_filter
 
 
-class TestFilterTest(unittest.TestCase):
-  def _test_should_include_internal(
-      self, name, expectation, expected_without_pattern, **kwargs):
-    # Check the default behavior of should_include.
-    instance = test_filter.TestFilter(**kwargs)
-    self.assertEquals(
-        expected_without_pattern, instance.should_include(name, expectation))
+class TestListFilterTest(unittest.TestCase):
+  def test_default_behavior(self):
+    # Check the default behavior.
+    # should_include() returns True for any test names.
+    instance = test_filter.TestListFilter()
+    self.assertTrue(instance.should_include('test1'))
+    self.assertTrue(instance.should_include('test2'))
 
-    # If the name matches to include_pattern, it should be included.
-    instance = test_filter.TestFilter(include_pattern_list=['*'], **kwargs)
-    self.assertTrue(instance.should_include(name, expectation))
+  def test_include_pattern_list(self):
+    # Check the include_pattern_list behavior.
+    instance = test_filter.TestListFilter(
+        include_pattern_list=['test1', 'test2-*'])
+    # Exact match case.
+    self.assertTrue(instance.should_include('test1'))
 
-    # If the name matches to exclude_pattern, it should not be included.
-    instance = test_filter.TestFilter(exclude_pattern_list=['*'], **kwargs)
-    self.assertFalse(instance.should_include(name, expectation))
+    # It can use glob pattern.
+    self.assertTrue(instance.should_include('test2-suffix1'))
+    self.assertTrue(instance.should_include('test2-suffix2'))
 
-    # If the name matches to both patterns, it should not be included.
-    instance = test_filter.TestFilter(
-        include_pattern_list=['*'], exclude_pattern_list=['*'], **kwargs)
-    self.assertFalse(instance.should_include(name, expectation))
+    # Reject the unknown test names.
+    self.assertFalse(instance.should_include('unknown-test-name'))
 
-  def test_should_include(self):
-    # PASS or FLAKY tests should be included by default.
-    # NOT_SUPPORTED tests should not be included by default.
-    # The default behavior for FAIL, TIMEOUT, LARGE and REQUIRES_OPENGL tests
-    # is controlled by include_fail, include_timeout, include_large and
-    # include_requires_opengl respectively.
-    self._test_should_include_internal(
-        'test_name', flags.PASS, expected_without_pattern=True)
+    # Include pattern is not a prefix-match.
+    self.assertFalse(instance.should_include('test1-suffix1'))
 
-    self._test_should_include_internal(
-        'test_name', flags.FAIL, expected_without_pattern=False,
-        include_fail=False)
-    self._test_should_include_internal(
-        'test_name', flags.FAIL, expected_without_pattern=True,
-        include_fail=True)
+  def test_exclude_pattern_list(self):
+    # Check the exclude_pattern_list behavior.
+    instance = test_filter.TestListFilter(
+        exclude_pattern_list=['test1', 'test2-*'])
+    # Exact match case.
+    self.assertFalse(instance.should_include('test1'))
 
-    self._test_should_include_internal(
-        'test_name', flags.TIMEOUT, expected_without_pattern=False,
-        include_timeout=False)
-    self._test_should_include_internal(
-        'test_name', flags.TIMEOUT, expected_without_pattern=True,
-        include_timeout=True)
+    # It can use glob pattern.
+    self.assertFalse(instance.should_include('test2-suffix1'))
+    self.assertFalse(instance.should_include('test2-suffix2'))
 
-    self._test_should_include_internal(
-        'test_name', flags.NOT_SUPPORTED, expected_without_pattern=False)
+    # Accept the unknown test names.
+    self.assertTrue(instance.should_include('unknown-test-name'))
 
-    self._test_should_include_internal(
-        'test_name', flags.LARGE, expected_without_pattern=False,
-        include_large=False)
-    self._test_should_include_internal(
-        'test_name', flags.LARGE, expected_without_pattern=True,
-        include_large=True)
+    # Exclude pattern is not a prefix-match.
+    self.assertTrue(instance.should_include('test1-suffix1'))
 
-    self._test_should_include_internal(
-        'test_name', flags.FLAKY, expected_without_pattern=True)
+  def test_both_pattern_list(self):
+    # Check the both include_ and exclude_pattern_list behavior.
+    instance = test_filter.TestListFilter(
+        include_pattern_list=['test1', 'test2', 'test3-*'],
+        exclude_pattern_list=['test2', 'test3-suffix2'])
+    # Only matches with include_pattern.
+    self.assertTrue(instance.should_include('test1'))
+    self.assertTrue(instance.should_include('test3-suffix1'))
 
-    self._test_should_include_internal(
-        'test_name', flags.REQUIRES_OPENGL, expected_without_pattern=False,
-        include_requires_opengl=False)
-    self._test_should_include_internal(
-        'test_name', flags.REQUIRES_OPENGL, expected_without_pattern=True,
-        include_requires_opengl=True)
+    # Matches with both include_pattern and exclude_pattern.
+    self.assertFalse(instance.should_include('test2'))
+    self.assertFalse(instance.should_include('test3-suffix2'))
 
-  def test_should_include_pattern(self):
-    # Tests for pattern matching. include_pattern_list and exclude_pattern_list
-    # takes a list of patterns. Each is effective, if one of the pattern
-    # matches the name.
-    instance = test_filter.TestFilter(
-        include_pattern_list=['test_name_include', 'test_name_both'],
-        exclude_pattern_list=['test_name_exclude', 'test_name_both'])
+    # Mathes with no patterns.
+    self.assertFalse(instance.should_include('unknown-test-name'))
 
-    self.assertTrue(instance.should_include('test_name_include', flags.FAIL))
-    self.assertFalse(instance.should_include('test_name_exclude', flags.PASS))
-    self.assertFalse(instance.should_include('test_name_both', flags.FAIL))
-    self.assertFalse(instance.should_include('test_name_both', flags.PASS))
 
-  def test_should_include_expectation_combination(self):
-    # If two or more flags are set, the default behavior is 'logical-and' of
-    # each primitive flag's default behavior.
-
-    instance = test_filter.TestFilter()
-    self.assertTrue(instance.should_include(
-        'test_name', flags.PASS | flags.FLAKY))  # Both are True by default.
-    self.assertFalse(instance.should_include(
-        'test_name', flags.PASS | flags.LARGE))  # LARGE is False by default.
-
-    # Set include_large True.
-    instance = test_filter.TestFilter(include_large=True)
-    self.assertTrue(instance.should_include(
-        'test_name', flags.PASS | flags.LARGE))
-
-  def _test_should_run_internal(self, expectation, expected, **kwargs):
-    # Note that the name is slightly confusing here.
-    # |expectation| is the input for the should_run. It is the expectation
-    # of each case of CTS, such as PASS, FAIL, FLAKY, LARGE, etc.
-    # |expected| is the expected return value of should_run() for this
-    # unittest.
-    instance = test_filter.TestFilter(**kwargs)
-    self.assertEquals(expected, instance.should_run(expectation))
-
-    # Patterns should not affect to should_run()
-    instance = test_filter.TestFilter(include_pattern_list=['*'], **kwargs)
-    self.assertEquals(expected, instance.should_run(expectation))
-    instance = test_filter.TestFilter(exclude_pattern_list=['*'], **kwargs)
-    self.assertEquals(expected, instance.should_run(expectation))
-    instance = test_filter.TestFilter(
-        include_pattern_list=['*'], exclude_pattern_list=['*'], **kwargs)
-    self.assertEquals(expected, instance.should_run(expectation))
-
+class TestRunFilterTest(unittest.TestCase):
   def test_should_run(self):
-    # PASS, FAIL, LARGE and FLAKY tests run always if they are in the list,
-    # regardless of include_fail and include_large flags.
-    # TIMEOUT and REQUIRES_OPENGL tests run if include_timeout or
-    # include_requires_opengl flag is set respectively.
-    # NOT_SUPPORTED tests should never run.
-    # File patterns do not affect to should_run().
-    self._test_should_run_internal(flags.PASS, expected=True)
+    # Check the default behavior.
+    instance = test_filter.TestRunFilter()
+    self.assertTrue(instance.should_run(flags.PASS))
+    self.assertTrue(instance.should_run(flags.FLAKY | flags.PASS))
+    self.assertFalse(instance.should_run(flags.FAIL))
+    self.assertFalse(instance.should_run(flags.TIMEOUT))
+    self.assertFalse(instance.should_run(flags.NOT_SUPPORTED))
+    self.assertFalse(instance.should_run(flags.LARGE | flags.PASS))
+    self.assertFalse(instance.should_run(flags.REQUIRES_OPENGL | flags.PASS))
 
-    self._test_should_run_internal(flags.FAIL, expected=True)
-    self._test_should_run_internal(flags.FAIL, expected=True,
-                                   include_fail=True)
+    instance = test_filter.TestRunFilter(include_fail=True)
+    self.assertTrue(instance.should_run(flags.FAIL))
 
-    self._test_should_run_internal(flags.LARGE, expected=True)
-    self._test_should_run_internal(flags.LARGE, expected=True,
-                                   include_large=True)
+    instance = test_filter.TestRunFilter(include_large=True)
+    self.assertTrue(instance.should_run(flags.LARGE | flags.PASS))
 
-    self._test_should_run_internal(flags.FLAKY, expected=True)
+    instance = test_filter.TestRunFilter(include_timeout=True)
+    self.assertTrue(instance.should_run(flags.TIMEOUT))
 
-    self._test_should_run_internal(flags.TIMEOUT, expected=False)
-    self._test_should_run_internal(flags.TIMEOUT, expected=True,
-                                   include_timeout=True)
-
-    self._test_should_run_internal(flags.REQUIRES_OPENGL, expected=False)
-    self._test_should_run_internal(flags.REQUIRES_OPENGL, expected=True,
-                                   include_requires_opengl=True)
-
-    self._test_should_run_internal(flags.NOT_SUPPORTED, expected=False)
+    instance = test_filter.TestRunFilter(include_requires_opengl=True)
+    self.assertTrue(instance.should_run(flags.REQUIRES_OPENGL | flags.PASS))
 
 
 if __name__ == '__main__':

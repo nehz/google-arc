@@ -42,8 +42,6 @@ class AtfGTestSuiteRunner(atf_suite_runner.AtfSuiteRunnerBase):
     # to represent the entire suite.
     if test_methods_to_run == [scoreboard.Scoreboard.ALL_TESTS_DUMMY_NAME]:
       test_methods_to_run = None
-    elif test_methods_to_run:
-      test_methods_to_run = self.apply_test_ordering(test_methods_to_run)
 
     return self.get_launch_chrome_command(
         _build_atf_launch_chrome_args(

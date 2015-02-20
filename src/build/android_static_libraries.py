@@ -62,10 +62,11 @@ def get_android_static_library_deps():
       'libndk_libEGL.a',
       'libndk_libGLESv1_CM.a',
       'libndk_libGLESv2.a',
-      'libndk_libOpenSLES.a',
+      'libndk_libicuuc_unstable.a',
       'libndk_libjnigraphics.a',
       'libndk_liblog.a',
       'libndk_libnativehelper.a',
+      'libndk_libOpenSLES.a',
       'libndk_libz.a',
       'libOpenMAXAL.a',
       'libopensles_helper.a',  # used by libOpenMAXAL

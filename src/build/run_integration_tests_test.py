@@ -297,7 +297,8 @@ class RunIntegrationTestsTest(unittest.TestCase):
     # Intercept calls to filtered_subprocess so we can simulate the test.
     with _make_fake_atf_test_process(
         self._fake_atf_subprocess_generator(result_codes)):
-      args = ['-t', self.EXAMPLE_SUITE_NAME + ':' + self.EXAMPLE_TEST_NAME]
+      args = ['-t', self.EXAMPLE_SUITE_NAME + ':' + self.EXAMPLE_TEST_NAME,
+              '--include-large']
       if extra_args:
         args.extend(extra_args)
 

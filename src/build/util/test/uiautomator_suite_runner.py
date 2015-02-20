@@ -49,7 +49,6 @@ class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
     jar_name = os.path.basename(self._jar_path)
     args = ['uiautomator', 'runtest', jar_name]
     if len(test_methods_to_run) != 1 or test_methods_to_run[0] != '*':
-      test_methods_to_run = self.apply_test_ordering(test_methods_to_run)
       for test_method in test_methods_to_run:
         args.extend(['-c', test_method])
     return args

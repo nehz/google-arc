@@ -190,10 +190,10 @@ class ConfigContext:
   handles the results.
   """
 
-  def __init__(self, config_name, entry_point):
+  def __init__(self, config_file, config_name, entry_point):
     self.config_name = config_name
     self.entry_point = entry_point
-    self.files = set()
+    self.files = {config_file}
     self.listing_queries = set()
 
   def set_up(self):
@@ -327,7 +327,8 @@ def _filter_all_make_to_ninja(vars):
 
 def _list_ninja_generators(config_loader, name):
   for module in config_loader.find_config_modules(name):
-    yield (ConfigContext(module.__name__, name), getattr(module, name))
+    yield (ConfigContext(module.__file__, module.__name__, name),
+           getattr(module, name))
 
 
 def _set_up_generate_ninja():
@@ -370,7 +371,9 @@ def _generate_independent_ninjas():
   for config_context, generator in generator_list:
     cache_path = _get_cache_file_path(config_context.config_name,
                                       config_context.entry_point)
-    config_cache = _load_config_cache_from_file(cache_path)
+    config_cache = None
+    if OPTIONS.enable_config_cache():
+      config_cache = _load_config_cache_from_file(cache_path)
 
     if config_cache is not None and config_cache.check_cache_freshness():
       cached_result_list.append(config_cache.to_config_result())
@@ -396,14 +399,15 @@ def _generate_independent_ninjas():
   for cached_result in cached_result_list:
     ninja_list.extend(cached_result.generated_ninjas)
 
-  for cache_path, config_result in aggregated_result.iteritems():
-    config_cache = cache_miss[cache_path]
-    if config_cache is None:
-      config_cache = _config_cache_from_config_result(config_result)
-    else:
-      config_cache.refresh_with_config_result(config_result)
+  if OPTIONS.enable_config_cache():
+    for cache_path, config_result in aggregated_result.iteritems():
+      config_cache = cache_miss[cache_path]
+      if config_cache is None:
+        config_cache = _config_cache_from_config_result(config_result)
+      else:
+        config_cache.refresh_with_config_result(config_result)
 
-    config_cache.save_to_file(cache_path)
+      config_cache.save_to_file(cache_path)
 
   ninja_list.sort(key=lambda ninja: ninja.get_module_name())
   timer.done()

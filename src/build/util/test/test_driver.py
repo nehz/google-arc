@@ -33,7 +33,7 @@ class TestDriver(object):
                stop_on_unexpected_failures):
     self._suite_runner = suite_runner
     self._test_expectations = test_expectations.copy()
-    self._tests_to_run = tests_to_run
+    self._tests_to_run = suite_runner.apply_test_ordering(tests_to_run)
     self._run_remaining_count = try_count if tests_to_run else 0
     self._stop_on_unexpected_failures = stop_on_unexpected_failures
     self._first_raw_output = ''
@@ -121,7 +121,8 @@ class TestDriver(object):
           return
 
     # Run again, retrying only the tests that require it.
-    self._tests_to_run = flakes + did_not_run
+    self._tests_to_run = self._suite_runner.apply_test_ordering(
+        flakes + did_not_run)
 
     # If we are out of tests to run, we are done.
     if not self._tests_to_run:

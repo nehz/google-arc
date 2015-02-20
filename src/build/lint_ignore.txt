@@ -23,7 +23,7 @@
   "mods/android/dalvik/tests/007-exceptions/expected.txt": ["analyze_diffs"],
 
   # TODO(lpique) Fix the file and remove the line
-  "src/build/buildbot_watcher/show_review_counts.js": ["gjslint"],
+  "src/build/arc_team_extension/show_review_counts.js": ["gjslint"],
 
   # TODO(penghuang) remove it when flake8 W901 support #NOQA
   "src/build/run_integration_tests.py": ["flake8"],

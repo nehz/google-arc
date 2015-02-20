@@ -9,6 +9,7 @@ import os
 import os.path
 import sys
 
+import build_options
 from build_common import get_arc_root
 
 
@@ -120,8 +121,7 @@ class ConfigLoader:
         os.path.join(get_arc_root(), 'src'),
     ]
 
-    internal = os.path.join(get_arc_root(), 'internal', 'mods')
-    if os.path.isdir(internal):
-      paths.append(internal)
+    if build_options.OPTIONS.internal_apks_source_is_internal():
+      paths.append(os.path.join(get_arc_root(), 'internal', 'mods'))
 
     return self.load_from_subdirectories(paths)

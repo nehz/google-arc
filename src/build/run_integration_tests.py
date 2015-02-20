@@ -120,9 +120,10 @@ def get_dependencies_for_integration_tests():
 
 
 def _select_tests_to_run(all_suite_runners, args):
-  test_filter_instance = test_filter.TestFilter(
+  test_list_filter = test_filter.TestListFilter(
       include_pattern_list=args.include_patterns,
-      exclude_pattern_list=args.exclude_patterns,
+      exclude_pattern_list=args.exclude_patterns)
+  test_run_filter = test_filter.TestRunFilter(
       include_fail=args.include_failing,
       include_large=args.include_large,
       include_timeout=args.include_timeouts,
@@ -139,8 +140,8 @@ def _select_tests_to_run(all_suite_runners, args):
     for test_name, test_expectation in (
         runner.expectation_map.iteritems()):
       # Check if the test is selected.
-      if not test_filter_instance.should_include(
-          '%s:%s' % (runner.name, test_name), test_expectation):
+      if not test_list_filter.should_include(
+          '%s:%s' % (runner.name, test_name)):
         continue
 
       # Add this test and its updated expectation to the dictionary of all
@@ -151,8 +152,7 @@ def _select_tests_to_run(all_suite_runners, args):
 
       # Exclude tests either because the suite is not runnable, or because each
       # individual test is not runnable.
-      if (not is_runnable or
-          not test_filter_instance.should_run(test_expectation)):
+      if (not is_runnable or not test_run_filter.should_run(test_expectation)):
         continue
 
       tests_to_run.append(test_name)
@@ -269,10 +269,6 @@ def _run_suites(test_driver_list, args, prepare_only=False):
 
 def prepare_suites(args):
   test_driver_list = _get_test_driver_list(args)
-  if not test_driver_list:
-    # unittest.* run only on Chrome OS and if they are selected with -t,
-    # test_driver_list becomes empty. That is OK.
-    return True
   return _run_suites(test_driver_list, args, prepare_only=True)
 
 
