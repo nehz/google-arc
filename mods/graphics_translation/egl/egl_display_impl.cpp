@@ -50,7 +50,8 @@ EglDisplayImpl::EglDisplayImpl()
   ConfigsList configs;
   Native::QueryConfigs(&configs);
 
-  int id = 0;
+  // Start at 1 since 0 is EGL_NO_CONFIG.
+  int id = 1;
   for (ConfigsList::iterator it = configs.begin(); it != configs.end(); ++it) {
     configs_.insert(EglConfigImpl(id, *it));
     ++id;

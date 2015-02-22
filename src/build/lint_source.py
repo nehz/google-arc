@@ -148,8 +148,7 @@ class CommandLineLinterBase(Linter):
       return False
     except subprocess.CalledProcessError as e:
       if self._error_line_filter:
-        output = '\n'.join(
-            m.group(1) for m in self._error_line_filter.findall(e.output))
+        output = '\n'.join(self._error_line_filter.findall(e.output))
       else:
         output = e.output
       logging.exception('Lint output errors: %s', output)
