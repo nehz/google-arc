@@ -451,10 +451,7 @@ def _process_analyze_diffs_output(output_dir):
 
 def _walk(path):
   """List all files under |path|, including subdirectories."""
-  filelist = []
-  for root, dirs, files in os.walk(path):
-    filelist.extend(os.path.join(root, f) for f in files)
-  return filelist
+  return build_common.find_all_files(path, include_tests=True)
 
 
 def _should_ignore(filename):

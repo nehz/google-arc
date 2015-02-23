@@ -83,6 +83,11 @@ class GPURendererInterface {
   virtual compositor::CompositorInterface* GetCompositor() = 0;
 };
 
+class AudioOutPollDataCallback {
+ public:
+  virtual ssize_t AudioOutPollData(void* buffer, size_t size) = 0;
+};
+
 class AudioManagerInterface {
  public:
   struct AudioParams {
@@ -97,14 +102,16 @@ class AudioManagerInterface {
   // Get the plugin's audio output characteristics.
   virtual bool GetAudioOutParams(AudioParams* params) = 0;
 
-  // Signals to plugin that audio output is in standby mode.
-  virtual bool SetAudioOutStandby() = 0;
+  // Starts/stops audio playback.
+  virtual void StartAudioPlayback() = 0;
+  virtual void StopAudioPlayback() = 0;
 
   // Gets the estimated latency in ms of plugin audio output.
   virtual uint32_t GetAudioOutLatency() = 0;
 
-  // Buffers audio data for later rendering.
-  virtual size_t WriteAudioOutData(const void* buffer, size_t size) = 0;
+  // Sets audio output callback in order to poll more data.
+  virtual void SetAudioOutPollDataCallback(
+      AudioOutPollDataCallback* callaback) = 0;
 
   // Opens the audio input device. Returns false on failure.
   virtual bool OpenAudioIn() = 0;
