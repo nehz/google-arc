@@ -13,78 +13,146 @@ from util.test import suite_runner_config_flags as flags
 class SuiteRunnerUtilTest(unittest.TestCase):
   def test_merge_expectation_map(self):
     base_map = {
-        'test1': flags.PASS,
-        'test2': flags.FAIL,
+        'c#test1': flags.PASS,
+        'c#test2': flags.FAIL,
     }
 
-    # Not overriden.
+    # With no override expectations, the base expectations should be used.
     self.assertEquals(
         {
-            'test1': flags.PASS,
-            'test2': flags.FAIL,
+            'c#test1': flags.PASS,
+            'c#test2': flags.FAIL,
         },
-        suite_runner_util.merge_expectation_map(base_map, {}, None))
+        suite_runner_util.merge_expectation_map(base_map, {}, flags.PASS))
 
-    # "'*': PASS" does not override anything.
+    # test1 should be overridden to FAIL, test2 should keep the base FAIL.
     self.assertEquals(
         {
-            'test1': flags.PASS,
-            'test2': flags.FAIL,
+            'c#test1': flags.FAIL,
+            'c#test2': flags.FAIL,
         },
         suite_runner_util.merge_expectation_map(
-            base_map, {}, flags.PASS))
+            base_map, {'c#test1': flags.FAIL}, flags.PASS))
 
-    # Both should be overriden.
+    # The pure flags from the default expectation should end up in the output
+    # expectation map.
     self.assertEquals(
         {
-            'test1': flags.NOT_SUPPORTED,
-            'test2': flags.NOT_SUPPORTED,
+            'c#test1': flags.PASS | flags.FLAKY,
+            'c#test2': flags.FAIL | flags.FLAKY,
         },
         suite_runner_util.merge_expectation_map(
-            base_map, {}, flags.NOT_SUPPORTED))
+            base_map, {}, flags.PASS | flags.FLAKY))
 
-    # Only "test1" should be overriden.
+    # If the default expectation is TIMEOUT, all the tests inside should be too
+    # if no other test-level overrides are given
     self.assertEquals(
         {
-            'test1': flags.FAIL,
-            'test2': flags.FAIL,
+            'c#test1': flags.PASS | flags.FLAKY,
+            'c#test2': flags.TIMEOUT,
         },
         suite_runner_util.merge_expectation_map(
-            base_map, {'test1': flags.FAIL}, None))
+            base_map, {'c#test1': flags.PASS | flags.FLAKY}, flags.TIMEOUT))
 
-    # Only "test1" should be overriden.
+    # A suite level FLAKY flag should cause all tests to be marked FLAKY,
+    # regardless of whether the base or override expectation is used.
     self.assertEquals(
         {
-            'test1': flags.FAIL,
-            'test2': flags.FAIL,
+            'c#test1': flags.FAIL | flags.FLAKY | flags.LARGE,
+            'c#test2': flags.FAIL | flags.FLAKY,
         },
         suite_runner_util.merge_expectation_map(
-            base_map, {'test1': flags.FAIL}, flags.PASS))
+            base_map, {'c#test1': flags.FAIL | flags.LARGE},
+            flags.PASS | flags.FLAKY))
 
-    # Only "test1" should be overriden to FAIL, and "test2" to
-    # NOT_SUPPORTED (default value).
+    # A suite level LARGE flag should cause all tests to be marked LARGE,
+    # regardless of whether the base or override expectation is used.
     self.assertEquals(
         {
-            'test1': flags.FAIL,
-            'test2': flags.NOT_SUPPORTED,
+            'c#test1': flags.PASS | flags.LARGE,
+            'c#test2': flags.PASS | flags.LARGE,
         },
         suite_runner_util.merge_expectation_map(
-            base_map, {'test1': flags.FAIL}, flags.NOT_SUPPORTED))
-
-    self.assertEquals(
-        # Each should be overriden.
-        {
-            'test1': flags.FAIL,
-            'test2': flags.PASS,
-        },
-        suite_runner_util.merge_expectation_map(
-            base_map,
-            {'test1': flags.FAIL, 'test2': flags.PASS}, None))
+            base_map, {'c#test2': flags.PASS}, flags.PASS | flags.LARGE))
 
     with self.assertRaises(AssertionError):
       # Raise an exception if suite_expectations contains an unknown test name.
       suite_runner_util.merge_expectation_map(
-          base_map, {'test3': flags.PASS}, None)
+          base_map, {'c#test3': flags.PASS}, flags.PASS)
+
+  def _check_simple(self, expected, patterns):
+    self.assertEquals(
+        expected,
+        suite_runner_util.merge_expectation_map(
+            dict.fromkeys(expected, flags.PASS), patterns, flags.PASS))
+
+  def test_merge_star_matches_all(self):
+    # An entry of '*' should match all tests."""
+    self._check_simple({
+        'x#m1': flags.TIMEOUT,
+        'y#m2': flags.TIMEOUT,
+        'z#m1': flags.TIMEOUT,
+    }, {
+        '*': flags.TIMEOUT,
+    })
+
+  def test_merge_class_name_matching(self):
+    # An entry like 'classname#*' should match "classname#any_method_name".
+    self._check_simple({
+        'x#m1': flags.FAIL,
+        'x#m2': flags.FAIL,
+        'x#m3': flags.FAIL,
+        'y#m1': flags.TIMEOUT,
+        'y#m2': flags.TIMEOUT,
+        'z#m1': flags.PASS,
+    }, {
+        'x#*': flags.FAIL,
+        'y#*': flags.TIMEOUT
+    })
+
+  def test_merge_all_patterns_used(self):
+    # The logic should verify that all patterns were matched.
+    with self.assertRaisesRegexp(
+        AssertionError, r'.*patterns with no match:\s+y#*\*'):
+      self._check_simple({
+          'x#m1': flags.PASS,
+      }, {
+          'y#*': flags.FAIL,
+      })
+
+  def test_merge_star_can_match_no_tests(self):
+    # '*' as a special case is allowed to match no tests.
+    self._check_simple({}, {'*': flags.FAIL})
+
+  def test_merge_patterns_cannot_overlap(self):
+    # No two patterns can match the same test name.
+    with self.assertRaisesRegexp(
+        AssertionError,
+        r'The test expectation patterns "x#m1" and "x#\*" are ambiguous'):
+      self._check_simple({
+          'x#m1': flags.PASS,
+      }, {
+          'x#*': flags.FAIL,
+          'x#m1': flags.FAIL,
+      })
+      suite_runner_util.merge_expectation_map({'abc_123': flags.PASS}, {
+          'abc_*': flags.PASS,
+          'abc*': flags.FAIL,
+      })
+
+  def test_merge_star_is_exclusive(self):
+    # A global '*' cannot be used with any other patterns.
+    with self.assertRaisesRegexp(
+        AssertionError,
+        (r'Using the test expectation pattern "\*" with anything else is '
+         r'ambiguous')):
+      self._check_simple({
+          'x#m1': flags.PASS,
+      }, {
+          '*': flags.TIMEOUT,
+          'x#*': flags.FAIL,
+          'x#m1': flags.FAIL,
+      })
 
   def test_create_gtest_filter_list(self):
     # Result should be empty for an empty list.

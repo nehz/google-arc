@@ -82,16 +82,21 @@ class SuiteFlagMergeTest(unittest.TestCase):
     self.assertEquals(PASS._mask, flags._mask)
 
 
+def _evaluate(raw_config, defaults=None):
+  return suite_runner_config._evaluate(raw_config, defaults=defaults)
+
+
+def _evaluate_test_expectations(suite_test_expectations):
+  return _evaluate(dict(suite_test_expectations=suite_test_expectations))[
+      'suite_test_expectations']
+
+
 class SuiteRunConfigInputTests(unittest.TestCase):
   """Tests the evaluation of the input configuration."""
 
-  @staticmethod
-  def _evaluate(raw_config, defaults=None):
-    return suite_runner_config._evaluate(raw_config, defaults=defaults)
-
   def test_defaults_applied(self):
-    result = self._evaluate({'flags': PASS},
-                            defaults={'bug': 'crbug.com/1234', 'flags': FAIL})
+    result = _evaluate({'flags': PASS},
+                       defaults={'bug': 'crbug.com/1234', 'flags': FAIL})
     self.assertEquals('crbug.com/1234', result['bug'])
     self.assertEquals(suite_runner_config._DEFAULT_OUTPUT_TIMEOUT,
                       result['deadline'])
@@ -99,22 +104,22 @@ class SuiteRunConfigInputTests(unittest.TestCase):
     self.assertNotIn(FAIL, result['flags'])
 
   def test_simple_passing_test(self):
-    self.assertIn(PASS, self._evaluate(None)['flags'])
-    self.assertIn(PASS, self._evaluate({})['flags'])
-    self.assertIn(PASS, self._evaluate({'flags': PASS})['flags'])
+    self.assertIn(PASS, _evaluate(None)['flags'])
+    self.assertIn(PASS, _evaluate({})['flags'])
+    self.assertIn(PASS, _evaluate({'flags': PASS})['flags'])
 
   def test_simple_failing_test(self):
-    result = self._evaluate({'flags': FAIL})
+    result = _evaluate({'flags': FAIL})
     self.assertNotIn(PASS, result['flags'])
     self.assertIn(FAIL, result['flags'])
 
   def test_configured_to_fail_for_target(self):
-    result = self._evaluate({'configurations': [{'flags': FAIL | FLAKY}]})
+    result = _evaluate({'configurations': [{'flags': FAIL | FLAKY}]})
     self.assertNotIn(PASS, result['flags'])
     self.assertIn(FAIL, result['flags'])
     self.assertIn(FLAKY, result['flags'])
 
-    result = self._evaluate({'configurations': [{
+    result = _evaluate({'configurations': [{
         'enable_if': False,
         'flags': FAIL | FLAKY
     }]})
@@ -122,27 +127,73 @@ class SuiteRunConfigInputTests(unittest.TestCase):
     self.assertNotIn(FAIL, result['flags'])
     self.assertNotIn(FLAKY, result['flags'])
 
-  def test_suite_test_expectations(self):
-    result = self._evaluate({
-        'suite_test_expectations': {
-            'foo': {'bar': FLAKY}
-        }
-    })
-    expectations = result['suite_test_expectations']
-    self.assertIn(PASS, expectations['foo#bar'])
-    self.assertIn(FLAKY, expectations['foo#bar'])
-    self.assertNotIn(FAIL, expectations['foo#bar'])
-    self.assertNotIn(NOT_SUPPORTED, expectations['foo#bar'])
+  def test_flat_suite_test_expectations(self):
+    result = _evaluate_test_expectations({'x': FLAKY})
+    self.assertEqual(PASS | FLAKY, result['x'])
+
+    result = _evaluate_test_expectations({'*': FLAKY})
+    self.assertEqual(PASS | FLAKY, result['*'])
+
+    # Only a simple '*' pattern is allowed.
+    # (Though this pattern still allows us to do a prefix match later, we
+    # disallow it.)
+    with self.assertRaisesRegexp(AssertionError, r'"x\*" is not allowed'):
+      _evaluate_test_expectations({'x*': PASS})
+
+    # Only a simple '*' pattern is allowed.
+    # (This allows us to to a simple prefix match later)
+    with self.assertRaisesRegexp(AssertionError, r'"\*x" is not allowed'):
+      _evaluate_test_expectations({'*x': PASS})
+
+    # A "class#method" style name is allowed.
+    result = _evaluate_test_expectations({'x#y': FLAKY})
+    self.assertEqual(PASS | FLAKY, result['x#y'])
+
+    # Only one '#' is allowed.
+    with self.assertRaisesRegexp(AssertionError, r'"x#y#z" is not allowed'):
+      _evaluate_test_expectations({'x#y#z': PASS})
+
+  def test_hierarchical_suite_test_expectations(self):
+    result = _evaluate_test_expectations({'x': {'y': FLAKY}})
+    self.assertEqual(PASS | FLAKY, result['x#y'])
+
+    result = _evaluate_test_expectations({'x': {'*': FLAKY}})
+    self.assertEqual(PASS | FLAKY, result['x#*'])
+
+    # Only a simple '*' pattern is allowed.
+    # (Though this pattern still allows us to do a prefix match later, we
+    # disallow it.)
+    with self.assertRaisesRegexp(AssertionError, r'"x#y\*" is not allowed'):
+      _evaluate_test_expectations({'x': {'y*': FLAKY}})
+
+    # Only a simple '*' pattern is allowed.
+    # (This allows us to use a simple prefix match later)
+    with self.assertRaisesRegexp(AssertionError, r'"x#\*y" is not allowed'):
+      _evaluate_test_expectations({'x': {'*y': FLAKY}})
+
+    # If there is an asterisk wildcard, it must be in the leaf.
+    # (This allows us to to a simple prefix match later)
+    with self.assertRaisesRegexp(AssertionError, r'"\*" is not a valid name'):
+      _evaluate_test_expectations({'*': {'x': FLAKY}})
+
+    # If there is an asterisk wildcard, it must be in the leaf.
+    # (This allows us to to a simple prefix match later)
+    with self.assertRaisesRegexp(AssertionError, r'"\*" is not a valid name'):
+      _evaluate_test_expectations({'*': {'*': FLAKY}})
+
+    # Only one '#' is allowed.
+    with self.assertRaisesRegexp(AssertionError, r'"x#y#z" is not allowed'):
+      _evaluate_test_expectations({'x': {'y#z': FLAKY}})
 
   def test_suite_test_order(self):
-    result = self._evaluate({
+    result = _evaluate({
         'configurations': [{
-            'test_order': {'foo': 1}
+            'test_order': {'x': 1}
         }]
     })
     test_order = result['test_order']
-    self.assertIn('foo', test_order)
-    self.assertEquals(test_order['foo'], 1)
+    self.assertIn('x', test_order)
+    self.assertEquals(test_order['x'], 1)
 
 
 class SuiteRunConfigIntegrationTests(unittest.TestCase):

@@ -92,10 +92,19 @@ def _validate_suite_test_expectations(value):
 
     # The value must be an ExpectationFlagSet or a dict.
     if isinstance(outer_expectation, flags.ExclusiveFlagSet):
+      assert '*' == outer_name or '*' not in outer_name, (
+          'suite_test_expectations pattern "%s" is not allowed. Only "*" is '
+          'allowed.' % outer_name)
+      assert outer_name.count('#') <= 1, (
+          'suite_test_expectations pattern "%s" is not allowed. The "#" '
+          'character is only expected at most once.' % outer_name)
       continue
     assert isinstance(outer_expectation, dict), (
         'suite_test_expectations %s needs to be either a dict or an '
         'expectation flag set: %s' % (outer_name, outer_expectation))
+    assert '*' not in outer_name, (
+        'suite_test_expectations "%s" is not a valid name (no asterisks '
+        'allowed)' % outer_name)
     for inner_name, inner_expectation in outer_expectation.iteritems():
       # Inner dict must be a map from string to an expectation flag set.
       assert isinstance(inner_name, basestring), (
@@ -104,6 +113,13 @@ def _validate_suite_test_expectations(value):
       assert isinstance(inner_expectation, flags.ExclusiveFlagSet), (
           'suite_test_expectations %s#%s is not an expectation flag set: '
           '%s' % (outer_name, inner_name, inner_expectation))
+      assert '*' == inner_name or '*' not in inner_name, (
+          'suite_test_expectations pattern "%s#%s" is not allowed. Only "%s#*" '
+          'is allowed.' % (outer_name, inner_name, outer_name))
+      assert '#' not in inner_name, (
+          'suite_test_expectations pattern "%s#%s" is not allowed. The "#" '
+          'character is only expected at most once.' % (
+              outer_name, inner_name))
 
 
 def _validate_configurations(value):
@@ -202,6 +218,43 @@ def _evaluate_suite_test_expectations(raw_dict):
   return result
 
 
+def _read_test_config(path):
+  """Reads the file, and eval() it with the test config context."""
+  if not os.path.exists(path):
+    return {}
+
+  with open(path) as stream:
+    content = stream.read()
+  test_context = {
+      '__builtin__': None,  # Do not inherit the current context.
+
+      # Expectation flags.
+      'PASS': flags.PASS,
+      'FAIL': flags.FAIL,
+      'TIMEOUT': flags.TIMEOUT,
+      'NOT_SUPPORTED': flags.NOT_SUPPORTED,
+      'LARGE': flags.LARGE,
+      'FLAKY': flags.FLAKY,
+      'REQUIRES_OPENGL': flags.REQUIRES_OPENGL,
+
+      # OPTIONS is commonly used for the conditions.
+      'OPTIONS': OPTIONS,
+  }
+
+  try:
+    raw_config = eval(content, test_context)
+  except Exception as e:
+    e.args = (e.args[0] + '\neval() failed: ' + path,) + e.args[1:]
+    raise
+
+  try:
+    _validate(raw_config)
+  except Exception as e:
+    e.args = (e.args[0] + '\nValidation failed: ' + path,) + e.args[1:]
+    raise
+  return raw_config
+
+
 def default_run_configuration():
   return _evaluate({
       'configurations': [{
@@ -229,23 +282,11 @@ def make_suite_run_configs(raw_config):
 
 
 # TODO(crbug.com/384028): The class will eventually eliminate the need for
-# make_suite_run_configs and default_run_configuration above, and make it
-# easier to clean up _SuiteRunConfiguration too.
+# make_suite_run_configs and default_run_configuration above.
 class SuiteExpectationsLoader(object):
   def __init__(self, base_path):
     self._base_path = base_path
     self._cache = {}
-
-  def _get_raw_expectations_dict(self, suite_name):
-    suite_expectations_path = os.path.join(self._base_path, suite_name + '.py')
-    if not os.path.exists(suite_expectations_path):
-      return {}
-    with open(suite_expectations_path) as suite_expectations:
-      sys.dont_write_bytecode = True
-      config_module = imp.load_source('', suite_expectations_path,
-                                      suite_expectations)
-      sys.dont_write_bytecode = False
-      return config_module.get_expectations()
 
   def get(self, suite_name):
     parent_config = None
@@ -254,7 +295,8 @@ class SuiteExpectationsLoader(object):
       partial_name = '.'.join(components[:i]) if i else 'defaults'
       config = self._cache.get(partial_name)
       if config is None:
-        raw_config = self._get_raw_expectations_dict(partial_name)
+        raw_config = _read_test_config(
+            os.path.join(self._base_path, partial_name))
         config = _evaluate(raw_config, defaults=parent_config)
         self._cache[partial_name] = config
       parent_config = config

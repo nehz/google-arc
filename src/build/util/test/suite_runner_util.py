@@ -7,6 +7,83 @@
 from util.test import suite_runner_config_flags as flags
 
 
+class _GlobalExpectationMatcher(object):
+  """Handles the special case of a single {"*": <expectation>} entry."""
+  def __init__(self, expectations):
+    self._expectation = expectations['*']
+    assert len(expectations) == 1, (
+        'Using the test expectation pattern "*" with anything else is '
+        'ambiguous. Use either "*" alone, or specify just the patterns:\n'
+        '    "%s"' % '"\n    "'.join(
+            name for name in expectations if name != '*'))
+
+  def __getitem__(self, name):
+    return self._expectation
+
+  def check_unused(self):
+    # "*" is allowed to match nothing.
+    pass
+
+
+class _ExpectationMatcher(object):
+  """Handles the general case of a list of exact or class names."""
+  def __init__(self, expectations):
+    for name in expectations:
+      assert name.count('#') == 1, (
+          'The test expectation pattern "%s" does not match the expected form. '
+          'A name like "class_name#test_name" is expected' % name)
+      if not name.endswith('#*'):
+        class_name = name.split('#', 1)[0]
+        assert (class_name + '#*') not in expectations, (
+            'The test expectation patterns "%s" and "%s#*" are ambiguous. '
+            'Mixing an exact match with a class name match is not allowed.' % (
+                name, class_name))
+
+    self._expectations = expectations
+    self._unused = set(expectations)
+
+  def __getitem__(self, name):
+    # If this triggers, we would need to handle it in a special way, and we
+    # might not be able to set an override expectation without additional work.
+    assert not name.endswith('#*'), (
+        'Test name "%s" ends with a reserved sequence "#*".' % name)
+
+    match_name = name
+    expectation = self._expectations.get(match_name)
+    if expectation is None:
+      # If the exact match failed to find an expectation, see if there is an
+      # expectation for the class name.
+      match_name = name.split('#', 1)[0] + '#*'
+      expectation = self._expectations.get(match_name)
+
+    # Mark the match as used.
+    if expectation is not None and match_name in self._unused:
+      self._unused.remove(match_name)
+
+    return expectation
+
+  def check_unused(self):
+    # Every name should have been used. If not, display a message so the
+    # configuration can be cleaned up.
+    assert not self._unused, (
+        'The expectations configuration includes patterns with no match:\n'
+        '    %s\n'
+        'Please remove the ones that that are no longer used.' % (
+            '\n    '.join(sorted(self._unused))))
+
+
+def _merge(base_expectation, override_expectation, default_expectation):
+  # |default_expectation| must be left hand side, because '|' operator for
+  # the expectation set is asymmetric. (cf suite_runner_config_flags.py).
+  # TODO(crbug.com/437402): Clean up this.
+  if override_expectation:
+    return default_expectation | override_expectation
+  elif flags.PASS in default_expectation:
+    return default_expectation | base_expectation
+  else:
+    return default_expectation
+
+
 def merge_expectation_map(
     base_expectation_map, override_expectation_map, default_expectation):
   # In test cases, |base_expectation_map| is stubbed out as {'*': flags.PASS}.
@@ -19,31 +96,15 @@ def merge_expectation_map(
   if base_expectation_map == {'*': flags.PASS}:
     return base_expectation_map
 
-  # First, check the integrity of our CTS configuration.
-  unknown_test_list = [test_name for test_name in override_expectation_map
-                       if test_name not in base_expectation_map]
-  assert not unknown_test_list, (
-      'Unknown tests found:\n%s' % '\n'.join(unknown_test_list))
+  if '*' in override_expectation_map:
+    overrides = _GlobalExpectationMatcher(override_expectation_map)
+  else:
+    overrides = _ExpectationMatcher(override_expectation_map)
 
-  # Then merge the expectation dicts as follows:
-  # 1) If the test's expectation is in |override_expectation_map|, choose it.
-  # 2) If there is default expectation and it is not PASS, choose it.
-  # 3) Otherwise, choose the original expectation.
-  # In any case, default expectation is applied again if specified,
-  # in order to expand some flags, such as LARGE or FLAKY.
-  if default_expectation and default_expectation == flags.PASS:
-    default_expectation = None
-
-  result = {}
-  for test_name, original_expectation in base_expectation_map.iteritems():
-    expectation = override_expectation_map.get(
-        test_name, default_expectation or original_expectation)
-    if default_expectation:
-      # |default_expectation| must be left hand side, because '|' operator for
-      # the expectation set is asymmetric. (cf suite_runner_config_flags.py).
-      # TODO(crbug.com/437402): Clean up this.
-      expectation = default_expectation | expectation
-    result[test_name] = expectation
+  result = dict((name, _merge(expectation, overrides[name],
+                              default_expectation))
+                for name, expectation in base_expectation_map.iteritems())
+  overrides.check_unused()
   return result
 
 

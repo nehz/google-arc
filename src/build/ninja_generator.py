@@ -14,6 +14,7 @@ import re
 import os
 import StringIO
 import sys
+import traceback
 
 import analyze_diffs
 import build_common
@@ -279,6 +280,14 @@ class NinjaGenerator(ninja_syntax.Writer):
   # Default implicit dependencies.
   _default_implicit = []
 
+  def __new__(type, *args, **kargs):
+    obj = super(NinjaGenerator, type).__new__(type, *args, **kargs)
+    # Installs the debugingo into the class instance.
+    # [-1] is __new__().
+    # [-2] is the caller of ninja generators.
+    obj._debuginfo = traceback.format_stack()[-2]
+    return obj
+
   def __init__(self, module_name, ninja_name=None,
                host=False, generate_path=True, base_path=None,
                implicit=None, target_groups=None,
@@ -312,6 +321,9 @@ class NinjaGenerator(ninja_syntax.Writer):
       self._notices.add_sources(extra_notices)
     # TODO(crbug.com/366751): remove notice_archive hack when possible
     self._notice_archive = None
+
+    for line in self._debuginfo.split('\n'):
+      self.comment(line)
 
   @staticmethod
   def emit_common_rules(n):

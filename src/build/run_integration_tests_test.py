@@ -134,7 +134,7 @@ def _make_all_tests_flaky():
   def _make_flaky_suite_configuration(*unused, **kwunused):
     # We must return a new dictionary for every call.
     return dict(
-        flags=flags.FLAKY, bug=None, metadata=None, deadline=300,
+        flags=flags.PASS | flags.FLAKY, bug=None, metadata=None, deadline=300,
         test_order={}, suite_test_expectations={})
   return patch(
       'util.test.suite_runner_config._evaluate',

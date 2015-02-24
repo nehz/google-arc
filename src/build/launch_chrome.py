@@ -669,8 +669,18 @@ def _compute_chrome_params(parsed_args):
     # LANGUAGE takes priority over --lang option in Linux.
     os.environ['LANGUAGE'] = parsed_args.lang
     # In Mac, there is no handy way to change the locale.
-    if sys.platform == 'darwin':
+    if platform_util.is_running_on_mac():
       print '\nWARNING: --lang is not supported in Mac.'
+
+  if (parsed_args.mode in ('atftest', 'perftest') and
+      not platform_util.is_running_on_chromeos() and
+      not platform_util.is_running_on_mac()):
+    # This launches ARC without creating a browser window.  We only do it for
+    # automated tests, in case the user wants to do something like examine the
+    # Chromium settings ("about:flags" for example), which requires using the
+    # browser window. Note that this does not work on Mac, and should be
+    # unnecessary on a remote Chromebook target.
+    params.append('--silent-launch')
 
   params.extend(_compute_chrome_plugin_params(parsed_args))
   params.extend(_compute_chrome_sandbox_params(parsed_args))

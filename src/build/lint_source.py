@@ -7,6 +7,7 @@
 import argparse
 import cPickle
 import collections
+import itertools
 import json
 import logging
 import os
@@ -140,8 +141,9 @@ class CommandLineLinterBase(Linter):
 
   def run(self, path):
     command = self._build_command(path)
+    env = self._build_env()
     try:
-      subprocess.check_output(command, stderr=subprocess.STDOUT)
+      subprocess.check_output(command, stderr=subprocess.STDOUT, env=env)
       return True
     except OSError:
       logging.exception('Unable to invoke %s', command)
@@ -155,8 +157,19 @@ class CommandLineLinterBase(Linter):
       return False
 
   def _build_command(self, path):
+    """Builds the commandline to run a subprocess, and returns it."""
     # All subclasses must implement this.
     raise NotImplementedError()
+
+  def _build_env(self):
+    """Builds the env dict for a subprocess, and returns it.
+
+    By default returns None, which means to use the current os.environ
+    as is.
+    """
+    # Subclass can override this to set up environment variable dict for
+    # the subprocess.
+    return None
 
 
 class CppLinter(CommandLineLinterBase):
@@ -242,6 +255,35 @@ class PyLinter(CommandLineLinterBase):
             path]
 
 
+class TestConfigLinter(CommandLineLinterBase):
+  """Linter for src/integration_tests/expectations/"""
+  # This list must be sync'ed with suite_runner_config's evaluation context.
+  # Please see also suite_runner_config._read_test_config().
+  _BUILTIN_VARS = [
+      # Expectation flags.
+      'PASS', 'FAIL', 'TIMEOUT', 'NOT_SUPPORTED', 'LARGE', 'FLAKY',
+      'REQUIRES_OPENGL',
+
+      # OPTIONS is commonly used in the conditions.
+      'OPTIONS',
+  ]
+
+  def __init__(self):
+    super(TestConfigLinter, self).__init__(
+        'testconfig', target_groups=[_GROUP_PY])
+
+  def should_run(self, path):
+    return path.startswith('src/integration_tests/expectations')
+
+  def _build_command(self, path):
+    return ['src/build/flake8', '--ignore=E501', path]
+
+  def _build_env(self):
+    env = os.environ.copy()
+    env['PYFLAKES_BUILTINS'] = ','.join(TestConfigLinter._BUILTIN_VARS)
+    return env
+
+
 class CopyrightLinter(CommandLineLinterBase):
   """Linter to check copyright notice."""
 
@@ -264,6 +306,8 @@ class CopyrightLinter(CommandLineLinterBase):
 class UpstreamLinter(Linter):
   """Linter to check the contents of upstream note in mods/upstream."""
 
+  _VAR_PATTERN = re.compile(r'^\s*([A-Z_]+)\s*=(.*)$')
+
   def __init__(self):
     super(UpstreamLinter, self).__init__('upstreamlint')
 
@@ -272,31 +316,37 @@ class UpstreamLinter(Linter):
     # run this linter.
     if open_source.is_open_source_repo():
       return False
-    return path.startswith(analyze_diffs.UPSTREAM_BASE_PATH + os.path.sep)
+    return path.startswith(analyze_diffs.UPSTREAM_BASE_PATH)
 
   def run(self, path):
-    # TODO(20150228): This implementation has a bug (if '=' is contained the
-    # description, the calculation of the number of description does not work
-    # properly.)
-    description_line_count = 0
-    vars = {}
     with open(path) as f:
       lines = f.read().splitlines()
-    for line in lines:
-      line = line.strip()
-      pos = line.find('=')
-      if pos != -1:
-        vars[line[:pos].strip()] = line[pos + 1:].strip()
-      elif line and not vars:
-        description_line_count += 1
 
-    if 'ARC_COMMIT' in vars and vars['ARC_COMMIT'] == '':
+    # The description is leading lines before variable definitions.
+    description = list(itertools.takewhile(
+        lambda line: not UpstreamLinter._VAR_PATTERN.search(line), lines))
+
+    # Parse variables from the trailing lines.
+    var_map = {}
+    for line in lines[len(description):]:
+      m = UpstreamLinter._VAR_PATTERN.search(line)
+      if not m:
+        continue
+      var_map[m.group(1)] = m.group(2).strip()
+
+    # If ARC_COMMIT is present, it must not be empty.
+    if var_map.get('ARC_COMMIT') == '':
       logging.error('Upstream file has empty commit info: %s', path)
       return False
-    if 'UPSTREAM' not in vars:
+
+    # 'UPSTREAM' var must be contained.
+    if 'UPSTREAM' not in var_map:
       logging.error('Upstream file has no upstream info: %s', path)
       return False
-    if description_line_count == 0 and not vars['UPSTREAM']:
+
+    # If 'UPSTREAM' var is empty, there must be (non-empty) descriptions.
+    if (not var_map['UPSTREAM'] and
+        sum(1 for line in description if line.strip()) == 0):
       logging.error(
           'Upstream file has no upstream URL and no description: %s', path)
       return False
@@ -412,8 +462,9 @@ def _run_lint(target_file_list, ignore_rule, output_dir):
     files, if necessary.
   """
   runner = LinterRunner(
-      [CppLinter(), JsLinter(), PyLinter(), CopyrightLinter(),
-       UpstreamLinter(), LicenseLinter(), DiffLinter(output_dir)],
+      [CppLinter(), JsLinter(), PyLinter(), TestConfigLinter(),
+       CopyrightLinter(), UpstreamLinter(), LicenseLinter(),
+       DiffLinter(output_dir)],
       ignore_rule)
   result = True
   for path in target_file_list:
