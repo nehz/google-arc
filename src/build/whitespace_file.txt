@@ -110,3 +110,5 @@ testing bots (after?) infra nightmare
 testing bots after m3 -> m7a masters move.
 
 kick apk builder bot.
+
+test release-42 builders
