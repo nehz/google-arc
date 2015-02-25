@@ -9,9 +9,11 @@ import collections
 import copy
 import fnmatch
 import hashlib
+import json
 import logging
 import re
 import os
+import pipes
 import StringIO
 import sys
 import traceback
@@ -19,7 +21,6 @@ import traceback
 import analyze_diffs
 import build_common
 import open_source
-import pipes
 import staging
 import toolchain
 import wrapped_functions
@@ -273,6 +274,7 @@ class NinjaGenerator(ninja_syntax.Writer):
   """
 
   _EXTRACT_TEST_LIST_PATH = 'src/build/util/test/extract_test_list.py'
+  _PRETTY_PRINT_JSON_PATH = 'src/build/util/pretty_print_json.py'
 
   # Global list of all ninjas generated in this parallel task.
   _ninja_list = []
@@ -315,6 +317,8 @@ class NinjaGenerator(ninja_syntax.Writer):
     self._root_dir_install_targets = []
     self._build_dir_install_targets = []
     self._notices = Notices()
+    self._test_lists = []
+    self._test_info_list = []
     if extra_notices:
       if OPTIONS.is_notices_logging():
         print 'Adding extra notices to %s: %s' % (module_name, extra_notices)
@@ -327,8 +331,6 @@ class NinjaGenerator(ninja_syntax.Writer):
 
   @staticmethod
   def emit_common_rules(n):
-    n.variable('extract_test_list', NinjaGenerator._EXTRACT_TEST_LIST_PATH)
-
     n.rule('copy_symbols_file',
            'src/build/symbol_tool.py --clean $in > $out',
            description='copy_symbols_file $in $out')
@@ -362,6 +364,11 @@ class NinjaGenerator(ninja_syntax.Writer):
            command='$command || (rm $out; exit 1)',
            description='execute $command')
 
+    # Rule to make the list of inputs.
+    n.rule('make_list',
+           command='echo "$in_newline" > $out',
+           description='make a list from $in')
+
     # Rule to make the list of external symbols in a shared library.
     # Setting restat to True so that ninja can stop building its dependents
     # when the content is not modified.
@@ -373,9 +380,16 @@ class NinjaGenerator(ninja_syntax.Writer):
     # Rule to make a list of tests from .apk. This is hsared with
     # AtfNinjaGenerator and ApkFromSdkNinjaGenerator.
     n.rule('extract_test_list',
-           ('PYTHONPATH=src/build python $extract_test_list '
-            '--apk=$in --output=$out.tmp && mv $out.tmp $out'),
+           ('PYTHONPATH=src/build python %s '
+            '--apk=$in --output=$out.tmp && mv $out.tmp $out' %
+            NinjaGenerator._EXTRACT_TEST_LIST_PATH),
            description='Extract test method list from $in')
+
+    n.rule('build_test_info',
+           'mkdir -p %s && %s $test_info > $out' % (
+               build_common.get_unittest_info_path(),
+               NinjaGenerator._PRETTY_PRINT_JSON_PATH),
+           description='Build test info')
 
   @staticmethod
   def consume_ninjas():
@@ -813,13 +827,49 @@ class NinjaGenerator(ninja_syntax.Writer):
     the included module."""
     return []
 
-  def _build_test_list(self, final_package_path):
-    self.build(
-        [build_common.get_integration_test_list_path(self._module_name)],
-        'extract_test_list',
-        inputs=[final_package_path],
-        implicit=[NinjaGenerator._EXTRACT_TEST_LIST_PATH,
-                  toolchain.get_tool('java', 'dexdump')])
+  def _build_test_list(self, final_package_path, rule, test_list_name,
+                       implicit):
+    test_list_path = build_common.get_integration_test_list_path(
+        test_list_name)
+    self._test_lists.append(test_list_path)
+    self.build([test_list_path],
+               rule,
+               inputs=final_package_path,
+               implicit=implicit)
+
+  def build_all_test_lists(self, ninja_list):
+    all_test_lists = []
+    for ninja in ninja_list:
+      all_test_lists.extend(ninja._test_lists)
+    all_test_lists.sort()
+    self.build([build_common.get_all_integration_test_lists_path()],
+               'make_list',
+               all_test_lists)
+
+  def _build_test_info(self, test_path, counter, test_info):
+    test_name = os.path.basename(test_path)
+    filename = '%s.%d.json' % (test_name, counter)
+    test_info_path = build_common.get_unittest_info_path(filename)
+    self._test_info_list.append(test_info_path)
+
+    test_info_str = json.dumps(test_info)
+    # Escape the string for shell
+    test_info_str = pipes.quote(test_info_str)
+    # Escape the string for ninja
+    test_info_str = ninja_syntax.escape(test_info_str)
+    self.build([test_info_path],
+               'build_test_info',
+               [],
+               variables={'test_info': test_info_str},
+               implicit=[NinjaGenerator._PRETTY_PRINT_JSON_PATH])
+
+  def build_all_unittest_info(self, ninja_list):
+    unittest_info_list = []
+    for ninja in ninja_list:
+      unittest_info_list.extend(ninja._test_info_list)
+    self.build([build_common.get_all_unittest_info_path()],
+               'make_list',
+               unittest_info_list)
 
 
 class CNinjaGenerator(NinjaGenerator):
@@ -2193,7 +2243,6 @@ class TestNinjaGenerator(ExecNinjaGenerator):
 
   def _save_test_info(self, test_path, counter, rule, variables):
     """Save information needed to run unit tests remotely as JSON file."""
-    test_name = os.path.basename(test_path)
     rules = TestNinjaGenerator._get_toplevel_run_test_rules()
     merged_variables = TestNinjaGenerator._get_toplevel_run_test_variables()
     merged_variables.update(variables)
@@ -2206,7 +2255,7 @@ class TestNinjaGenerator(ExecNinjaGenerator):
         'variables': merged_variables,
         'command': rules[rule][0],
     }
-    build_common.store_remote_unittest_info(test_name, counter, test_info)
+    self._build_test_info(test_path, counter, test_info)
 
   def find_all_contained_test_sources(self):
     all_sources = self.find_all_files(self._base_path,
@@ -2996,6 +3045,13 @@ class JavaNinjaGenerator(NinjaGenerator):
                implicit=staging.third_party_to_staging(
                    toolchain.get_tool('java', 'aapt')))
 
+  def _build_test_list_for_apk(self, final_package_path):
+    self._build_test_list(final_package_path,
+                          rule='extract_test_list',
+                          test_list_name=self._module_name,
+                          implicit=[NinjaGenerator._EXTRACT_TEST_LIST_PATH,
+                                    toolchain.get_tool('java', 'dexdump')])
+
   def get_included_module_names(self):
     module_names = []
     for dep in self._jar_files_to_extract:
@@ -3238,7 +3294,7 @@ class JarNinjaGenerator(JavaNinjaGenerator):
     return self
 
   def build_test_list(self):
-    return self._build_test_list(
+    return self._build_test_list_for_apk(
         JarNinjaGenerator.get_javalib_jar_path(self._module_name))
 
 
@@ -3325,7 +3381,11 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
 
   def build_test_list(self):
     return self._build_test_list(
-        ApkFromSdkNinjaGenerator.get_final_package_for_apk(self._module_name))
+        ApkFromSdkNinjaGenerator.get_final_package_for_apk(self._module_name),
+        rule='extract_test_list',
+        test_list_name=self._module_name,
+        implicit=[NinjaGenerator._EXTRACT_TEST_LIST_PATH,
+                  toolchain.get_tool('java', 'dexdump')])
 
   @staticmethod
   def get_final_package_for_apk(apk_name):
@@ -3335,10 +3395,10 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
   def build_google_test_list(self, sources=None):
     if sources is None:
       sources = self.find_all_contained_files('_test.cc', include_tests=True)
-    return self.build(
-        [build_common.get_integration_test_list_path(self._module_name)],
-        'extract_google_test_list',
-        inputs=sources,
+    self._build_test_list(
+        sources,
+        rule='extract_google_test_list',
+        test_list_name=self._module_name,
         implicit=[build_common.get_extract_google_test_list_path()])
 
 
@@ -3536,7 +3596,7 @@ class AtfNinjaGenerator(ApkNinjaGenerator):
     return self.build_default_all_sources(include_tests=True)
 
   def build_test_list(self):
-    return self._build_test_list(self.get_final_package())
+    return self._build_test_list_for_apk(self.get_final_package())
 
 
 class AaptNinjaGenerator(NinjaGenerator):
@@ -3653,20 +3713,24 @@ class PythonTestNinjaGenerator(NinjaGenerator):
                                      top_path=top_path))
 
 
-def _generate_python_test_ninja(top_path, python_test):
+def generate_python_test_ninja(top_path, python_test, implicit=None):
+  if implicit is None:
+    implicit = []
   ninja_name = os.path.splitext(python_test)[0].replace('/', '_')
   n = PythonTestNinjaGenerator(ninja_name)
   implicit_dependencies = \
       build_common.find_python_dependencies(top_path, python_test)
+  implicit_dependencies.extend(implicit)
   n.run(top_path, python_test, implicit_dependencies=implicit_dependencies)
 
 
-def generate_python_test_ninjas_for_path(top_path, use_staging=True):
+def generate_python_test_ninjas_for_path(top_path, use_staging=True,
+                                         exclude=None):
   python_tests = build_common.find_all_files(
       top_path, suffixes='_test.py', include_tests=True,
-      use_staging=use_staging)
+      use_staging=use_staging, exclude=exclude)
   request_run_in_parallel(
-      *[(_generate_python_test_ninja, top_path, python_test)
+      *[(generate_python_test_ninja, top_path, python_test)
         for python_test in python_tests])
 
 

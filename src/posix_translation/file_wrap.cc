@@ -196,7 +196,7 @@ void NaClAbiStatToStat(struct nacl_abi_stat* nacl_stat, struct stat* st) {
 // Helper function for converting from stat to nacl_abi_stat.
 void StatToNaClAbiStat(struct stat* st, struct nacl_abi_stat* nacl_stat) {
   nacl_stat->nacl_abi_st_dev = st->st_dev;
-  nacl_stat->nacl_abi_st_mode= st->st_mode;
+  nacl_stat->nacl_abi_st_mode = st->st_mode;
   nacl_stat->nacl_abi_st_nlink = st->st_nlink;
   nacl_stat->nacl_abi_st_uid = st->st_uid;
   nacl_stat->nacl_abi_st_gid = st->st_gid;
@@ -279,9 +279,9 @@ int __wrap_dladdr(const void* addr, Dl_info* info) {
 int __wrap_dlclose(void* handle) {
   ARC_STRACE_ENTER("dlclose", "%p \"%s\"",
                    handle, arc::GetDlsymHandleStr(handle).c_str());
+  // Remove the handle from ARC_STRACE first. See crbug.com/461155.
+  ARC_STRACE_UNREGISTER_DSO_HANDLE(handle);
   int result = dlclose(handle);
-  if (!result)
-    ARC_STRACE_UNREGISTER_DSO_HANDLE(handle);
   // false since dlclose never sets errno.
   ARC_STRACE_RETURN_INT(result, false);
 }
@@ -644,6 +644,9 @@ IRT_WRAPPER(stat, const char* pathname, struct nacl_abi_stat* buf) {
 
 int __wrap_close(int fd) {
   ARC_STRACE_ENTER_FD("close", "%d", fd);
+  // Remove the descriptor from ARC_STRACE first. See crbug.com/461155.
+  if (fd >= 0)
+    ARC_STRACE_UNREGISTER_FD(fd);
   int result = VirtualFileSystem::GetVirtualFileSystem()->close(fd);
   if (result == -1) {
     // Closing with a bad file descriptor may be indicating a double
@@ -658,8 +661,6 @@ int __wrap_close(int fd) {
       DANGERF("Close of bad file descriptor may indicate double close");
     DANGERF("fd=%d: %s", fd, safe_strerror(errno).c_str());
   }
-  if (!result)
-    ARC_STRACE_UNREGISTER_FD(fd);
   ARC_STRACE_RETURN(result);
 }
 

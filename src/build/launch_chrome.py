@@ -672,7 +672,7 @@ def _compute_chrome_params(parsed_args):
     if platform_util.is_running_on_mac():
       print '\nWARNING: --lang is not supported in Mac.'
 
-  if (parsed_args.mode in ('atftest', 'perftest') and
+  if (parsed_args.mode == 'atftest' and
       not platform_util.is_running_on_chromeos() and
       not platform_util.is_running_on_mac()):
     # This launches ARC without creating a browser window.  We only do it for

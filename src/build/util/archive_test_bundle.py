@@ -103,6 +103,9 @@ def _parse_args():
   parser = argparse.ArgumentParser(description=description)
   parser.add_argument('-j', '--jobs', metavar='N', default=1, type=int,
                       help='Prepare N tests at once.')
+  parser.add_argument('--noninja', action='store_false',
+                      default=True, dest='run_ninja',
+                      help='Do not run ninja before archiving test bundle.')
   parser.add_argument('-o', '--output',
                       default=build_common.get_test_bundle_name(),
                       help=('The name of the test bundle to be created.'))
@@ -112,11 +115,12 @@ def _parse_args():
 if __name__ == '__main__':
   OPTIONS.parse_configure_file()
 
-  # Build arc runtime.
-  build_common.run_ninja()
-
   # Prepare all the files needed to run integration tests.
   parsed_args = _parse_args()
+  # Build arc runtime.
+  if parsed_args.run_ninja:
+    build_common.run_ninja()
+
   integration_tests_args = _get_integration_tests_args(parsed_args.jobs)
   run_integration_tests.set_test_options(integration_tests_args)
   assert run_integration_tests.prepare_suites(integration_tests_args)

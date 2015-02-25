@@ -33,6 +33,9 @@ class FdToFileStreamMap {
   bool IsKnownDescriptor(int fd);
   scoped_refptr<FileStream> GetStream(int fd);
 
+  int min_file_id() const { return min_file_id_; }
+  int max_file_id() const { return max_file_id_; }
+
  protected:
   friend class VirtualFileSystem;
 

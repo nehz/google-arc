@@ -691,7 +691,8 @@ def _generate_bionic_fundamental_test_runners(n):
         'variables': variables,
         'command': '$qemu_arm $runner $in $argv'
     }
-    build_common.store_remote_unittest_info(test_name, 1, test_info)
+    test_path = os.path.join(test_out_dir, test_name)
+    n._build_test_info(test_path, 1, test_info)
 
     result = os.path.join(test_out_dir, test_name + '.result')
     test_deps = BionicFundamentalTest.ALL_OUTPUT_BINARIES + [script_name]

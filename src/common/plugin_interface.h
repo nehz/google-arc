@@ -60,12 +60,89 @@ class RendererInterface {
   virtual void RemoveResizeObserver(ResizeObserver* observer) = 0;
 };
 
+class CompositorInterface {
+ public:
+  struct Size {
+    int width;
+    int height;
+  };
+
+  struct Rect {
+    int left;
+    int top;
+    int right;
+    int bottom;
+  };
+
+  struct Texture {
+    uint32_t target;
+    uint32_t name;
+
+    bool operator<(const Texture& rhs) const {
+      return target < rhs.target || (target == rhs.target && name < rhs.name);
+    }
+  };
+
+  struct Layer {
+    enum {
+      TYPE_TEXTURE = 1,
+      TYPE_SOLID_COLOR = 2,
+    };
+
+    // Values from Android's hardware.h
+    enum {
+      TRANSFORM_NONE = 0x00,
+      TRANSFORM_FLIP_H = 0x01,
+      TRANSFORM_FLIP_V = 0x02,
+      TRANSFORM_ROT_90 = 0x04,
+      TRANSFORM_ROT_180 = 0x03,
+      TRANSFORM_ROT_270 = 0x07,
+      TRANSFORM_RESERVED = 0x08,
+    };
+
+    uint8_t type;
+
+    union {
+      Texture texture;
+      uint32_t color;  // RGBA Packed color
+    };
+
+    Size size;
+    Rect source;
+    Rect dest;
+
+    uint8_t transform;
+    uint8_t alpha;
+    bool is_opaque;
+    bool need_flip;
+    void* context;
+
+    static uint32_t PackColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+      return (r << 24) | (g << 16) | (b << 8) | a;
+    }
+  };
+
+  struct Display {
+    Size size;
+    std::vector<Layer> layers;
+  };
+
+  struct Callbacks {
+    virtual ~Callbacks() {}
+    virtual void Invalidate() const = 0;
+    virtual void Vsync(int display, int64_t timestamp) const = 0;
+    virtual void Hotplug(int display, bool connected) const = 0;
+  };
+
+  virtual ~CompositorInterface() {}
+
+  virtual void RegisterCallbacks(const Callbacks* callbacks) = 0;
+  virtual int Set(const Display& display, std::vector<int>* fds) = 0;
+  virtual void EnableVsync(bool enabled) = 0;
+};
+
 // Opaque type of GPU context pointers.
 struct ContextGPU;
-
-namespace compositor {
-class CompositorInterface;
-}  // namespace compositor
 
 class GPURendererInterface {
  public:
@@ -80,7 +157,7 @@ class GPURendererInterface {
   virtual void WaitForSwapBuffers() = 0;
   virtual void DestroyContext(ContextGPU* context) = 0;
 
-  virtual compositor::CompositorInterface* GetCompositor() = 0;
+  virtual CompositorInterface* GetCompositor() = 0;
 };
 
 class AudioOutPollDataCallback {

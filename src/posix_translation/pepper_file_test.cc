@@ -182,11 +182,13 @@ void PepperFileTest::SetUpOpenExpectations(
         Invoke(open_callback_executor,
                &CompletionCallbackExecutor::ExecuteOnMainThread)));
   if (open_callback_executor->final_result() == PP_OK) {
-    static const PP_FileHandle kDummyNativeHandle = 100;
+    int handle = -1;
+    if (request_handle_callback_executor->final_result() == PP_OK)
+      handle = dup(0);
     EXPECT_CALL(*ppb_file_io_private_,
                 RequestOSFileHandle(kFileIOResource, _, _)).
         WillOnce(DoAll(
-          SetArgPointee<1>(kDummyNativeHandle),
+          SetArgPointee<1>(handle),
           WithArgs<2>(Invoke(
               request_handle_callback_executor,
               &CompletionCallbackExecutor::ExecuteOnMainThread)))).
@@ -555,9 +557,7 @@ TEST_BACKGROUND_F(PepperFileTest, TestFstat) {
   struct stat st;
   memset(&st, 1, sizeof(st));
   // Call fstat just to make sure it does not crash.
-  // Since fstat() is implemented by __read_fstat,
-  // it returns -1.
-  EXPECT_EQ(-1, file->fstat(&st));
+  EXPECT_EQ(0, file->fstat(&st));
 }
 
 TEST_BACKGROUND_F(PepperFileTest, TestStat) {

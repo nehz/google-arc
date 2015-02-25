@@ -578,6 +578,11 @@ def get_integration_test_list_path(module_name):
       get_integration_test_list_dir(), module_name + '.txt')
 
 
+def get_all_integration_test_lists_path():
+  return os.path.join(
+      get_integration_test_list_dir(), 'ALL_TEST_LISTS.txt')
+
+
 def get_test_output_handler(use_crash_analyzer=False):
   analyzer = ''
   # Only Bionic build can be handled by crash_analyzer.
@@ -592,20 +597,16 @@ def get_tools_dir():
   return os.path.join(OUT_DIR, 'tools')
 
 
-def get_remote_unittest_info_path(*subpath):
-  return os.path.join(get_build_dir(), 'remote_unittest_info', *subpath)
+def get_unittest_info_path(*subpath):
+  return os.path.join(get_build_dir(), 'unittest_info', *subpath)
+
+
+def get_all_unittest_info_path():
+  return get_unittest_info_path('ALL_UNITTEST_INFO.txt')
 
 
 def is_common_editor_tmp_file(filename):
   return bool(COMMON_EDITOR_TMP_FILE_REG.match(filename))
-
-
-def store_remote_unittest_info(test_name, counter, test_info):
-  filename = '%s.%d.json' % (test_name, counter)
-  test_info_path = get_remote_unittest_info_path(filename)
-  file_util.makedirs_safely(os.path.dirname(test_info_path))
-  with open(test_info_path, 'w') as f:
-    json.dump(test_info, f, indent=2, sort_keys=True)
 
 
 def use_ppapi_fpabi_shim():
@@ -613,7 +614,7 @@ def use_ppapi_fpabi_shim():
 
 
 def use_ndk_direct_execution():
-  return OPTIONS.is_arm() and not OPTIONS.enable_ndk_translation()
+  return OPTIONS.is_arm()
 
 
 def has_internal_checkout():
@@ -746,7 +747,10 @@ def _get_ninja_jobs_argument():
   # -j200 might be good because having more tasks doesn't help a
   # lot and Z620 doesn't die even if everything runs locally for
   # some reason.
-  return ['-j200', '-l40'] if OPTIONS.set_up_goma() else []
+  if OPTIONS.set_up_goma():
+    OPTIONS.wait_for_goma_ctl()
+    return ['-j200', '-l40']
+  return []
 
 
 class RunNinjaException(Exception):

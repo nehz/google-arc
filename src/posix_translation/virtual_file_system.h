@@ -262,6 +262,9 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   bool CloseLocked(int fd);
   int DupLocked(int fd, int newfd);
 
+  int GetMinFd() const;
+  int GetMaxFd() const;
+
   scoped_refptr<FileStream> GetStreamLocked(int fd);
 
   // Option to specify how to normalize a path. Public for testing.

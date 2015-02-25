@@ -84,7 +84,7 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     'third_party/ndk/sources/cxx-stl/stlport/libs/armeabi-v7a/libstlport_shared.so']  # NOQA
 _UNIT_TEST_FILE_PATTERNS = ['out/target/%(target)s/lib',
                             'out/target/%(target)s/posix_translation_fs_images',
-                            'out/target/%(target)s/remote_unittest_info']
+                            'out/target/%(target)s/unittest_info']
 
 # Dictionary to cache the result of remote host type auto detection.
 _REMOTE_HOST_TYPE_CACHE = dict()

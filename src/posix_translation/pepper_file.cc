@@ -114,6 +114,17 @@ bool IsReadWriteAllowed(const std::string& pathname, ino_t inode,
 #endif
 }
 
+void CloseHandle(PP_FileHandle native_handle) {
+  ALOG_ASSERT(native_handle >= 0);
+  const int result = real_close(native_handle);
+  if (result != 0 && errno == EBADF) {
+    ALOGE("CloseHandle() with native_handle=%d failed with EBADF. This may "
+          "indicate double close.", native_handle);
+    ALOG_ASSERT(false, "Possible double close detected: native_handle=%d",
+                native_handle);
+  }
+}
+
 }  // namespace
 
 #if defined(DEBUG_POSIX_TRANSLATION)
@@ -281,18 +292,11 @@ class PepperFileCache {
 
 class FileIOWrapper {
  public:
-  FileIOWrapper(pp::FileIO* file_io, PP_FileHandle native_handle,
-                const std::string& filename)
+  FileIOWrapper(pp::FileIO* file_io, PP_FileHandle native_handle)
       : file_io_(file_io), native_handle_(native_handle) {
-    ALOG_ASSERT(native_handle_ >= 0);
   }
   ~FileIOWrapper() {
-    if (native_handle_ != PP_kInvalidFileHandle) {
-      if (real_close(native_handle_)) {
-        ALOGW("libc_close failed: native_handle_=%d: %s",
-              native_handle_, safe_strerror(errno).c_str());
-      }
-    }
+    CloseHandle(native_handle_);
   }
 
   pp::FileIO* file_io() { return file_io_.get(); }
@@ -425,7 +429,7 @@ scoped_refptr<FileStream> PepperFileHandler::open(
   const int open_flags = ConvertNativeOpenFlagsToPepper(oflag);
   int32_t result;
   scoped_ptr<pp::FileIO_Private> file_io;
-  PP_FileHandle file_handle;
+  PP_FileHandle file_handle = PP_kInvalidFileHandle;
   {
     // TODO(crbug.com/225152): Fix 225152 and remove |unlock|.
     base::AutoUnlock unlock(sys->mutex());
@@ -435,9 +439,24 @@ scoped_refptr<FileStream> PepperFileHandler::open(
     if (result == PP_OK) {
       pp::CompletionCallbackWithOutput<pp::PassFileHandle> cb(&file_handle);
       result = file_io->RequestOSFileHandle(cb);
-      if (result != PP_OK) {
-        ALOGE("PPB_FileIO_Private::RequestOSFileHandle failed! This usually "
-              "means that your app does not have unlimitedStorage permission.");
+      if (result == PP_OK) {
+        if (file_handle >= (sys->GetMaxFd() - sys->GetMinFd() + 1)) {
+          // If this path is taken, it likely means that ARC is leaking a native
+          // file handle somewhere.
+          ALOGE("PPB_FileIO_Private::RequestOSFileHandle returned unexpected "
+                "file handle %d for pathname=\"%s\" and oflag=%d.",
+                file_handle, pathname.c_str(), oflag);
+          ALOG_ASSERT(false, "Possible native handle leak detected: handle=%d",
+                      file_handle);
+          CloseHandle(file_handle);
+          errno = EMFILE;
+          return NULL;
+        }
+      } else {
+        ALOGE("PPB_FileIO_Private::RequestOSFileHandle failed for "
+              "pathname=\"%s\" and oflag=%d with PP error %d. This usually "
+              "means that your app does not have 'unlimitedStorage' "
+              "permission.", pathname.c_str(), oflag, result);
       }
     }
   }
@@ -449,22 +468,30 @@ scoped_refptr<FileStream> PepperFileHandler::open(
 #endif
   scoped_refptr<FileStream> stream = NULL;
   if (result == PP_OK) {
+    LOG_ALWAYS_FATAL_IF(file_handle == PP_kInvalidFileHandle,
+                        "Unexpected file handle %d: %s",
+                        file_handle, pathname.c_str());
     if (oflag & O_DIRECTORY) {
+      CloseHandle(file_handle);
       errno = ENOTDIR;
       return NULL;
     }
-    stream = new PepperFile(
-        oflag, cache_.get(), pathname,
-        new FileIOWrapper(file_io.release(), file_handle, pathname));
-  } else if (result == PP_ERROR_NOTAFILE) {
-    // A directory is opened.
-    if (access_mode != O_RDONLY) {
-      errno = EISDIR;
-      return NULL;
-    }
-    stream = new DirectoryFileStream("pepper", pathname, this);
+    stream = new PepperFile(oflag, cache_.get(), pathname,
+                            new FileIOWrapper(file_io.release(), file_handle));
   } else {
-    errno = ConvertPepperErrorToErrno(result);
+    LOG_ALWAYS_FATAL_IF(file_handle != PP_kInvalidFileHandle,
+                        "Unexpected file handle %d: %s",
+                        file_handle, pathname.c_str());
+    if (result == PP_ERROR_NOTAFILE) {
+      // A directory is opened.
+      if (access_mode != O_RDONLY) {
+        errno = EISDIR;
+        return NULL;
+      }
+      stream = new DirectoryFileStream("pepper", pathname, this);
+    } else {
+      errno = ConvertPepperErrorToErrno(result);
+    }
   }
 
   return stream;

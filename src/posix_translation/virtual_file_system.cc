@@ -801,6 +801,14 @@ int VirtualFileSystem::DupLocked(int fd, int newfd) {
   return newfd;
 }
 
+int VirtualFileSystem::GetMinFd() const {
+  return fd_to_stream_->min_file_id();
+}
+
+int VirtualFileSystem::GetMaxFd() const {
+  return fd_to_stream_->max_file_id();
+}
+
 scoped_refptr<FileStream> VirtualFileSystem::GetStreamLocked(int fd) {
   mutex_.AssertAcquired();
   return fd_to_stream_->GetStream(fd);
