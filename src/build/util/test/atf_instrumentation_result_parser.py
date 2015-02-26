@@ -36,6 +36,7 @@ class AtfInstrumentationResultParser(object):
   _OK = 0
   _ERROR = -1
   _FAILURE = -2
+  _FAILURE_2 = -3  # TODO(lpique): Find out which test is returning -3
 
   # Map from ATF test status code to TestMethodResult code.
   _METHOD_RESULT_MAP = {
@@ -43,6 +44,7 @@ class AtfInstrumentationResultParser(object):
       _OK: TestMethodResult.PASS,
       _ERROR: TestMethodResult.FAIL,
       _FAILURE: TestMethodResult.FAIL,
+      _FAILURE_2: TestMethodResult.FAIL,
   }
 
   # RESULT_CODE which instrumentation returns. See Activity.java.

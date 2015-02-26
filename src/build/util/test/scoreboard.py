@@ -295,7 +295,7 @@ class Scoreboard:
       return EXPECT_PASS
 
   def _register_test(self, name):
-    if not name in self._expectations:
+    if name not in self._expectations:
       self._expectations[name] = self._SHOULD_PASS
       self._set_result(name, INCOMPLETE)
 

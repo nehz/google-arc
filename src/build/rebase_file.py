@@ -61,9 +61,9 @@ def _get_tag_hash(tag, repo):
 
 def main():
   progname = os.path.basename(sys.argv[0])
-  parser = argparse.ArgumentParser(formatter_class=
-                                   argparse.RawTextHelpFormatter, description=
-                                   """
+  parser = argparse.ArgumentParser(
+      formatter_class=argparse.RawTextHelpFormatter,
+      description="""
 The tool will "git mv" the file to the new location and then rebase it.
 The corresponding third_party base has to be already updated to the new label.
 

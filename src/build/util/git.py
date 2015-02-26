@@ -88,7 +88,7 @@ class GitIgnoreChecker():
   def _get_process(self, cwd):
     if cwd is None:
       cwd = os.getcwd()
-    if not cwd in self._processes:
+    if cwd not in self._processes:
       self._processes[cwd] = subprocess.Popen(
           ['git', 'check-ignore', '-v', '-n', '--stdin'],
           stdout=subprocess.PIPE,

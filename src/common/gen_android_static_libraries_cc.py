@@ -57,7 +57,7 @@ def main():
   libs.append('libGLESv2')
   libs.append('libGLESv2_emulation')
 
-  libs_string_literals = ['  "%s",' % lib for lib in libs]
+  libs_string_literals = ['  "%s",' % libname for libname in libs]
 
   sys.stdout.write(_ANDROID_STATIC_LIBRARIES_TEMPLATE.substitute({
       'ANDROID_STATIC_LIBRARIES': '\n'.join(libs_string_literals)

@@ -47,12 +47,12 @@ def main():
   for i in xrange(len(trace)):
     entry = trace[i]
     if entry['cat'] == 'ARC' and entry['name'] == 'EventLogTag':
-      if not 'args' in entry or not 'tag' in entry['args']:
+      if 'args' not in entry or 'tag' not in entry['args']:
         entry['name'] = 'Poorly formatted EventLogTag'
         print 'Invalid eventlogtag: %s' % entry
       else:
         number = entry['args']['tag']
-        if not number in logtags:
+        if number not in logtags:
           entry['name'] = 'Unknown EventLogTag'
           print 'Unknown eventlogtag: %s' % entry
         else:

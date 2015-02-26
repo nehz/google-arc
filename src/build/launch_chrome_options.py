@@ -297,9 +297,10 @@ Native Client Debugging
                       help='Add additional metadata to the crx.')
 
   parser.add_argument('--arc-strace-output', metavar='<file>',
-                      default='out/arc_strace.txt', help='Output file for '
-                      '--enable-arc-strace (default: out/arc_strace.txt). '
-                      'Use \'stderr\' to send results to stderr.')
+                      default='out/arc_strace.txt',
+                      help='Output file for --enable-arc-strace (default: '
+                      'out/arc_strace.txt). Use \'stderr\' to send results to '
+                      'stderr.')
 
   parser.add_argument('--atf-gtest-filter',
                       help='A \':\' separated list of googletest test filters '
@@ -372,8 +373,8 @@ Native Client Debugging
                       help='Enable a fake video source for testing')
 
   parser.add_argument('--disable-gl-fixed-attribs', action='store_true',
-                      default=None, help='Disable support for GL_FIXED '
-                      'attributes.')
+                      default=None,
+                      help='Disable support for GL_FIXED attributes.')
 
   parser.add_argument('--enable-nacl-list-mappings', action='store_true',
                       help='Enable the nacl_list_mappings call.')
@@ -387,8 +388,7 @@ Native Client Debugging
                       help='Synthesize touch events from mouse clicks and '
                       'drags.')
 
-  parser.add_argument('--enable-osmesa', action='store_true',
-                      default=None,
+  parser.add_argument('--enable-osmesa', action='store_true', default=None,
                       help='Enable GL emulation with OSMesa.')
 
   parser.add_argument('--form-factor', '-f', choices=_ALLOWED_FORMFACTORS,
@@ -396,27 +396,28 @@ Native Client Debugging
                       help='Set desired form factor in manifest.')
 
   parser.add_argument('--gdb', metavar='<targets>', default=[],
-                      type=_parse_gdb_targets, help='A comma-seperated list of '
-                      'targets to debug. Possible values include: plugin, gpu, '
-                      'browser, renderer.')
+                      type=_parse_gdb_targets,
+                      help='A comma-seperated list of targets to debug. '
+                      'Possible values include: plugin, gpu, browser, '
+                      'renderer.')
 
-  parser.add_argument('--gdb-type', choices=('xterm', 'wait', 'screen',
-                                             'emacsclient'),
-                      default='xterm', help='Specifies how GDB is launched. '
-                      'By default, it is launched under GDB. If you specify '
-                      '"wait", the plugin will not run until you attach GDB '
-                      'by yourself. Currently "wait" is supported only for '
-                      'NaCl plugins.')
+  parser.add_argument('--gdb-type',
+                      choices=('xterm', 'wait', 'screen', 'emacsclient'),
+                      default='xterm',
+                      help='Specifies how GDB is launched. By default, it is '
+                      'launched under GDB. If you specify "wait", the plugin '
+                      'will not run until you attach GDB by yourself. '
+                      'Currently "wait" is supported only for NaCl plugins.')
 
   parser.add_argument('--iteration-lock-file', metavar='<path>',
                       help='If a filename is specified, launch_chrome.py '
                       'touches a file and waits for it to be removed before '
                       'every perftest iteration.')
 
-  parser.add_argument('--iterations', type=int, metavar='<N>', help='Works '
-                      'with perftest command only.  Starts the plugin page <N> '
-                      'times and prints average stats.  Starts counting after '
-                      'warmup iterations.')
+  parser.add_argument('--iterations', type=int, metavar='<N>',
+                      help='Works with perftest command only.  Starts the '
+                      'plugin page <N> times and prints average stats. '
+                      'Starts counting after warmup iterations.')
 
   parser.add_argument('--javatracestartup', type=int, metavar='<N>',
                       help='Start the Java VM with '
@@ -424,9 +425,10 @@ Native Client Debugging
                       'for the first <N> seconds.')
 
   parser.add_argument('--jdb', dest='jdb_port', action='store_const',
-                      default=None, const=8000, help='Wait for a '
-                      'JDWP compliant debugger (such as jdb or Eclipse) to '
-                      'connect.  Once the user resumes, booting will resume.')
+                      default=None, const=8000,
+                      help='Wait for a JDWP compliant debugger (such as jdb '
+                      'or Eclipse) to connect. Once the user resumes, '
+                      'booting will resume.')
 
   parser.add_argument('--jdb-type', dest='jdb_type',
                       choices=('eclipse', 'emacsclient', 'none'),
@@ -440,31 +442,32 @@ Native Client Debugging
                       'Implies --jdb.')
 
   parser.add_argument('--jdb-port', dest='jdb_port', metavar='<port>',
-                      type=int, default=8000, help='Port to use for the JDWP '
-                      'debugger. The default is 8000. Implies --jdb.')
+                      type=int, default=8000,
+                      help='Port to use for the JDWP debugger. The default is '
+                      '8000. Implies --jdb.')
 
-  parser.add_argument('--logcat', dest='logcat',
-                      metavar='[filterspecs]', type=str, nargs='+',
-                      default=None, help='Execute adb logcat with given '
-                      'filtersepcs.')
+  parser.add_argument('--logcat', dest='logcat', metavar='[filterspecs]',
+                      type=str, nargs='+', default=None,
+                      help='Execute adb logcat with given filtersepcs.')
 
   parser.add_argument('--log-load-progress', action='store_true', default=None,
                       help='Log asset and class accesses')
 
-  parser.add_argument('--minimum-lifetime', type=int, default=0,
-                      metavar='<T>', help='Works with perftest only. '
-                      'Specifies timeout after onResume.')
+  parser.add_argument('--minimum-lifetime', type=int, default=0, metavar='<T>',
+                      help='Works with perftest only. Specifies timeout after '
+                      'onResume.')
 
-  parser.add_argument('--minimum-steady', type=int, default=0,
-                      metavar='<T>', help='Works with perftest only. '
-                      'After onResume, the script waits until either no logs '
-                      'are output for the time specified by this flag or '
-                      '--timeout seconds have passed after onResume.')
+  parser.add_argument('--minimum-steady', type=int, default=0, metavar='<T>',
+                      help='Works with perftest only. After onResume, the '
+                      'script waits until either no logs are output for the '
+                      'time specified by this flag or --timeout seconds have '
+                      'passed after onResume.')
 
   parser.add_argument('--minimum-launch-delay', type=int, default=None,
-                      metavar='<T>', help='Specifies delay in milliseconds for '
-                      'launching the app. If set, chrome.app.runtime.onLaunched'
-                      ' handler does not create a window for the app until the '
+                      metavar='<T>',
+                      help='Specifies delay in milliseconds for launching the '
+                      'app. If set, chrome.app.runtime.onLaunched handler '
+                      'does not create a window for the app until the '
                       'specified time passes.')
 
   parser.add_argument('--nacl-helper-binary', metavar='<path>',
@@ -475,9 +478,9 @@ Native Client Debugging
                       'nacl_helper may not be available.')
 
   parser.add_argument('--ndk-abi', metavar='<armeabi-v7a/armeabi>',
-                      choices=_ALLOWED_NDK_ABIS, help='Set ABI for NDK '
-                      'libraries. By default we search for armeabi-v7a library '
-                      'and fall back to armeabi.')
+                      choices=_ALLOWED_NDK_ABIS,
+                      help='Set ABI for NDK libraries. By default we search '
+                      'for armeabi-v7a library and fall back to armeabi.')
 
   parser.add_argument('--nocrxbuild', dest='build_crx', action='store_false',
                       help='Do not to rebuild the crx - just use what is '
@@ -488,26 +491,27 @@ Native Client Debugging
                       'command.')
 
   parser.add_argument('--obb-main', type=str, default=None, metavar='<path>',
-                      help=('The main expansion file, e.g. '
-                            'main.123.com.example.app.obb.'))
+                      help='The main expansion file, e.g. '
+                      'main.123.com.example.app.obb.')
 
   parser.add_argument('--obb-patch', type=str, default=None, metavar='<path>',
-                      help=('The patch expansion file, e.g. '
-                            'patch.123.com.example.app.obb.'))
+                      help='The patch expansion file, e.g. '
+                      'patch.123.com.example.app.obb.')
 
   parser.add_argument('--orientation', '-o', choices=_ALLOWED_ORIENTATIONS,
                       type=_parse_orientation,
                       help='Set desired orientation in manifest.')
 
   parser.add_argument('--output-timeout', type=int, default=None,
-                      metavar='<T>', help='Works with atftest, system and '
-                      'perftest commands only.  Specifies the timeout in '
-                      'seconds for requiring some amount of output from the '
-                      'running test. The default is no output timeout.')
+                      metavar='<T>',
+                      help='Works with atftest, system and perftest commands '
+                      'only.  Specifies the timeout in seconds for requiring '
+                      'some amount of output from the running test. The '
+                      'default is no output timeout.')
 
-  parser.add_argument('--perfstartup', type=int, metavar='<N>', help='Launch '
-                      'with perf and collect data for the first <N> seconds. '
-                      'Plugin will be killed after this timeout.')
+  parser.add_argument('--perfstartup', type=int, metavar='<N>',
+                      help='Launch with perf and collect data for the first '
+                      '<N> seconds. Plugin will be killed after this timeout.')
 
   parser.add_argument('--lang', help='Set language for the Chrome')
 
@@ -516,20 +520,23 @@ Native Client Debugging
 
   # TODO(crbug.com/254164): Get rid of the fake ATF test concept used
   # by NDK tests currently.
-  parser.add_argument('--run-test-as-app', action='store_true', help=
-                      'Runs a test as an application and not as '
+  parser.add_argument('--run-test-as-app', action='store_true',
+                      help='Runs a test as an application and not as '
                       'instrumentation.')
 
-  parser.add_argument('--run-test-classes', metavar='<classes>', help=
-                      'Used by atftest to specify which test classes to run.')
+  parser.add_argument('--run-test-classes', metavar='<classes>',
+                      help='Used by atftest to specify which test classes to '
+                      'run.')
 
-  parser.add_argument('--run-test-packages', metavar='<packages>', help=
-                      'Used by atftest to specify which test packages to run.')
+  parser.add_argument('--run-test-packages', metavar='<packages>',
+                      help='Used by atftest to specify which test packages to '
+                      'run.')
 
   parser.add_argument('--stderr-log', choices=_ALLOWED_STDERR_LOGS,
-                      default=None, help='Minimum console log priority. In '
-                      'order of most to least output: Verbose, Debug, Info, '
-                      'Warning, Error, Fatal, Silent. Defaults to warning.')
+                      default=None,
+                      help='Minimum console log priority. In order of most to '
+                      'least output: Verbose, Debug, Info, Warning, Error, '
+                      'Fatal, Silent. Defaults to warning.')
 
   parser.add_argument('--silent', '-s', action='store_true',
                       help='Sets the default filter spec to silent.')
@@ -539,20 +546,20 @@ Native Client Debugging
                       'tests.')
 
   parser.add_argument('--timeout', type=int, default=_DEFAULT_TIMEOUT,
-                      metavar='<T>', help='Works with atftest, system and '
-                      'perftest commands only.  Specifies timeout for running '
-                      'test in seconds. Default is ' + str(_DEFAULT_TIMEOUT) +
-                      ' sec.')
+                      metavar='<T>',
+                      help='Works with atftest, system and perftest commands '
+                      'only.  Specifies timeout for running test in seconds. '
+                      'Default is ' + str(_DEFAULT_TIMEOUT) + ' sec.')
 
   parser.add_argument('--disable-sleep-on-blur', action='store_false',
                       default=None, dest='sleep_on_blur',
-                      help='Track app window focus and stop updating screen if '
-                      'the app is not focused.')
+                      help='Track app window focus and stop updating screen '
+                      'if the app is not focused.')
 
-  parser.add_argument('--tracestartup', type=int, metavar='<N>', help='Trace '
-                      'from browser startup (the first <N> seconds) to collect '
-                      'data for chrome://tracing. Output file is '
-                      'chrometrace.log.')
+  parser.add_argument('--tracestartup', type=int, metavar='<N>',
+                      help='Trace from browser startup (the first <N> '
+                      'seconds) to collect data for chrome://tracing. Output '
+                      'file is chrometrace.log.')
 
   parser.add_argument('--use-temporary-data-dirs', action='store_true',
                       help='Use a temporary directory as the user data '

@@ -42,7 +42,7 @@ class LoadHandlerBreakpoint(gdb.Breakpoint):
   def _get_binary_path_from_link_map(self):
     name = gdb.execute('p %s' % self._name_expr, to_string=True)
     # This will be like: $5 = 0x357bc "libc.so"
-    matched = re.match(r'.*"(.*)"', name)
+    matched = re.search(r'^.*"(.*)"', name, re.M)
     if not matched:
       print('Failed to retrieve the name of the shared object: %s' % name)
       return None
@@ -72,7 +72,7 @@ class LoadHandlerBreakpoint(gdb.Breakpoint):
   def _get_text_section_address_from_link_map(self, path):
     base_addr_line = gdb.execute('p %s' % self._addr_expr, to_string=True)
     # This will be like: $3 = 4148191232
-    matched = re.match(r'.* = (\d+)', base_addr_line)
+    matched = re.search(r'^.* = (\d+)', base_addr_line, re.M)
     if not matched:
       print('Failed to retrieve the address of the shared object: %s' %
             base_addr_line)

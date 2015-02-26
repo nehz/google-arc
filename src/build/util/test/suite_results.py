@@ -360,7 +360,7 @@ class SuiteResultsBase(object):
     writer.write(mode, '[%s:%s]' % (status_map[status], elapsed_time))
 
   def _write_count(self, writer, terse, status):
-    if not status in self._counters:
+    if status not in self._counters:
       return 0
     status_map = _TERSE_STATUS if terse else _STATUS_STRING
     text = ' %d %s ' % (self._counters[status], status_map[status])
@@ -411,7 +411,10 @@ class SuiteResultsBase(object):
     unexpected_failures = []
     for suite_state in self._suite_states:
       sb = suite_state.scoreboard
-      prepend_suite_name = lambda test: '%s:%s' % (sb.name, test)
+
+      def prepend_suite_name(test):
+        return '%s:%s' % (sb.name, test)
+
       incomplete.extend(
           map(prepend_suite_name, sb.get_incomplete_tests()))
       unexpected_passes.extend(

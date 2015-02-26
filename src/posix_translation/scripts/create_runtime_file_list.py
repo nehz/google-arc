@@ -85,8 +85,8 @@ def _generate_runtime_file_list(input_filenames, src_dir, dest_dir,
 
 def main(args):
   parser = argparse.ArgumentParser()
-  parser.add_argument('-o', '--output', metavar='FILE', required=True, help=
-                      'Write the output to filename.')
+  parser.add_argument('-o', '--output', metavar='FILE', required=True,
+                      help='Write the output to filename.')
   parser.add_argument('-s', '--src-dir', metavar='SRC_DIR', required=True,
                       help='A directory name to be replaced with --dest-dir.')
   parser.add_argument('-d', '--dest-dir', metavar='DEST_DIR', required=True,
@@ -94,10 +94,10 @@ def main(args):
   parser.add_argument('-n', '--namespace', metavar='NAMESPACE', required=True,
                       help='A namespace for the generated file.')
   parser.add_argument('-v', '--variable-name', metavar='VARIABLE_NAME',
-                      required=True, help='A variable name for the generated'
-                      ' file.')
-  parser.add_argument(dest='input', metavar='INPUT', nargs='+', help='Input '
-                      'file(s) to process.')
+                      required=True,
+                      help='A variable name for the generated file.')
+  parser.add_argument(dest='input', metavar='INPUT', nargs='+',
+                      help='Input file(s) to process.')
   args = parser.parse_args()
 
   _generate_runtime_file_list(args.input, args.src_dir, args.dest_dir,

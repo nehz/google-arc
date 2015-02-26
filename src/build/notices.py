@@ -96,7 +96,7 @@ class Notices(object):
         license_root = self._find_parent_file(os.path.dirname(f),
                                               'MODULE_LICENSE_*')
       if license_root:
-        if not license_root in self._license_roots:
+        if license_root not in self._license_roots:
           self._license_roots.add(license_root)
           self._license_roots_examples[license_root] = f
 
@@ -134,7 +134,7 @@ class Notices(object):
 
   @staticmethod
   def get_license_kind(path):
-    if not path in Notices._license_kinds:
+    if path not in Notices._license_kinds:
       license_filenames = glob.glob(os.path.join(path, 'MODULE_LICENSE_*'))
       most_restrictive = None
       for license_filename in license_filenames:

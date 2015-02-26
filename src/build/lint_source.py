@@ -227,22 +227,19 @@ class PyLinter(CommandLineLinterBase):
   """Linter for python."""
 
   _DISABLED_LINT_LIST = [
+      # In ARC, we use two space indent rule, instead of four.
       'E111',  # indentation is not a multiple of four
       'E114',  # indentation is not a multiple of four (comment)
-      'E115',  # expected an indented block (comment)
-      'E116',  # unexpected indentation (comment)
-      'E121',  # continuation line under-indented for hanging indent
-      'E122',  # continuation line missing indentation or outdented
+
+      # In if-statement's condition, we align multi-line conditions to the
+      # beginning of open paren at the first line.
       'E125',  # continuation line with same indent as next logical line
       'E129',  # visually indented line with same indent as next logical line
-      'E251',  # unexpected spaces around keyword / parameter equals
-      'E265',  # block comment should start with '# '
+
+      # TODO(crbug.com/298621): The common case is "import some module after
+      # sys.path modification". Currently it cannot be easily removed.
+      # As a part of src/build reorganization effort, it can be reduced.
       'E402',  # module level import not at top of file
-      'E713',  # test for membership should be 'not in'
-      'E714',  # test for object identity should be 'is not'
-      'E731',  # do not assign a lambda expression, use a def
-      'W602',  # deprecated form of raising exception
-      'W801',  # list comprehension redefines 'lib' from line 49
   ]
 
   def __init__(self):
@@ -268,14 +265,20 @@ class TestConfigLinter(CommandLineLinterBase):
       'OPTIONS',
   ]
 
+  # These are not the test config files.
+  _META_FILE_LIST = ['OPEN_SOURCE', 'OWNERS']
+
   def __init__(self):
-    super(TestConfigLinter, self).__init__(
-        'testconfig', target_groups=[_GROUP_PY])
+    super(TestConfigLinter, self).__init__('testconfig')
 
   def should_run(self, path):
-    return path.startswith('src/integration_tests/expectations')
+    return (path.startswith('src/integration_tests/expectations/') and
+            os.path.basename(path) not in TestConfigLinter._META_FILE_LIST)
 
   def _build_command(self, path):
+    # E501: line too long.
+    # We do not limit the line length, considering some test names are very
+    # long.
     return ['src/build/flake8', '--ignore=E501', path]
 
   def _build_env(self):
@@ -502,7 +505,8 @@ def _process_analyze_diffs_output(output_dir):
 
 def _walk(path):
   """List all files under |path|, including subdirectories."""
-  return build_common.find_all_files(path, include_tests=True)
+  return build_common.find_all_files(
+      path, use_staging=False, include_tests=True)
 
 
 def _should_ignore(filename):

@@ -283,19 +283,20 @@ class _Options(object):
         epilog=_Options._help_epilog(),
         formatter_class=argparse.RawTextHelpFormatter)
 
-    parser.add_argument('--cc-wrapper', metavar='[cc-wrapper]', help='Compiler '
-                        'wrapper used by goma')
+    parser.add_argument('--cc-wrapper', metavar='[cc-wrapper]',
+                        help='Compiler wrapper used by goma')
 
     parser.add_argument('--chrometype', '-c', choices=_ALLOWED_CHROMETYPES,
                         default=_DEFAULT_CHROMETYPE,
-                        type=_Options._parse_chrometype, help='Indicates '
-                        'Chrome type.')
+                        type=_Options._parse_chrometype,
+                        help='Indicates Chrome type.')
 
     parser.add_argument('--configure-jobs', '-j', default=None, type=int,
-                        metavar='jobs', help='Max number of parellel jobs '
-                        'run during configure.  Defaults to number of CPUs. '
-                        'Set to 0 to force configure to run in a single '
-                        'process which can aid in diagnosing failures.')
+                        metavar='jobs',
+                        help='Max number of parellel jobs run during '
+                        'configure.  Defaults to number of CPUs. Set to 0 to '
+                        'force configure to run in a single process which can '
+                        'aid in diagnosing failures.')
 
     parser.add_argument('--disable-debug-info', action='store_true',
                         help='Do not generate debug information. ')
@@ -306,9 +307,9 @@ class _Options(object):
     parser.add_argument('--disable-goma', action='store_true',
                         help='Do not use goma to build.')
 
-    parser.add_argument('--disable-hwui', action='store_true', help='Disable '
-                        'the use of hardware accelerated rendering in the '
-                        'Android UI code.')
+    parser.add_argument('--disable-hwui', action='store_true',
+                        help='Disable the use of hardware accelerated '
+                        'rendering in the Android UI code.')
 
     parser.add_argument('--enable-aacenc', action='store_true',
                         help='Build libraries to support AAC encoding.')
@@ -316,21 +317,21 @@ class _Options(object):
     parser.add_argument('--enable-art', action='store_true',
                         help='Build libraries to support ART runtime.')
 
-    parser.add_argument('--enable-atrace', action='store_true', help='Enable '
-                        'Android trace events through Chromium')
+    parser.add_argument('--enable-atrace', action='store_true',
+                        help='Enable Android trace events through Chromium')
 
-    parser.add_argument('--enable-binder', action='store_true', help='Enable '
-                        'Binder calls for all services.')
+    parser.add_argument('--enable-binder', action='store_true',
+                        help='Enable Binder calls for all services.')
 
-    parser.add_argument('--enable-dalvik-jit', action='store_true', help='Run '
-                        'Dalvik VM with JIT mode enabled.')
+    parser.add_argument('--enable-dalvik-jit', action='store_true',
+                        help='Run Dalvik VM with JIT mode enabled.')
 
-    parser.add_argument('--enable-touch-overlay', action='store_true', help=
-                        '[EXPERIMENTAL]  Overlay touch spots on the screen in '
-                        'the plugin after the app renders.')
+    parser.add_argument('--enable-touch-overlay', action='store_true',
+                        help='[EXPERIMENTAL]  Overlay touch spots on the '
+                        'screen in the plugin after the app renders.')
 
-    parser.add_argument('--enable-valgrind', action='store_true', help='Run '
-                        'unit tests under Valgrind.')
+    parser.add_argument('--enable-valgrind', action='store_true',
+                        help='Run unit tests under Valgrind.')
 
     parser.add_argument('--enable-config-cache', action='store_true',
                         help='[EXPERIMENTAL]  Cache configuration result and'
@@ -340,23 +341,25 @@ class _Options(object):
 
     parser.add_argument('--java-dir',
                         default='/usr/lib/jvm/java-6-openjdk-amd64',
-                        help='The directory for Java. The path '
-                        'points to a directory, which usually JAVA_HOME env '
-                        'variable points to. E.g. '
-                        '/usr/lib/jvm/java-6-openjdk-amd64 for Ubuntu.')
+                        help='The directory for Java. The path points to a '
+                        'directory, which usually JAVA_HOME env variable '
+                        'points to. E.g. /usr/lib/jvm/java-6-openjdk-amd64 '
+                        'for Ubuntu.')
 
-    parser.add_argument('--logging', metavar=str(_ALLOWED_LOGGING), help='A '
-                        'comma-separated list of logging to enable on build.')
+    parser.add_argument('--logging', metavar=str(_ALLOWED_LOGGING),
+                        help='A comma-separated list of logging to enable on '
+                        'build.')
 
     parser.add_argument('--notest', action='store_false', dest='run_tests',
                         help='Disable automatic running of unit tests during '
                         'build.')
 
-    parser.add_argument('--official-build', action='store_true', help='Set '
-                        'configure options for an official Runtime build.')
+    parser.add_argument('--official-build', action='store_true',
+                        help='Set configure options for an official Runtime '
+                        'build.')
 
-    parser.add_argument('--opt', '-O', action='store_true', help='Enable '
-                        'optimizations.')
+    parser.add_argument('--opt', '-O', action='store_true',
+                        help='Enable optimizations.')
 
     parser.add_argument('--internal-apks-source',
                         choices=_ALLOWED_INTERNAL_APKS_SOURCES,
@@ -365,37 +368,40 @@ class _Options(object):
                         'GoogleContactsSyncAdapter APKs. \'prebuilt\' is the '
                         'default and it requires production server access.')
 
-    parser.add_argument('--regen-build-prop', action='store_true', help=
-                        'Forces regeneration of the build.prop file which '
-                        'contains git HEAD information for release purposes.  '
-                        'Pass this option to make sure the file '
-                        'is up to date.  Note: requires rebuilding the rootfs.')
+    parser.add_argument('--regen-build-prop', action='store_true',
+                        help='Forces regeneration of the build.prop file '
+                        'which contains git HEAD information for release '
+                        'purposes.  Pass this option to make sure the file is '
+                        'up to date.  Note: requires rebuilding the rootfs.')
 
-    parser.add_argument('--restart-goma', action='store_true', help=
-                        'Restart goma. This is mainly for buildbots.')
+    parser.add_argument('--restart-goma', action='store_true',
+                        help='Restart goma. This is mainly for buildbots.')
 
     parser.add_argument('--show-warnings', metavar=str(_ALLOWED_WARNING_LEVEL),
-                        default='no', help='By default, most of third_party '
-                        'code is compiled with -w (ignore all wanings). This '
-                        'option removes the compiler flag.')
+                        default='no',
+                        help='By default, most of third_party code is '
+                        'compiled with -w (ignore all wanings). This option '
+                        'removes the compiler flag.')
 
     parser.add_argument('--strip-runtime-binaries', action='store_true',
                         help='Strip binaries in ARC. Files in '
                         'out/target/<target>/lib will not be stripped. '
                         'This is useful for remote debugging.')
 
-    parser.add_argument('--system-packages', help='A comma-separated list of '
-                        'APK files that should be added as system apps.')
+    parser.add_argument('--system-packages',
+                        help='A comma-separated list of APK files that should '
+                        'be added as system apps.')
 
-    parser.add_argument('--target', '-t', choices=ALLOWED_TARGETS, default=
-                        _DEFAULT_TARGET, type=_Options._parse_target,
+    parser.add_argument('--target', '-t', choices=ALLOWED_TARGETS,
+                        default=_DEFAULT_TARGET, type=_Options._parse_target,
                         help='Target type to build')
 
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='Show verbose messages while configure runs.')
 
-    parser.add_argument('--weird', action='store_true', help='Automatically '
-                        'sets configuration values used by the weird builder.')
+    parser.add_argument('--weird', action='store_true',
+                        help='Automatically sets configuration values used by '
+                        'the weird builder.')
 
     args = parser.parse_args(args)
     args = self._apply_args(args)

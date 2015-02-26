@@ -360,9 +360,11 @@ class NinjaGenerator(ninja_syntax.Writer):
             'touch $out'),
            description='verify_disallowed_symbols $out')
     # $command must create $out on success.
+    # restat=True, so that Ninja record the mtime of the target to prevent
+    # rerunning the command in the next Ninja invocation.
     n.rule('run_shell_command',
            command='$command || (rm $out; exit 1)',
-           description='execute $command')
+           description='execute $command', restat=True)
 
     # Rule to make the list of inputs.
     n.rule('make_list',

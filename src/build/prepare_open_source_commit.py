@@ -122,12 +122,12 @@ def _find_sync_set(src, src_submodules_paths):
     # Prune all submodules, we assume they will all be open sourced but not
     # by copying files, but checking out the same revision.
     subdirs[:] = [s for s in subdirs
-                  if not os.path.join(src_dir, s) in src_submodules_paths]
+                  if os.path.join(src_dir, s) not in src_submodules_paths]
     # Prune any subdirectory matching gitignores, like out.
     subdirs[:] = [s for s in subdirs
                   if not _is_ignorable(os.path.join(src_dir, s), True, cwd=src)]
     basenames = subdirs + filenames
-    if not open_source.METADATA_FILE in filenames:
+    if open_source.METADATA_FILE not in filenames:
       # The default (without a new OPEN_SOURCE metdata file) open sourcing of
       # directory is the status of the open sourcing of its parent directory.
       all_included = src_dir in sync_set
@@ -186,7 +186,7 @@ def _purge_non_synced_ignored_files(dest, src, sync_set, submodule_paths):
       file_path = os.path.normpath(os.path.join(rel_dest_dir, f))
       if _is_ignorable(file_path, False, cwd=src):
         continue
-      if not file_path in sync_set:
+      if file_path not in sync_set:
         # avoid painful bugs where we delete the git repository.
         assert not file_path.startswith('.git/')
         logging.warning('Removing untracked file %s' % file_path)

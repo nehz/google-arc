@@ -18,7 +18,7 @@ def _list_files(base_path):
   for root, dirs, files in os.walk(base_path):
     root = os.path.relpath(root, base_path)
     for one_file in files:
-      if not one_file in _SKIP_FILES:
+      if one_file not in _SKIP_FILES:
         result.append(os.path.join(root, one_file))
   return result
 

@@ -291,7 +291,7 @@ class SystemMode:
     except BaseException as e:
       self._logs.add_to_adb_log('run_subprocess failed: ' +
                                 traceback.format_exc())
-      if hasattr(e, 'output') and not e.output is None:
+      if hasattr(e, 'output') and e.output is not None:
         self._logs.add_to_adb_log(e.output)
       raise
 

@@ -62,6 +62,7 @@ void StraceEnter(const char* name, const char* format, ...) ATTR_PRINTF(2, 3);
 void StraceEnterFD(const char* name, const char* format, ...)
     ATTR_PRINTF(2, 3);
 void StraceReportHandler(const char* handler_name);
+void StraceReportCrash();
 void StraceReport(const char* format, ...) ATTR_PRINTF(1, 2);
 void StraceReturn(ssize_t retval);
 void StraceReturnPtr(void* retval, bool needs_strerror);
@@ -165,6 +166,15 @@ int64_t GetMedian(std::vector<int64_t>* samples);
 # define ARC_STRACE_REPORT_PP_ERROR(err) do {                         \
     if (arc::StraceEnabled() && err)                                  \
       ARC_STRACE_REPORT("%s", arc::GetPPErrorStr(err).c_str());       \
+  } while (0)
+
+// ARC_STRACE_REPORT_CRASH()
+//
+// Record the thread number that crashed. This macro never calls
+// malloc which might not always be safe to call after crash.
+# define ARC_STRACE_REPORT_CRASH() do {                               \
+    if (arc::StraceEnabled())                                         \
+      arc::StraceReportCrash();                                       \
   } while (0)
 
 // ARC_STRACE_RETURN(ssize_t retval)

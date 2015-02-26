@@ -68,6 +68,7 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     'out/target/common/obj/APPS/perf_tests_codec_intermediates/perf_tests_codec.apk',  # NOQA
     'out/target/common/obj/JAVA_LIBRARIES/uiautomator.*/javalib.jar',
     'out/target/common/vmHostTests',
+    'out/third_party_apks/*',
     'out/tools/apk_to_crx.py',
     'run_integration_tests',
     'src/integration_tests',

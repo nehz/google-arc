@@ -41,6 +41,7 @@
 
 #include "base/basictypes.h"
 #include "base/safe_strerror_posix.h"
+#include "base/strings/safe_sprintf.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/synchronization/lock.h"
@@ -51,19 +52,18 @@
 #include "common/thread_priorities.h"
 #include "ppapi/c/pp_errors.h"
 
-#undef LOG_TAG
-#define LOG_TAG "arc_strace"
+#define LOG_PREFIX "[[arc_strace]]: "
 
 #define STRACE_STATS_LOG(fmt, ...) \
   STRACE_LOG("%5d ! STATS " fmt, g_thread_id_manager->Get(), __VA_ARGS__)
 
 #define STRACE_LOG(fmt, ...) \
   arc::WriteLog( \
-      base::StringPrintf("[[arc_strace]]: " fmt "\n", __VA_ARGS__))
+      base::StringPrintf(LOG_PREFIX fmt "\n", __VA_ARGS__))
 
 #define STRACE_WARN(fmt, ...) \
   arc::WriteLog(base::StringPrintf( \
-      "[[arc_strace]]: [WARN] " fmt "\n", __VA_ARGS__))
+      LOG_PREFIX "[WARN] " fmt "\n", __VA_ARGS__))
 
 namespace arc {
 
@@ -188,6 +188,16 @@ class ArcStrace {
     // Always overwrite the current one with |handler_name|.
     call_stack->top().handler = handler_name;
     ARC_STRACE_REPORT("handler=%s", handler_name);
+  }
+
+  void ReportCrash() {
+    // TODO(crbug.com/352712): Consolidate ReportCrash and Report once the
+    // bug is fixed.
+    ThreadID tid = g_thread_id_manager->Get();
+    char buf[256];
+    base::strings::SafeSPrintf(buf, LOG_PREFIX "%s%5d ! ARC crashed\n",
+                               g_plugin_type_prefix, tid);
+    arc::WriteLog(buf);
   }
 
   void Report(const char* format, va_list ap) {
@@ -588,6 +598,11 @@ void StraceEnterFD(const char* name, const char* format, ...) {
 void StraceReportHandler(const char* handler_name) {
   ALOG_ASSERT(g_arc_strace);
   g_arc_strace->ReportHandler(handler_name);
+}
+
+void StraceReportCrash() {
+  // Calling ALOG_ASSERT after crash does not make sense.
+  g_arc_strace->ReportCrash();
 }
 
 void StraceReport(const char* format, ...) {

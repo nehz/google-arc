@@ -114,7 +114,7 @@ def main():
         return 0
       headers = []
       for line in lines:
-        if not headers and not 'opyright' in line:
+        if not headers and 'opyright' not in line:
           continue
         headers.append(line)
         if len(headers) == _MAXIMUM_COPYRIGHT_PATTERN_LINES:

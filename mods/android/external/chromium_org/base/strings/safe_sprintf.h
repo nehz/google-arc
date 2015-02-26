@@ -4,6 +4,7 @@
 
 // Copied from r258247 Chromium without modification. Note that chromium_org
 // is slightly older than the revision.
+// TODO(crbug.com/414569): Remove this file once we finish L-rebase.
 
 #ifndef BASE_STRINGS_SAFE_SPRINTF_H_
 #define BASE_STRINGS_SAFE_SPRINTF_H_

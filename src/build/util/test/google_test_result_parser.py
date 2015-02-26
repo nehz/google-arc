@@ -55,7 +55,7 @@ class GoogleTestResultParser(object):
              'failed': re.escape(GoogleTestResultParser._TEST_FAILED_MARK),
              'name': GoogleTestResultParser._TEST_NAME_PATTERN,
              'duration': GoogleTestResultParser._TEST_DURATION_PATTERN,
-         })
+        })
     self._callback = callback
     self._fixture_prefix = fixture_prefix
     self._result_map = {}

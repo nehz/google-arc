@@ -191,18 +191,18 @@ def _generate_readonly_image(input_filenames, symlink_map, empty_dirs,
 
 def main(args):
   parser = argparse.ArgumentParser()
-  parser.add_argument('-o', '--output', metavar='FILE', required=True, help=
-                      'Write the output to filename.')
-  parser.add_argument('-s', '--symlink-map', metavar='SYMLINK_MAP', required=
-                      True, help='Map of symlinks to create.')
-  parser.add_argument('-d', '--empty-dirs', metavar='EMPTY_DIRS', required=
-                      True, help='List of empty directories.')
-  parser.add_argument('-f', '--empty-files', metavar='EMPTY_FILES', required=
-                      True, help='List of empty files.')
-  parser.add_argument('-v', '--verbose', action='store_true', help='Emit '
-                      'verbose output.')
-  parser.add_argument(dest='input', metavar='INPUT', nargs='+', help='Input '
-                      'file(s) to process.')
+  parser.add_argument('-o', '--output', metavar='FILE', required=True,
+                      help='Write the output to filename.')
+  parser.add_argument('-s', '--symlink-map', metavar='SYMLINK_MAP',
+                      required=True, help='Map of symlinks to create.')
+  parser.add_argument('-d', '--empty-dirs', metavar='EMPTY_DIRS',
+                      required=True, help='List of empty directories.')
+  parser.add_argument('-f', '--empty-files', metavar='EMPTY_FILES',
+                      required=True, help='List of empty files.')
+  parser.add_argument('-v', '--verbose', action='store_true',
+                      help='Emit verbose output.')
+  parser.add_argument(dest='input', metavar='INPUT', nargs='+',
+                      help='Input file(s) to process.')
   args = parser.parse_args()
 
   empty_dirs = args.empty_dirs.split(',') if args.empty_dirs else []

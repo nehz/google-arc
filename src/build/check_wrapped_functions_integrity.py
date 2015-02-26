@@ -39,7 +39,7 @@ def _check_wrapper_functions_are_defined(functions, libpt_so):
     ok = False
     print ('--wrap=%s is specified in wrapped_functions.py, '
            'but __wrap_%s is not defined in libposix_translation.so' % (
-           func, func))
+               func, func))
 
   # We internally use them to implement IRT wrappers.
   whitelist = set(['close',

@@ -36,6 +36,8 @@
 #include "native_client/src/untrusted/minidump_generator/build_id.h"
 
 // ARC MOD BEGIN
+#include "base/strings/safe_sprintf.h"
+#include "common/arc_strace.h"
 #include "common/logd_write.h"
 // ARC MOD END
 
@@ -681,7 +683,12 @@ static void WriteMinidump(MinidumpAllocator *minidump_writer,
 
 static void CrashHandler(struct NaClExceptionContext *context) {
   // ARC MOD BEGIN
-  arc::WriteLog("minidump: Caught crash\n");
+  char buf[256];
+  const ssize_t len = base::strings::SafeSPrintf(
+      buf, "minidump: Caught crash: tid=%d\n", gettid());
+  // Use char* version of the logger to avoid calling into malloc.
+  arc::WriteLog(buf, len);
+  ARC_STRACE_REPORT_CRASH();
   // ARC MOD END
 
   // Prevent re-entering the crash handler if two crashes occur

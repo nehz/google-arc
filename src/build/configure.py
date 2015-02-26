@@ -162,6 +162,11 @@ def _ensure_downloads_up_to_date():
     if download_internal_apks.check_and_perform_updates():
       sys.exit(1)
 
+  if not open_source.is_open_source_repo():
+    import download_third_party_apks
+    if download_third_party_apks.check_and_perform_updates():
+      sys.exit(1)
+
 
 def _configure_build_options():
   if OPTIONS.parse(sys.argv[1:]):

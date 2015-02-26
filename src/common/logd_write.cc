@@ -83,14 +83,18 @@ void SetLogWriter(LogWriter writer) {
   g_log_writer = writer;
 }
 
-void WriteLog(const std::string& log) {
+void WriteLog(const char* log, size_t log_size) {
   pthread_mutex_lock(&g_mutex);
   LogWriter log_writer = g_log_writer;
   pthread_mutex_unlock(&g_mutex);
   if (log_writer)
-    log_writer(log.c_str(), log.size());
+    log_writer(log, log_size);
   else
-    write(STDERR_FILENO, log.c_str(), log.size());
+    write(STDERR_FILENO, log, log_size);
+}
+
+void WriteLog(const std::string& log) {
+  WriteLog(log.c_str(), log.size());
 }
 
 std::string FormatBuf(const char* fmt, va_list ap) {

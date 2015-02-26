@@ -2,8 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import logging
 import os
 import shutil
+import sys
 import subprocess
 import tempfile
 import urllib
@@ -28,8 +30,13 @@ class BaseGetAndUnpackArchiveFromURL(object):
 
   @classmethod
   def _gsretrieve(cls, url, download_file):
-    cmd = [build_common.get_gsutil_executable(), 'cp', url, download_file]
-    subprocess.check_call(cmd)
+    try:
+      cmd = [build_common.get_gsutil_executable(), 'cp', url, download_file]
+      subprocess.check_call(cmd)
+    except subprocess.CalledProcessError:
+      logging.error('Cannot download ' + url + '. '
+                    'Did you make sure to run prodaccess?')
+      sys.exit(1)
 
   @classmethod
   def _fetch_and_stage_update(cls, url):

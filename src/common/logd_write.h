@@ -20,7 +20,11 @@ void SetLogWriter(LogWriter writer);
 // avoid to call write() or fprintf() inside irt write hook.
 void WriteLog(const std::string& log);
 
+// The same as the std::string. This version is useful when you need to
+// call this in a crash handler since this one never allocates a temporary
+// std::string object.
+void WriteLog(const char* log, size_t log_size);
+
 }  // namespace arc
 
 #endif  // COMMON_LOGD_WRITE_H_
-

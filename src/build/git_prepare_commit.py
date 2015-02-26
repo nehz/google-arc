@@ -31,7 +31,7 @@ def _append_prefixes(existing_prefixes, output_lines):
       # Add a blank line before TEST/PERF/BUG lines if none present.
       output_lines.append('\n')
     for prefix in _PREFIXES:
-      if not prefix in existing_prefixes:
+      if prefix not in existing_prefixes:
         output_lines.append(prefix + '\n')
     # Add a space after what we added.
     output_lines.append('\n')
