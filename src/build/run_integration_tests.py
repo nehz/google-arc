@@ -297,7 +297,18 @@ def print_chrome_version():
   assert not platform_util.is_running_on_cygwin(), (
       'Chrome on Windows does not support --version option.')
   chrome_path = remote_executor.get_chrome_exe_path()
-  chrome_version = subprocess.check_output([chrome_path, '--version']).rstrip()
+
+  # Add the directory of the chrome binary so that .so files in the directory
+  # can be loaded. This is needed for loading libudev.so.0.
+  # TODO(crbug.com/375609): Remove the hack once it becomes no longer needed.
+  env = os.environ.copy()
+  ld_library_path = env.get('LD_LIBRARY_PATH')
+  ld_library_path = ld_library_path.split(':') if ld_library_path else []
+  ld_library_path.append(os.path.dirname(chrome_path))
+  env['LD_LIBRARY_PATH'] = ':'.join(ld_library_path)
+
+  chrome_version = subprocess.check_output(
+      [chrome_path, '--version'], env=env).rstrip()
   print '@@@STEP_TEXT@%s<br/>@@@' % (chrome_version)
 
 
