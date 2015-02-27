@@ -384,7 +384,8 @@ def get_build_tag(commit='HEAD'):
     # This ARC tree should be a stashed copy. Return a fake version.
     return '0'
   return subprocess.check_output(
-      ['git', 'describe', '--match', 'arc-runtime-*', commit]).strip()
+      ['git', 'describe', '--first-parent',
+       '--match', 'arc-runtime-*', commit]).strip()
 
 
 def get_build_version(commit='HEAD'):
@@ -517,7 +518,8 @@ def get_handler_dir():
 
 def get_runtime_version():
   runtime_tag = subprocess.check_output(
-      ['git', 'describe', '--abbrev=0', '--match', 'arc-runtime-*']).strip()
+      ['git', 'describe', '--first-parent', '--abbrev=0',
+       '--match', 'arc-runtime-*']).strip()
   version_string = runtime_tag.replace('arc-runtime-', '')
   for part in version_string.split('.'):
     num = int(part)
