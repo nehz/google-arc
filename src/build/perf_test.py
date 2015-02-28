@@ -310,12 +310,12 @@ class VMPerfDriver(BaseDriver):
         '401-perf', config={'flags': flags.PASS})
     args = _prepare_integration_tests_args(100)
 
-    # Call set_up_common_test_directory and prepare_to_run iff source files
+    # Call setup_work_root() and prepare_to_run() iff source files
     # to build tests exist. Perf builders do not have them, and can skip it.
-    # The buidlers have downloaded pre-built files.
+    # The builders have downloaded pre-built files.
     if os.path.exists(os.path.join(
         dalvik_vm_test_runner.DalvikVMTestRunner.DALVIK_TESTS_DIR, 'etc')):
-      runner.set_up_common_test_directory()
+      runner.setup_work_root()
       runner.prepare_to_run([benchmark], args)
 
     output, _ = runner.run_with_setup([benchmark], args)

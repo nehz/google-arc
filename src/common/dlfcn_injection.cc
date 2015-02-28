@@ -16,7 +16,8 @@
 #include "base/strings/string_split.h"
 #include "common/alog.h"
 #include "common/android_static_libraries.h"
-#include "common/arm_syscall.h"
+#include "common/ndk_support/arm_syscall.h"
+#include "common/ndk_support/mmap.h"
 #include "common/wrapped_functions.h"
 
 namespace arc {
@@ -74,6 +75,9 @@ void InitDlfcnInjection() {
   // of host's, we inject the syscall function for ARM.
   (*g_wrapped_symbol_map)["syscall"] =
       reinterpret_cast<void*>(&RunArmLibcSyscall);
+  // See src/common/ndk_support/mmap.cc for detail.
+  (*g_wrapped_symbol_map)["mmap"] =
+      reinterpret_cast<void*>(&MmapForNdk);
 #endif
 
   // Inject the custom symbol resolver and posix_translation based

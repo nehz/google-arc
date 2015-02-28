@@ -399,7 +399,9 @@ class SuiteResultsBase(object):
 
   def _write_raw_output(self):
     for suite in self._suite_states:
-      if suite.scoreboard.unexpected_failed or suite.scoreboard.incompleted:
+      if (suite.scoreboard.unexpected_failed or
+          suite.scoreboard.expected_failed or
+          suite.scoreboard.incompleted):
         self._writer.header(_NORMAL, 'Raw Output: %s' % (suite.name))
         self._writer.write(_NORMAL, suite.raw_output)
         self._writer.write(_NORMAL, '\n')

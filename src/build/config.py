@@ -18,13 +18,15 @@ import ninja_generator
 import ninja_generator_runner
 import open_source
 import staging
+import toolchain
 
 from build_options import OPTIONS
 from ninja_generator import ArchiveNinjaGenerator
 from ninja_generator import NinjaGenerator
 
 
-_ANDROID_SYSTEM_IMAGE_DIR = 'ndk/platforms/android-19'
+_ANDROID_SYSTEM_IMAGE_DIR = ('ndk/platforms/android-' +
+                             toolchain.get_android_api_level())
 
 
 def _generate_test_framework_ninjas():
@@ -248,6 +250,7 @@ def _generate_check_symbols_ninja():
   # important.
   if not build_common.use_ndk_direct_execution():
     return
+  assert OPTIONS.is_arm(), 'Only ARM supports NDK direct execution'
 
   n = ninja_generator.NinjaGenerator('check_symbols')
   script = staging.as_staging('src/build/check_symbols.py')
@@ -257,7 +260,6 @@ def _generate_check_symbols_ninja():
              script, build_common.get_test_output_handler())),
          description=(rule_name + ' $in'))
 
-  assert OPTIONS.is_arm(), 'Only ARM supports NDK direct execution'
   arch_subdir = 'arch-arm'
   lib_dir = os.path.join(_ANDROID_SYSTEM_IMAGE_DIR, arch_subdir, 'usr/lib')
   for so_file in build_common.find_all_files(lib_dir, suffixes='.so'):

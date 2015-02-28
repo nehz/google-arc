@@ -116,18 +116,21 @@ class Popen(subprocess.Popen):
     self._stop_on_done = False
 
   def _are_all_pipes_closed(self):
-    return self.stdout.closed and self.stderr.closed
+    return self.stdout.closed and (not self.stderr or self.stderr.closed)
 
   def _close_all_pipes(self):
     if not self.stdout.closed:
       self.stdout.close()
-    if not self.stderr.closed:
+    if self.stderr and not self.stderr.closed:
       self.stderr.close()
 
   def _handle_output(self):
     # Consume output from any streams.
-    stderr_read = _handle_stream_output(
-        self.stderr, self._output_handler.handle_stderr)
+    if not self.stderr:
+      stderr_read = False
+    else:
+      stderr_read = _handle_stream_output(
+          self.stderr, self._output_handler.handle_stderr)
     stdout_read = _handle_stream_output(
         self.stdout, self._output_handler.handle_stdout)
 
@@ -201,7 +204,7 @@ class Popen(subprocess.Popen):
     # Filter out any that have been closed.
     if not self.stdout.closed:
       streams_to_block_reading_on.append(self.stdout)
-    if not self.stderr.closed:
+    if self.stderr and not self.stderr.closed:
       streams_to_block_reading_on.append(self.stderr)
 
     # If we have nothing to wait on, we're on our way out.
@@ -210,8 +213,12 @@ class Popen(subprocess.Popen):
       return
 
     try:
-      select.select(
-          streams_to_block_reading_on, [], [], self._compute_timeout())[0]
+      # Note: we hit some timeout case this function does not handle.
+      # To improve the debuggability in such a case, we assign the
+      # timeout value to a variable, so that util.debug module outputs
+      # the value to the log on failure.
+      timeout = self._compute_timeout()
+      select.select(streams_to_block_reading_on, [], [], timeout)
     except select.error as e:
       if e[0] == errno.EINTR:
         logging.info("select has been interrupted, exit normally.")

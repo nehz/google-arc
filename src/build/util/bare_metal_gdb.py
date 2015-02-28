@@ -44,7 +44,7 @@ class LoadHandlerBreakpoint(gdb.Breakpoint):
     # This will be like: $5 = 0x357bc "libc.so"
     matched = re.search(r'^.*"(.*)"', name, re.M)
     if not matched:
-      print('Failed to retrieve the name of the shared object: %s' % name)
+      print('Failed to retrieve the name of the shared object: "%s"' % name)
       return None
 
     path = matched.group(1)
@@ -74,7 +74,7 @@ class LoadHandlerBreakpoint(gdb.Breakpoint):
     # This will be like: $3 = 4148191232
     matched = re.search(r'^.* = (\d+)', base_addr_line, re.M)
     if not matched:
-      print('Failed to retrieve the address of the shared object: %s' %
+      print('Failed to retrieve the address of the shared object: "%s"' %
             base_addr_line)
       return None
     base_addr = int(matched.group(1))

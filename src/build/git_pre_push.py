@@ -21,6 +21,11 @@ import suggest_reviewers
 """A git pre-push hook script."""
 
 
+def _is_patch_to_next_pastry():
+  """Determines if the current patch is to arc/next-pastry or not."""
+  return util.git.get_branch_tracked_remote_url().endswith('arc/next-pastry')
+
+
 def _check_uncommitted_change():
   uncommitted_files = util.git.get_uncommitted_files()
   if uncommitted_files:
@@ -34,6 +39,11 @@ def _check_uncommitted_change():
 
 def _check_lint(push_files):
   ignore_file = os.path.join('src', 'build', 'lint_ignore.txt')
+  # If push_files contains any directories (representing submodules), filter
+  # them out. Passing a directory to the lint_source.process will cause all
+  # the files in that directory to be checked for lint errors, when those files
+  # may not even conform to the standards of the current project.
+  push_files = filter(os.path.isfile, push_files)
   result = lint_source.process(push_files, ignore_file)
   if result != 0:
     print ''
@@ -71,6 +81,28 @@ def _check_prebuilt_chrome_deps(push_files):
     print ''
     return -1
   return 0
+
+
+def _check_android_deps(push_files):
+  android_deps_file = build_common.get_android_deps_file()
+  if android_deps_file not in push_files:
+    return 0
+  with open(android_deps_file) as f:
+    linecount = len(f.readlines())
+  # For normal purposes, we expect that the DEPS.android file will contain just
+  # a single line, naming a release branch tag.
+  # For arc/next-pastry we allow it to be an Android manifest file, which
+  # identifies git hash tags for each Android sub-project. However these
+  # sub-project names may be confidential, and should not be published, so we
+  # have this check to help ensure that does not happen accidentally.
+  if linecount > 1:
+    if not _is_patch_to_next_pastry():
+      print ''
+      print 'DEPS.android appears to be something other than a one-line file'
+      print 'naming a publicly visible branch tag.  Any other content should'
+      print 'be restricted to arc/next-pastry.'
+      print ''
+      return -1
 
 
 def _check_ninja_lint_clean_after_deps_change(push_files):
@@ -171,33 +203,29 @@ def main():
   if not push_files:
     return 0
 
-  result = _check_uncommitted_change()
-  if result != 0:
-    return result
+  non_push_file_checks = [
+      _check_uncommitted_change,
+      _check_commit_messages,
+      _check_build_steps,
+  ]
 
-  result = _check_lint(push_files)
-  if result != 0:
-    return result
+  push_file_checks = [
+      _check_lint,
+      _check_prebuilt_chrome_deps,
+      _check_android_deps,
+      _check_ninja_lint_clean_after_deps_change,
+      _check_docs,
+  ]
 
-  result = _check_build_steps()
-  if result != 0:
-    return result
+  for check in non_push_file_checks:
+    result = check()
+    if result != 0:
+      return result
 
-  result = _check_prebuilt_chrome_deps(push_files)
-  if result != 0:
-    return result
-
-  result = _check_ninja_lint_clean_after_deps_change(push_files)
-  if result != 0:
-    return result
-
-  result = _check_commit_messages()
-  if result != 0:
-    return result
-
-  result = _check_docs(push_files)
-  if result != 0:
-    return result
+  for check in push_file_checks:
+    result = check(push_files)
+    if result != 0:
+      return result
 
   if _has_file_list_changed_since_last_push(push_files):
     suggest_reviewers.suggest_reviewer_set_for_in_flight_commits(False)

@@ -89,16 +89,6 @@ int SetSocketBooleanOptionInternal(
 
 }  // namespace
 
-// A message unit which is sent to or received from the peer.
-struct UDPSocket::Message {
-  // The address where this message is being sent to or where the message
-  // comes from.
-  sockaddr_storage addr;
-
-  // Sent or received data.
-  std::vector<char> data;
-};
-
 // Thin wrapper of pp::UDPSocket. This is introduced to manage the lifetime of
 // pp::UDPSocket instance correctly, and resolve race condition.
 // The concept of this class is as same as TCPSocket::SocketWrapper. Please

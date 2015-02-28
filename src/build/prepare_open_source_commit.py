@@ -32,10 +32,19 @@ def _are_files_different(file1, file2):
 
 
 def _add_and_sync_submodule(dest, force, src_submodule, dest_submodule):
-  if dest_submodule is None:
+  # If dest_submodule is none, it means the open source repo does not contain
+  # the submodule, and we've never before tried to check it out on this machine.
+  # Conversely if dest_submodule.path does not exist, the open source repo does
+  # not have it, and we have checked it out on this machine before (there is
+  # data in .git/modules/... for it, but nothing actually checked out to the
+  # working tree.
+  if (dest_submodule is None or
+      not os.path.exists(os.path.join(dest, dest_submodule.path))):
     logging.info('Adding submodule for %s' % src_submodule.path)
-    subprocess.check_call(['git', 'submodule', 'add', src_submodule.url,
-                           src_submodule.path],
+    # We need to use --force for the second case of it already being a
+    # submodule. This ensures we get a checkout in the working tree.
+    subprocess.check_call(['git', 'submodule', 'add', '--force',
+                           src_submodule.url, src_submodule.path],
                           cwd=dest)
   if dest_submodule is None or dest_submodule.head != src_submodule.head:
     logging.warning('Updating repository %s' % src_submodule.path)
@@ -43,6 +52,17 @@ def _add_and_sync_submodule(dest, force, src_submodule, dest_submodule):
       logging.info('Repository was at %s' % dest_submodule.head)
     logging.info('Checking out to %s' % src_submodule.head)
     submodule_path = os.path.join(dest, src_submodule.path)
+    if dest_submodule is not None and src_submodule.url != dest_submodule.url:
+      logging.info('Updating repository url to %s', src_submodule.url)
+      # Replace the url in the .gitmodules file with the updated url.
+      subprocess.check_call(['git', 'config', '-f', '.gitmodules',
+                             '--replace-all',
+                             'submodule.%s.url' % src_submodule.path,
+                             src_submodule.url], cwd=dest)
+      # Syncronize the new url in .gitmodules with the actual submodule
+      # configuration.
+      subprocess.check_call(['git', 'submodule', 'sync', src_submodule.path],
+                            cwd=dest)
     subprocess.check_call(['git', 'submodule', 'update', '--init',
                            src_submodule.path],
                           cwd=dest)

@@ -22,10 +22,6 @@ class PluginHandle {
     LOG_ALWAYS_FATAL_IF(!plugin_);
     return plugin_->GetRenderer();
   }
-  GPURendererInterface* GetGPURenderer() const {
-    LOG_ALWAYS_FATAL_IF(!plugin_);
-    return plugin_->GetGPURenderer();
-  }
   InputManagerInterface* GetInputManager() const {
     LOG_ALWAYS_FATAL_IF(!plugin_);
     return plugin_->GetInputManager();

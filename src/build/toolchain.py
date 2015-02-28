@@ -38,6 +38,11 @@ def _get_android_build_tools_dir():
   return os.path.join('third_party', 'android', 'build', 'tools')
 
 
+def get_android_api_level():
+  """Returns the pinned version of the Android API."""
+  return _ANDROID_SDK_BUILD_TOOLS_PINNED_VERSION.split('.')[0]
+
+
 def get_android_sdk_build_tools_pinned_version():
   """Returns the pinned version of the Android SDK's build tools."""
   return _ANDROID_SDK_BUILD_TOOLS_PINNED_VERSION

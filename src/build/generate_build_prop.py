@@ -15,6 +15,7 @@ import os
 import subprocess
 
 import build_common
+import toolchain
 from build_options import OPTIONS
 
 OPTIONS.parse_configure_file()
@@ -47,7 +48,7 @@ os.environ['PLATFORM_VERSION_CODENAME'] = 'REL'
 os.environ['PLATFORM_VERSION'] = '4.4'
 # SDK has to be pinned to correct level to avoid loading
 # unsupported featured from app's APK file.
-os.environ['PLATFORM_SDK_VERSION'] = '19'
+os.environ['PLATFORM_SDK_VERSION'] = toolchain.get_android_api_level()
 
 # By convention, ro.product.brand, ro.product.manufacturer and ro.product.name
 # are always in lowercase.

@@ -27,16 +27,25 @@ class TestUtilGit(unittest.TestCase):
     self.assertFalse(self._ignore_checker.matches(
                      'mods/android/dalvik/vm/mterp/out/foo.cc'))
 
-    def test_get_submodules_succeeds(self):
-      submodules = util.git.get_submodules('.', True)
-      self.assertTrue(any(['third_party/android' in s.path
-                           for s in submodules]))
-      submodules = util.git.get_submodules('.', False)
-      self.assertTrue(any(['third_party/android' in s.path
-                           for s in submodules]))
+  def test_get_submodules_succeeds(self):
+    submodules = util.git.get_submodules('.', True)
+    self.assertTrue(any(['third_party/android' in s.path
+                         for s in submodules]))
+    # The following test essentially tests if you have stale entries
+    # in .git/config. Removing entries from .gitmodules and running
+    # "git submodule sync" does not remove entries from .git/config.
+    submodules = util.git.get_submodules('.', False)
+    self.assertTrue(any(['third_party/android' in s.path
+                         for s in submodules]))
 
-    def test_is_not_initial_commit(self):
-      self.assertTrue(util.git.has_initial_commit())
+  def test_is_not_initial_commit(self):
+    self.assertTrue(util.git.has_initial_commit())
+
+  def test_get_head_revision(self):
+    self.assertIsNotNone(util.git.get_head_revision())
+
+  def test_get_origin_url(self):
+    self.assertIsNotNone(util.git.get_origin_url())
 
 
 if __name__ == '__main__':

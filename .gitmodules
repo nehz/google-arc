@@ -126,7 +126,7 @@
 	url = https://android.googlesource.com/platform/external/junit
 [submodule "third_party/tools/flake8"]
 	path = third_party/tools/flake8
-	url = https://chromium.googlesource.com/external/bmcustodio/flake8.git
+	url = https://chromium.googlesource.com/external/gitlab.com/pycqa/flake8
 [submodule "third_party/tools/pep8"]
 	path = third_party/tools/pep8
 	url = https://chromium.googlesource.com/external/jcrocholl/pep8
@@ -403,3 +403,6 @@
 [submodule "third_party/android/packages/providers/DownloadProvider"]
 	path = third_party/android/packages/providers/DownloadProvider
 	url = https://android.googlesource.com/platform/packages/providers/DownloadProvider
+[submodule "third_party/tools/mccabe"]
+	path = third_party/tools/mccabe
+	url = https://chromium.googlesource.com/external/github.com/flintwork/mccabe

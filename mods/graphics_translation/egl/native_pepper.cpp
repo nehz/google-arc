@@ -25,114 +25,6 @@
 #include "ppapi/c/ppb_opengles2.h"
 #include "ppapi/cpp/module.h"
 
-static arc::GPURendererInterface* GetGPURenderer() {
-  arc::PluginHandle handle;
-  arc::GPURendererInterface* renderer = handle.GetGPURenderer();
-  LOG_ALWAYS_FATAL_IF(!renderer, "No renderer?");
-  return renderer;
-}
-
-template<typename T>
-struct Command {
-  virtual void Run(arc::GPURendererInterface* renderer) = 0;
-
-  void Dispatch() {
-    arc::PluginHandle handle;
-    if (handle.GetPluginUtil()->IsRendererThread()) {
-      Handler(this);
-    } else {
-      handle.GetGPURenderer()->WaitForSwapBuffers();
-      handle.GetPluginUtil()->RunOnRendererThread(&Handler, this);
-    }
-  }
-
-  static void* Handler(void* arg) {
-    T* cmd = static_cast<T*>(arg);
-    arc::GPURendererInterface* renderer = GetGPURenderer();
-    cmd->Run(renderer);
-    return NULL;
-  }
-};
-
-struct CreateContextCmd : Command<CreateContextCmd> {
-  arc::ContextGPU* context;
-  arc::ContextGPU* shared;
-  const std::vector<int32_t>* attribs;
-
-  virtual void Run(arc::GPURendererInterface* renderer) {
-    context = renderer->CreateContext(*attribs, shared);
-  }
-};
-
-arc::ContextGPU* CreateContextImpl(arc::ContextGPU* shared,
-                                   const std::vector<int32_t>* attribs) {
-  CreateContextCmd cmd;
-  cmd.context = NULL;
-  cmd.shared = shared;
-  cmd.attribs = attribs;
-  cmd.Dispatch();
-  return cmd.context;
-}
-
-struct BindGraphicsCmd : Command<BindGraphicsCmd> {
-  arc::ContextGPU* context;
-  bool result;
-
-  virtual void Run(arc::GPURendererInterface* renderer) {
-    result = renderer->BindContext(context);
-  }
-};
-
-bool BindGraphicsImpl(arc::ContextGPU* context) {
-  BindGraphicsCmd cmd;
-  cmd.context = context;
-  cmd.Dispatch();
-  return cmd.result;
-}
-
-struct DestroyContextCmd : Command<DestroyContextCmd> {
-  arc::ContextGPU* context;
-
-  virtual void Run(arc::GPURendererInterface* renderer) {
-    renderer->DestroyContext(context);
-  }
-};
-
-void DestroyContextImpl(arc::ContextGPU* context) {
-  DestroyContextCmd cmd;
-  cmd.context = context;
-  cmd.Dispatch();
-}
-
-struct SwapBuffersCmd : Command<SwapBuffersCmd> {
-  arc::ContextGPU* context;
-  bool result;
-
-  virtual void Run(arc::GPURendererInterface* renderer) {
-    result = renderer->SwapBuffers(context);
-  }
-};
-
-bool SwapBuffersImpl(arc::ContextGPU* context) {
-  SwapBuffersCmd cmd;
-  cmd.context = context;
-  cmd.Dispatch();
-  return cmd.result;
-}
-
-// ----
-
-namespace {
-
-void InitPepperApis(PepperApis* apis) {
-  apis->gles2 = static_cast<const PPB_OpenGLES2*>(
-      ::pp::Module::Get()->GetBrowserInterface(PPB_OPENGLES2_INTERFACE));
-  apis->mapsub = static_cast<const PPB_OpenGLES2ChromiumMapSub *>(
-      ::pp::Module::Get()->GetBrowserInterface(
-           PPB_OPENGLES2_CHROMIUMMAPSUB_INTERFACE));
-}
-}
-
 struct NativeConfig {
   NativeConfig(int red_size, int green_size, int blue_size, int alpha_size,
                int depth_size, int stencil_size) :
@@ -187,7 +79,11 @@ struct NativeContext {
   explicit NativeContext(arc::ContextGPU* ctx)
     : underlying_(ctx),
       apis_() {
-    InitPepperApis(&apis_);
+  apis_.gles2 = static_cast<const PPB_OpenGLES2*>(
+      ::pp::Module::Get()->GetBrowserInterface(PPB_OPENGLES2_INTERFACE));
+  apis_.mapsub = static_cast<const PPB_OpenGLES2ChromiumMapSub *>(
+      ::pp::Module::Get()->GetBrowserInterface(
+           PPB_OPENGLES2_CHROMIUMMAPSUB_INTERFACE));
   }
 
   arc::ContextGPU* underlying_;
@@ -273,7 +169,10 @@ bool BindNativeWindow(NativeWindow* win, NativeContext* ctx) {
   // draw into that surface, we use this opportunity to bind it to
   // the instance.
   win->underlying_ = ctx->underlying_;
-  if (!BindGraphicsImpl(win->underlying_)) {
+
+  arc::PluginHandle handle;
+  arc::RendererInterface* renderer = handle.GetRenderer();
+  if (!renderer->BindContext(win->underlying_)) {
     LOG_ALWAYS_FATAL("Binding Graphics3D to the plugin failed");
     return false;
   }
@@ -282,7 +181,9 @@ bool BindNativeWindow(NativeWindow* win, NativeContext* ctx) {
 
 bool SwapBuffers(NativeWindow* win) {
   LOG_ALWAYS_FATAL_IF(win == NULL && win != s_window);
-  return SwapBuffersImpl(win->underlying_);
+  arc::PluginHandle handle;
+  arc::RendererInterface* renderer = handle.GetRenderer();
+  return renderer->SwapBuffers(win->underlying_);
 }
 
 void DestroyNativeWindow(NativeWindow* win) {
@@ -297,7 +198,10 @@ NativeContext* CreateContext(const NativeConfig* cfg, NativeContext* shared) {
     shared_underlying = shared->underlying_;
   }
 
-  arc::ContextGPU* ctx = CreateContextImpl(shared_underlying, &cfg->attribs_);
+  arc::PluginHandle handle;
+  arc::RendererInterface* renderer = handle.GetRenderer();
+  arc::ContextGPU* ctx =
+      renderer->CreateContext(cfg->attribs_, shared_underlying);
   if (!ctx) {
     return NULL;
   }
@@ -316,7 +220,9 @@ const UnderlyingApis* GetUnderlyingApis(NativeContext* context) {
 
 void DestroyContext(NativeContext* ctx) {
   if (ctx) {
-    DestroyContextImpl(ctx->underlying_);
+    arc::PluginHandle handle;
+    arc::RendererInterface* renderer = handle.GetRenderer();
+    renderer->DestroyContext(ctx->underlying_);
   }
 }
 

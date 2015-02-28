@@ -183,6 +183,10 @@ def get_android_config_header(is_host):
                       'AndroidConfig.h')
 
 
+def get_android_deps_file():
+  return 'src/build/DEPS.android'
+
+
 def get_android_fs_path(filename):
   return os.path.join(get_android_fs_root(), filename.lstrip(os.sep))
 
@@ -275,7 +279,7 @@ def get_bionic_shared_objects(need_stlport=True):
   return objects
 
 
-def get_bionic_arch_subdir_name():
+def get_bionic_arch_name():
   """Returns Bionic's architecture sub directory name.
 
   The architecture name is used in sub directories like
@@ -385,7 +389,8 @@ def get_build_tag(commit='HEAD'):
     # This ARC tree should be a stashed copy. Return a fake version.
     return '0'
   return subprocess.check_output(
-      ['git', 'describe', '--match', 'arc-runtime-*', commit]).strip()
+      ['git', 'describe', '--first-parent',
+       '--match', 'arc-runtime-*', commit]).strip()
 
 
 def get_build_version_path():
@@ -399,9 +404,10 @@ def get_build_version(commit='HEAD'):
 
 
 def get_chrome_default_user_data_dir():
-  return '%s/%s/%s' % (os.getenv('TMPDIR', '/tmp'),
-                       os.getenv('USER'),
-                       CHROME_USER_DATA_DIR_PREFIX)
+  return os.path.join(os.getenv('TMPDIR', '/tmp'),
+                      os.getenv('USER'),
+                      CHROME_USER_DATA_DIR_PREFIX,
+                      get_target_dir_name())
 
 
 def get_chrome_deps_file():
@@ -524,7 +530,8 @@ def get_handler_dir():
 
 def get_runtime_version():
   runtime_tag = subprocess.check_output(
-      ['git', 'describe', '--abbrev=0', '--match', 'arc-runtime-*']).strip()
+      ['git', 'describe', '--first-parent', '--abbrev=0',
+       '--match', 'arc-runtime-*']).strip()
   version_string = runtime_tag.replace('arc-runtime-', '')
   for part in version_string.split('.'):
     num = int(part)

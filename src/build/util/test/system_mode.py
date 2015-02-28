@@ -271,7 +271,7 @@ class SystemMode:
         return False
     return True
 
-  def run_adb(self, commands):
+  def run_adb(self, commands, **kwargs):
     """Runs an adb command and returns output.
 
     Returns single adb command's output. The output is also appended to
@@ -281,11 +281,13 @@ class SystemMode:
     if not self._thread.is_ready():
       raise SystemModeError('adb is not currently serving.')
 
+    kwargs.setdefault('omit_xvfb', True)
+
     try:
       args = [self._adb, '-s', self._thread.get_android_serial()] + commands
       self._logs.add_to_adb_log('SystemMode.run_adb: ' +
                                 ' '.join(args) + '\n')
-      result = self._suite_runner.run_subprocess(args, omit_xvfb=True)
+      result = self._suite_runner.run_subprocess(args, **kwargs)
       self._logs.add_to_adb_log(result + '\n')
       return result
     except BaseException as e:

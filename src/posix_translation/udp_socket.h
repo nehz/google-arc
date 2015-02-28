@@ -58,7 +58,18 @@ class UDPSocket : public SocketStream {
   virtual void OnLastFileRef() OVERRIDE;
 
  private:
-  struct Message;
+  // A message unit which is sent to or received from the peer.
+  // Note: in libcxx, deque implementation uses sizeof(T) in the inlined
+  // initialization "const static" member, so we cannot use forward declaration
+  // here. cf): android/external/libcxx/include/deque.
+  struct Message {
+    // The address where this message is being sent to or where the message
+    // comes from.
+    sockaddr_storage addr;
+
+    // Sent or received data.
+    std::vector<char> data;
+  };
   typedef std::deque<Message> MessageQueue;
   class SocketWrapper;
 

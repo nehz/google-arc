@@ -96,7 +96,7 @@ class DalvikVMTestRunner(suite_runner.SuiteRunnerBase):
     self._test_arg_map = test_arg_map
 
   @staticmethod
-  def set_up_common_test_directory():
+  def setup_work_root():
     test_root = os.path.join(
         build_common.get_target_common_dir(), 'dalvik_tests')
     file_util.makedirs_safely(test_root)

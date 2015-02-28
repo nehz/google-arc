@@ -68,7 +68,11 @@ def _run_gdb_for_nacl(args, test_args):
 
   gdb = toolchain.get_tool(build_options.OPTIONS.target(), 'gdb')
   irt = toolchain.get_nacl_irt_core(build_options.OPTIONS.get_target_bitsize())
-  subprocess.call([
+  # Note GDB uses NaCl manifest for arc.nexe so we do not need the library
+  # search paths for launch_chrome.
+  solib_paths = [build_common.get_load_library_path()]
+
+  args = [
       gdb,
       '-ex', 'target remote :4014',
       '-ex', 'nacl-irt %s' % irt,
@@ -76,14 +80,11 @@ def _run_gdb_for_nacl(args, test_args):
       # debugger. Fixing this issue by modifying the Bionic loader
       # will need a bunch of ARC MOD. We work-around the issue by
       # passing the path of shared objects here.
-      #
-      # GDB uses NaCl Manifest file for arc.nexe so we do not need
-      # this for launch_chrome.
-      '-ex', 'set solib-search-path %s' %
-      build_common.get_load_library_path(),
+      '-ex', 'set solib-search-path %s' % ':'.join(solib_paths),
       '-ex',
       'echo \n*** Type \'continue\' or \'c\' to start debugging ***\n\n',
-      runnable_ld])
+      runnable_ld]
+  subprocess.call(args)
   sel_ldr_proc.kill()
 
 

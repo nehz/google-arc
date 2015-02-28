@@ -59,12 +59,15 @@ def get_submodules(base_path, use_gitmodules):
     orig_path = '.'.join(url_key.split('.')[1:-1])
     # As for the submodule's path in the internal modules directory for it.
     config_path = os.path.join('.git', 'modules', orig_path, 'config')
-    out = subprocess.check_output(['git', 'config', '-f', config_path,
-                                  '--get', 'core.worktree'],
-                                  cwd=base_path,
-                                  stderr=subprocess.STDOUT)
+    try:
+      worktree = subprocess.check_output(['git', 'config', '-f', config_path,
+                                          '--get', 'core.worktree'],
+                                         cwd=base_path,
+                                         stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError:
+      continue
     path = os.path.normpath(os.path.join(os.path.dirname(config_path),
-                            out.rstrip()))
+                            worktree.rstrip()))
     # Read the submodule's HEAD commit.
     head = _read_submodule_head(base_path, orig_path)
     submodules.append(Submodule(url, path, head))
@@ -212,6 +215,40 @@ def is_file_git_controlled(path, cwd=None):
                            stderr=devnull) == 0
 
 
+def get_branch_tracked_remote_url(cwd=None):
+  remote_name = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref',
+                                         '--symbolic-full-name', '@{u}'],
+                                        cwd=cwd)
+  if '/' in remote_name:
+    remote_name = remote_name.split('/', 1)[0]
+  url = subprocess.check_output(['git', 'config',
+                                 'remote.%s.url' % remote_name], cwd=cwd)
+  return url.strip()
+
+
 def reset_to_revision(revision, cwd=None):
   subprocess.check_call(['git', 'fetch'], cwd=cwd)
   subprocess.check_call(['git', 'reset', '--hard', revision], cwd=cwd)
+
+
+def force_checkout_revision(revision, cwd=None):
+  subprocess.check_call(['git', 'fetch'], cwd=cwd)
+  subprocess.check_call(['git', 'checkout', '-f', revision], cwd=cwd)
+
+
+def get_head_revision(cwd=None):
+  return subprocess.check_output(['git', 'rev-parse', 'HEAD'])
+
+
+def add_submodule(url, path):
+  subprocess.check_call(['git', 'submodule', 'add', '-f', url, path])
+
+
+def remove_submodule(path):
+  subprocess.check_call(['git', 'submodule', 'deinit', path])
+  subprocess.check_call(['git', 'rm', path])
+
+
+def get_origin_url(cwd=None):
+  return subprocess.check_output(['git', 'config', '--get',
+                                  'remote.origin.url'], cwd=cwd)

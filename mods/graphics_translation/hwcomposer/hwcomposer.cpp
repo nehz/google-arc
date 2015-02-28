@@ -363,7 +363,7 @@ static int hwc_device_close(hw_device_t* dev) {
 static int hwc_device_open(const hw_module_t* module, const char* name,
                            hw_device_t** device) {
   arc::PluginHandle handle;
-  if (!handle.GetGPURenderer() || !handle.GetGPURenderer()->GetCompositor()) {
+  if (!handle.GetRenderer() || !handle.GetRenderer()->GetCompositor()) {
     return -ENODEV;
   }
 
@@ -386,7 +386,7 @@ static int hwc_device_open(const hw_module_t* module, const char* name,
     dev->device.getDisplayConfigs = hwc_get_display_configs;
     dev->device.getDisplayAttributes = hwc_get_display_attributes;
     dev->device.registerProcs = hwc_register_procs;
-    dev->compositor = handle.GetGPURenderer()->GetCompositor();
+    dev->compositor = handle.GetRenderer()->GetCompositor();
     dev->width = params.width;
     dev->height = params.height;
     // TODO(crbug.com/459280): Get this information from the RenderParams.

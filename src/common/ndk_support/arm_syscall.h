@@ -4,8 +4,8 @@
 //
 // Handles syscalls using ARM's syscall numbers.
 
-#ifndef COMMON_ARM_SYSCALL_H_
-#define COMMON_ARM_SYSCALL_H_
+#ifndef COMMON_NDK_SUPPORT_ARM_SYSCALL_H_
+#define COMMON_NDK_SUPPORT_ARM_SYSCALL_H_
 
 #include <stdarg.h>
 #include <stdint.h>
@@ -27,4 +27,4 @@ int RunArmLibcSyscall(int sysno, ...);
 
 }  // namespace arc
 
-#endif  // COMMON_ARM_SYSCALL_H_
+#endif  // COMMON_NDK_SUPPORT_ARM_SYSCALL_H_

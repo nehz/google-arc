@@ -24,42 +24,6 @@ namespace arc {
 
 class InputManagerInterface;
 
-class ResizeObserver {
- public:
-  virtual void OnResize(int width, int height) = 0;
-};
-
-class RendererInterface {
- public:
-  struct RenderParams {
-    // Width of display in actual pixels.
-    int width;
-    // Width of display in actual pixels.
-    int height;
-    // Device scale from device independent pixels to actual pixels.
-    float device_render_to_view_pixels;
-    // Like crx_render_to_view_pixels, controls the size of the
-    // Graphics3D/Image2D resource. See also common/options.h.
-    float crx_render_to_view_pixels;
-
-    bool operator==(const RenderParams& params) const {
-      return width == params.width && height == params.height &&
-          device_render_to_view_pixels == params.device_render_to_view_pixels &&
-          crx_render_to_view_pixels == params.crx_render_to_view_pixels;
-    }
-    bool operator!=(const RenderParams& params) const {
-      return !operator==(params);
-    }
-  };
-  virtual ~RendererInterface() {}
-
-  // Get the plugin's render characteristics.
-  virtual void GetRenderParams(RenderParams* params) const = 0;
-
-  virtual void AddResizeObserver(ResizeObserver* observer) = 0;
-  virtual void RemoveResizeObserver(ResizeObserver* observer) = 0;
-};
-
 class CompositorInterface {
  public:
   struct Size {
@@ -144,20 +108,73 @@ class CompositorInterface {
 // Opaque type of GPU context pointers.
 struct ContextGPU;
 
-class GPURendererInterface {
+class ResizeObserver {
+ public:
+  virtual void OnResize(int width, int height) = 0;
+};
+
+class RendererInterface {
  public:
   typedef std::vector<int32_t> Attributes;
 
-  virtual ~GPURendererInterface() {}
+  struct RenderParams {
+    RenderParams()
+        : width(0),
+          height(0),
+          device_render_to_view_pixels(0.f),
+          crx_render_to_view_pixels(0.f) {
+    }
+
+    // Width of display in actual pixels.
+    int width;
+    // Width of display in actual pixels.
+    int height;
+    // Device scale from device independent pixels to actual pixels.
+    float device_render_to_view_pixels;
+    // Like crx_render_to_view_pixels, controls the size of the
+    // Graphics3D/Image2D resource. See also common/options.h.
+    float crx_render_to_view_pixels;
+
+    bool operator==(const RenderParams& rhs) const {
+      return width == rhs.width &&
+             height == rhs.height &&
+             device_render_to_view_pixels == rhs.device_render_to_view_pixels &&
+             crx_render_to_view_pixels == rhs.crx_render_to_view_pixels;
+    }
+    bool operator!=(const RenderParams& rhs) const {
+      return !operator==(rhs);
+    }
+
+    int ConvertFromDIP(float xy_in_dip) const {
+      float scale = device_render_to_view_pixels * crx_render_to_view_pixels;
+      return xy_in_dip * scale;
+    }
+    float ConvertToDIP(int xy) const {
+      float scale = device_render_to_view_pixels * crx_render_to_view_pixels;
+      return static_cast<float>(xy) / scale;
+    }
+  };
+
+  virtual ~RendererInterface() {}
+
+  virtual void GetRenderParams(RenderParams* params) const = 0;
+
+  virtual CompositorInterface* GetCompositor() = 0;
+
+  virtual void AddResizeObserver(ResizeObserver* observer) = 0;
+
+  virtual void RemoveResizeObserver(ResizeObserver* observer) = 0;
 
   virtual ContextGPU* CreateContext(const Attributes& attribs,
                                     ContextGPU* shared_context) = 0;
-  virtual bool BindContext(ContextGPU* context) = 0;
-  virtual bool SwapBuffers(ContextGPU* context) = 0;
-  virtual void WaitForSwapBuffers() = 0;
-  virtual void DestroyContext(ContextGPU* context) = 0;
 
-  virtual CompositorInterface* GetCompositor() = 0;
+  virtual bool BindContext(ContextGPU* context) = 0;
+
+  virtual bool SwapBuffers(ContextGPU* context) = 0;
+
+  virtual void WaitForSwapBuffers() = 0;
+
+  virtual void DestroyContext(ContextGPU* context) = 0;
 };
 
 class AudioOutPollDataCallback {
@@ -459,7 +476,6 @@ class ChildPluginSpawnerInterface {
 class PluginInterface {
  public:
   virtual RendererInterface* GetRenderer() = 0;
-  virtual GPURendererInterface* GetGPURenderer() = 0;
   virtual InputManagerInterface* GetInputManager() = 0;
   virtual AudioManagerInterface* GetAudioManager() = 0;
   virtual CameraManagerInterface* GetCameraManager() = 0;

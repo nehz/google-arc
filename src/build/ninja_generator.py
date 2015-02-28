@@ -1160,10 +1160,10 @@ class CNinjaGenerator(NinjaGenerator):
             'android/bionic/libc/kernel/common') +
         ' -isystem ' + staging.as_staging(
             'android/bionic/libc/kernel/%s' %
-            build_common.get_bionic_arch_subdir_name()) +
+            build_common.get_bionic_arch_name()) +
         ' -isystem ' + staging.as_staging(
             'android/bionic/libc/%s/include' %
-            build_common.get_bionic_arch_subdir_name()) +
+            build_common.get_bionic_arch_name()) +
         ' -isystem ' + staging.as_staging('android/bionic/libc/include') +
         ' -isystem ' + staging.as_staging('android/bionic/libm/include') +
         ' -isystem ' + staging.as_staging(

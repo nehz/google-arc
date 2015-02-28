@@ -540,7 +540,14 @@ def get_all_files_to_check():
   return _filter_files(None)
 
 
-def read_ignore_rule(path):
+def _expand_path_list(path_list):
+  result = []
+  for path in path_list:
+    result.extend(_walk(path) if os.path.isdir(path) else [path])
+  return result
+
+
+def _read_ignore_rule(path):
   """Reads the mapping of paths to lint checks to ignore from a file.
 
   The ignore file is expected to define a simple mapping between file paths
@@ -570,8 +577,9 @@ def read_ignore_rule(path):
   return result
 
 
-def process(target_file_list, ignore_file=None, output_file=None):
-  ignore_rule = read_ignore_rule(ignore_file)
+def process(target_path_list, ignore_file=None, output_file=None):
+  target_file_list = _expand_path_list(target_path_list)
+  ignore_rule = _read_ignore_rule(ignore_file)
   target_file_list = _filter_files(target_file_list)
 
   # Create a temporary directory as the output dir of the analyze_diffs.py,
@@ -651,18 +659,23 @@ class ResponseFileArgumentParser(argparse.ArgumentParser):
 
 def main():
   parser = ResponseFileArgumentParser()
-  parser.add_argument('files', nargs='*', help='The list of files to lint.  If '
-                      'no files provided, will lint all files.')
-  parser.add_argument('--ignore', '-i', dest='ignore_file', help='A text file '
-                      'containting list of files to ignore.')
+  parser.add_argument('files', nargs='*',
+                      help='The list of files to lint.  If no files provided, '
+                      'will lint all files.')
+  parser.add_argument('--ignore', '-i', dest='ignore_file',
+                      help='A text file containting list of files to ignore.')
   parser.add_argument('--merge', action='store_true', help='Merge results.')
   parser.add_argument('--output', '-o', help='Output file for storing results.')
-  parser.add_argument('--verbose', '-v', action='store_true', help='Prints '
-                      'additional output.')
+  parser.add_argument('--verbose', '-v', action='store_true',
+                      help='Prints additional output.')
   args = parser.parse_args()
 
   log_level = logging.DEBUG if args.verbose else logging.WARNING
   logging.basicConfig(format='%(message)s', level=log_level)
+
+  if not args.ignore_file and not args.files:
+    args.ignore_file = os.path.join(
+        os.path.dirname(__file__), 'lint_ignore.txt')
 
   if args.merge:
     return merge_results(args.files, args.output)
