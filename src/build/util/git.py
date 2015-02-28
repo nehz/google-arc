@@ -59,12 +59,15 @@ def get_submodules(base_path, use_gitmodules):
     orig_path = '.'.join(url_key.split('.')[1:-1])
     # As for the submodule's path in the internal modules directory for it.
     config_path = os.path.join('.git', 'modules', orig_path, 'config')
-    out = subprocess.check_output(['git', 'config', '-f', config_path,
-                                  '--get', 'core.worktree'],
-                                  cwd=base_path,
-                                  stderr=subprocess.STDOUT)
+    try:
+      worktree = subprocess.check_output(['git', 'config', '-f', config_path,
+                                          '--get', 'core.worktree'],
+                                         cwd=base_path,
+                                         stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError:
+      continue
     path = os.path.normpath(os.path.join(os.path.dirname(config_path),
-                            out.rstrip()))
+                            worktree.rstrip()))
     # Read the submodule's HEAD commit.
     head = _read_submodule_head(base_path, orig_path)
     submodules.append(Submodule(url, path, head))
