@@ -17,12 +17,13 @@ def foo(arg0, out):
   return arg0
 
 
-def bar(arg0, arg1, out):
-  return foo(arg0, out) + arg1
+def bar(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, out):
+  return foo(arg0, out) + (arg1 if arg8 or arg7 else len(arg6))
 
 
-def baz(arg0, arg1, arg2, out, *args, **kwargs):
-  return (bar(arg0, arg1, out) + len(arg2) + len(args) + len(kwargs.keys()))
+def baz(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, out, *args,
+        **kwargs):
+  return bar(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, out)
 
 
 class DebugTest(unittest.TestCase):
@@ -30,7 +31,8 @@ class DebugTest(unittest.TestCase):
 
   def test_write_frames(self):
     out = cStringIO.StringIO()
-    baz(1, 2.3, 'abc', out, 4, 5, kwarg0=6, kwarg1=7)
+    baz(1, 2.3, 'abc', True, False, None, [], (), {}, set(), out, 4, 5,
+        kwarg0=6, kwarg1=7)
 
     # Extract ArgInfo lines.
     arg_info_list = [line for line in out.getvalue().splitlines()
@@ -38,9 +40,12 @@ class DebugTest(unittest.TestCase):
 
     # ArgInfo lines should appear in this order.
     expected_list = [
-        (r'ArgInfo: arg0=1, arg1=2.3, out=\|out\|, arg2=\'abc\', '
-         'args=\(4, 5\), kwargs={\'kwarg0\': 6, \'kwarg1\': 7}'),
-        r'ArgInfo: arg0=1, out=\|out\|, arg1=2.3',
+        (r'ArgInfo: arg0=1, arg1=2.3, arg2=\'abc\', arg3=True, arg4=False, '
+         'arg5=None, arg6=\[\], arg7=\(\), arg8={}, arg9=set\(\[\]\), '
+         'out=\|out\|, kwargs={\'kwarg0\': 6, \'kwarg1\': 7}, args=\(4, 5\)'),
+        (r'ArgInfo: arg0=1, out=\|out\|, arg1=2.3, arg8={}, arg7=\(\), '
+         'arg6=\[\], arg2=\'abc\', arg3=True, arg4=False, arg5=None, '
+         'arg9=set\(\[\]\)'),
         r'ArgInfo: out=\|out\|, arg0=1',
     ]
     try:

@@ -41,12 +41,17 @@ def _write_argvalues(frame, output_stream, written_vars):
 
   # Rewrite the variables to be easier to read.
   for i, (pos, name, value) in enumerate(args):
-    # Keep numbers as-is.
+    # Keep numbers or boolean as-is (Note: bool is a subclass of
+    # numbers.Number).
     if isinstance(value, numbers.Number):
       continue
     # Enclose strings with single quotes.
     if isinstance(value, basestring):
       args[i] = (pos, name, repr(value))
+      continue
+    # Keep the other value considered as false as-is
+    # (e.g. None, [], (), {}, set()).
+    if not value:
       continue
     # Rewrite the other objects using the name in written_vars if it exists.
     for written_name, written_value in written_vars:
