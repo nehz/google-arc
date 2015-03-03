@@ -2,65 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import json
-import os
-import shutil
-
 import build_common
 import ninja_generator
 import open_source
 import staging
-from util import platform_util
-if not open_source.is_open_source_repo():
-  from util.test import atf_gtest_suite_runner
-from util.test import suite_runner_config_flags as flags
-from util.test.test_options import TEST_OPTIONS
-
-_TEST_TIMEOUT = 120
-
-
-def _get_integration_test_name():
-  return 'graphics.translation.test'
-
-
-def _get_generator_name():
-  return 'graphics_translation_image_generator'
-
-
-def _get_apk_path():
-  return build_common.get_build_path_for_apk(_get_integration_test_name())
-
-
-def _get_crx_path():
-  return os.path.join(build_common.get_arc_root(), 'out', 'data_roots',
-                      _get_integration_test_name())
-
-
-def _get_gen_path():
-  return os.path.join(build_common.get_build_dir(is_host=True),
-                      'intermediates', _get_generator_name())
-
-
-def _get_data_path():
-  return os.path.join('mods', 'graphics_translation', 'tests', 'data')
-
-
-def _get_apk_to_crx_script():
-  return os.path.join(build_common.get_arc_root(), 'src', 'packaging',
-                      'apk_to_crx.py')
-
-
-def _clean_dir(dst):
-  if (os.path.exists(dst)):
-    shutil.rmtree(dst)
-  os.makedirs(dst)
-
-
-def _copy_tree(src, dst):
-  if os.path.exists(dst):
-    shutil.rmtree(dst)
-  if os.path.exists(src):
-    shutil.copytree(src, dst)
 
 
 def _add_compile_flags(n):
@@ -91,7 +36,7 @@ def _generate_unit_test_ninja():
 
 def _generate_image_generator_ninja():
   n = ninja_generator.ExecNinjaGenerator(
-      _get_generator_name(), host=True,
+      build_common.get_graphics_translation_image_generator_name(), host=True,
       base_path='mods/graphics_translation/tests')
   _add_compile_flags(n)
   n.add_defines('HAVE_PTHREADS')
@@ -115,7 +60,7 @@ def _generate_image_generator_ninja():
 
 def _generate_integration_test_ninja():
   n = ninja_generator.ApkFromSdkNinjaGenerator(
-      _get_integration_test_name(),
+      build_common.get_graphics_translation_test_name(),
       base_path='graphics_translation/tests/apk',
       use_ndk=True, use_gtest=True)
   sources = build_common.find_all_files(
@@ -145,89 +90,9 @@ def _generate_integration_test_ninja():
   n.build_google_test_list(sources)
 
 
-if not open_source.is_open_source_repo():
-  class GraphicsTranslationIntegrationTest(
-      atf_gtest_suite_runner.AtfGTestSuiteRunner):
-    def __init__(self):
-      super(GraphicsTranslationIntegrationTest, self).__init__(
-          _get_integration_test_name(),
-          os.path.join(_get_apk_path(), _get_integration_test_name() + '.apk'),
-          build_common.get_integration_test_list_path(
-              _get_integration_test_name()),
-          config={
-              # TODO(crbug.com/430311): Figure out why this test is flaky.
-              'flags': flags.FLAKY,
-              'deadline': _TEST_TIMEOUT,
-              'suite_test_expectations': {
-                  'GraphicsTextureTest#TestCopyTextures': flags.NOT_SUPPORTED,
-              },
-          })
-
-    def _write_metafile(self, filename):
-      metadata = {
-          'disableHeartbeat': False,
-          'enableAdb': True,
-          'stderrLog': 'E',
-          'allowEmptyActivityStack': True,
-      }
-      with open(filename, 'w') as f:
-        f.write(json.dumps(metadata))
-
-    def _build_apk_to_crx_command(self):
-      apkfile = os.path.join(_get_apk_path(), self.name + '.apk')
-      metafile = os.path.join(_get_apk_path(), self.name + '.json')
-      self._write_metafile(metafile)
-      return [
-          'python', _get_apk_to_crx_script(),
-          apkfile,
-          '--badging-check', 'warning',
-          '--destructive',
-          '--metadata', metafile,
-          '-o', _get_crx_path()]
-
-    def _generate_golden_images(self):
-      # Clean the output folders.
-      _clean_dir(os.path.join(_get_gen_path(), 'out', 'glx'))
-
-      # Copy test data (eg. textures) to the generator's data folder.
-      _copy_tree(_get_data_path(), os.path.join(_get_gen_path(), 'data'))
-
-      # Run the generator.
-      cmd = ['./' + _get_generator_name()]
-      return self.run_subprocess(cmd, cwd=_get_gen_path())
-
-    def _copy_data_to_crx(self):
-      datadir = _get_data_path()
-      imagedir = os.path.join(_get_gen_path(), 'out', 'glx')
-      outdir = os.path.join(_get_crx_path(), 'vendor', 'chromium', 'crx')
-
-      _copy_tree(datadir, os.path.join(outdir, 'data'))
-      _copy_tree(imagedir, os.path.join(outdir, 'gold'))
-
-    def _build_crx(self):
-      command = self._build_apk_to_crx_command()
-      return self.run_subprocess(command)
-
-    def prepare(self, unused):
-      return self._build_crx()
-
-    def setUp(self, test_methods_to_run):
-      if (not TEST_OPTIONS.is_buildbot and
-          not platform_util.is_running_on_remote_host()):
-        self._generate_golden_images()
-        self._copy_data_to_crx()
-      super(GraphicsTranslationIntegrationTest, self).setUp(test_methods_to_run)
-
-
 def generate_test_ninjas():
   if open_source.is_open_source_repo():
     return
   _generate_unit_test_ninja()
   _generate_image_generator_ninja()
   _generate_integration_test_ninja()
-
-
-def get_integration_test_runners():
-  if open_source.is_open_source_repo():
-    return []
-  return [GraphicsTranslationIntegrationTest()]

@@ -1324,11 +1324,12 @@ std::string GetSigSetStr(const sigset_t* ss) {
     return "null";
   std::string result;
   for (int signo = 1; signo <= NSIG; signo++) {
-    if (sigismember(ss, signo))
+    // sigismember returns -1 with EINVAL when |signo| is for a realtime signal.
+    if (sigismember(ss, signo) == 1)
       AppendResult(GetSignalStr(signo), &result);
   }
   if (result.empty())
-    result = "???";
+    result = "none";
   return result;
 }
 

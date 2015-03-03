@@ -34,7 +34,7 @@ def get_test_executables(tests):
 
 
 def is_bionic_fundamental_test(test_name):
-  return test_name.startswith('bionic_fundamental_')
+  return test_name.startswith('bionic_fundamental.')
 
 
 def get_all_tests():

@@ -680,7 +680,7 @@ def _generate_bionic_fundamental_test_runners(n):
                                          extra_envs=test_env)
     qemu_arm = (' '.join(toolchain.get_qemu_arm_args())
                 if OPTIONS.is_arm() else '')
-    test_name = 'bionic_fundamental_' + test_name
+    test_name = 'bionic_fundamental.' + test_name
     variables = {
         'runner': ' '.join(runner),
         'in': test_binary,

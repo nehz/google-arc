@@ -573,7 +573,7 @@ def get_generated_ninja_dir():
 
 
 def get_config_cache_dir():
-  return os.path.join(OUT_DIR, 'config_cache')
+  return os.path.join(get_build_dir(), 'config_cache')
 
 
 def get_integration_test_list_dir():
@@ -610,6 +610,14 @@ def get_unittest_info_path(*subpath):
 
 def get_all_unittest_info_path():
   return get_unittest_info_path('ALL_UNITTEST_INFO.txt')
+
+
+def get_graphics_translation_test_name():
+  return 'graphics.translation.test'
+
+
+def get_graphics_translation_image_generator_name():
+  return 'graphics_translation_image_generator'
 
 
 def is_common_editor_tmp_file(filename):
@@ -788,6 +796,11 @@ def find_python_dependencies(package_root_path, module_path):
   pythonpath = sys.path[:]
   if package_root_path not in pythonpath:
     pythonpath[0:0] = [package_root_path]
+
+  module_dir = os.path.dirname(module_path)
+  if module_dir not in pythonpath:
+    pythonpath[0:0] = [module_dir]
+
   finder = modulefinder.ModuleFinder(pythonpath)
   finder.run_script(module_path)
   dependencies = [module.__file__ for module in finder.modules.itervalues()

@@ -4,9 +4,11 @@
 
 import collections
 import errno
+import logging
 import marshal
 import os
 import pickle
+import re
 
 import build_common
 import dependency_inspection
@@ -26,7 +28,7 @@ _config_loader = ConfigLoader()
 
 
 def _get_build_system_dependencies():
-  options_file = OPTIONS.get_configure_options_file()
+  options_file = build_common.get_target_configure_options_file()
   return [options_file] + ninja_generator.get_configuration_dependencies()
 
 
@@ -155,7 +157,11 @@ def _load_config_cache_from_file(path):
   files = {path: FileEntry(mtime) for path, mtime in data['files']}
   listings = {file_list_cache.file_list_cache_from_dict(listing)
               for listing in data['listings']}
-  generated_ninjas = pickle.loads(data['generated_ninjas'])
+  try:
+    generated_ninjas = pickle.loads(data['generated_ninjas'])
+  except StandardError:
+    logging.exception('Fail to load NinjaGenerator from cache: %s', path)
+    return None
 
   return ConfigCache(config_name, entry_point, files, listings,
                      generated_ninjas)
@@ -327,7 +333,8 @@ def _filter_all_make_to_ninja(vars):
 
 def _list_ninja_generators(config_loader, name):
   for module in config_loader.find_config_modules(name):
-    yield (ConfigContext(module.__file__, module.__name__, name),
+    config_path = re.sub('\\.pyc$', '.py', module.__file__)
+    yield (ConfigContext(config_path, module.__name__, name),
            getattr(module, name))
 
 

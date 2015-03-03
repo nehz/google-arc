@@ -9,9 +9,11 @@ import os.path
 import re
 import sys
 
+import build_common
 from build_options import OPTIONS
+from util import platform_util
 from util.test import suite_runner_config_flags as flags
-
+from util.test import test_options
 
 # For use in the suite configuration files, to identify a default configuration
 # to use for a list of related suites.
@@ -239,6 +241,17 @@ def _read_test_config(path):
 
       # OPTIONS is commonly used for the conditions.
       'OPTIONS': OPTIONS,
+
+      'USE_NDK_DIRECT_EXECUTION': build_common.use_ndk_direct_execution(),
+
+      # TODO(crbug.com/437406): Currently we use platform_util directly,
+      # but this is not proper way, because, on remote execution, we want
+      # to get test config on remote, rather than host's.
+      # We should set up remote's eval context.
+      'platform_util': platform_util,
+
+      # TODO(crbug.com/437402): Remove this.
+      'TEST_OPTIONS': test_options.TEST_OPTIONS
   }
 
   try:
@@ -319,6 +332,7 @@ def load_from_suite_definitions(definitions_base_path, expectations_base_path):
   |expectations_base_path| gives the path to the expectation files to load,
   which are matched up with each suite automatically.
   """
+
   expectations_loader = SuiteExpectationsLoader(expectations_base_path)
   runners = []
 
