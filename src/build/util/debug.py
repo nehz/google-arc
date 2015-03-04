@@ -25,19 +25,21 @@ def _write_argvalues(frame, output_stream, written_vars):
   # the context lines. Since we simply use string.find, wrong variables can be
   # picked up if the context lines happen to include the names in a different
   # meaning, but we tolerate the errors as they are not much harmful.
+  # code_context can be None (e.g. built-in functions).
   code_context = frameinfo.code_context
-  code_context = code_context[:len(code_context) / 2 + 1]
-  code_context.reverse()
   args = []
-  for name, value in arg_info.locals.iteritems():
-    for i, code in enumerate(code_context):
-      # Record i and the variable position in the context line so the
-      # variables are sorted in the dictionary order of
-      # (distance from the center of context, position in the context).
-      pos_in_code = code.find(name)
-      if pos_in_code != -1:
-        args.append(((i, pos_in_code), name, value))
-        break
+  if code_context:
+    code_context = code_context[:len(code_context) / 2 + 1]
+    code_context.reverse()
+    for name, value in arg_info.locals.iteritems():
+      for i, code in enumerate(code_context):
+        # Record i and the variable position in the context line so the
+        # variables are sorted in the dictionary order of
+        # (distance from the center of context, position in the context).
+        pos_in_code = code.find(name)
+        if pos_in_code != -1:
+          args.append(((i, pos_in_code), name, value))
+          break
 
   # Rewrite the variables to be easier to read.
   for i, (pos, name, value) in enumerate(args):
@@ -61,8 +63,9 @@ def _write_argvalues(frame, output_stream, written_vars):
     else:
       written_vars.append((name, value))
 
-  output_stream.write('    ArgInfo: %s\n' % (
-      ', '.join('%s=%s' % (name, value) for _, name, value in sorted(args))))
+  if args:
+    output_stream.write('    ArgInfo: %s\n' % (
+        ', '.join('%s=%s' % (name, value) for _, name, value in sorted(args))))
 
 
 def write_frames(output_stream):

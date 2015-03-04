@@ -675,6 +675,7 @@ GLES_APIENTRY(void, Clear, GLbitfield mask) {
   if (!c) {
     return;
   }
+  c->EnsureSurfaceReadyToDraw();
   PASS_THROUGH(c, Clear, mask);
 }
 

@@ -961,6 +961,14 @@ int PepperFileHandler::ConvertNativeOpenFlagsToPepper(int native_flags) {
   return pepper_flags;
 }
 
+bool PepperFileHandler::IsNonExistent(const std::string& path) {
+  return cache_->IsNonExistent(path);
+}
+
+void PepperFileHandler::SetNotExistent(const std::string& path) {
+  cache_->SetNotExistent(path);
+}
+
 //------------------------------------------------------------------------------
 
 PepperFile::PepperFile(int oflag,

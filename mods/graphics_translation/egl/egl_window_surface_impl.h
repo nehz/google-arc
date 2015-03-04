@@ -41,11 +41,12 @@ class EglWindowSurfaceImpl : public EglSurfaceImpl {
   // Specify the swap interval for the underlying window buffer.
   virtual void SetSwapInterval(int interval);
 
+  // Dequeues a buffer from the backing window if one is not already dequeued.
+  virtual void EnsureBufferReady();
+
  private:
   EglWindowSurfaceImpl(EGLDisplay dpy, EGLConfig cfg, EGLint surface_type,
                        int w, int h, ANativeWindow* win);
-
-  bool PrepareWindow();
 
   ANativeWindow* android_window_;
   ANativeWindowBuffer* android_buffer_;

@@ -25,6 +25,17 @@
 #include "graphics_translation/egl/native.h"
 #include "graphics_translation/gles/gles_context.h"
 
+class SurfaceCallbackWrapper : public GlesContext::SurfaceControlCallback {
+ public:
+  SurfaceCallbackWrapper(EglSurfaceImpl* impl)
+      : impl_(impl) {}
+  virtual void EnsureBufferReady() {
+    impl_->EnsureBufferReady();
+  }
+ private:
+  EglSurfaceImpl* impl_;
+};
+
 EglSurfaceImpl::EglSurfaceImpl(EGLDisplay dpy, EGLConfig cfg,
                                EGLint type, int w, int h) :
     display(dpy),
@@ -72,9 +83,9 @@ bool EglSurfaceImpl::SetColorBuffer(ColorBufferHandle hnd) {
 
 void EglSurfaceImpl::BindToContext(EglContextImpl* context) {
   bound_context_ = context;
-  OnSurfaceChanged();
   if (context) {
-    context->GetGlesContext()->OnAttachSurface(width_, height_);
+    GlesContext::SurfaceControlCallbackPtr cb(new SurfaceCallbackWrapper(this));
+    context->GetGlesContext()->OnAttachSurface(cb, width_, height_);
   }
 }
 

@@ -68,6 +68,10 @@ class ARC_EXPORT PepperFileHandler : public FileSystemHandler {
   static int ConvertPepperErrorToErrno(int pp_error);
   static int ConvertNativeOpenFlagsToPepper(int native_flags);
 
+ protected:
+  bool IsNonExistent(const std::string& path);
+  void SetNotExistent(const std::string& path);
+
  private:
   friend class PepperFileTest;
   void DisableCacheForTesting();

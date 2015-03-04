@@ -258,4 +258,5 @@ def create_staging():
 
 
 if __name__ == '__main__':
+  build_options.OPTIONS.parse_configure_file()
   sys.exit(not create_staging())

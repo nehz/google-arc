@@ -57,6 +57,14 @@ class DebugTest(unittest.TestCase):
       self.fail('%s\n\ndoes not appear in the following output:\n\n%s' %
                 ('\n'.join(expected_list), out.getvalue()))
 
+  def test_write_frames_with_no_code_context_func(self):
+    # This test is just for checking debug.write_frames works without raising
+    # an exception when a function which does not have code context is in the
+    # stack.
+    out = cStringIO.StringIO()
+    eval('debug.write_frames(out)')
+    self.assertTrue(out.getvalue())
+
 
 if __name__ == '__main__':
   unittest.main()

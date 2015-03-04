@@ -136,7 +136,9 @@ void GlesContext::OnMakeCurrent() {
   initialized_ = true;
 }
 
-void GlesContext::OnAttachSurface(GLint width, GLint height) {
+void GlesContext::OnAttachSurface(SurfaceControlCallbackPtr sfc,
+                                  GLint width, GLint height) {
+  surface_callback_ = sfc;
   if (!initialized_viewport_) {
     initialized_viewport_ = true;
 
@@ -348,6 +350,12 @@ void GlesContext::Flush() {
   PASS_THROUGH(this, Flush);
 }
 
+void GlesContext::EnsureSurfaceReadyToDraw() const {
+  if (surface_callback_) {
+    surface_callback_->EnsureBufferReady();
+  }
+}
+
 void GlesContext::SetCurrentUserProgram(const ProgramDataPtr& program) {
   if (program == current_user_program_) {
     return;
@@ -394,6 +402,9 @@ void GlesContext::DrawFullscreenQuad(GLuint texture, bool flip_v) {
   if (fullscreen_quad_ == NULL) {
     fullscreen_quad_ = new FullscreenQuad(this);
   }
+
+  EnsureSurfaceReadyToDraw();
+
   fullscreen_quad_->Draw(texture, flip_v);
 }
 
@@ -403,6 +414,8 @@ void GlesContext::Draw(DrawType draw, GLenum mode, GLint first, GLsizei count,
   if (!CanDraw()) {
     return;
   }
+
+  EnsureSurfaceReadyToDraw();
 
   bool program_uses_external_as_2d = false;
   PrepareProgramObject(mode, &program_uses_external_as_2d);

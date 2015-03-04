@@ -39,6 +39,15 @@ CrxFileHandler::~CrxFileHandler() {
 
 scoped_refptr<FileStream> CrxFileHandler::open(
     int fd, const std::string& pathname, int oflag, mode_t mode) {
+  // TODO(crbug.com/420771): Revisit the caching code once 420771 is fixed. If
+  // we add a readonly file image to the CRX, we can just remove this caching
+  // code. If we directly add OBB files to the CRX, we could also add a metadata
+  // file to the CRX and remove the caching code.
+  if (IsNonExistent(pathname)) {
+    errno = ENOENT;
+    return NULL;
+  }
+
   // Check the |stream_cache_| first. Caching a FileStream object for the CRX
   // filesystem is safe since the filesystem is always readonly. However,
   // associating two independent FDs to a single FileStream is not safe. If we
@@ -70,8 +79,15 @@ scoped_refptr<FileStream> CrxFileHandler::open(
   // default open() implementation in the parent class which issues an IPC.
   scoped_refptr<FileStream> new_stream =
       PepperFileHandler::open(fd, pathname, oflag, mode);
-  if (!new_stream)
-    return  NULL;
+  if (!new_stream) {
+    if (errno == ENOENT) {
+      // Since CRX file system is always read-only, it is always very safe to
+      // update the stat cache when open() returns ENOENT.
+      // TODO(yusukes): Consider moving this to pepper_file.cc.
+      SetNotExistent(pathname);
+    }
+    return NULL;
+  }
 
   // Always overwrite the map with the new stream.
   if (it != stream_cache_.end())

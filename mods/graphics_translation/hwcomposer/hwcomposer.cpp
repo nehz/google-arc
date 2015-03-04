@@ -25,6 +25,7 @@
 using arc::CompositorInterface;
 typedef arc::CompositorInterface::Display Display;
 typedef arc::CompositorInterface::Layer Layer;
+typedef arc::CompositorInterface::FloatRect FloatRect;
 typedef arc::CompositorInterface::Rect Rect;
 
 struct hwc_context_t {
@@ -97,6 +98,11 @@ void hwc_context_t::RegisterCallbacks(const hwc_procs_t* procs) {
 
 static const GraphicsBuffer* GetGraphicsBuffer(buffer_handle_t handle) {
   return static_cast<const GraphicsBuffer*>(handle);
+}
+
+static FloatRect MakeFloatRect(const hwc_frect_t& in) {
+  const FloatRect r = { in.left, in.top, in.right, in.bottom };
+  return r;
 }
 
 static Rect MakeRect(const hwc_rect_t& in) {
@@ -182,7 +188,7 @@ static Layer MakeLayer(hwc_layer_1_t* hw_layer) {
       layer.size.width = buffer->GetWidth();
       layer.size.height = buffer->GetHeight();
       layer.type = Layer::TYPE_TEXTURE;
-      layer.source = MakeRect(hw_layer->sourceCropi);
+      layer.source = MakeFloatRect(hw_layer->sourceCropf);
       layer.dest = MakeRect(hw_layer->displayFrame);
       layer.transform = hw_layer->transform;
       break;
@@ -375,7 +381,7 @@ static int hwc_device_open(const hw_module_t* module, const char* name,
     const int density = GetDisplayDensity();
     hwc_context_t* dev = new hwc_context_t();
     dev->device.common.tag = HARDWARE_DEVICE_TAG;
-    dev->device.common.version = HWC_DEVICE_API_VERSION_1_2;
+    dev->device.common.version = HWC_DEVICE_API_VERSION_1_3;
     dev->device.common.module = const_cast<hw_module_t*>(module);
     dev->device.common.close = hwc_device_close;
     dev->device.prepare = hwc_prepare;

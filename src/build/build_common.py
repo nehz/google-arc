@@ -792,6 +792,9 @@ def find_python_dependencies(package_root_path, module_path):
   'package_root_path' serves to identify the root of the package the module
   belongs to, and additionally is used to filter the returned dependency list to
   the list of imported files contained under it.
+
+  Also, if this function is called while a config.py is running, records the
+  resulting python scripts as the dependencies of the config.py.
   """
   pythonpath = sys.path[:]
   if package_root_path not in pythonpath:
@@ -806,8 +809,11 @@ def find_python_dependencies(package_root_path, module_path):
   dependencies = [module.__file__ for module in finder.modules.itervalues()
                   if module.__file__]
 
-  return [path for path in dependencies
-          if (path.startswith(package_root_path) and path != module_path)]
+  result = [path for path in dependencies
+            if (path.startswith(package_root_path) and path != module_path)]
+
+  dependency_inspection.add_files(module_path, *result)
+  return result
 
 
 def get_api_level():

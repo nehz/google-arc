@@ -31,6 +31,13 @@ class CompositorInterface {
     int height;
   };
 
+  struct FloatRect {
+    float left;
+    float top;
+    float right;
+    float bottom;
+  };
+
   struct Rect {
     int left;
     int top;
@@ -72,7 +79,7 @@ class CompositorInterface {
     };
 
     Size size;
-    Rect source;
+    FloatRect source;
     Rect dest;
 
     uint8_t transform;

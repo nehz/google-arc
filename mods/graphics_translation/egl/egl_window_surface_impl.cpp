@@ -87,7 +87,6 @@ EglWindowSurfaceImpl::EglWindowSurfaceImpl(EGLDisplay dpy, EGLConfig cfg,
     android_buffer_(NULL) {
   // Keep a reference on the window.
   window->common.incRef(&window->common);
-  PrepareWindow();
 }
 
 EglWindowSurfaceImpl::~EglWindowSurfaceImpl() {
@@ -105,9 +104,14 @@ void EglWindowSurfaceImpl::SetSwapInterval(int interval) {
 }
 
 EGLBoolean EglWindowSurfaceImpl::SwapBuffers() {
-  LOG_ALWAYS_FATAL_IF(android_buffer_ == NULL, "No buffer to swap.");
   if (bound_context_ == NULL) {
     return EGL_FALSE;
+  }
+
+  if (android_buffer_ == NULL) {
+    ALOGI("No buffer to swap. Did the client render anything?");
+    // Do nothing.
+    return EGL_TRUE;
   }
 
   if (color_buffer_) {
@@ -116,7 +120,7 @@ EGLBoolean EglWindowSurfaceImpl::SwapBuffers() {
   android_window_->queueBuffer_DEPRECATED(android_window_, android_buffer_);
   android_buffer_ = NULL;
 
-  return PrepareWindow() ? EGL_TRUE : EGL_FALSE;
+  return EGL_TRUE;
 }
 
 void EglWindowSurfaceImpl::BeginFrame() {
@@ -124,11 +128,14 @@ void EglWindowSurfaceImpl::BeginFrame() {
   native_window_set_buffers_timestamp(android_window_, timestamp);
 }
 
-bool EglWindowSurfaceImpl::PrepareWindow() {
+void EglWindowSurfaceImpl::EnsureBufferReady() {
+  if (android_buffer_ != NULL || bound_context_ == NULL) {
+    return;
+  }
   const int res = android_window_->dequeueBuffer_DEPRECATED(android_window_,
                                                             &android_buffer_);
   LOG_ALWAYS_FATAL_IF(res != android::NO_ERROR, "Unable to dequeue buffer.");
   const GraphicsBuffer* gb =
       static_cast<const GraphicsBuffer*>(android_buffer_->handle);
-  return SetColorBuffer(gb->GetHostHandle());
+  SetColorBuffer(gb->GetHostHandle());
 }

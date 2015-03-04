@@ -203,13 +203,13 @@ class ConfigContext:
     self.listing_queries = set()
 
   def set_up(self):
-    dependency_inspection.reset()
+    dependency_inspection.start_inspection()
 
   def tear_down(self):
     self.files.update(dependency_inspection.get_files())
     self.listing_queries.update(dependency_inspection.get_listings())
 
-    dependency_inspection.stop()
+    dependency_inspection.stop_inspection()
 
   def make_result(self, ninja_list):
     return ConfigResult(self.config_name, self.entry_point,

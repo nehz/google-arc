@@ -44,6 +44,7 @@ class EglSurfaceImpl {
 
   virtual void BeginFrame() {}
   virtual void BindTexImage() {}
+  virtual void EnsureBufferReady() {}
   virtual void SetSwapInterval(int interval) {}
   virtual EGLBoolean SwapBuffers() { return EGL_TRUE; }
 

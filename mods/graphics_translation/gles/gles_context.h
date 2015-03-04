@@ -39,6 +39,14 @@ class GlesContext {
     kDrawElements,
   };
 
+  // Ensures that the bound surface has a buffer ready for drawing.
+  class SurfaceControlCallback {
+   public:
+    virtual ~SurfaceControlCallback() {}
+    virtual void EnsureBufferReady() = 0;
+  };
+  typedef SmartPtr<SurfaceControlCallback> SurfaceControlCallbackPtr;
+
   GlesContext(int32_t id, GlesVersion ver, GlesContext* share,
               void* underlying_context, const UnderlyingApis* underlying_apis);
   ~GlesContext();
@@ -57,7 +65,8 @@ class GlesContext {
   bool AreChecksEnabled() const;
 
   void OnMakeCurrent();
-  void OnAttachSurface(int width, int height);
+  void OnAttachSurface(SurfaceControlCallbackPtr sfc, int width, int height);
+  void EnsureSurfaceReadyToDraw() const;
   void Flush();
 
   void UpdateFramebufferOverride(GLint width, GLint draw_height,
@@ -229,6 +238,7 @@ class GlesContext {
   ProgramCache program_cache_;
   FullscreenQuad* fullscreen_quad_;
   ProgramDataPtr current_user_program_;
+  SurfaceControlCallbackPtr surface_callback_;
 
   // This is the set of supported compressed texture formats given to the
   // client.
