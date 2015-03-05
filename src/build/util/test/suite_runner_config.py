@@ -13,7 +13,6 @@ import build_common
 from build_options import OPTIONS
 from util import platform_util
 from util.test import suite_runner_config_flags as flags
-from util.test import test_options
 
 # For use in the suite configuration files, to identify a default configuration
 # to use for a list of related suites.
@@ -220,7 +219,7 @@ def _evaluate_suite_test_expectations(raw_dict):
   return result
 
 
-def _read_test_config(path):
+def _read_test_config(path, on_bot):
   """Reads the file, and eval() it with the test config context."""
   if not os.path.exists(path):
     return {}
@@ -243,15 +242,13 @@ def _read_test_config(path):
       'OPTIONS': OPTIONS,
 
       'USE_NDK_DIRECT_EXECUTION': build_common.use_ndk_direct_execution(),
+      'ON_BOT': on_bot,
 
       # TODO(crbug.com/437406): Currently we use platform_util directly,
       # but this is not proper way, because, on remote execution, we want
       # to get test config on remote, rather than host's.
       # We should set up remote's eval context.
       'platform_util': platform_util,
-
-      # TODO(crbug.com/437402): Remove this.
-      'TEST_OPTIONS': test_options.TEST_OPTIONS
   }
 
   try:
@@ -297,8 +294,9 @@ def make_suite_run_configs(raw_config):
 # TODO(crbug.com/384028): The class will eventually eliminate the need for
 # make_suite_run_configs and default_run_configuration above.
 class SuiteExpectationsLoader(object):
-  def __init__(self, base_path):
+  def __init__(self, base_path, on_bot):
     self._base_path = base_path
+    self._on_bot = on_bot
     self._cache = {}
 
   def get(self, suite_name):
@@ -309,7 +307,7 @@ class SuiteExpectationsLoader(object):
       config = self._cache.get(partial_name)
       if config is None:
         raw_config = _read_test_config(
-            os.path.join(self._base_path, partial_name))
+            os.path.join(self._base_path, partial_name), self._on_bot)
         config = _evaluate(raw_config, defaults=parent_config)
         self._cache[partial_name] = config
       parent_config = config
@@ -325,7 +323,9 @@ def get_suite_definitions_module(suite_filename):
     return definitions_module
 
 
-def load_from_suite_definitions(definitions_base_path, expectations_base_path):
+def load_from_suite_definitions(definitions_base_path,
+                                expectations_base_path,
+                                on_bot):
   """Loads all the suite definitions from a given path.
 
   |definitions_base_path| gives the path to the python files to load.
@@ -333,7 +333,8 @@ def load_from_suite_definitions(definitions_base_path, expectations_base_path):
   which are matched up with each suite automatically.
   """
 
-  expectations_loader = SuiteExpectationsLoader(expectations_base_path)
+  expectations_loader = SuiteExpectationsLoader(
+      expectations_base_path, on_bot)
   runners = []
 
   definition_files = glob.glob(os.path.join(definitions_base_path, '*.py'))

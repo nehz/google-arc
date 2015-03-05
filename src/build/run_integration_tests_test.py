@@ -481,7 +481,7 @@ class RunIntegrationTestsTest(unittest.TestCase):
     """A single test that cleanly failes on a CTS buildbot count as warning."""
     self._run_single_atf_integration_test(
         [ATF_CODE_FAILED],
-        extra_args=['--buildbot', '--cts-bot'])
+        extra_args=['--buildbot', '--cts-bot', '--warn-on-failure'])
 
     # A failure on the CTS bot should not fail the build.
     self.assertExitCodeIndicatedSuccess()

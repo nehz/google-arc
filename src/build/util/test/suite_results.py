@@ -467,7 +467,7 @@ class SuiteResultsBuildBot(SuiteResultsBase):
     # TODO(elijahtaylor): Investigate HTML formatting on the bots. These HTML
     # bits are being escaped in the bot logs. For now do no formatting.
     super(SuiteResultsBuildBot, self).__init__(suite_states, options)
-    self._is_cts_bot = options.cts_bot
+    self._warn_on_failure = options.warn_on_failure
 
   def _emit_step_text_annotation(self, message):
     self.write(_INFO, '\n@@@STEP_TEXT@%s<br/>@@@\n' % message)
@@ -479,7 +479,7 @@ class SuiteResultsBuildBot(SuiteResultsBase):
     # Emit a single buildbot annotation for the highest level of failure we
     # observed.
     if self.overall_failure:
-      if self._is_cts_bot:
+      if self._warn_on_failure:
         # Reporting a failure on the CTS bots stops the build, but we want it to
         # continue. Report a warning instead.
         self._emit_step_message('WARNINGS')

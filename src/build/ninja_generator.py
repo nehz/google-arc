@@ -3692,8 +3692,10 @@ class PythonTestNinjaGenerator(NinjaGenerator):
     # interested in searching for tests matching a pattern, but it does what we
     # want.
     n.rule('run_python_test',
-           ('PYTHONPATH=third_party/tools/python_mock python -m '
-            'unittest discover --verbose $test_path $test_name $top_path' +
+           ('PYTHONPATH='
+            'src/build:src/packaging:src:third_party/tools/python_mock '
+            'python -m unittest discover --verbose '
+            '$test_path $test_name $top_path' +
             build_common.get_test_output_handler()),
            description='run_python_test $in')
 

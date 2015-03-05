@@ -18,6 +18,8 @@ running that test suite.
 """
 
 import argparse
+import collections
+import itertools
 import logging
 import multiprocessing
 import os
@@ -29,9 +31,6 @@ import build_common
 import dashboard_submit
 import util.test.suite_results
 from build_options import OPTIONS
-# TODO(crbug.com/384028): Remove this import once all test code is out of
-# configs.
-from config_loader import ConfigLoader
 from cts import expected_driver_times
 from util import color
 from util import concurrent
@@ -45,7 +44,6 @@ from util.test import suite_runner
 from util.test import suite_runner_config
 from util.test import test_driver
 from util.test import test_filter
-from util.test import test_options
 
 
 _BOT_TEST_SUITE_MAX_RETRY_COUNT = 5
@@ -60,35 +58,21 @@ _REPORT_COLOR_FOR_SUITE_EXPECTATION = {
     scoreboard_constants.EXPECT_PASS: color.GREEN,
 }
 
-_config_loader = ConfigLoader()
-_config_loader.load_from_default_path()
 
-
-def _get_all_suite_runners_from_defs():
-  return suite_runner_config.load_from_suite_definitions(
-      _DEFINITIONS_ROOT, _EXPECTATIONS_ROOT)
-
-
-def get_all_suite_runners():
+def get_all_suite_runners(on_bot):
   """Gets all the suites defined in the various config.py files."""
-  all_suite_runners = []
-  used_names = set()
+  sys.path.append('src')
+  result = suite_runner_config.load_from_suite_definitions(
+      _DEFINITIONS_ROOT, _EXPECTATIONS_ROOT, on_bot)
 
-  # Look for config.py modules that define 'get_integration_test_runners',
-  # and call it to get a list of test runner objects we can use to identify
-  # and run each test.
-  get_runners_list = list(
-      _config_loader.find_name('get_integration_test_runners'))
-  get_runners_list.append(_get_all_suite_runners_from_defs)
+  # Check name duplication.
+  counter = collections.Counter(runner.name for runner in result)
+  dupped_name_list = [name for name, count in counter.iteritems() if count > 1]
+  assert not dupped_name_list, (
+      'Following tests are multiply defined:\n' +
+      '\n'.join(sorted(dupped_name_list)))
 
-  for get_runners in get_runners_list:
-    for runner in get_runners():
-      assert runner.name not in used_names, (
-          'Test case "%s" is multiply defined.' % runner.name)
-      used_names.add(runner.name)
-      all_suite_runners.append(runner)
-
-  return sorted(all_suite_runners, key=lambda runner: runner.name)
+  return result
 
 
 def get_dependencies_for_integration_tests():
@@ -177,7 +161,7 @@ def _select_tests_to_run(all_suite_runners, args):
 
 
 def _get_test_driver_list(args):
-  all_suite_runners = get_all_suite_runners()
+  all_suite_runners = get_all_suite_runners(args.buildbot)
   return _select_tests_to_run(all_suite_runners, args)
 
 
@@ -254,7 +238,10 @@ def _run_suites(test_driver_list, args, prepare_only=False):
         if not_done:
           print '@@@STEP_TEXT@Integration test timed out@@@'
           debug.write_frames(sys.stdout)
-          print '@@@STEP_FAILURE@@@'
+          if args.warn_on_failure:
+            print '@@@STEP_WARNINGS@@@'
+          else:
+            print '@@@STEP_FAILURE@@@'
           return False
 
         # All tests passed (or failed) in time.
@@ -365,6 +352,9 @@ def parse_args(args):
                       'when launching tests.  Used by buildbots.')
   parser.add_argument('-v', '--verbose', action='store_const', const='verbose',
                       dest='output', help='Verbose output.')
+  parser.add_argument('--warn-on-failure', action='store_true',
+                      help=('Indicates that failing tests should become '
+                            'warnings rather than errors.'))
   parser.add_argument('-x', '--exclude', action='append',
                       dest='exclude_patterns', default=[], metavar='PATTERN',
                       help=('Identifies tests to exclude, using shell '
@@ -375,16 +365,12 @@ def parse_args(args):
   return parser.parse_args(args)
 
 
-def set_test_options(args):
-  test_options.TEST_OPTIONS.set_is_running_on_buildbot(args.buildbot)
-
-
 def set_test_global_state(args):
   # Set/reset any global state involved in running the tests.
   # These settings need to be made for consistency, and allow the test framework
   # itself to be tested.
   retry_count = 0
-  if test_options.TEST_OPTIONS.is_buildbot:
+  if args.buildbot:
     retry_count = _BOT_TEST_SUITE_MAX_RETRY_COUNT
   if args.keep_running:
     retry_count = sys.maxint
@@ -411,8 +397,10 @@ def _run_suites_and_output_results_remote(args, raw_args):
   if not prepare_suites(args):
     return 1
   raw_args.append('--noprepare')
-  return remote_executor.run_remote_integration_tests(
+  run_result = remote_executor.run_remote_integration_tests(
       args, raw_args, get_dependencies_for_integration_tests())
+
+  return run_result if not args.warn_on_failure else 0
 
 
 def _run_suites_and_output_results_local(test_driver_list, args):
@@ -429,7 +417,9 @@ def _run_suites_and_output_results_local(test_driver_list, args):
       dashboard_submit.queue_data('cts%', 'coverage%', {
           'passed': passed * 100. / total,
       })
-    # In case of CTS bot, failure should not fail a step.
+
+  # If failures are only advisory, we always return zero.
+  if args.warn_on_failure:
     return 0
 
   return 0 if run_result and not test_failed else 1
@@ -458,7 +448,6 @@ def _process_args(raw_args):
   args.exclude_patterns = [(pattern if '*' in pattern else (pattern + '*'))
                            for pattern in args.exclude_patterns]
 
-  set_test_options(args)
   set_test_global_state(args)
 
   if (not args.remote and args.buildbot and

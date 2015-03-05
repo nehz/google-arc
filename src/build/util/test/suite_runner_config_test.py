@@ -18,7 +18,6 @@ from util.test.suite_runner_config_flags import NOT_SUPPORTED
 from util.test.suite_runner_config_flags import PASS
 from util.test.suite_runner_config_flags import REQUIRES_OPENGL
 from util.test.suite_runner_config_flags import TIMEOUT
-from util.test.test_options import TEST_OPTIONS
 
 
 def ones_count(x):
@@ -226,9 +225,6 @@ class SuiteRunConfigIntegrationTests(unittest.TestCase):
           }],
       },
   }))
-
-  def setUp(self):
-    TEST_OPTIONS.reset()
 
   def _make_suite_runner(self, name):
     return SuiteRunnerBase(

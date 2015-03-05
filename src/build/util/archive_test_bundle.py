@@ -122,7 +122,6 @@ if __name__ == '__main__':
     build_common.run_ninja()
 
   integration_tests_args = _get_integration_tests_args(parsed_args.jobs)
-  run_integration_tests.set_test_options(integration_tests_args)
   assert run_integration_tests.prepare_suites(integration_tests_args)
 
   # Prepare dalvik.401-perf for perf vm tests.

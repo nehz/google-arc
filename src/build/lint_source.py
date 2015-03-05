@@ -264,9 +264,10 @@ class TestConfigLinter(CommandLineLinterBase):
       # OPTIONS is commonly used in the conditions.
       'OPTIONS',
       'USE_NDK_DIRECT_EXECUTION',
+      'ON_BOT',
 
       # TODO(crbug.com/437406): Remove these values.
-      'platform_util', 'TEST_OPTIONS',
+      'platform_util',
   ]
 
   # These are not the test config files.
