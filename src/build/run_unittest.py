@@ -54,9 +54,9 @@ sys.path.insert(0, 'src/build')
 import build_common
 import build_options
 import toolchain
-import util.platform_util
-import util.remote_executor
-import util.test.unittest_util
+from util import platform_util
+from util import remote_executor
+from util.test import unittest_util
 
 
 def _read_test_info(filename):
@@ -72,7 +72,7 @@ def _construct_command(test_info, gtest_filter, gtest_list_tests):
   variables.setdefault('argv', '')
   variables.setdefault('qemu_arm', '')
 
-  if util.platform_util.is_running_on_chromeos():
+  if platform_util.is_running_on_chromeos():
     # On ChromeOS, binaries in directories mounted with noexec options are
     # copied to the corresponding directories mounted with exec option.
     # Change runner to use the binaries under the directory mounted with exec
@@ -139,7 +139,7 @@ def _run_unittest(tests, verbose, use_gdb, gtest_filter, gtest_list_tests):
       args = shlex.split(command)
       if use_gdb:
         print args
-        util.test.unittest_util.run_gdb(args)
+        unittest_util.run_gdb(args)
       else:
         returncode = subprocess.call(args)
         if returncode != 0:
@@ -163,8 +163,7 @@ def _check_args(parsed_args):
     if parsed_args.remote:
       raise Exception('Setting both --gdb and --remote is not supported yet.')
   if (parsed_args.remote and
-      filter(util.test.unittest_util.is_bionic_fundamental_test,
-             parsed_args.tests)):
+      filter(unittest_util.is_bionic_fundamental_test, parsed_args.tests)):
     raise Exception('You cannot use --remote for bionic_fundamental_*_test')
 
 
@@ -188,23 +187,24 @@ def main():
   parser.add_argument('-v', '--verbose', action='store_true',
                       default=False, dest='verbose',
                       help=('Show verbose output, including commands run'))
-  util.remote_executor.add_remote_arguments(parser)
+  remote_executor.add_remote_arguments(parser)
   parsed_args = parser.parse_args()
+  remote_executor.maybe_detect_remote_host_type(parsed_args)
 
   if parsed_args.list:
-    for test_name in util.test.unittest_util.get_all_tests():
+    for test_name in unittest_util.get_all_tests():
       print test_name
     return 0
 
   _check_args(parsed_args)
 
   if not parsed_args.tests:
-    parsed_args.tests = util.test.unittest_util.get_all_tests()
+    parsed_args.tests = unittest_util.get_all_tests()
     # Bionic fundamental tests are not supported on remote host.
     if parsed_args.remote:
       parsed_args.tests = [
           t for t in parsed_args.tests
-          if not util.test.unittest_util.is_bionic_fundamental_test(t)]
+          if not unittest_util.is_bionic_fundamental_test(t)]
 
   if parsed_args.gdb:
     # This script must not die by Ctrl-C while GDB is running. We simply
@@ -213,7 +213,7 @@ def main():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
   if parsed_args.remote:
-    return util.remote_executor.run_remote_unittest(parsed_args)
+    return remote_executor.run_remote_unittest(parsed_args)
   else:
     return _run_unittest(parsed_args.tests, parsed_args.verbose,
                          parsed_args.gdb, parsed_args.gtest_filter,

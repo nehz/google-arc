@@ -87,9 +87,6 @@ _UNIT_TEST_FILE_PATTERNS = ['out/target/%(target)s/lib',
                             'out/target/%(target)s/posix_translation_fs_images',
                             'out/target/%(target)s/unittest_info']
 
-# Dictionary to cache the result of remote host type auto detection.
-_REMOTE_HOST_TYPE_CACHE = dict()
-
 # Flags to launch Chrome on remote host.
 _REMOTE_FLAGS = ['--nacl-helper-binary', '--remote', '--ssh-key']
 
@@ -426,7 +423,7 @@ def _detect_remote_host_type_from_uname_output(str):
   raise NotImplementedError('Unsupported remote host OS: %s.' % str)
 
 
-def _detect_remote_host_type(remote, ssh_key):
+def detect_remote_host_type(remote, ssh_key):
   """Tries logging in and runs 'uname -s' to detect the host type."""
   # The 'root' users needs to be used for Chrome OS and $USER for other targets.
   # Here we try 'root' first, to give priority to Chrome OS.
@@ -444,13 +441,3 @@ def _detect_remote_host_type(remote, ssh_key):
       'If you are trying to connect to a Chrome OS device, also check that '
       'test image (not dev image) is installed in the device.' % (
           ','.join(users), remote))
-
-
-def get_remote_host_type(parsed_args):
-  """Detects the remote host type or returns the cached previous result."""
-  remote = parsed_args.remote
-  try:
-    return _REMOTE_HOST_TYPE_CACHE[remote]
-  except KeyError:
-    return _REMOTE_HOST_TYPE_CACHE.setdefault(
-        remote, _detect_remote_host_type(remote, parsed_args.ssh_key))

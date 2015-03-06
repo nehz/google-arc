@@ -362,7 +362,9 @@ def parse_args(args):
 
   remote_executor.add_remote_arguments(parser)
 
-  return parser.parse_args(args)
+  args = parser.parse_args(args)
+  remote_executor.maybe_detect_remote_host_type(args)
+  return args
 
 
 def set_test_global_state(args):

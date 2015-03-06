@@ -69,11 +69,20 @@ def maybe_extend_remote_host_chrome_params(parsed_args, params):
 
 
 def add_remote_arguments(parser):
-  parser.add_argument('--remote', help='The IP address of the remote host, '
-                      'which is either a Chrome OS device running a test '
-                      'image, MacOS, or cygwin\'s sshd on Windows.')
-  parser.add_argument('--ssh-key', help='The ssh-key file to login to remote '
-                      'host. Used only when --remote option is specified.')
+  parser.add_argument('--remote',
+                      help='The IP address of the remote host, which is '
+                      'either a Chrome OS device running a test image, MacOS, '
+                      'or cygwin\'s sshd on Windows.')
+  parser.add_argument('--ssh-key',
+                      help='The ssh-key file to login to remote host. Used '
+                      'only when --remote option is specified.')
+  parser.add_argument('--remote-host-type',
+                      choices=('chromeos', 'cygwin', 'mac'), default=None,
+                      help='The OS type of the remote host. Used only when '
+                      '--remote option is specified. If --remote option is '
+                      'specified but --remote-host-type is not, it will be '
+                      'automatically detected by communicating with the '
+                      'remote machine.')
   parser.add_argument('--no-remote-machine-setup',
                       dest='remote_machine_setup', action='store_false',
                       help='Do not perform remote machine setup. Used to run '
@@ -87,15 +96,39 @@ def add_remote_arguments(parser):
                       'value is only available for Chrome OS devices')
 
 
+def maybe_detect_remote_host_type(parsed_args):
+  """Sets remote_host_type if necessary.
+
+  This function ensures that parsed_args has |remote_host_type| value,
+  if it has |remote|.
+  On remote execution, this function checks if remote_host_type is already
+  set or not. If not, detects the remote host type by communicating with the
+  remote machine by using |remote| and |ssh_key| values.
+
+  Unfortunately, currently ArgumentParser does not support default values
+  evaluated lazily (after actual parsing) with already parsed arguments.
+  So, all parsers using add_remote_arguments() defined above need to call
+  this function just after its parse_known_args() family.
+  """
+  if parsed_args.remote_host_type or not parsed_args.remote:
+    # If --remote-host-type is already set, or it is not --remote execution,
+    # we do nothing.
+    return
+  parsed_args.remote_host_type = remote_executor_util.detect_remote_host_type(
+      parsed_args.remote, parsed_args.ssh_key)
+
+
 def copy_remote_arguments(parsed_args, args):
   if parsed_args.remote:
     args.append('--remote=' + parsed_args.remote)
   if parsed_args.ssh_key:
     args.append('--ssh-key=' + parsed_args.ssh_key)
+  if parsed_args.remote_host_type:
+    args.append('--remote-host-type=' + parsed_args.remote_host_type)
 
 
 def launch_remote_chrome(parsed_args, argv):
-  remote_host_type = remote_executor_util.get_remote_host_type(parsed_args)
+  remote_host_type = parsed_args.remote_host_type
   if remote_host_type == 'chromeos':
     return remote_chromeos_executor.launch_remote_chrome(parsed_args, argv)
   if remote_host_type == 'cygwin':
@@ -107,8 +140,7 @@ def launch_remote_chrome(parsed_args, argv):
 
 
 def run_remote_unittest(parsed_args):
-  remote_host_type = remote_executor_util.get_remote_host_type(parsed_args)
-  if remote_host_type == 'chromeos':
+  if parsed_args.remote_host_type == 'chromeos':
     return remote_chromeos_executor.run_remote_unittest(parsed_args)
   raise NotImplementedError(
       'run_remote_unittest is only supported for Chrome OS.')
@@ -116,7 +148,7 @@ def run_remote_unittest(parsed_args):
 
 def run_remote_integration_tests(parsed_args, argv,
                                  configs_for_integration_tests):
-  remote_host_type = remote_executor_util.get_remote_host_type(parsed_args)
+  remote_host_type = parsed_args.remote_host_type
   if remote_host_type == 'chromeos':
     return remote_chromeos_executor.run_remote_integration_tests(
         parsed_args, argv, configs_for_integration_tests)
@@ -132,8 +164,7 @@ def run_remote_integration_tests(parsed_args, argv,
 
 
 def cleanup_remote_files(parsed_args):
-  remote_host_type = remote_executor_util.get_remote_host_type(parsed_args)
-  if remote_host_type == 'chromeos':
+  if parsed_args.remote_host_type == 'chromeos':
     return remote_chromeos_executor.cleanup_remote_files(parsed_args)
   raise NotImplementedError(
       'cleanup_remote_files is only supported for Chrome OS.')
@@ -147,6 +178,7 @@ def main():
                       help='Show verbose logging.')
   add_remote_arguments(parser)
   parsed_args = parser.parse_args()
+  maybe_detect_remote_host_type(parsed_args)
   if parsed_args.command == 'cleanup_remote_files':
     return cleanup_remote_files(parsed_args)
   else:

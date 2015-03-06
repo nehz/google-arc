@@ -421,6 +421,7 @@ def main():
   remote_executor.add_remote_arguments(parser)
 
   args = parser.parse_args()
+  remote_executor.maybe_detect_remote_host_type(args)
 
   _set_logging_level(args)
 

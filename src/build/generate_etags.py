@@ -17,6 +17,7 @@ os.system('find . \\( '
           '-name \\*.cc -or '
           '-name \\*.cpp -or '
           '-name \\*.c -or '
+          '-name \\*.java -or '
           '-name \\*.h \\) '
           '-and \\! -wholename ./out/staging/\\* '  # ignore out/staging
           '-and \\! -xtype l '  # ignore broken symlinks

@@ -184,8 +184,8 @@ class TestFileSystemHandler : public FileSystemHandler {
     }
   }
 
-  int symlink(const std::string& oldpath,
-              const std::string& newpath) {
+  virtual int symlink(const std::string& oldpath,
+                      const std::string& newpath) OVERRIDE {
     struct stat st;
     // Save errno because it can be changed by stat below.
     int old_errno = errno;

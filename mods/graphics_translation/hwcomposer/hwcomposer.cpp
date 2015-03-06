@@ -57,13 +57,36 @@ struct hwc_context_t {
   CompositorInterface::Callbacks* callbacks;
   CompositorInterface* compositor;
   const hwc_procs_t* procs;
-  std::vector<int> fds;
 
   int32_t width;
   int32_t height;
   int32_t refresh;
   int32_t xdpi;
   int32_t ydpi;
+
+
+  // These 3 variables could be reduced to first_overlay only, however it makes
+  // the conditions in the code more complicated. In order to keep things as
+  // simple as possible, there are 3 major ways to display a frame.
+  // 1. Show only the framebuffer.
+  // 2. Show the framebuffer with some overlays above it.
+  // 3. Show all overlays and hide the framebuffer.
+  //
+  // Since the framebuffer has no alpha channel and is opaque, it can only ever
+  // be the rearmost layer that we end up putting on screen, otherwise it will
+  // cover up all layers behind it, since its display frame is the whole window.
+  //
+  // Without framebuffer_visible, the condition of whether to display the
+  // frambuffer becomes more complex and possibly if (numHwLayers == 0 ||
+  // hwLayers[0]->compositionType != HWC_OVERLAY) but that might not be correct.
+  //
+  // The range [first_overlay, first_overlay+num_overlay) is a natural way to
+  // structure the loop and prevents requiring state and iterating through all
+  // the non-OVERLAY layers in hwc_set.
+  bool framebuffer_visible;
+  size_t first_overlay;
+  size_t num_overlays;
+
 };
 
 hwc_context_t::hwc_context_t() :
@@ -81,7 +104,10 @@ hwc_context_t::hwc_context_t() :
     height(0),
     refresh(0),
     xdpi(0),
-    ydpi(0) {
+    ydpi(0),
+    framebuffer_visible(false),
+    first_overlay(0),
+    num_overlays(0) {
 }
 
 hwc_context_t::~hwc_context_t() {
@@ -122,24 +148,6 @@ static int GetDisplayDensity() {
   return 1000 * density;
 }
 
-static bool IsLayerSkippable(hwc_layer_1_t* layer) {
-  if (layer->flags & HWC_SKIP_LAYER) {
-    return true;
-  }
-  // We only handle these two types.
-  if (layer->compositionType != HWC_OVERLAY &&
-      layer->compositionType != HWC_BACKGROUND) {
-    return true;
-  }
-  if (layer->compositionType == HWC_OVERLAY) {
-    // Overlay layers (the majority) must have a valid handle.
-    if (!GetGraphicsBuffer(layer->handle)->IsValid()) {
-      return true;
-    }
-  }
-  return false;
-}
-
 static void UpdateLayer(Layer* layer, hwc_layer_1_t* hw_layer) {
   switch(layer->type) {
     case Layer::TYPE_TEXTURE: {
@@ -166,14 +174,19 @@ static void UpdateLayer(Layer* layer, hwc_layer_1_t* hw_layer) {
   }
 }
 
-static void UpdateDisplay(Display* display,
+static void UpdateDisplay(const hwc_context_t* context,
+                          Display* display,
                           hwc_display_contents_1_t* hw_display) {
   std::vector<Layer>::iterator layers_it = display->layers.begin();
-  for (size_t i = 0; i != hw_display->numHwLayers; ++i) {
-    hwc_layer_1_t* layer = &hw_display->hwLayers[i];
-    if (!IsLayerSkippable(layer)) {
-      UpdateLayer(&(*layers_it++), layer);
-    }
+  if (context->framebuffer_visible) {
+    hwc_layer_1_t* layer = &hw_display->hwLayers[hw_display->numHwLayers - 1];
+    UpdateLayer(&(*layers_it), layer);
+    ++layers_it;
+  }
+  for (size_t i = 0; i != context->num_overlays; ++i) {
+    hwc_layer_1_t* layer = &hw_display->hwLayers[context->first_overlay + i];
+    UpdateLayer(&(*layers_it), layer);
+    ++layers_it;
   }
   if (layers_it != display->layers.end()) {
     ALOGE("Unexpected number of layers updated");
@@ -183,6 +196,7 @@ static void UpdateDisplay(Display* display,
 static Layer MakeLayer(hwc_layer_1_t* hw_layer) {
   Layer layer;
   switch(hw_layer->compositionType) {
+    case HWC_FRAMEBUFFER_TARGET:
     case HWC_OVERLAY: {
       const GraphicsBuffer* buffer = GetGraphicsBuffer(hw_layer->handle);
       layer.size.width = buffer->GetWidth();
@@ -191,10 +205,12 @@ static Layer MakeLayer(hwc_layer_1_t* hw_layer) {
       layer.source = MakeFloatRect(hw_layer->sourceCropf);
       layer.dest = MakeRect(hw_layer->displayFrame);
       layer.transform = hw_layer->transform;
+      layer.releaseFenceFd = &hw_layer->releaseFenceFd;
       break;
     }
     case HWC_BACKGROUND: {
       layer.type = Layer::TYPE_SOLID_COLOR;
+      layer.releaseFenceFd = NULL;
       break;
     }
     default: {
@@ -215,12 +231,15 @@ static Display MakeDisplay(hwc_context_t* context,
   display.size.width = context->width;
   display.size.height = context->height;
 
-  display.layers.reserve(hw_display->numHwLayers);
-  for (size_t i = 0; i != hw_display->numHwLayers; ++i) {
-    hwc_layer_1_t* layer = &hw_display->hwLayers[i];
-    if (!IsLayerSkippable(layer)) {
-      display.layers.push_back(MakeLayer(layer));
-    }
+  display.layers.reserve(context->num_overlays + 1);
+  if (context->framebuffer_visible) {
+    hwc_layer_1_t* layer = &hw_display->hwLayers[hw_display->numHwLayers - 1];
+    display.layers.push_back(MakeLayer(layer));
+  }
+
+  for (size_t i = 0; i != context->num_overlays; ++i) {
+    hwc_layer_1_t* layer = &hw_display->hwLayers[context->first_overlay + i];
+    display.layers.push_back(MakeLayer(layer));
   }
   return display;
 }
@@ -228,18 +247,32 @@ static Display MakeDisplay(hwc_context_t* context,
 static int hwc_prepare(hwc_composer_device_1_t* dev, size_t numDisplays,
                        hwc_display_contents_1_t** displays) {
   ALOGD("HWC_PREPARE");
+  hwc_context_t* context = reinterpret_cast<hwc_context_t*>(dev);
   if (displays && displays[0]) {
     // ARC Only supports the primary display.
     if (displays[0]->flags & HWC_GEOMETRY_CHANGED) {
-      for (size_t i = 0; i < displays[0]->numHwLayers; i++) {
-        hwc_layer_1_t* layer = &displays[0]->hwLayers[i];
+      const size_t& numHwLayers = displays[0]->numHwLayers;
+      size_t i = 1;
+      bool visible = (numHwLayers == 1);
+      // Iterate backwards and skip the first (end) layer, which is the
+      // framebuffer target layer. According to the SurfaceFlinger folks, the
+      // actual location of this layer is up to the HWC implementation to
+      // decide, but is in the well know last slot of the list. This does not
+      // imply that the framebuffer target layer must be topmost.
+      for (; i < numHwLayers; i++) {
+        hwc_layer_1_t* layer = &displays[0]->hwLayers[numHwLayers - 1 - i];
+        if (layer->flags & HWC_SKIP_LAYER) {
+          // All layers below and including this one will be drawn into the
+          // framebuffer. Stop marking further layers as HWC_OVERLAY.
+          visible = true;
+          break;
+        }
         switch (layer->compositionType) {
+          case HWC_OVERLAY:
           case HWC_FRAMEBUFFER:
             layer->compositionType = HWC_OVERLAY;
             break;
           case HWC_BACKGROUND:
-          case HWC_FRAMEBUFFER_TARGET:
-          case HWC_OVERLAY:
             break;
           default:
             ALOGE("hwcomposor: Invalid compositionType %d",
@@ -247,6 +280,9 @@ static int hwc_prepare(hwc_composer_device_1_t* dev, size_t numDisplays,
             break;
         }
       }
+      context->first_overlay = numHwLayers - i;
+      context->num_overlays = i - 1;
+      context->framebuffer_visible = visible;
     }
     return 0;
   }
@@ -260,21 +296,13 @@ static int hwc_set(hwc_composer_device_1_t* dev, size_t numDisplays,
   if (displays && displays[0]) {
     if (displays[0]->flags & HWC_GEOMETRY_CHANGED) {
       context->display = MakeDisplay(context, displays[0]);
-      context->fds.reserve(1 + context->display.layers.size());
     } else {
-      UpdateDisplay(&context->display, displays[0]);
+      UpdateDisplay(context, &context->display, displays[0]);
     }
 
-    int ret = context->compositor->Set(context->display, &context->fds);
-    std::vector<int>::const_iterator it = context->fds.begin();
-    displays[0]->retireFenceFd = *it++;
-    for(size_t i = 0; i != displays[0]->numHwLayers; ++i) {
-      hwc_layer_1_t* layer = &displays[0]->hwLayers[i];
-      if (!IsLayerSkippable(layer)) {
-        layer->releaseFenceFd = *it++;
-      }
-    }
-    return ret;
+    int fd = context->compositor->Set(&context->display);
+    displays[0]->retireFenceFd = fd;
+    return 0;
   }
   return -1;
 }

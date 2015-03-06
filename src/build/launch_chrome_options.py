@@ -590,6 +590,8 @@ Native Client Debugging
   args, opts = parser.parse_known_args(
       launch_chrome_util.remove_leading_launch_chrome_args(argv))
 
+  remote_executor.maybe_detect_remote_host_type(args)
+
   if not args.dogfood_metadata:
     _set_default_args(args)
 

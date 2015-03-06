@@ -31,7 +31,8 @@ class PrepLaunchChromeTest(unittest.TestCase):
     self.assertEqual(metadata['stderrLog'], 'W')
 
     metadata = self.metadata_from_command_line('./launch_chrome.py perftest '
-                                               '--remote 127.0.0.1')
+                                               '--remote 127.0.0.1 '
+                                               '--remote-host-type=chromeos')
     self.assertIn('minimumLaunchDelay', metadata)
 
     metadata = self.metadata_from_command_line('./launch_chrome.py run '

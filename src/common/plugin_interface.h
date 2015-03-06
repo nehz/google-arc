@@ -87,6 +87,7 @@ class CompositorInterface {
     bool is_opaque;
     bool need_flip;
     void* context;
+    int* releaseFenceFd;
 
     static uint32_t PackColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
       return (r << 24) | (g << 16) | (b << 8) | a;
@@ -108,7 +109,7 @@ class CompositorInterface {
   virtual ~CompositorInterface() {}
 
   virtual void RegisterCallbacks(const Callbacks* callbacks) = 0;
-  virtual int Set(const Display& display, std::vector<int>* fds) = 0;
+  virtual int Set(Display* display) = 0;
   virtual void EnableVsync(bool enabled) = 0;
 };
 
