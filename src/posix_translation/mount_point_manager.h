@@ -14,6 +14,7 @@
 #include "base/basictypes.h"
 #include "base/containers/hash_tables.h"
 #include "base/memory/scoped_ptr.h"
+#include "common/update_tracking.h"
 
 namespace posix_translation {
 
@@ -30,11 +31,6 @@ class FileSystemHandler;
 // part of DirectoryManager.
 class MountPointManager {
  public:
-  typedef int TransactionNumber;
-  enum {
-    kInvalidTransactionNumber = -1,
-    kInitialTransactionNumber = 0
-  };
   struct MountPoint {
     MountPoint(FileSystemHandler* h, uid_t u) : handler(h), owner_uid(u) {}
 
@@ -84,17 +80,13 @@ class MountPointManager {
   // Removes all mount points. For testing only.
   void Clear();
 
-  // Updates the given transaction number (number of mutations to the process
-  // emulation state) if it does not match the current number and returns true
-  // if so.
-  bool UpdateTransactionNumberIfChanged(TransactionNumber* last_number) const;
+  // Used for quickly checking if asynchronous updates occurred in this class.
+  arc::UpdateProducer* GetUpdateProducer() { return &update_producer_; }
 
  private:
   // A map from mount point paths to metadata of them.
   MountPointMap mount_point_map_;
-  TransactionNumber transaction_number_;
-
-  void RecordTransaction();
+  arc::UpdateProducer update_producer_;
 
   DISALLOW_COPY_AND_ASSIGN(MountPointManager);
 };

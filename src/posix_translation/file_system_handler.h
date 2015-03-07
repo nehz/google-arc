@@ -87,7 +87,7 @@ class FileSystemHandler {
 
   // The mount point manager is useful to the procfs file system but likely
   // not to any others.
-  virtual void SetMountPointManager(const MountPointManager*) {}
+  virtual void SetMountPointManager(MountPointManager* manager) {}
 
   // Sorted by syscall name. Note that we should always prefer
   // 'const std::string&' over 'const char*' for a string parameter

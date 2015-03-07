@@ -40,31 +40,6 @@ class ProcessEmulatorTest : public testing::Test {
   ProcessEmulator* emulator_;
 };
 
-TEST_F(ProcessEmulatorTest, TransactionNumberInitialized) {
-  ProcessEmulator::TransactionNumber num =
-    ProcessEmulator::kInitialTransactionNumber;
-  EXPECT_FALSE(emulator_->UpdateTransactionNumberIfChanged(&num));
-  EXPECT_EQ(ProcessEmulator::kInitialTransactionNumber, num);
-}
-
-TEST_F(ProcessEmulatorTest, TransactionNumberInvalid) {
-  ProcessEmulator::TransactionNumber num =
-    ProcessEmulator::kInvalidTransactionNumber;
-  EXPECT_TRUE(emulator_->UpdateTransactionNumberIfChanged(&num));
-  EXPECT_EQ(ProcessEmulator::kInitialTransactionNumber, num);
-}
-
-TEST_F(ProcessEmulatorTest, TransactionNumberUpdates) {
-  ProcessEmulator::TransactionNumber num =
-    ProcessEmulator::kInitialTransactionNumber;
-  EXPECT_FALSE(emulator_->UpdateTransactionNumberIfChanged(&num));
-  EXPECT_EQ(ProcessEmulator::kInitialTransactionNumber, num);
-  emulator_->SetFirstEmulatedProcessThread(1000);
-  EXPECT_TRUE(emulator_->UpdateTransactionNumberIfChanged(&num));
-  EXPECT_NE(ProcessEmulator::kInitialTransactionNumber, num);
-  EXPECT_NE(ProcessEmulator::kInvalidTransactionNumber, num);
-}
-
 TEST_F(ProcessEmulatorTest, NoNewEmulatedProcess) {
   void* (*start_routine)(void*) = &EmptyRoutine;  // NOLINT
   void* arg = reinterpret_cast<void*>(234);

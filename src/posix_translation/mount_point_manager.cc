@@ -16,9 +16,7 @@
 
 namespace posix_translation {
 
-MountPointManager::MountPointManager()
-    : transaction_number_(kInitialTransactionNumber) {
-}
+MountPointManager::MountPointManager() {}
 
 MountPointManager::~MountPointManager() {
 }
@@ -33,7 +31,7 @@ void MountPointManager::Add(const std::string& path,
     LOG_ALWAYS_FATAL("%s: mount point already exists", path.c_str());
   }
   handler->OnMounted(path);
-  RecordTransaction();
+  update_producer_.ProduceUpdate();
   ARC_STRACE_REPORT("MountPointManager::Add: path=%s handler=%s",
                       path.c_str(), handler->name().c_str());
 }
@@ -47,7 +45,7 @@ void MountPointManager::Remove(const std::string& path) {
                         path.c_str(), handler->name().c_str());
     mount_point_map_.erase(i);
     handler->OnUnmounted(path);
-    RecordTransaction();
+    update_producer_.ProduceUpdate();
   } else {
     ARC_STRACE_REPORT("MountPointManager::Remove: path=%s is NOT registered",
                         path.c_str());
@@ -70,7 +68,7 @@ void MountPointManager::ChangeOwner(const std::string& path, uid_t owner_uid) {
     ALOG_ASSERT(found != mount_point_map_.end());
   }
   found->second.owner_uid = owner_uid;
-  RecordTransaction();
+  update_producer_.ProduceUpdate();
   ARC_STRACE_REPORT("MountPointManager::ChangeOwner: path=%s uid=%d",
                       path.c_str(), owner_uid);
 }
@@ -132,21 +130,6 @@ void MountPointManager::GetAllFileSystemHandlers(
 
 void MountPointManager::Clear() {
   mount_point_map_.clear();
-}
-
-bool MountPointManager::UpdateTransactionNumberIfChanged(
-    TransactionNumber* number) const {
-  if (*number != transaction_number_) {
-    *number = transaction_number_;
-    return true;
-  }
-  return false;
-}
-
-void MountPointManager::RecordTransaction() {
-  transaction_number_++;
-  if (transaction_number_ < kInitialTransactionNumber)
-    transaction_number_ = kInitialTransactionNumber;
 }
 
 }  // namespace posix_translation

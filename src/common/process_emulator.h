@@ -14,6 +14,7 @@
 #include <string>
 
 #include "common/private/minimal_base.h"
+#include "common/update_tracking.h"
 
 template <typename T> struct DefaultSingletonTraits;
 
@@ -61,11 +62,6 @@ class ProcessEmulator {
 
   // Returns true if pthread_create has already been called.
   static bool IsMultiThreaded();
-
-  // Updates the given transaction number (number of mutations to the process
-  // emulation state) if it does not match the current number and returns true
-  // if so.
-  bool UpdateTransactionNumberIfChanged(TransactionNumber* last_number);
 
   // Generates new PID and assigns it to the current thread along with
   // the provided user id.  Current thread must not already belong to
@@ -142,6 +138,9 @@ class ProcessEmulator {
   // returned (or 0 if all have been previously returned).
   pid_t GetNextPid(pid_t last_pid);
 
+  // Used for quickly checking if asynchronous updates occurred in this class.
+  UpdateProducer* GetUpdateProducer() { return &update_producer_; }
+
  private:
   friend class AppInstanceInitTest;
   friend class ChildPluginInstanceTest;
@@ -186,9 +185,9 @@ class ProcessEmulator {
   static volatile EnterBinderFunc binder_enter_function_;
   static volatile ExitBinderFunc binder_exit_function_;
 
-  TransactionNumber transaction_number_;
   PidStringMap argv0_per_emulated_process_;
   PidUidMap uid_per_emulated_process_;
+  UpdateProducer update_producer_;
 
   COMMON_DISALLOW_COPY_AND_ASSIGN(ProcessEmulator);
 };

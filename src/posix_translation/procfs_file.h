@@ -10,6 +10,7 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "common/export.h"
+#include "common/update_tracking.h"
 #include "posix_translation/directory_manager.h"
 #include "posix_translation/file_system_handler.h"
 
@@ -32,7 +33,7 @@ class ARC_EXPORT ProcfsFileHandler : public FileSystemHandler {
   virtual int statfs(const std::string& pathname, struct statfs* out) OVERRIDE;
   virtual ssize_t readlink(const std::string& pathname, std::string* resolved)
       OVERRIDE;
-  virtual void SetMountPointManager(const MountPointManager*) OVERRIDE;
+  virtual void SetMountPointManager(MountPointManager* manager) OVERRIDE;
 
  private:
   friend class ProcfsHandlerTest;
@@ -58,13 +59,13 @@ class ARC_EXPORT ProcfsFileHandler : public FileSystemHandler {
   std::string cpuinfo_header_;
   std::string cpuinfo_body_;
   std::string cpuinfo_footer_;
+  arc::UpdateConsumer update_consumer_;
 
   FileSystemHandler* readonly_fs_handler_;
 
   DirectoryManager file_names_;
-  int last_process_transaction_;
 
-  const MountPointManager* mount_point_manager_;
+  MountPointManager* mount_point_manager_;
 
   DISALLOW_COPY_AND_ASSIGN(ProcfsFileHandler);
 };

@@ -305,9 +305,8 @@ class ProcessCmdlineFile : public ProcessDelimitedFile {
 class ProcessMountsFile : public ProcessDelimitedFile {
  public:
   ProcessMountsFile(const std::string& pathname,
-                    const MountPointManager* manager)
+                    MountPointManager* manager)
       : ProcessDelimitedFile(pathname, '\n'),
-        last_mount_transaction_(MountPointManager::kInvalidTransactionNumber),
         manager_(manager) {}
 
  protected:
@@ -315,8 +314,10 @@ class ProcessMountsFile : public ProcessDelimitedFile {
     if (manager_ != NULL) {
       const MountPointManager::MountPointMap* mounts =
           manager_->GetMountPointMap();
-      if (!manager_->UpdateTransactionNumberIfChanged(&last_mount_transaction_))
+      if (!update_consumer_.AreThereUpdatesAndConsumeIfSo(
+              manager_->GetUpdateProducer())) {
         return false;
+      }
       string_vector_.clear();
       typedef std::vector<std::string> StringVector;
       StringVector sorted_mount_paths;
@@ -347,8 +348,8 @@ class ProcessMountsFile : public ProcessDelimitedFile {
     return true;
   }
 
-  MountPointManager::TransactionNumber last_mount_transaction_;
-  const MountPointManager* manager_;
+  MountPointManager* manager_;
+  arc::UpdateConsumer update_consumer_;
 };
 
 }  // namespace
@@ -356,8 +357,6 @@ class ProcessMountsFile : public ProcessDelimitedFile {
 ProcfsFileHandler::ProcfsFileHandler(FileSystemHandler* readonly_fs_handler)
     : FileSystemHandler("ProcfsFileHandler"),
       readonly_fs_handler_(readonly_fs_handler),
-      last_process_transaction_(
-          arc::ProcessEmulator::kInvalidTransactionNumber),
       mount_point_manager_(NULL) {
   SetCpuInfoFileTemplate(kProcCpuInfoHeader, kProcCpuInfoBody,
                          kProcCpuInfoFooter);
@@ -378,14 +377,16 @@ void ProcfsFileHandler::SetCpuInfoFileTemplate(const std::string& header,
 ProcfsFileHandler::~ProcfsFileHandler() {
 }
 
-void ProcfsFileHandler::SetMountPointManager(const MountPointManager* manager) {
+void ProcfsFileHandler::SetMountPointManager(MountPointManager* manager) {
   mount_point_manager_ = manager;
 }
 
 void ProcfsFileHandler::SynchronizeDirectoryTreeStructure() {
   arc::ProcessEmulator* emulator = arc::ProcessEmulator::GetInstance();
-  if (!emulator->UpdateTransactionNumberIfChanged(&last_process_transaction_))
+  if (!update_consumer_.AreThereUpdatesAndConsumeIfSo(
+          emulator->GetUpdateProducer())) {
     return;
+  }
   file_names_.Clear();
   // We provide cpuinfo's contents.
   file_names_.AddFile("/proc/cpuinfo");

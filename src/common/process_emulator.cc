@@ -143,21 +143,10 @@ ProcessEmulator* ProcessEmulator::GetInstance() {
       LeakySingletonTraits<ProcessEmulator> >::get();
 }
 
-ProcessEmulator::ProcessEmulator()
-    : transaction_number_(kInitialTransactionNumber) {}
+ProcessEmulator::ProcessEmulator() {}
 
 bool ProcessEmulator::IsMultiThreaded() {
   return s_is_multi_threaded;
-}
-
-bool ProcessEmulator::UpdateTransactionNumberIfChanged(
-    TransactionNumber* number) {
-  ScopedPthreadMutexLocker lock(&s_mutex);
-  if (*number != transaction_number_) {
-    *number = transaction_number_;
-    return true;
-  }
-  return false;
 }
 
 pid_t ProcessEmulator::GetFirstPid() {
@@ -174,12 +163,6 @@ pid_t ProcessEmulator::GetNextPid(pid_t last_pid) {
   return i->first;
 }
 
-void ProcessEmulator::RecordTransactionLocked() {
-  transaction_number_++;
-  if (transaction_number_ < kInitialTransactionNumber)
-    transaction_number_ = kInitialTransactionNumber;
-}
-
 pid_t ProcessEmulator::AllocateNewPid(uid_t uid) {
   pid_t result;
   ProcessEmulator* self = ProcessEmulator::GetInstance();
@@ -193,7 +176,7 @@ pid_t ProcessEmulator::AllocateNewPid(uid_t uid) {
   result = ++s_prev_pid;
   self->argv0_per_emulated_process_[result] = kDefaultProcessName;
   self->uid_per_emulated_process_[result] = uid;
-  self->RecordTransactionLocked();
+  self->update_producer_.ProduceUpdate();
   return result;
 }
 
