@@ -48,6 +48,5 @@ TIMEOUT = _ExclusiveFlag('TIMEOUT', 0x04, 0x0f)
 NOT_SUPPORTED = _ExclusiveFlag('NOT_SUPPORTED', 0x08, 0x0f)
 LARGE = _ExclusiveFlag('LARGE', 0x10)
 FLAKY = _ExclusiveFlag('FLAKY', 0x20)
-REQUIRES_OPENGL = _ExclusiveFlag('REQUIRES_OPENGL', 0x40)
 
 VALID_FLAGS = _ExclusiveFlag._all_flags

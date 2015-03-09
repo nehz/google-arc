@@ -28,15 +28,12 @@ class TestListFilter(object):
 
 class TestRunFilter(object):
   def __init__(self,
-               include_fail=False, include_large=False,
-               include_timeout=False, include_requires_opengl=False):
+               include_fail=False, include_large=False, include_timeout=False):
     # Map from a primitive flag to bool representing whether the test case
     # should actually run.
     # PASS, FLAKY tests will run always.
     # FAIL, LARGE, TIMEOUT tests will run iff their corresponding flag is set.
     # NOT_SUPPORTED tests will never run.
-    # REQUIRES_OPENGL tests will run by the arguments, which is calculated
-    # based on the configuration. See run_integration_tests.py for details.
     self._run_expectation_map = {
         flags.PASS: True,
         flags.FAIL: include_fail,
@@ -44,7 +41,6 @@ class TestRunFilter(object):
         flags.NOT_SUPPORTED: False,
         flags.LARGE: include_large,
         flags.FLAKY: True,
-        flags.REQUIRES_OPENGL: include_requires_opengl,
     }
 
   def should_run(self, expectation):

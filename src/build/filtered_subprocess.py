@@ -11,29 +11,15 @@ import select
 import signal
 import subprocess
 import sys
+import threading
 import time
 
 import build_common
 from util import nonblocking_io
 
 
-class _BlackHoleOutputHandler(object):
-  """Does nothing with any input/timeout callbacks made."""
-  def handle_stderr(self, text):
-    pass
-
-  def handle_stdout(self, text):
-    pass
-
-  def handle_timeout(self):
-    pass
-
-  def is_done(self):
-    return True
-
-
 def _handle_stream_output(reader, handler):
-  if reader.closed:
+  if reader is None or reader.closed:
     return False
 
   read = False
@@ -48,19 +34,39 @@ def _handle_stream_output(reader, handler):
   return read
 
 
+try:
+  # On platforms other than Linux, psutil may not exist. As such
+  # environment does not have xvfb-run, we can ignore the error.
+  # We should also ignore NoSuchProcess. This means the program has
+  # finished after creating psutil.Process object.
+  import psutil
+
+  def _signal_children_of_xvfb(pid, signum):
+    try:
+      for child in psutil.Process(pid).get_children():
+        if child.name != 'Xvfb':
+          child.send_signal(signum)
+    except psutil.NoSuchProcess:
+      # Ignore the case that no process is found. This could happen
+      # when the subprocess is already terminated.
+      pass
+
+except ImportError:
+  def _signal_children_of_xvfb(pid, signum):
+    raise AssertionError('xvfb is not supported on this platform')
+
+
+# TODO(2015-03-16): Get rid of subprocess.Popen inheritance.
+# Now this class gets more different from subprocess.Popen, especially
+# about multi-thread supporting. For example, we would not like to expose
+# poll(), wait() or returncode, etc. terminate() and kill() semantics
+# have been changed. Also, the arguments of __init__() have more restrictions.
+# To simplify them, it's time to get rid of inheritance.
 class Popen(subprocess.Popen):
   """Extends subprocess.Popen to run a process and filter its output. """
 
   _SHUTDOWN_WAIT_SECONDS = 5
-  _MIN_TIMEOUT_SECONDS = 1
-
-  _STATE_RUNNING = 0  # Running normally
-  _STATE_TIMED_OUT = 1  # Timeout detected
-  _STATE_SENDING_SIGTERM = 2  # Sending SIGTERM
-  _STATE_SENDING_SIGKILL = 3  # Sending SIGKILL
-  _STATE_ABANDON = 4  # Tried killing, but did not seem to shut down.
-  _STATE_FINISHED = 5  # Shutdown, though might have been SIGTERM'd
-  _SHUTDOWN_STATES = (_STATE_SENDING_SIGKILL, _STATE_SENDING_SIGTERM)
+  _NO_DEADLINE = float('inf')
 
   def __init__(self, args, stdin=None, stdout=subprocess.PIPE,
                stderr=subprocess.PIPE, **kwargs):
@@ -68,156 +74,96 @@ class Popen(subprocess.Popen):
         'We do not expect to run process with shell.')
     assert kwargs.get('bufsize', 0) == 0, (
         'buffering should be disabled.')
-    try:
-      super(Popen, self).__init__(
-          args, stdout=stdout, stderr=stderr, stdin=stdin, **kwargs)
-    except:
-      logging.error('Popen for args %s failed', args)
-      raise
+    assert isinstance(args, list), (
+        'non list args is not supported: %r' % (args,))
+    assert 'executable' not in kwargs, 'executable is not supported.'
+    self._launch_process(
+        args, stdout=stdout, stderr=stderr, stdin=stdin, **kwargs)
+
+    # Remember the executable name. This will be used to check if the process
+    # is running with xvfb-run.
+    self._is_xvfb = args[0] == 'xvfb-run'
 
     logging.info('Created pid %d; the command follows:', self.pid)
     build_common.log_subprocess_popen(args, **kwargs)
-    self._initialize_state()
 
-  def _initialize_state(self):
+    # Wrap the stdout and stderr with setting them non-blocking.
     if self.stdout:
       self.stdout = nonblocking_io.LineReader(self.stdout)
     if self.stderr:
       self.stderr = nonblocking_io.LineReader(self.stderr)
 
-    # This is the wall clock time the child needs to emit output by or be
-    # considered dead (timed-out). If None, there is no timeout.
-    self._child_output_deadline = None
+    # Because terminate() or kill() can be called from various threads,
+    # we need to guard them and their _deadline variables declared below.
+    # In addition, poll(), wait() and returncode must be guarded with this
+    # lock, in order to avoid sending signals to a subprocess, which is already
+    # wait()ed in multi-threading manner.
+    self._timeout_lock = threading.Lock()
 
-    # This is the rate (in seconds) at which the child needs to generate output.
-    # It is used to recompute _child_output_deadline.
-    self._child_output_timeout = None
+    # This is the wall clock time of the timeout after terminate() is
+    # invoked. This is set at the first invocation of terminate().
+    self._terminate_deadline = None
 
-    # This is the wallclock time at which we expect the child to have completed.
-    # It can be None if we do not care when it finishes.
-    # It is set later based on the actual current time as needed if we set up a
-    # deadline on the call to run_process_filtering_output()
-    self._child_finish_deadline = None
+    # Similar to _terminate_deadline, this is the wall clock time of the
+    # timeout after kill() is invoked. This is set at the first invocation
+    # of kill().
+    self._kill_deadline = None
 
-    # This is the wallclock time at which we will try the next shutdown step.
-    # This is initialized here intentionally to the beginning of time, and is
-    # updated based on the current time and a reasonable delay as each shutdown
-    # step is tried.
-    self._shutdown_deadline = None
+  def _launch_process(self, args, **kwargs):
+    # This is just invoking super's constructor. This is injecting point
+    # for testing.
+    try:
+      super(Popen, self).__init__(args, **kwargs)
+    except Exception:
+      logging.exception('Popen for args failed: %s', args)
+      raise
 
-    # Sorted list of all the deadlines (wallclock times), for quickly choosing
-    # the next one.
-    self._deadlines = []
+  def _handle_output(self, output_handler):
+    """Consumes output and invokes the corresponding handlers with them.
 
-    self._state = self._STATE_RUNNING  # As far as we know yet.
-
-    # These are set later by run_process_filtering_output
-    self._output_handler = None
-    self._stop_on_done = False
-
-  def _are_all_pipes_closed(self):
-    return self.stdout.closed and (not self.stderr or self.stderr.closed)
-
-  def _close_all_pipes(self):
-    if not self.stdout.closed:
-      self.stdout.close()
-    if self.stderr and not self.stderr.closed:
-      self.stderr.close()
-
-  def _handle_output(self):
-    # Consume output from any streams.
-    if not self.stderr:
-      stderr_read = False
-    else:
-      stderr_read = _handle_stream_output(
-          self.stderr, self._output_handler.handle_stderr)
+    Returns True if any output is observed.
+    """
+    stderr_read = _handle_stream_output(
+        self.stderr, output_handler.handle_stderr)
     stdout_read = _handle_stream_output(
-        self.stdout, self._output_handler.handle_stdout)
+        self.stdout, output_handler.handle_stdout)
+    return stderr_read or stdout_read
 
-    if stderr_read or stdout_read:
-      self._update_child_output_deadline()
-      return True
+  def _has_open_pipe(self):
+    """Returns True if either stdout or stderr is still opened."""
+    return ((self.stdout and not self.stdout.closed) or
+            (self.stderr and not self.stderr.closed))
 
-    if self._state == self._STATE_RUNNING:
-      now = time.time()
-      if (self._child_output_deadline and now >= self._child_output_deadline or
-          self._child_finish_deadline and now >= self._child_finish_deadline):
-        # Report a timeout
-        logging.debug("Process %d has timed out", self.pid)
-        self._output_handler.handle_timeout()
-        self._state = self._STATE_TIMED_OUT
-
-    return False
-
-  def update_timeout(self, timeout):
-    self._child_finish_deadline = time.time() + timeout
-    self._regenerated_deadline_list()
-
-  def _update_child_output_deadline(self):
-    if self._child_output_timeout is None:
-      self._child_output_deadline = None
-    else:
-      self._child_output_deadline = time.time() + self._child_output_timeout
-    self._regenerated_deadline_list()
-
-  def _update_shutdown_deadline(self):
-    self._shutdown_deadline = time.time() + self._SHUTDOWN_WAIT_SECONDS
-    self._regenerated_deadline_list()
-
-  def _regenerated_deadline_list(self):
-    self._deadlines = []
-
-    def add_deadline(deadline):
-      if deadline is not None:
-        self._deadlines.append(deadline)
-
-    add_deadline(self._child_output_deadline)
-    add_deadline(self._child_finish_deadline)
-    add_deadline(self._shutdown_deadline)
-    self._deadlines.sort()
-
-  def _find_next_deadline(self, now):
-    """Returns the next deadline after 'now'.
-    If there are no deadlines, returns None."""
-    for deadline in self._deadlines:
-      if now < deadline:
-        return deadline
-    return None
-
-  def _compute_timeout(self, max_timeout=5):
-    """Calculate the time (up to |max_timeout| seconds) before |deadline|"""
-    now = time.time()
-    deadline = self._find_next_deadline(now)
-    if deadline is None:
-      return max_timeout
-    else:
-      now = time.time()
-      # Clamp the timeout to a positive value less than |max_timeout|, since
-      # some versions of Python may throw an exception on negative values.
-      return max(0, min(deadline - now, max_timeout))
-
-  def _wait_for_child_output(self):
+  def _wait_for_child_output(self, timeout):
     """Waits for the child process to generate output."""
-    streams_to_block_reading_on = []
+    # |timeout| must be set.
+    assert timeout >= 0, 'Timeout must be non-negative value.'
 
     # Generate a list of handles to wait on for being able to read them.
     # Filter out any that have been closed.
-    if not self.stdout.closed:
+    streams_to_block_reading_on = []
+    if self.stdout and not self.stdout.closed:
       streams_to_block_reading_on.append(self.stdout)
     if self.stderr and not self.stderr.closed:
       streams_to_block_reading_on.append(self.stderr)
 
-    # If we have nothing to wait on, we're on our way out.
     if not streams_to_block_reading_on:
-      assert self._are_all_pipes_closed()
+      # Here, we do not have any channel to the subprocess.
+      # So, we wait for its termination until timeout.
+      # We must check poll() inside the lock to be thread safe.
+      # So, we use busy-loop, instead of wait() with timeout.
+      # Note that Python 2.7 does not support wait() with timeout.
+      # It is supported since 3.3, anyway.
+      deadline = time.time() + timeout
+      while time.time() < deadline:
+        with self._timeout_lock:
+          if self.poll() is not None:
+            break
+          # Poll every 0.1 secs, heuristically.
+          time.sleep(0.1)
       return
 
     try:
-      # Note: we hit some timeout case this function does not handle.
-      # To improve the debuggability in such a case, we assign the
-      # timeout value to a variable, so that util.debug module outputs
-      # the value to the log on failure.
-      timeout = self._compute_timeout()
       select.select(streams_to_block_reading_on, [], [], timeout)
     except select.error as e:
       if e[0] == errno.EINTR:
@@ -226,71 +172,53 @@ class Popen(subprocess.Popen):
       logging.error("select error: " + e[1])
       sys.exit(-1)
 
-  def _signal_children_of_xvfb(self, signum):
-    # On platforms other than Linux, psutil may not exist. As such
-    # environment does not have xvfb-run, we can ignore the error.
-    # We should also ignore NoSuchProcess. This means the program has
-    # finished after creating psutil.Process object.
-    try:
-      import psutil
-      try:
-        proc = psutil.Process(self.pid)
-
-        if proc.name != 'xvfb-run':
-          return False
-
-        for child in proc.get_children():
-          if child.name != 'Xvfb':
-            child.send_signal(signum)
-        return True
-      except psutil.NoSuchProcess:
-        return False
-    except ImportError:
-      return False
-
   def terminate(self):
-    if not self._signal_children_of_xvfb(signal.SIGTERM):
-      super(Popen, self).terminate()
-    self._terminate()
+    # To be thread safe, terminate() needs to be processed with lock.
+    # When terminate() is invoked on a thread, the target subprocess may
+    # be already wait()ed on another thread. In such a case, we should
+    # not send the terminate signal to the subprocess.
+    # So, unlike subprocess.Popen.terminate(), this ignores such a case.
+    # Note that subprocess.Popen.terminate() will raise OSError with ENOENT
+    # when terminate() is called for an already wait()ed subprocess.
+    # It is a sign of programming error that should never be happened, rather
+    # than handling a runtime error.
+    with self._timeout_lock:
+      self._terminate_locked()
 
-  def _terminate(self):
-    self._update_shutdown_deadline()
-    self._state = self._STATE_SENDING_SIGTERM
+  def _terminate_locked(self):
+    # Must be invoked with holding |_timeout_lock|.
+    self._terminate_locked_internal()
+    # Record the timeout for terminate() at first time.
+    if self._terminate_deadline is None:
+      self._terminate_deadline = time.time() + Popen._SHUTDOWN_WAIT_SECONDS
+
+  def _terminate_locked_internal(self):
+    # This is the injecting point for testing.
+    if self._is_xvfb:
+      _signal_children_of_xvfb(self.pid, signal.SIGTERM)
+    elif self.returncode is None:
+      super(Popen, self).terminate()
 
   def kill(self):
-    if not self._signal_children_of_xvfb(signal.SIGKILL):
+    # To be thread safe, kill() needs to be processed with lock.
+    # Similar to terminate(), this does not send kill() to an already wait()ed
+    # subprocess. Please see terminate()'s comment, for more details.
+    with self._timeout_lock:
+      self._kill_locked()
+
+  def _kill_locked(self):
+    # Must be invoked with holding |_timeout_lock|.
+    self._kill_locked_internal()
+    # Record the timeout for kill() at first time.
+    if self._kill_deadline is None:
+      self._kill_deadline = time.time() + Popen._SHUTDOWN_WAIT_SECONDS
+
+  def _kill_locked_internal(self):
+    # This is the injecting point for testing.
+    if self._is_xvfb:
+      _signal_children_of_xvfb(self.pid, signal.SIGKILL)
+    elif self.returncode is None:
       super(Popen, self).kill()
-    self._kill()
-
-  def _kill(self):
-    self._update_shutdown_deadline()
-    self._state = self._STATE_SENDING_SIGKILL
-
-  def _is_done(self):
-    return (self._output_handler.is_done() or
-            self._state in self._SHUTDOWN_STATES)
-
-  def _advance_shutdown_state(self):
-    if self._stop_on_done:
-      # Switch to a black hole output handler, as the caller does not want any
-      # more output. But we still need to process it.
-      self._output_handler = _BlackHoleOutputHandler()
-      self._stop_on_done = False
-
-    if self._shutdown_deadline > time.time():
-      # Still waiting on the previous termination step
-      return True
-
-    if self._state < self._STATE_SENDING_SIGTERM:
-      logging.debug("Terminating process %d", self.pid)
-      self.terminate()
-      return True
-    elif self._state < self._STATE_SENDING_SIGKILL:
-      logging.error("Killing process %d", self.pid)
-      self.kill()
-      return True
-
-    return False
 
   def run_process_filtering_output(self, output_handler, timeout=None,
                                    output_timeout=None, stop_on_done=False):
@@ -299,7 +227,7 @@ class Popen(subprocess.Popen):
     output_handler is expected to have the following interface:
 
         output_handler.is_done()
-            Should returns true if process should be terminated. Note however
+            Should return true if process should be terminated. Note however
             it is called only immediately after output is processed, so if
             the process is not generating any output when this call would
             return True, then it will not be terminated.
@@ -332,47 +260,102 @@ class Popen(subprocess.Popen):
 
     This generator yields after processing process output chunk.
     """
-    assert self._state == self._STATE_RUNNING
 
-    if timeout:
-      self.update_timeout(timeout)
-    if output_timeout:
-      self._child_output_timeout = output_timeout
-      self._update_child_output_deadline()
-
-    self._output_handler = output_handler
-    self._stop_on_done = stop_on_done
+    # Calculate the deadline.
+    now = time.time()
+    total_deadline = Popen._NO_DEADLINE if timeout is None else timeout + now
+    output_deadline = (
+        Popen._NO_DEADLINE if output_timeout is None else output_timeout + now)
 
     # Yield before processing any output.
     yield
 
-    while not self._are_all_pipes_closed():
-      self._wait_for_child_output()
-      if not self._handle_output():
-        # We had no output. Check if the child process has already shut down.
-        # By design we ensure all output is read before doing this.
-        if self.poll() is not None:
-          self._close_all_pipes()
-          break
+    while True:
+      # The condition to terminate.
+      if not self._has_open_pipe():
+        with self._timeout_lock:
+          if self.poll() is not None:
+            # Here, both stdout and stderr are closed (i.e. reached to EOF),
+            # and the subprocess is terminated. Exit the loop.
+            break
+
+      # First of all, calculate the timeout duration.
+      with self._timeout_lock:
+        # If either kill() or terminate() is invoked, we do not need to take
+        # care of timeout due to |total_deadline| or |output_deadline|.
+        # Here, we give priority to kill()'s deadline. Because what we'll do
+        # after |terminate_deadline| timeout is invoking kill(), if it is not
+        # yet invoked, so if kill() is already invoked, we'll do nothing.
+        if self._kill_deadline is not None:
+          deadline = self._kill_deadline
+        elif self._terminate_deadline is not None:
+          deadline = self._terminate_deadline
+        else:
+          # Here, neither kill() nor terminate() has been invoked. Take the
+          # minimum of |total_deadline| and |output_deadline|.
+          deadline = min(total_deadline, output_deadline)
+
+      # Here, there is a small race. After timeout calculation is done,
+      # another thread may invoke terminate() or kill().
+      # 1) In regular cases, the subprocess is expected to be terminated.
+      #    So, _wait_for_child_output() is expected to be returned quickly
+      #    as stdout/stderr are closed and/or self.poll() is succeeded.
+      # 2) In irregular cases, the subprocess is not terminated. In such a
+      #    case, _wait_for_child_output is not returned quickly. However,
+      #    what we want to do after the terminate() is just sending kill()
+      #    to the subprocess, or exit from the loop after kill()'s timeout.
+      #    To ensure it happens, we set timeout at most _SHUTDOWN_WAIT_SECONDS.
+      now = time.time()
+      timeout = max(0, min(deadline - now, Popen._SHUTDOWN_WAIT_SECONDS))
+      self._wait_for_child_output(timeout)
+
+      now = time.time()
+      # Process the stdout and stderr. If there is some output for either,
+      # update |output_deadline|.
+      # Note that |output_deadline| will never be updated, after closing of
+      # the streams. I.e., we expect that the subprocess is terminated
+      # within the |timeout| after closing the stream.
+      if self._handle_output(output_handler) and output_timeout is not None:
+        output_deadline = output_timeout + now
 
       # Yield after processing the output.
       yield
 
-      if self._is_done():
-        # Step towards shutting down the child process
-        if not self._advance_shutdown_state():
-          # If we made no progress, abandon the process in whatever state it is
-          # in.
-          self._state = self._STATE_ABANDON
-          logging.error("Abandoning process %d", self.pid)
-          return
+      # Process timeout.
+      with self._timeout_lock:
+        if self._kill_deadline is not None:
+          # Here, kill() is already invoked, at least once.
+          if self._kill_deadline < now:
+            # The process looks not terminated yet even after certain time.
+            # Timeout it, and exit the loop.
+            break
 
-    # Wait for the normal process exit to complete, but this requires all output
-    # to be over, otherwise we could deadlock waiting for the child process to
-    # terminate, while the child process waits us to make room in the output
-    # pipes.
-    assert self._are_all_pipes_closed()
-    logging.debug("Waiting on process %d", self.pid)
-    self.wait()
+        elif self._terminate_deadline is not None:
+          # Here, terminate() is already invoked, at least once.
+          if self._terminate_deadline < now:
+            # The process looks not terminated yet even after certain time.
+            # Timeout it, and send kill().
+            self._kill_locked()
 
-    self._state = self._STATE_FINISHED
+        elif output_handler.is_done():
+          # The handler tells that what it needs is completed in subprocess.
+          # Try to terminate.
+          self._terminate_locked()
+
+        elif output_deadline < now or total_deadline < now:
+          # Here, no output is observed from the subprocess for certain time
+          # or, the subprocess is alive too long. Timeout and try to
+          # terminate it.
+          # Note that this should be called at most once. It is ensured by the
+          # fact that _terminate_locked() will set |_terminate_deadline|
+          # internally, so that the condition above will hit.
+          self._terminate_locked()
+
+          # Notify output_handler via handle_timeout() invocation.
+          # To avoid recursive lock, we call it with unlocking the
+          # _timeout_lock.
+          self._timeout_lock.release()
+          try:
+            output_handler.handle_timeout()
+          finally:
+            self._timeout_lock.acquire()

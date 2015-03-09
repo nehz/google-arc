@@ -259,12 +259,14 @@ class TestConfigLinter(CommandLineLinterBase):
   _BUILTIN_VARS = [
       # Expectation flags.
       'PASS', 'FAIL', 'TIMEOUT', 'NOT_SUPPORTED', 'LARGE', 'FLAKY',
-      'REQUIRES_OPENGL',
 
       # OPTIONS is commonly used in the conditions.
       'OPTIONS',
-      'USE_NDK_DIRECT_EXECUTION',
+
+      # Variables which can be used to check runtime configurations.
       'ON_BOT',
+      'USE_GPU',
+      'USE_NDK_DIRECT_EXECUTION',
 
       # TODO(crbug.com/437406): Remove these values.
       'platform_util',

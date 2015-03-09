@@ -16,7 +16,6 @@ from util.test.suite_runner_config_flags import FLAKY
 from util.test.suite_runner_config_flags import LARGE
 from util.test.suite_runner_config_flags import NOT_SUPPORTED
 from util.test.suite_runner_config_flags import PASS
-from util.test.suite_runner_config_flags import REQUIRES_OPENGL
 from util.test.suite_runner_config_flags import TIMEOUT
 
 
@@ -49,7 +48,6 @@ class SuiteFlagMergeTest(unittest.TestCase):
     self.assertIn(PASS, flags)
     self.assertNotIn(FLAKY, flags)
     self.assertNotIn(LARGE, flags)
-    self.assertNotIn(REQUIRES_OPENGL, flags)
     self.assertEquals(1, ones_count(flags._value))
     self.assertEquals(PASS._mask, flags._mask)
 
@@ -58,17 +56,15 @@ class SuiteFlagMergeTest(unittest.TestCase):
     self.assertIn(PASS, flags)
     self.assertIn(FLAKY, flags)
     self.assertNotIn(LARGE, flags)
-    self.assertNotIn(REQUIRES_OPENGL, flags)
     self.assertEquals(2, ones_count(flags._value))
     self.assertEquals(PASS._mask, flags._mask)
 
-    temp = LARGE | REQUIRES_OPENGL
+    temp = LARGE
     self.assertIsInstance(temp, ExclusiveFlagSet)
     self.assertNotIn(PASS, temp)
     self.assertNotIn(FLAKY, temp)
     self.assertIn(LARGE, temp)
-    self.assertIn(REQUIRES_OPENGL, temp)
-    self.assertEquals(2, ones_count(temp._value))
+    self.assertEquals(1, ones_count(temp._value))
     self.assertEquals(0, temp._mask)
 
     flags |= temp
@@ -76,8 +72,7 @@ class SuiteFlagMergeTest(unittest.TestCase):
     self.assertIn(PASS, flags)
     self.assertIn(FLAKY, flags)
     self.assertIn(LARGE, flags)
-    self.assertIn(REQUIRES_OPENGL, flags)
-    self.assertEquals(4, ones_count(flags._value))
+    self.assertEquals(3, ones_count(flags._value))
     self.assertEquals(PASS._mask, flags._mask)
 
 

@@ -68,6 +68,9 @@ class SuiteRunnerOutputHandler(object):
       self._output.append(txt)
       self._runner.handle_output(txt)
 
+  def handle_timeout(self):
+    pass
+
 
 class SuiteRunnerBase(object):
   """Base class for a test suite runner.

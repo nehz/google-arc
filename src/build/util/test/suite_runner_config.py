@@ -219,7 +219,7 @@ def _evaluate_suite_test_expectations(raw_dict):
   return result
 
 
-def _read_test_config(path, on_bot):
+def _read_test_config(path, on_bot, use_gpu):
   """Reads the file, and eval() it with the test config context."""
   if not os.path.exists(path):
     return {}
@@ -236,13 +236,14 @@ def _read_test_config(path, on_bot):
       'NOT_SUPPORTED': flags.NOT_SUPPORTED,
       'LARGE': flags.LARGE,
       'FLAKY': flags.FLAKY,
-      'REQUIRES_OPENGL': flags.REQUIRES_OPENGL,
 
       # OPTIONS is commonly used for the conditions.
       'OPTIONS': OPTIONS,
 
-      'USE_NDK_DIRECT_EXECUTION': build_common.use_ndk_direct_execution(),
+      # Variables which can be used to check runtime configurations.
       'ON_BOT': on_bot,
+      'USE_GPU': use_gpu,
+      'USE_NDK_DIRECT_EXECUTION': build_common.use_ndk_direct_execution(),
 
       # TODO(crbug.com/437406): Currently we use platform_util directly,
       # but this is not proper way, because, on remote execution, we want
@@ -294,9 +295,10 @@ def make_suite_run_configs(raw_config):
 # TODO(crbug.com/384028): The class will eventually eliminate the need for
 # make_suite_run_configs and default_run_configuration above.
 class SuiteExpectationsLoader(object):
-  def __init__(self, base_path, on_bot):
+  def __init__(self, base_path, on_bot, use_gpu):
     self._base_path = base_path
     self._on_bot = on_bot
+    self._use_gpu = use_gpu
     self._cache = {}
 
   def get(self, suite_name):
@@ -307,7 +309,8 @@ class SuiteExpectationsLoader(object):
       config = self._cache.get(partial_name)
       if config is None:
         raw_config = _read_test_config(
-            os.path.join(self._base_path, partial_name), self._on_bot)
+            os.path.join(self._base_path, partial_name),
+            self._on_bot, self._use_gpu)
         config = _evaluate(raw_config, defaults=parent_config)
         self._cache[partial_name] = config
       parent_config = config
@@ -325,7 +328,8 @@ def get_suite_definitions_module(suite_filename):
 
 def load_from_suite_definitions(definitions_base_path,
                                 expectations_base_path,
-                                on_bot):
+                                on_bot,
+                                use_gpu):
   """Loads all the suite definitions from a given path.
 
   |definitions_base_path| gives the path to the python files to load.
@@ -334,7 +338,7 @@ def load_from_suite_definitions(definitions_base_path,
   """
 
   expectations_loader = SuiteExpectationsLoader(
-      expectations_base_path, on_bot)
+      expectations_base_path, on_bot, use_gpu)
   runners = []
 
   definition_files = glob.glob(os.path.join(definitions_base_path, '*.py'))

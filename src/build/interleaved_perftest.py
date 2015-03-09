@@ -418,7 +418,9 @@ def handle_stash(parsed_args):
     if line and not line.startswith('#'):
       rules.append(line)
 
-  args = ['rsync', '-av', '--delete', '--delete-excluded']
+  args = ['rsync', '-a', '--delete', '--delete-excluded']
+  if parsed_args.verbose:
+    args.append('-v')
   args.extend(['--filter=%s' % rule for rule in rules])
   # A trailing dot is required to make rsync work as we expect.
   args.extend([os.path.join(arc_root, '.'), stash_root])

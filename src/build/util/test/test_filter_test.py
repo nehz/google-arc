@@ -77,7 +77,6 @@ class TestRunFilterTest(unittest.TestCase):
     self.assertFalse(instance.should_run(flags.TIMEOUT))
     self.assertFalse(instance.should_run(flags.NOT_SUPPORTED))
     self.assertFalse(instance.should_run(flags.LARGE | flags.PASS))
-    self.assertFalse(instance.should_run(flags.REQUIRES_OPENGL | flags.PASS))
 
     instance = test_filter.TestRunFilter(include_fail=True)
     self.assertTrue(instance.should_run(flags.FAIL))
@@ -87,9 +86,6 @@ class TestRunFilterTest(unittest.TestCase):
 
     instance = test_filter.TestRunFilter(include_timeout=True)
     self.assertTrue(instance.should_run(flags.TIMEOUT))
-
-    instance = test_filter.TestRunFilter(include_requires_opengl=True)
-    self.assertTrue(instance.should_run(flags.REQUIRES_OPENGL | flags.PASS))
 
 
 if __name__ == '__main__':

@@ -59,11 +59,11 @@ _REPORT_COLOR_FOR_SUITE_EXPECTATION = {
 }
 
 
-def get_all_suite_runners(on_bot):
+def get_all_suite_runners(on_bot, use_gpu):
   """Gets all the suites defined in the various config.py files."""
   sys.path.append('src')
   result = suite_runner_config.load_from_suite_definitions(
-      _DEFINITIONS_ROOT, _EXPECTATIONS_ROOT, on_bot)
+      _DEFINITIONS_ROOT, _EXPECTATIONS_ROOT, on_bot, use_gpu)
 
   # Check name duplication.
   counter = collections.Counter(runner.name for runner in result)
@@ -110,8 +110,7 @@ def _select_tests_to_run(all_suite_runners, args):
   test_run_filter = test_filter.TestRunFilter(
       include_fail=args.include_failing,
       include_large=args.include_large,
-      include_timeout=args.include_timeouts,
-      include_requires_opengl=(not args.use_xvfb))
+      include_timeout=args.include_timeouts)
 
   test_driver_list = []
   for runner in all_suite_runners:
@@ -161,7 +160,7 @@ def _select_tests_to_run(all_suite_runners, args):
 
 
 def _get_test_driver_list(args):
-  all_suite_runners = get_all_suite_runners(args.buildbot)
+  all_suite_runners = get_all_suite_runners(args.buildbot, not args.use_xvfb)
   return _select_tests_to_run(all_suite_runners, args)
 
 
