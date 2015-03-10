@@ -40,8 +40,8 @@ def _generate_image_generator_ninja():
       base_path='mods/graphics_translation/tests')
   _add_compile_flags(n)
   n.add_defines('HAVE_PTHREADS')
-  n.add_include_paths('third_party/googletest/include',
-                      'third_party/googletest')
+  n.add_include_paths(staging.as_staging('googletest/include'),
+                      staging.as_staging('googletest'))
   sources = build_common.find_all_files(
       ['mods/graphics_translation/tests'],
       suffixes='.cpp',
@@ -51,7 +51,7 @@ def _generate_image_generator_ninja():
                   'mods/graphics_translation/gles/texture_codecs.cpp',
                   'src/common/vector.cc',
                   'src/common/matrix.cc',
-                  'third_party/googletest/src/gtest-all.cc'])
+                  staging.as_staging('googletest/src/gtest-all.cc')])
   sources = [x for x in sources if x.find('apk') < 0]
   n.build_default(sources, base_path=None)
   variables = {'my_static_libs': '-lX11 -lGL'}

@@ -10,19 +10,36 @@
 namespace posix_translation {
 
 namespace {
+
 // TODO(crbug.com/242337): Returning the correct |st_nlink| and |st_size| values
 // from stat() and fstat() for directories requires directory scan which is
 // expensive. For now, just fill plausible values.
 const nlink_t kNLinkForDir = 32;
 const off64_t kSizeForDir = 4096;
 const blksize_t kBlockSize = 4096;
+const time_t kDefaultLastModifiedTime = 0;
+
+std::string GetStreamTypeStr(const std::string& streamtype_prefix) {
+  return streamtype_prefix + "_dir";
+}
+
 }  // namespace
 
 DirectoryFileStream::DirectoryFileStream(const std::string& streamtype,
                                          const std::string& pathname,
                                          FileSystemHandler* pathhandler)
     : FileStream(O_RDONLY | O_DIRECTORY, pathname),
-      streamtype_(streamtype + "_dir"), pathhandler_(pathhandler) {
+      streamtype_(GetStreamTypeStr(streamtype)), pathhandler_(pathhandler),
+      mtime_(kDefaultLastModifiedTime) {
+}
+
+DirectoryFileStream::DirectoryFileStream(const std::string& streamtype,
+                                         const std::string& pathname,
+                                         FileSystemHandler* pathhandler,
+                                         time_t mtime)
+    : FileStream(O_RDONLY | O_DIRECTORY, pathname),
+      streamtype_(GetStreamTypeStr(streamtype)), pathhandler_(pathhandler),
+      mtime_(mtime) {
 }
 
 DirectoryFileStream::~DirectoryFileStream() {
@@ -37,6 +54,7 @@ void DirectoryFileStream::FillStatData(const std::string& pathname,
   out->st_nlink = kNLinkForDir;
   out->st_size = kSizeForDir;
   out->st_blksize = kBlockSize;
+  out->st_mtime = mtime_;
 }
 
 int DirectoryFileStream::ftruncate(off64_t length) {

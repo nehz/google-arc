@@ -23,7 +23,7 @@ def _get_ppapi_mocks_generated_dir():
 def _add_ppapi_mock_compile_flags(n):
   n.add_ppapi_compile_flags()
   n.add_libchromium_base_compile_flags()
-  n.add_include_paths('third_party/testing/gmock/include',
+  n.add_include_paths(staging.as_staging('testing/gmock/include'),
                       _MY_DIR,
                       _get_ppapi_mocks_generated_dir())
 

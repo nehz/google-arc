@@ -339,11 +339,18 @@ int VirtualFileSystem::open(const std::string& pathname, int oflag,
   if (((oflag & O_ACCMODE) != O_RDONLY || (oflag & (O_CREAT | O_TRUNC))) &&
       !permission.is_writable()) {
     if (oflag & O_CREAT) {
-      if (oflag & O_EXCL) {
-        // When O_CREAT|O_EXCL is specified, Linux kernel prefers EEXIST
-        // over EACCES. Emulate the behavior.
-        struct stat st;
-        if (!handler->stat(resolved, &st)) {
+      struct stat st;
+      if (!handler->stat(resolved, &st)) {
+        // TODO(crbug.com/463434): Re-enable L's CTS tests once the EISDIR fix
+        // is merged into ARC's L branch.
+        if (S_ISDIR(st.st_mode)) {
+          // When O_CREAT is specified, Linux kernel prefers EISDIR over EACCES
+          // for directories. Emulate the behavior.
+          errno = EISDIR;
+          return -1;
+        } else if (oflag & O_EXCL) {
+          // When O_CREAT|O_EXCL is specified, Linux kernel prefers EEXIST
+          // over EACCES. Emulate the behavior too.
           errno = EEXIST;
           return -1;
         }

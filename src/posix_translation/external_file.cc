@@ -23,6 +23,8 @@ namespace posix_translation {
 
 namespace {
 
+const char kExternalFileDirName[] = "external_file";
+
 base::Lock& GetFileSystemMutex() {
   return VirtualFileSystem::GetVirtualFileSystem()->mutex();
 }
@@ -96,51 +98,44 @@ FileSystemHandler* ExternalFileWrapperHandler::ResolveExternalFile(
 scoped_refptr<FileStream> ExternalFileWrapperHandler::open(
     int unused_fd, const std::string& pathname, int oflag, mode_t cmode) {
   ALOG_ASSERT(!util::EndsWithSlash(pathname));
-  static const char kExternalFileDirName[] = "external_file";
 
-  if (pathname == root_directory_) {
-    // Request to the root directory.
-    return new DirectoryFileStream(kExternalFileDirName, pathname, this);
+  if (pathname != root_directory_) {
+    const std::string slot = GetSlot(pathname);
+    if (slot.empty() || slot_file_map_.find(slot) == slot_file_map_.end()) {
+      // It may be yet unmounted external file
+      FileSystemHandler* handler = ResolveExternalFile(pathname);
+      if (handler)
+        return handler->open(unused_fd, pathname, oflag, cmode);
+
+      errno = ENOENT;
+      return NULL;
+    }
   }
 
-  std::string slot = GetSlot(pathname);
-  if (slot.empty() || slot_file_map_.find(slot) == slot_file_map_.end()) {
-    // It may be yet unmounted external file
-    FileSystemHandler* handler = ResolveExternalFile(pathname);
-    if (handler)
-      return handler->open(unused_fd, pathname, oflag, cmode);
-
-    errno = ENOENT;
-    return NULL;
-  }
-
-  // Request to the slot directory.
+  // Request to the root or slot directory.
   return new DirectoryFileStream(kExternalFileDirName, pathname, this);
 }
 
 int ExternalFileWrapperHandler::stat(
     const std::string& pathname, struct stat* out) {
   ALOG_ASSERT(!util::EndsWithSlash(pathname));
-  if (pathname == root_directory_) {
-    // Request to the root directory.
-    DirectoryFileStream::FillStatData(pathname, out);
-    return 0;
+  if (pathname != root_directory_) {
+    const std::string slot = GetSlot(pathname);
+    if (slot.empty() || slot_file_map_.find(slot) == slot_file_map_.end()) {
+      // It may be yet unmounted external file
+      FileSystemHandler* handler = ResolveExternalFile(pathname);
+      if (handler)
+        return handler->stat(pathname, out);
+
+      errno = ENOENT;
+      return -1;
+    }
   }
 
-  std::string slot = GetSlot(pathname);
-  if (slot.empty() || slot_file_map_.find(slot) == slot_file_map_.end()) {
-    // It may be yet unmounted external file
-    FileSystemHandler* handler = ResolveExternalFile(pathname);
-    if (handler)
-      return handler->stat(pathname, out);
-
-    errno = ENOENT;
-    return -1;
-  }
-
-  // Request to the slot directory.
-  DirectoryFileStream::FillStatData(pathname, out);
-  return 0;
+  // Request to the root or slot directory.
+  scoped_refptr<FileStream> stream =
+      new DirectoryFileStream(kExternalFileDirName, pathname, this);
+  return stream->fstat(out);
 }
 
 int ExternalFileWrapperHandler::statfs(

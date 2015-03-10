@@ -149,6 +149,7 @@ def _filter_libc_common_for_x86_64(vars, sources):
                   # Newlib's memset is much faster than Bionic's
                   # memset.c. (0.13[sec/GB] vs 0.51[sec/GB])
                   'nacl-newlib/newlib/libc/string/memset.c'])
+  sources.append('android/bionic/libc/arch-amd64/bionic/save_reg_context.S')
   # This file contains inline assembly.
   sources.remove('android/bionic/libc/arch-x86/bionic/__set_tls.c')
 
@@ -215,6 +216,7 @@ def _filter_libc_common(vars):
       'android/bionic/libc/bionic/memcmp.c',
       'android/bionic/libc/bionic/memcpy.c',
       'android/bionic/libc/bionic/property_service.c',
+      'android/bionic/libc/bionic/pthread_context.cpp',
       'android/bionic/libc/string/ffs.c',
       'android/bionic/libc/string/strcat.c',
       'android/bionic/libc/string/strcmp.c',

@@ -39,6 +39,7 @@
 #include "base/strings/safe_sprintf.h"
 #include "common/arc_strace.h"
 #include "common/logd_write.h"
+#include <private/pthread_context.h>
 // ARC MOD END
 
 extern char __executable_start[];  // Start of code segment
@@ -54,16 +55,23 @@ class MinidumpAllocator;
 
 // Restrict how much of the stack we dump to reduce upload size and to
 // avoid dynamic allocation.
-static const size_t kLimitStackDumpSize = 512 * 1024;
+// ARC MOD BEGIN bionic-thread-info
+static const size_t kLimitMainStackDumpSize = 512 * 1024;
+static const size_t kLimitExtraStackDumpSize = 16 * 1024;
+static const int kLimitExtraStackCount = 100;
 
-static const size_t kLimitNonStackSize = 64 * 1024;
+static const size_t kLimitNonStackSize = 256 * 1024;
+// ARC MOD END
 
 // The crash reporter is expected to be used in a situation where the
 // current process is damaged or out of memory, so it avoids dynamic
 // memory allocation and allocates a fixed-size buffer of the
 // following size at startup.
+// ARC MOD BEGIN bionic-thread-info
 static const size_t kMinidumpBufferSize =
-    kLimitStackDumpSize + kLimitNonStackSize;
+    kLimitMainStackDumpSize + kLimitNonStackSize +
+    kLimitExtraStackDumpSize * kLimitExtraStackCount;
+// ARC MOD END
 
 static const char *g_module_name = "main.nexe";
 static nacl_minidump_callback_t g_callback_func;
@@ -369,6 +377,71 @@ static void WriteExceptionList(MinidumpAllocator *minidump_writer,
   dirent->location = exception.location();
 }
 
+// ARC MOD BEGIN bionic-thread-info
+static void SaveBionicThreadState(MinidumpAllocator *minidump_writer,
+                                  MDRawThread *thread,
+                                  const __pthread_context_info_t &info) {
+  // Copy registers as defined in BionicInternalSaveRegContext().
+  uintptr_t stack_start;
+#if defined(__x86_64__)
+#define COPY_REG(REG, src_idx)     \
+    regs.get()->REG = info.context_regs[src_idx] & 0xffffffff
+  TypedMDRVA<MDRawContextAMD64> regs(minidump_writer);
+  if (!regs.Allocate())
+    return;
+  thread->thread_context = regs.location();
+  regs.get()->context_flags =
+      MD_CONTEXT_AMD64_CONTROL | MD_CONTEXT_AMD64_INTEGER;
+  regs.get()->eflags = 0;
+  COPY_REG(rax, 0);
+  COPY_REG(rbx, 1);
+  COPY_REG(rcx, 2);
+  COPY_REG(rdx, 3);
+  COPY_REG(rbp, 4);
+  COPY_REG(rsi, 5);
+  COPY_REG(rdi, 6);
+  COPY_REG(r8, 7);
+  COPY_REG(r9, 8);
+  COPY_REG(r10, 9);
+  COPY_REG(r11, 10);
+  COPY_REG(r12, 11);
+  COPY_REG(r13, 12);
+  COPY_REG(r14, 13);
+  COPY_REG(r15, 14);
+  COPY_REG(rsp, 15);
+  COPY_REG(rip, 16);
+  stack_start = regs.get()->rsp;
+#undef COPY_REG
+#elif defined(__arm__)
+  TypedMDRVA<MDRawContextARM> regs(minidump_writer);
+  if (!regs.Allocate())
+    return;
+  thread->thread_context = regs.location();
+  for (int regnum = 0; regnum < 16; regnum++) {
+    regs.get()->iregs[regnum] = info.context_regs[regnum];
+  }
+  regs.get()->cpsr = 0;
+  stack_start = regs.get()->iregs[13];
+#else
+  // TODO(igorc): Support stack traces in 32-bit mode.
+  return;
+#endif
+
+  // Record the stack contents.
+#if defined(__x86_64__)
+  // Include the x86-64 red zone too to capture local variables.
+  stack_start -= 128;
+#endif
+  uintptr_t stack_end =
+      reinterpret_cast<uintptr_t>(info.stack_base) + info.stack_size;
+  if (stack_end > stack_start) {
+    size_t stack_size = stack_end - stack_start;
+    stack_size = std::min(stack_size, kLimitExtraStackDumpSize);
+    thread->stack = SnapshotMemory(minidump_writer, stack_start, stack_size);
+  }
+}
+
+// ARC MOD END
 static void WriteThreadList(MinidumpAllocator *minidump_writer,
                             MDRawDirectory *dirent,
                             struct NaClExceptionContext *context,
@@ -378,6 +451,25 @@ static void WriteThreadList(MinidumpAllocator *minidump_writer,
   // to provide an interface for suspending threads.
   TypedMDRVA<uint32_t> list(minidump_writer);
   int num_threads = 1;
+  // ARC MOD BEGIN bionic-thread-info
+  // Count all threads where we have saved register state.
+  int bionic_thread_count =
+      kLimitExtraStackCount ?
+          std::min(kLimitExtraStackCount, __pthread_get_thread_count(true)) :
+          0;
+  __pthread_context_info_t thread_infos[kLimitExtraStackCount];
+  if (bionic_thread_count > 0) {
+    bionic_thread_count = __pthread_get_thread_infos(
+        true, false, bionic_thread_count, thread_infos);
+    for (int i = 0; i < bionic_thread_count; ++i) {
+      if (thread_infos[i].has_context_regs) {
+        if (num_threads >= kLimitExtraStackCount + 1)
+          break;
+        ++num_threads;
+      }
+    }
+  }
+  // ARC MOD END
   if (!list.AllocateObjectAndArray(num_threads, sizeof(MDRawThread)))
     return;
   *list.get() = num_threads;
@@ -397,12 +489,28 @@ static void WriteThreadList(MinidumpAllocator *minidump_writer,
   void *stack_end;
   if (GetStackEnd(&stack_end) && stack_start <= (uintptr_t) stack_end) {
     size_t stack_size = (uintptr_t) stack_end - stack_start;
-    stack_size = std::min(stack_size, kLimitStackDumpSize);
+    // ARC MOD BEGIN bionic-thread-info
+    stack_size = std::min(stack_size, kLimitMainStackDumpSize);
+    // ARC MOD END
     thread.stack = SnapshotMemory(minidump_writer, stack_start, stack_size);
   }
 
   list.CopyIndexAfterObject(0, &thread, sizeof(thread));
 
+  // ARC MOD BEGIN bionic-thread-info
+  // Report extra threads where we have saved register state.
+  int thread_idx = 1;
+  for (int i = 0; i < bionic_thread_count && thread_idx < num_threads; ++i) {
+    if (!thread_infos[i].has_context_regs)
+      continue;
+    thread = {0};
+    thread.thread_id = i + 1;
+    SaveBionicThreadState(minidump_writer, &thread, thread_infos[i]);
+    list.CopyIndexAfterObject(thread_idx, &thread, sizeof(thread));
+    ++thread_idx;
+  }
+
+  // ARC MOD END
   dirent->stream_type = MD_THREAD_LIST_STREAM;
   dirent->location = list.location();
 }

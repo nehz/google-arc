@@ -24,13 +24,14 @@ namespace {
 const char kBadFile[] = "does_not_exist";
 const char kImageFile[] = "/tmp/test.img";
 const ssize_t kReadAheadSize = 256;
+const time_t kImageFileMtime = 12345;
 
 // A stream for testing which works as the underlying stream for ReadonlyFile
 // (the test target) and provides actual file content to the stream.
 class TestUnderlyingStream : public ReadonlyMemoryFile {
  public:
   TestUnderlyingStream(const uint8_t* content, size_t size)
-      : ReadonlyMemoryFile(kImageFile, 0, time(NULL)),
+      : ReadonlyMemoryFile(kImageFile, 0, kImageFileMtime),
         content_(content, content + size) {
   }
   virtual ~TestUnderlyingStream() {}
@@ -120,7 +121,7 @@ class ReadonlyFileTest : public FileSystemTestCommon {
 };
 
 TEST_F(ReadonlyFileTest, TestOpen) {
-  // Can't open files in writable mode.
+  // Cannot open files in writable mode.
   scoped_refptr<FileStream> stream =
       handler_->open(-1 /* fd */, kTestFiles[0].filename, O_WRONLY, 0);
   EXPECT_FALSE(stream);
@@ -130,11 +131,18 @@ TEST_F(ReadonlyFileTest, TestOpen) {
   stream = handler_->open(-1, kTestFiles[0].filename, O_RDONLY, 0);
   ASSERT_TRUE(stream);
 
-  // Test if it's possible to open the same file again.
+  // Test if it is possible to open the same file again.
   scoped_refptr<FileStream> stream2 = handler_->open(
       -1, kTestFiles[0].filename, O_RDONLY, 0);
   ASSERT_TRUE(stream2);
   EXPECT_NE(stream, stream2);
+
+  // Test O_DIRECTORY.
+  errno = 0;
+  scoped_refptr<FileStream> stream3 = handler_->open(
+      -1, kTestFiles[0].filename, O_RDONLY | O_DIRECTORY, 0);
+  EXPECT_FALSE(stream3);
+  EXPECT_EQ(ENOTDIR, errno);
 }
 
 TEST_F(ReadonlyFileTest, TestMmap) {
@@ -273,6 +281,7 @@ TEST_F(ReadonlyFileTest, TestStat) {
   EXPECT_EQ(0, handler_->stat("/", &statbuf));
   // ReadonlyFile does not set permission bits, relying VirtualFileSystem.
   EXPECT_EQ(static_cast<mode_t>(S_IFDIR), statbuf.st_mode);
+  EXPECT_EQ(kImageFileMtime, statbuf.st_mtime);
   EXPECT_EQ(0, handler_->stat("/test/", &statbuf));
   EXPECT_EQ(static_cast<mode_t>(S_IFDIR), statbuf.st_mode);
   EXPECT_EQ(0, handler_->stat("/test", &statbuf));

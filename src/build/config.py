@@ -33,7 +33,7 @@ def _generate_test_framework_ninjas():
   n = ArchiveNinjaGenerator('libgtest', base_path='googletest/src',
                             instances=0,  # Not used by shared objects
                             enable_clang=True)
-  n.add_include_paths('third_party/googletest')
+  n.add_include_paths(staging.as_staging('googletest'))
   # To avoid "private field 'pretty_' is not used" on clang.
   n.add_compiler_flags('-Wno-unused-private-field')
   n.build_default(['gtest-all.cc']).archive()
@@ -41,7 +41,8 @@ def _generate_test_framework_ninjas():
   n = ArchiveNinjaGenerator('libgmock', base_path='testing/gmock/src',
                             instances=0,  # Not used by shared objects
                             enable_clang=True)
-  n.add_include_paths('testing/gmock', 'third_party/testing/gmock/include')
+  n.add_include_paths(staging.as_staging('testing/gmock'),
+                      staging.as_staging('testing/gmock/include'))
   n.build_default(['gmock-all.cc']).archive()
 
 

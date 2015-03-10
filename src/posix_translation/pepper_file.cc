@@ -580,9 +580,9 @@ int PepperFileHandler::stat(const std::string& pathname, struct stat* out) {
   }
 
   if (file_info.type == PP_FILETYPE_DIRECTORY) {
-    DirectoryFileStream::FillStatData(pathname, out);
-    // Do not fill st_mtime for a directory to be consistent with
-    // DirectoryFileStream::fstat.
+    scoped_refptr<FileStream> stream =
+        new DirectoryFileStream("pepper", pathname, this);
+    return stream->fstat(out);
   } else {
     memset(out, 0, sizeof(struct stat));
     // Always assigning 0 (or another constant) to |st_ino| does not always

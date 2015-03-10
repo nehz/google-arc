@@ -379,7 +379,7 @@ class NinjaGenerator(ninja_syntax.Writer):
            description='make_table_of_contents $in',
            restat=True)
 
-    # Rule to make a list of tests from .apk. This is hsared with
+    # Rule to make a list of tests from .apk. This is shared with
     # AtfNinjaGenerator and ApkFromSdkNinjaGenerator.
     n.rule('extract_test_list',
            ('PYTHONPATH=src/build python %s '
@@ -391,7 +391,7 @@ class NinjaGenerator(ninja_syntax.Writer):
            'mkdir -p %s && %s $test_info > $out' % (
                build_common.get_unittest_info_path(),
                NinjaGenerator._PRETTY_PRINT_JSON_PATH),
-           description='Build test info')
+           description='Build test info $out')
 
   @staticmethod
   def consume_ninjas():
@@ -1276,7 +1276,7 @@ class CNinjaGenerator(NinjaGenerator):
                ' -I' + staging.as_staging('android_libcommon') +
                ' -I' + staging.as_staging('android') +
                # Allow gtest/gtest_prod.h to be included by anything.
-               ' -I third_party/googletest/include')
+               ' -I' + staging.as_staging('googletest/include'))
 
     return cflags
 
@@ -1317,7 +1317,7 @@ class CNinjaGenerator(NinjaGenerator):
                   ' -I' + staging.as_staging('android_libcommon') +
                   ' -I' + staging.as_staging('android') +
                   # Allow gtest/gtest_prod.h to be included by anything.
-                  ' -I third_party/googletest/include')
+                  ' -I' + staging.as_staging('googletest/include'))
     return hostcflags
 
   @staticmethod
@@ -2188,7 +2188,7 @@ class TestNinjaGenerator(ExecNinjaGenerator):
                             'libcommon.a',
                             'libpluginhandle.a')
     self.add_library_deps('libcommon_real_syscall_aliases.a')
-    self.add_include_paths('third_party/testing/gmock/include')
+    self.add_include_paths(staging.as_staging('testing/gmock/include'))
     self._run_counter = 0
     self._disabled_tests = []
     self._qemu_disabled_tests = []

@@ -31,8 +31,10 @@ class DirectoryFileStream : public FileStream {
   DirectoryFileStream(const std::string& streamtype,
                       const std::string& pathname,
                       FileSystemHandler* pathhandler);
-
-  static void FillStatData(const std::string& pathname, struct stat* out);
+  DirectoryFileStream(const std::string& streamtype,
+                      const std::string& pathname,
+                      FileSystemHandler* pathhandler,
+                      time_t mtime);
 
   // If permission bits of out->st_mode are not set in a handler,
   // VirtualFileSystem will set the bits based of its file type.
@@ -49,11 +51,14 @@ class DirectoryFileStream : public FileStream {
   virtual ~DirectoryFileStream();
 
  private:
+  void FillStatData(const std::string& pathname, struct stat* out);
+
   const std::string streamtype_;
   scoped_ptr<Dir> contents_;
   // We expect FileSystemHandlers to be permanent relative to
   // DirectoryFileStreams, so this pointer should always be valid.
   FileSystemHandler* pathhandler_;
+  time_t mtime_;
 
   DISALLOW_COPY_AND_ASSIGN(DirectoryFileStream);
 };

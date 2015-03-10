@@ -162,8 +162,9 @@ Dir* NaClManifestFileHandler::OnDirectoryContentsNeeded(
 int NaClManifestFileHandler::stat(const std::string& pathname,
                                   struct stat* out) {
   if (directory_manager_.StatDirectory(pathname)) {
-    DirectoryFileStream::FillStatData(pathname, out);
-    return 0;
+    scoped_refptr<FileStream> stream =
+        new DirectoryFileStream("nmf", pathname, this);
+    return stream->fstat(out);
   }
 
   base::hash_map<std::string, struct stat>::iterator it =  // NOLINT

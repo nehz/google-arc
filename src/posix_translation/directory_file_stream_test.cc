@@ -14,6 +14,10 @@
 
 namespace posix_translation {
 
+namespace {
+static const time_t kLastModifiedTime = 12345;
+}  // namespace
+
 class DirectoryFileStreamTest : public FileSystemTestCommon {
  protected:
   DirectoryFileStreamTest() {
@@ -30,7 +34,8 @@ class DirectoryFileStreamTest : public FileSystemTestCommon {
   }
 
   scoped_refptr<FileStream> GetDirectoryFileStream() {
-    return new DirectoryFileStream("test", "/", handler_.get());
+    return new DirectoryFileStream(
+        "test", "/", handler_.get(), kLastModifiedTime);
   }
   scoped_ptr<FileSystemHandler> handler_;
 
@@ -74,6 +79,7 @@ TEST_F(DirectoryFileStreamTest, TestFstat) {
   struct stat st = {};
   EXPECT_EQ(0, stream->fstat(&st));
   EXPECT_NE(0U, st.st_ino);
+  EXPECT_EQ(kLastModifiedTime, st.st_mtime);
   EXPECT_EQ(S_IFDIR | 0U, st.st_mode);
 }
 

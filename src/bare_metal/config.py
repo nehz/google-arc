@@ -13,6 +13,7 @@ import re
 
 import ninja_generator
 import ninja_generator_runner
+import staging
 from build_options import OPTIONS
 from ninja_generator import ArchiveNinjaGenerator
 from ninja_generator import ExecNinjaGenerator
@@ -72,13 +73,14 @@ def _generate_test_framework_for_bare_metal_ninjas():
   n = ArchiveNinjaGenerator('libgtest_glibc', base_path='googletest/src',
                             instances=0)  # Not used by shared objects
   _set_bare_metal_flags(n)
-  n.add_include_paths('third_party/googletest')
+  n.add_include_paths(staging.as_staging('googletest'))
   n.build_default(['gtest_main.cc', 'gtest-all.cc']).archive()
 
   n = ArchiveNinjaGenerator('libgmock_glibc', base_path='testing/gmock/src',
                             instances=0)  # Not used by shared objects
   _set_bare_metal_flags(n)
-  n.add_include_paths('testing/gmock', 'third_party/testing/gmock/include')
+  n.add_include_paths(staging.as_staging('testing/gmock'),
+                      staging.as_staging('testing/gmock/include'))
   n.build_default(['gmock-all.cc']).archive()
 
 

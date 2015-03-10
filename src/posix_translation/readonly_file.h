@@ -72,6 +72,7 @@ class ARC_EXPORT ReadonlyFileHandler : public FileSystemHandler {
   scoped_ptr<ReadonlyFsReader> image_reader_;
   FileSystemHandler* underlying_handler_;
   scoped_refptr<FileStream> image_stream_;
+  time_t directory_mtime_;
 
   DISALLOW_COPY_AND_ASSIGN(ReadonlyFileHandler);
 };

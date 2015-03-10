@@ -31,7 +31,8 @@ ReadonlyFileHandler::ReadonlyFileHandler(const std::string& image_filename,
       image_filename_(image_filename),
       read_ahead_size_(read_ahead_size),
       underlying_handler_(underlying_handler),
-      image_stream_(NULL) {
+      image_stream_(NULL),
+      directory_mtime_(0) {
   if (!underlying_handler)
     ALOGW("NULL underlying handler is passed");  // this is okay for unit tests
   ALOG_ASSERT(read_ahead_size_ > 0);
@@ -67,6 +68,11 @@ bool ReadonlyFileHandler::ParseReadonlyFsImage() {
           addr, static_cast<uint64_t>(buf.st_size));
     return false;
   }
+
+  // TODO(yusukes): Re-enable the L's CTS test currently disabled for
+  // crbug.com/463441 once the mtime fix is merged into ARC's L branch.
+  directory_mtime_ = buf.st_mtime;
+
   return true;
 }
 
@@ -78,6 +84,10 @@ scoped_refptr<FileStream> ReadonlyFileHandler::CreateFileLocked(
   ReadonlyFsReader::Metadata metadata;
   if (!image_reader_->GetMetadata(pathname, &metadata)) {
     errno = ENOENT;
+    return NULL;
+  }
+  if (oflag & O_DIRECTORY) {
+    errno = ENOTDIR;
     return NULL;
   }
 
@@ -117,8 +127,10 @@ scoped_refptr<FileStream> ReadonlyFileHandler::open(
     errno = (is_directory ? EISDIR : EACCES);
     return NULL;
   }
-  if (is_directory)
-    return new DirectoryFileStream("readonly", pathname, this);
+  if (is_directory) {
+    return new DirectoryFileStream(
+        "readonly", pathname, this, directory_mtime_);
+  }
   return CreateFileLocked(pathname, oflag);
 }
 
@@ -127,17 +139,10 @@ Dir* ReadonlyFileHandler::OnDirectoryContentsNeeded(const std::string& name) {
 }
 
 int ReadonlyFileHandler::stat(const std::string& pathname, struct stat* out) {
-  if (image_reader_->IsDirectory(pathname)) {
-    // |pathname| exists and it is a directory.
-    DirectoryFileStream::FillStatData(pathname, out);
-    // TODO(crbug.com/242337): Fill better values in |st_nlink| and |st_size|.
-    return 0;
-  }
-  scoped_refptr<FileStream> file = CreateFileLocked(pathname, O_RDONLY);
-  if (file) {
-    // |pathname| exists and it is a file.
+  // Since ReadonlyFileHandler::open() is always fast, emulate stat with fstat.
+  scoped_refptr<FileStream> file = this->open(-1, pathname, O_RDONLY, 0);
+  if (file)
     return file->fstat(out);
-  }
   errno = ENOENT;
   return -1;
 }
