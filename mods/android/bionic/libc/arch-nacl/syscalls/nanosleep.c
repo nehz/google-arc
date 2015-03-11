@@ -7,6 +7,7 @@
 // ARC MOD BEGIN
 // Add include.
 #include <nacl_timespec.h>
+#include <thread_context.h>
 // ARC MOD END
 
 int __nanosleep (const struct timespec *req, struct timespec *rem)
@@ -20,7 +21,9 @@ int __nanosleep (const struct timespec *req, struct timespec *rem)
     __timespec_to_nacl_abi_timespec(req, &nacl_req);
     nacl_req_ptr = &nacl_req;
   }
+  SAVE_CONTEXT_REGS();
   int result = __nacl_irt_nanosleep(nacl_req_ptr, &nacl_rem);
+  CLEAR_CONTEXT_REGS();
   // ARC MOD END
   if (result != 0) {
     errno = result;

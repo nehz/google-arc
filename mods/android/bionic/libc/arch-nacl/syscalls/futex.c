@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <nacl_timespec.h>
 #include <nacl_timeval.h>
+#include <thread_context.h>
 #include <unistd.h>
 
 int  __futex_syscall4(volatile void *ftx, int op, int val,
@@ -59,8 +60,11 @@ int  __futex_syscall4(volatile void *ftx, int op, int val,
         nacl_timeout.tv_nsec = nsec;
         nacl_timeout_ptr = &nacl_timeout;
       }
+      SAVE_CONTEXT_REGS();
       // NaCL returns positive error codes, while syscalls returns negative.
-      return -__nacl_irt_futex_wait_abs(ftx, val, nacl_timeout_ptr);
+      int result = -__nacl_irt_futex_wait_abs(ftx, val, nacl_timeout_ptr);
+      CLEAR_CONTEXT_REGS();
+      return result;
     }
     case FUTEX_WAKE:
     case FUTEX_WAKE_PRIVATE: {

@@ -31,6 +31,9 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <sys/cdefs.h>
+// ARC MOD BEGIN bionic-thread-info
+#include "private/pthread_context.h"
+// ARC MOD END
 
 __BEGIN_DECLS
 
@@ -54,6 +57,11 @@ typedef struct pthread_internal_t
 #if defined(BARE_METAL_BIONIC)
     char* stack_end_from_irt;
 #endif
+    // ARC MOD END
+    // ARC MOD BEGIN bionic-thread-info
+    // Storage for thread context at the time of invoking a blocking call.
+    volatile bool has_context_regs;
+    PthreadRegValue context_regs[PTHREAD_MAX_SAVED_REGS];
     // ARC MOD END
 
     /*
@@ -79,7 +87,6 @@ __LIBC_HIDDEN__ void
 _pthread_internal_prepend_detached_threads_locked(pthread_internal_t* thread);
 #endif
 // ARC MOD END
-
 /* Has the thread been detached by a pthread_join or pthread_detach call? */
 #define PTHREAD_ATTR_FLAG_DETACHED      0x00000001
 
