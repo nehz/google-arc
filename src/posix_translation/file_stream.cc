@@ -314,7 +314,7 @@ ssize_t FileStream::PwriteImpl(const void* buf, size_t count, off64_t offset) {
   return result;
 }
 
-ssize_t FileStream::readv(const struct iovec* iov, int count) {
+int FileStream::readv(const struct iovec* iov, int count) {
   ssize_t total;
   int error = VerifyIoVec(iov, count, &total);
   if (error != 0) {
@@ -343,7 +343,7 @@ ssize_t FileStream::readv(const struct iovec* iov, int count) {
   return result;
 }
 
-ssize_t FileStream::writev(const struct iovec* iov, int count) {
+int FileStream::writev(const struct iovec* iov, int count) {
   ssize_t total;
   int error = VerifyIoVec(iov, count, &total);
   if (error != 0) {
@@ -374,7 +374,7 @@ ssize_t FileStream::recvfrom(void* buf, size_t len, int flags, sockaddr* addr,
   return -1;
 }
 
-ssize_t FileStream::recvmsg(struct msghdr* msg, int flags) {
+int FileStream::recvmsg(struct msghdr* msg, int flags) {
   errno = ENOTSOCK;
   return -1;
 }
@@ -390,7 +390,7 @@ ssize_t FileStream::sendto(const void* buf, size_t len, int flags,
   return -1;
 }
 
-ssize_t FileStream::sendmsg(const struct msghdr* msg, int flags) {
+int FileStream::sendmsg(const struct msghdr* msg, int flags) {
   errno = ENOTSOCK;
   return -1;
 }

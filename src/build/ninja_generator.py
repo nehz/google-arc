@@ -1373,7 +1373,7 @@ class CNinjaGenerator(NinjaGenerator):
 
   @staticmethod
   def _get_clangxxflags():
-    return ['-std=gnu++11', '-Wheader-hygiene', '-Wstring-conversion']
+    return ['-std=gnu++11']
 
   @staticmethod
   def _get_debug_cflags():

@@ -97,7 +97,8 @@ int __wrap_accept(int sockfd, struct sockaddr* addr, socklen_t* addrlen) {
 
 int __wrap_bind(int sockfd, const struct sockaddr* addr, socklen_t addrlen) {
   ARC_STRACE_ENTER_FD("bind", "%d, %s, %u",
-                      sockfd, arc::GetSockaddrStr(addr).c_str(), addrlen);
+                      sockfd, arc::GetSockaddrStr(addr, addrlen).c_str(),
+                      addrlen);
   int result = VirtualFileSystem::GetVirtualFileSystem()->bind(
       sockfd, addr, addrlen);
   ARC_STRACE_RETURN(result);
@@ -106,7 +107,8 @@ int __wrap_bind(int sockfd, const struct sockaddr* addr, socklen_t addrlen) {
 int __wrap_connect(int sockfd, const struct sockaddr* addr,
                    socklen_t addrlen) {
   ARC_STRACE_ENTER_FD("connect", "%d, %s, %u",
-                      sockfd, arc::GetSockaddrStr(addr).c_str(), addrlen);
+                      sockfd, arc::GetSockaddrStr(addr, addrlen).c_str(),
+                      addrlen);
   int result = VirtualFileSystem::GetVirtualFileSystem()->connect(
       sockfd, addr, addrlen);
   ARC_STRACE_RETURN(result);
@@ -372,7 +374,7 @@ ssize_t __wrap_sendto(int sockfd, const void* buf, size_t len, int flags,
                       const struct sockaddr* dest_addr, socklen_t addrlen) {
   ARC_STRACE_ENTER_FD("sendto", "%d, %p, %zu, %d, %s, %u",
                       sockfd, buf, len, flags,
-                      arc::GetSockaddrStr(dest_addr).c_str(), addrlen);
+                      arc::GetSockaddrStr(dest_addr, addrlen).c_str(), addrlen);
   int result = VirtualFileSystem::GetVirtualFileSystem()->sendto(
       sockfd, buf, len, flags, dest_addr, addrlen);
   if (result == -1 && errno == EINVAL) {

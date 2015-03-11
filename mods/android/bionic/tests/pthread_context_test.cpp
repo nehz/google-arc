@@ -41,6 +41,11 @@ TEST(pthread_thread_context, QEMU_DISABLED_get_thread_infos) {
     // TODO(igorc): Find out why it also fails on defined(__arm__) devices.
     return;
 #endif
+#if defined(__native_client__)
+    // TODO(crbug.com/465635): Disabled on defined(__native_client__) as it's
+    // flaky.
+    return;
+#endif
 
     // Create a new thread.
     Args args;

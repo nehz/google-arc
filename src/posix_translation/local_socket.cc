@@ -7,19 +7,32 @@
 #include <string.h>
 
 #include <algorithm>
+#include <string>
 
 #include "common/alog.h"
+#include "common/process_emulator.h"
+#include "posix_translation/socket_util.h"
+#include "posix_translation/time_util.h"
 #include "posix_translation/virtual_file_system.h"
 
 namespace posix_translation {
 
 LocalSocket::LocalSocket(int oflag, int socket_type,
-                         LocalSocketType local_socket_type)
+                         StreamDir stream_dir)
     : SocketStream(AF_UNIX, oflag), socket_type_(socket_type),
-      local_socket_type_(local_socket_type) {
+      connect_state_(SOCKET_NEW), stream_dir_(stream_dir),
+      connection_backlog_(0) {
   // 224K is the default SO_SNDBUF/SO_RCVBUF in the linux kernel.
-  if (socket_type == SOCK_STREAM && local_socket_type != WRITE_ONLY)
+  if (socket_type == SOCK_STREAM && stream_dir != WRITE_ONLY)
     buffer_.set_capacity(224*1024);
+  my_cred_.pid = arc::ProcessEmulator::GetPid();
+  my_cred_.uid = arc::ProcessEmulator::GetUid();
+  my_cred_.gid = my_cred_.uid;
+  // These values are empirically what SO_PEERCRED returns when
+  // there has never been a peer to the socket.
+  peer_cred_.pid = 0;
+  peer_cred_.uid = -1;
+  peer_cred_.gid = -1;
 }
 
 LocalSocket::~LocalSocket() {
@@ -33,7 +46,13 @@ void LocalSocket::OnLastFileRef() {
   if (peer_) {
     peer_->peer_ = NULL;
     peer_ = NULL;
+    // Note that the peer_ == NULL and connect_state_ == SOCKET_CONNECTED
+    // means the connection has been closed.
     VirtualFileSystem::GetVirtualFileSystem()->Broadcast();
+  }
+  if (!abstract_name_.empty()) {
+    VirtualFileSystem::GetVirtualFileSystem()->
+        GetAbstractSocketNamespace()->Bind(abstract_name_, NULL);
   }
 }
 
@@ -41,6 +60,8 @@ void LocalSocket::set_peer(scoped_refptr<LocalSocket> peer) {
   // Always called by VirtualFileSystem.
   ALOG_ASSERT(peer != NULL);
   peer_ = peer;
+  connect_state_ = SOCKET_CONNECTED;
+  peer_cred_ = peer->my_cred_;
 }
 
 off64_t LocalSocket::lseek(off64_t offset, int whence) {
@@ -75,10 +96,224 @@ ssize_t LocalSocket::recvfrom(void* buf, size_t len, int flags, sockaddr* addr,
   return this->recvmsg(&msg, 0);
 }
 
-ssize_t LocalSocket::recvmsg(struct msghdr* msg, int flags) {
-  if (local_socket_type_ == WRITE_ONLY) {
+bool LocalSocket::ConvertSockaddrToAbstractName(const sockaddr* addr,
+                                                socklen_t addrlen,
+                                                std::string* out_name) {
+  const sockaddr_un* saddr_un = reinterpret_cast<const sockaddr_un*>(addr);
+  const socklen_t kSunPathOffset =
+      static_cast<socklen_t>(offsetof(struct sockaddr_un, sun_path));
+  if (addrlen < kSunPathOffset + 1) {
+    // Technically a sun_path of length 0 is valid, but we cannot use
+    // it.  And anything less than 0 is of course invalid and results
+    // in EINVAL.  We combine those together.
+    errno = EINVAL;
+    return false;
+  }
+  if (saddr_un->sun_path[0] != '\0') {
+    // We do not support sockets to VFS paths yet, sorry.
+    errno = ENOSYS;
+    return false;
+  }
+  socklen_t sun_path_length = addrlen - kSunPathOffset;
+  out_name->assign(saddr_un->sun_path + 1, sun_path_length - 1);
+  return true;
+}
+
+int LocalSocket::bind(const sockaddr* addr, socklen_t addrlen) {
+  // You can call bind on a new or connected socket, Linux does not care.
+  // You cannot call bind on a pipe, which is also implemented by LocalSocket,
+  // because it is not a socket.  We do not catch that case here, but we
+  // also do not catch this case in recv/send/recvfrom/sendto/recvmsg/sendmsg,
+  // all of which require a socket.
+  // TODO(crbug.com/447833): Split out pipes.
+  if (addr->sa_family != AF_UNIX) {
+    // Observed the error EINVAL when AF_UNIX is given to socket and
+    // AF_UNIX is given to bind.
+    errno = EINVAL;
+    return -1;
+  }
+  if (!abstract_name_.empty()) {
+    // Trying to bind a second name to a single socket fails.
+    errno = EINVAL;
+    return -1;
+  }
+  std::string abstract_name;
+  if (!ConvertSockaddrToAbstractName(addr, addrlen, &abstract_name))
+    return -1;
+  int result = VirtualFileSystem::GetVirtualFileSystem()->
+      GetAbstractSocketNamespace()->Bind(abstract_name, this);
+  if (result == 0)
+    abstract_name_ = abstract_name;
+  return result;
+}
+
+int LocalSocket::listen(int backlog) {
+  if (abstract_name_.empty()) {
+    // Observed the error EINVAL when listen is called on an unbound
+    // socket.
+    errno = EINVAL;
+    return -1;
+  }
+  connect_state_ = SOCKET_LISTENING;
+  connection_backlog_ = backlog;
+  return 0;
+}
+
+int LocalSocket::getsockopt(int level, int optname, void* optval,
+                             socklen_t* optlen) {
+  if (level == SOL_SOCKET && optname == SO_PEERCRED) {
+    *optlen = std::min(*optlen, socklen_t(sizeof(peer_cred_)));
+    memcpy(optval, &peer_cred_, *optlen);
+    return 0;
+  }
+  return SocketStream::getsockopt(level, optname, optval, optlen);
+}
+
+bool LocalSocket::HandleConnectLocked(LocalSocket* connecting) {
+  if (connect_state_ != SOCKET_LISTENING) {
+    ALOGW("LocalSocket::connect failed - receiving socket not listening");
+    return false;
+  }
+  if (connection_backlog_ == connection_queue_.size()) {
+    ALOGW("LocalSocket::connect failed - queue for %s full",
+          abstract_name_.c_str());
+    return false;
+  }
+  connection_queue_.push_back(connecting);
+  if (connection_queue_.size() == 1) {
+    // In case we are already blocking on an accept, wake it up now...
+    VirtualFileSystem::GetVirtualFileSystem()->Broadcast();
+    // and also notify any polls/selects listening to it.
+    NotifyListeners();
+  }
+  return true;
+}
+
+void LocalSocket::WaitForLocalSocketConnect() {
+  // The accept() call will set the peer and tell us when to proceed.
+  VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
+  connect_state_ = SOCKET_CONNECTING;
+  while (connect_state_ == SOCKET_CONNECTING) {
+    sys->Wait();
+  }
+}
+
+int LocalSocket::connect(const sockaddr* addr, socklen_t addrlen) {
+  if (connect_state_ == SOCKET_CONNECTED ||
+      connect_state_ == SOCKET_LISTENING) {
+    errno = EISCONN;
+    return -1;
+  }
+  if (addr->sa_family != AF_UNIX) {
+    // Observed the error EINVAL when AF_UNIX is given to socket and
+    // AF_UNIX is given to connect.
+    errno = EINVAL;
+    return -1;
+  }
+  if (!is_block()) {
+    ALOGE("Non-blocking local socket connect not supported.\n");
+    errno = ENOSYS;
+    return -1;
+  }
+  std::string abstract_name;
+  if (!ConvertSockaddrToAbstractName(addr, addrlen, &abstract_name))
+    return -1;
+  VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
+  scoped_refptr<LocalSocket> listening_socket =
+      sys->GetAbstractSocketNamespace()->GetByName(abstract_name);
+  if (listening_socket == NULL) {
+    // Connection to unbound abstract name returns ECONNREFUSED.
+    errno = ECONNREFUSED;
+    return -1;
+  }
+  if (!listening_socket->HandleConnectLocked(this)) {
+    errno = ECONNREFUSED;
+    return -1;
+  }
+  WaitForLocalSocketConnect();
+  return 0;
+}
+
+void LocalSocket::WaitForOpenedConnectToAccept() {
+  VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
+  const base::TimeTicks time_limit =
+      internal::TimeOutToTimeLimit(recv_timeout_);
+  do {
+    // Skip any queued connects which have since been closed.
+    while (!connection_queue_.empty() &&
+           connection_queue_.front()->IsClosed()) {
+      ALOGW("LocalSocket::accept - enqueued connection was preemptively "
+            "closed");
+      connection_queue_.pop_front();
+    }
+    if (!connection_queue_.empty()) break;
+  } while (!sys->WaitUntil(time_limit));
+}
+
+int LocalSocket::accept(sockaddr* addr, socklen_t* addrlen) {
+  if (addr) {
+    int error = internal::VerifyOutputSocketAddress(addr, addrlen);
+    if (error) {
+      errno = error;
+      return -1;
+    }
+  }
+
+  if (connect_state_ != SOCKET_LISTENING) {
+    errno = EINVAL;
+    return -1;
+  }
+
+  if (!is_block()) {
+    ALOGE("Non-blocking local socket accept not supported.\n");
+    errno = ENOSYS;
+    return -1;
+  }
+  WaitForOpenedConnectToAccept();
+  if (IsClosed()) {
+    ALOGW("LocalSocket::accept - Listening socket closed while in waiting");
+    errno = EBADF;
+    return -1;
+  }
+  if (connection_queue_.empty()) {
+    errno = EAGAIN;
+    return -1;
+  }
+  // Create a peer server socket for the client socket at the head of the
+  // connection queue.
+  scoped_refptr<LocalSocket> server_socket =
+      new LocalSocket(oflag(), SOCK_STREAM, READ_WRITE);
+  VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
+  int accept_fd = sys->AddFileStreamLocked(server_socket);
+  if (accept_fd < 0) {
+    ALOGW("LocalSocket::accept - out of fds creating accepted fd");
+    errno = EMFILE;
+    return -1;
+  }
+  scoped_refptr<LocalSocket> client_socket = connection_queue_.front();
+  connection_queue_.pop_front();
+  server_socket->set_peer(client_socket);
+  client_socket->set_peer(server_socket);
+  sys->Broadcast();
+  NotifyListeners();
+  if (addr) {
+    sockaddr_un output = {};
+    output.sun_family = AF_UNIX;
+    memcpy(addr, &output, std::min(*addrlen, socklen_t(sizeof(sa_family_t))));
+    *addrlen = sizeof(sa_family_t);
+  }
+  return accept_fd;
+}
+
+int LocalSocket::recvmsg(struct msghdr* msg, int flags) {
+  if (stream_dir_ == WRITE_ONLY) {
     // Reading from write socket of a pipe is not allowed.
     errno = EBADF;
+    return -1;
+  }
+
+  if (connect_state_ != SOCKET_CONNECTED) {
+    errno = EINVAL;
     return -1;
   }
 
@@ -184,9 +419,14 @@ ssize_t LocalSocket::sendto(const void* buf, size_t len, int flags,
   return this->sendmsg(&msg, 0);
 }
 
-ssize_t LocalSocket::sendmsg(const struct msghdr* msg, int flags) {
-  if (local_socket_type_ == READ_ONLY) {
+int LocalSocket::sendmsg(const struct msghdr* msg, int flags) {
+  if (stream_dir_ == READ_ONLY) {
     errno = EBADF;
+    return -1;
+  }
+
+  if (connect_state_ != SOCKET_CONNECTED) {
+    errno = EINVAL;
     return -1;
   }
 
@@ -224,7 +464,7 @@ bool LocalSocket::IsSelectReadReady() const {
 }
 
 bool LocalSocket::IsSelectWriteReady() const {
-  if (local_socket_type_ == READ_ONLY || peer_ == NULL)
+  if (stream_dir_ == READ_ONLY || peer_ == NULL)
     return false;
   return peer_->CanWrite();
 }
@@ -247,7 +487,7 @@ bool LocalSocket::CanWrite() const {
   return true;
 }
 
-ssize_t LocalSocket::HandleSendmsgLocked(const struct msghdr* msg) {
+int LocalSocket::HandleSendmsgLocked(const struct msghdr* msg) {
   VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
   sys->mutex().AssertAcquired();
 

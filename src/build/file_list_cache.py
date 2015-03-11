@@ -159,10 +159,13 @@ def _entries_from_list(list):
 
 def file_list_cache_from_dict(data):
   if data['version'] != _CACHE_FILE_VERSION:
-    logging.warn('Version mismatch: %d', data['version'])
     return None
 
-  query = pickle.loads(data['query'])
+  try:
+    query = pickle.loads(data['query'])
+  except StandardError:
+    return None
+
   entries = dict(_entries_from_list(data['cache_entries']))
   return FileListCache(query, entries)
 

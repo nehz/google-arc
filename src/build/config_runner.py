@@ -155,8 +155,13 @@ def _load_config_cache_from_file(path):
   config_name = data['config_name']
   entry_point = data['entry_point']
   files = {path: FileEntry(mtime) for path, mtime in data['files']}
-  listings = {file_list_cache.file_list_cache_from_dict(listing)
-              for listing in data['listings']}
+  listings = set()
+  for dict in data['listings']:
+    listing = file_list_cache.file_list_cache_from_dict(dict)
+    if listing is None:
+      return None
+    listings.add(listing)
+
   try:
     generated_ninjas = pickle.loads(data['generated_ninjas'])
   except StandardError:

@@ -429,7 +429,7 @@ ssize_t TCPSocket::recvfrom(void* buf, size_t len, int flags, sockaddr* addr,
   return -1;
 }
 
-ssize_t TCPSocket::recvmsg(struct msghdr* msg, int flags) {
+int TCPSocket::recvmsg(struct msghdr* msg, int flags) {
   if (!msg || !msg->msg_iov) {
     errno = EINVAL;
     return -1;
@@ -507,7 +507,7 @@ ssize_t TCPSocket::sendto(const void* buf, size_t len, int flags,
   return -1;
 }
 
-ssize_t TCPSocket::sendmsg(const struct msghdr* msg, int flags) {
+int TCPSocket::sendmsg(const struct msghdr* msg, int flags) {
   if (!msg || !msg->msg_iov) {
     errno = EINVAL;
     return -1;

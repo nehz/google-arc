@@ -141,6 +141,7 @@ VirtualFileSystem::VirtualFileSystem(
       // for special purposes. Do not use such numbers to emulate the behavior.
       next_inode_(128),
       mount_points_(new MountPointManager),
+      abstract_socket_namespace_(&mutex_),
       host_resolver_(instance),
       abort_on_unexpected_memory_maps_(true) {
   ALOG_ASSERT(!file_system_);
@@ -573,7 +574,7 @@ ssize_t VirtualFileSystem::write(int fd, const void* buf, size_t count) {
   return -1;
 }
 
-ssize_t VirtualFileSystem::readv(int fd, const struct iovec* iov, int count) {
+int VirtualFileSystem::readv(int fd, const struct iovec* iov, int count) {
   base::AutoLock lock(mutex_);
   ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
 
@@ -615,7 +616,7 @@ char* VirtualFileSystem::realpath(const char* path,
   return output;
 }
 
-ssize_t VirtualFileSystem::writev(int fd, const struct iovec* iov, int count) {
+int VirtualFileSystem::writev(int fd, const struct iovec* iov, int count) {
   base::AutoLock lock(mutex_);
   ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
 
@@ -873,7 +874,7 @@ int VirtualFileSystem::epoll_wait(int epfd, struct epoll_event* events,
 // This is ARC-specific function in libc.so.
 extern "C" long __arc_fs_conf(struct statfs* buf, int name);  // NOLINT
 
-int VirtualFileSystem::fpathconf(int fd, int name) {
+long VirtualFileSystem::fpathconf(int fd, int name) {  // NOLINT
   // No locking since all synchronization we need is inside fstatfs.
   ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
   struct statfs buf;
@@ -884,7 +885,8 @@ int VirtualFileSystem::fpathconf(int fd, int name) {
   return __arc_fs_conf(&buf, name);
 }
 
-int VirtualFileSystem::pathconf(const std::string& pathname, int name) {
+long VirtualFileSystem::pathconf(const std::string& pathname,  // NOLINT
+                                 int name) {
   // No locking since all synchronization we need is inside statfs.
   ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
   struct statfs buf;
@@ -1300,6 +1302,8 @@ int VirtualFileSystem::socket(int socket_family, int socket_type,
     socket = new UDPSocket(fd, socket_family, 0);
   } else if (is_inet && socket_type == SOCK_STREAM) {
     socket = new TCPSocket(fd, socket_family, O_RDWR);
+  } else if (socket_family == AF_UNIX && socket_type == SOCK_STREAM) {
+    socket = new LocalSocket(O_RDWR, socket_type, LocalSocket::READ_WRITE);
   } else {
     // Only supporting SOCK_DGRAM and SOCK_STREAM right now. Fail otherwise.
     ALOGE("Request for unknown socket type %d, family=%d, protocol=%d",
@@ -1390,7 +1394,7 @@ int VirtualFileSystem::shutdown(int fd, int how) {
   }
 }
 
-int VirtualFileSystem::bind(int fd, const sockaddr* addr, socklen_t addrlen) {
+int VirtualFileSystem::bind(int fd, const sockaddr* addr, int addrlen) {
   base::AutoLock lock(mutex_);
   ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
 
@@ -1506,7 +1510,7 @@ ssize_t VirtualFileSystem::sendto(
   return stream->sendto(buf, len, flags, dest_addr, addrlen);
 }
 
-ssize_t VirtualFileSystem::sendmsg(
+int VirtualFileSystem::sendmsg(
     int sockfd, const struct msghdr* msg, int flags) {
   base::AutoLock lock(mutex_);
   ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
@@ -1545,7 +1549,7 @@ ssize_t VirtualFileSystem::recvfrom(
   return stream->recvfrom(buffer, len, flags, addr, addrlen);
 }
 
-ssize_t VirtualFileSystem::recvmsg(
+int VirtualFileSystem::recvmsg(
     int sockfd, struct msghdr* msg, int flags) {
   base::AutoLock lock(mutex_);
   ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);

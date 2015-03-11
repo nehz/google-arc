@@ -38,12 +38,12 @@ class TCPSocket : public SocketStream {
   virtual ssize_t recv(void* buf, size_t len, int flags) OVERRIDE;
   virtual ssize_t recvfrom(void* buf, size_t len, int flags, sockaddr* addr,
                            socklen_t* addrlen) OVERRIDE;
-  virtual ssize_t recvmsg(struct msghdr* msg, int flags) OVERRIDE;
+  virtual int recvmsg(struct msghdr* msg, int flags) OVERRIDE;
   virtual ssize_t write(const void* buf, size_t count) OVERRIDE;
   virtual ssize_t send(const void* buf, size_t len, int flags) OVERRIDE;
   virtual ssize_t sendto(const void* buf, size_t len, int flags,
                          const sockaddr* dest_addr, socklen_t addrlen) OVERRIDE;
-  virtual ssize_t sendmsg(const struct msghdr* msg, int flags) OVERRIDE;
+  virtual int sendmsg(const struct msghdr* msg, int flags) OVERRIDE;
 
   virtual int ioctl(int request, va_list ap) OVERRIDE;
 

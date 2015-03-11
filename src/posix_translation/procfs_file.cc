@@ -21,6 +21,7 @@
 #include "posix_translation/path_util.h"
 #include "posix_translation/readonly_memory_file.h"
 #include "posix_translation/statfs.h"
+#include "posix_translation/virtual_file_system.h"
 
 namespace posix_translation {
 
@@ -348,8 +349,45 @@ class ProcessMountsFile : public ProcessDelimitedFile {
     return true;
   }
 
+ private:
   MountPointManager* manager_;
   arc::UpdateConsumer update_consumer_;
+
+  DISALLOW_COPY_AND_ASSIGN(ProcessMountsFile);
+};
+
+class ProcNetUnixFile : public ProcfsFile {
+ public:
+  explicit ProcNetUnixFile(const std::string& pathname)
+      : ProcfsFile(pathname) {}
+
+ protected:
+  virtual void UpdateContentIfNecessary() OVERRIDE {
+    VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
+    AbstractSocketNamespace* ns = sys->GetAbstractSocketNamespace();
+    if (!update_consumer_.AreThereUpdatesAndConsumeIfSo(
+            ns->GetUpdateProducer())) {
+      return;
+    }
+    AbstractSocketNamespace::Streams streams;
+    ns->GetAllStreams(&streams);
+    // See the code in Chrome adb_device_info_query.cc#MapSocketsToProcesses
+    // which reads this format back out.
+    std::string contents =
+        "Num       RefCount Protocol Flags    Type St Inode Path\n";
+    for (AbstractSocketNamespace::Streams::iterator i = streams.begin();
+         i != streams.end(); ++i) {
+      contents.append(base::StringPrintf(
+          "%08d: %08d %08d %08x %04d %02d %d @%s\n",
+          0, 1, 0, 0x10000, 0, 1, 0, (*i)->GetBoundAbstractName().c_str()));
+    }
+    content_.assign(contents.begin(), contents.end());
+  }
+
+ private:
+  arc::UpdateConsumer update_consumer_;
+
+  DISALLOW_COPY_AND_ASSIGN(ProcNetUnixFile);
 };
 
 }  // namespace
@@ -413,6 +451,8 @@ void ProcfsFileHandler::SynchronizeDirectoryTreeStructure() {
     file_names_.AddFile(base::StringPrintf("/proc/%d/stat", pid));
     file_names_.AddFile(base::StringPrintf("/proc/%d/status", pid));
   }
+  // We provide the file /proc/net/unix.
+  file_names_.AddFile("/proc/net/unix");
   // Now add all the files that are provided by the readonlyfs.
   file_names_.AddFile("/proc/cmdline");
   file_names_.AddFile("/proc/loadavg");
@@ -492,6 +532,8 @@ scoped_refptr<FileStream> ProcfsFileHandler::open(
   } else if (pathname == "/proc/cpuinfo") {
     return new CpuInfoFile(pathname, cpuinfo_header_, cpuinfo_body_,
                            cpuinfo_footer_);
+  } else if (pathname == "/proc/net/unix") {
+    return new ProcNetUnixFile(pathname);
   } else if (readonly_fs_handler_ != NULL) {
     return readonly_fs_handler_->open(fd, pathname, oflag, cmode);
   } else {

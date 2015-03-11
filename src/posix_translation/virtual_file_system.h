@@ -35,6 +35,7 @@
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
 #include "common/export.h"
+#include "posix_translation/abstract_socket_namespace.h"
 #include "posix_translation/file_system_handler.h"
 #include "posix_translation/host_resolver.h"
 #include "posix_translation/virtual_file_system_interface.h"
@@ -45,6 +46,7 @@ namespace posix_translation {
 
 class FdToFileStreamMap;
 class FileStream;
+class LocalSocket;
 class MemoryRegion;
 class MountPointManager;
 class PepperFileHandler;
@@ -86,13 +88,11 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   // Implements file system functions.
   int accept(int sockfd, sockaddr* addr, socklen_t* addrlen);
   int access(const std::string& pathname, int mode);
-  int bind(int sockfd, const sockaddr* serv_addr,
-           socklen_t addrlen);
+  int bind(int sockfd, const sockaddr* serv_addr, int addrlen);
   int chdir(const std::string& path);
   int chown(const std::string& path, uid_t owner, gid_t group);
   int close(int fd);
-  int connect(int sockfd, const sockaddr* serv_addr,
-              socklen_t addrlen);
+  int connect(int sockfd, const sockaddr* serv_addr, socklen_t addrlen);
   int dup(int fd);
   int dup2(int fd, int newfd);
   int epoll_create1(int flags);
@@ -102,7 +102,7 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
                  int timeout);
   int fcntl(int fd, int cmd, va_list ap);
   int fdatasync(int fd);
-  int fpathconf(int fd, int name);
+  long fpathconf(int fd, int name);  // NOLINT
   void freeaddrinfo(addrinfo* ai);
   int fstat(int fd, struct stat* out);
   int fstatfs(int fd, struct statfs* out);
@@ -144,7 +144,7 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   int munmap(void* addr, size_t length);
   int open(const std::string& pathname, int oflag,
            mode_t cmode);
-  int pathconf(const std::string& pathname, int name);
+  long pathconf(const std::string& pathname, int name);  // NOLINT
   int pipe2(int pipefd[2], int flags);
   int poll(struct pollfd* fds, nfds_t nfds, int timeout);
   ssize_t pread(int fd, void* buf, size_t count,
@@ -154,24 +154,22 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   ssize_t read(int fd, void* buf, size_t count);
   ssize_t readlink(const std::string& pathname, char* buf,
                    size_t bufsiz);
-  ssize_t readv(int fd, const struct iovec* iovec, int count);
+  int readv(int fd, const struct iovec* iovec, int count);
   char* realpath(const char* path, char* resolved_path);
   ssize_t recv(int sockfd, void* buf, size_t len, int flags);
   ssize_t recvfrom(int socket, void* buffer, size_t len, int flags,
                    sockaddr* addr, socklen_t* addrlen);
-  ssize_t recvmsg(int sockfd, struct msghdr* msg, int flags);
+  int recvmsg(int sockfd, struct msghdr* msg, int flags);
   int remove(const std::string& pathname);
   int rename(const std::string& oldpath,
              const std::string& newpath);
   int rmdir(const std::string& pathname);
   int select(int nfds, fd_set* readfds, fd_set* writefds,
              fd_set* exceptfds, struct timeval* timeout);
-  ssize_t send(int sockfd, const void* buf, size_t len,
-               int flags);
+  ssize_t send(int sockfd, const void* buf, size_t len, int flags);
   ssize_t sendto(int sockfd, const void* buf, size_t len, int flags,
                  const sockaddr* dest_addr, socklen_t addrlen);
-  ssize_t sendmsg(int sockfd, const struct msghdr* msg,
-                  int flags);
+  int sendmsg(int sockfd, const struct msghdr* msg, int flags);
   int setsockopt(int sockfd, int level, int optname, const void* optval,
                  socklen_t optlen);
   int shutdown(int sockfd, int how);
@@ -192,7 +190,7 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   int utimes(const std::string& pathname,
              const struct timeval times[2]);
   ssize_t write(int fd, const void* buf, size_t count);
-  ssize_t writev(int fd, const struct iovec* iov, int count);
+  int writev(int fd, const struct iovec* iov, int count);
 
   // VirtualFileSystemInterface overrides.
   virtual void Mount(const std::string& path,
@@ -266,6 +264,10 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   int GetMaxFd() const;
 
   scoped_refptr<FileStream> GetStreamLocked(int fd);
+
+  AbstractSocketNamespace* GetAbstractSocketNamespace() {
+    return &abstract_socket_namespace_;
+  }
 
   // Option to specify how to normalize a path. Public for testing.
   enum NormalizeOption {
@@ -363,6 +365,7 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   InodeMap inodes_;
   ino_t next_inode_;
   scoped_ptr<MountPointManager> mount_points_;
+  AbstractSocketNamespace abstract_socket_namespace_;
 
   HostResolver host_resolver_;
 

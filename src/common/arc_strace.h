@@ -99,7 +99,7 @@ std::string GetFcntlCommandStr(int cmd);
 std::string GetIoctlRequestStr(int request);
 
 // Pretty printers for struct values.
-std::string GetSockaddrStr(const struct sockaddr* addr);
+std::string GetSockaddrStr(const struct sockaddr* addr, socklen_t addrlen);
 std::string GetDirentStr(const struct dirent* ent);
 std::string GetStatStr(const struct stat* st);
 std::string GetNaClAbiStatStr(const struct nacl_abi_stat* st);

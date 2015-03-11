@@ -998,7 +998,7 @@ std::string GetMremapFlagStr(int flag) {
   return result;
 }
 
-std::string GetSockaddrStr(const struct sockaddr* addr) {
+std::string GetSockaddrStr(const struct sockaddr* addr, socklen_t addrlen) {
   if (!addr)
     return "(null)";
 
@@ -1036,7 +1036,16 @@ std::string GetSockaddrStr(const struct sockaddr* addr) {
     case AF_UNIX: {
       const struct sockaddr_un* un =
           reinterpret_cast<const struct sockaddr_un*>(addr);
-      result += base::StringPrintf(" path=%s", un->sun_path);
+      int sun_max_length = addrlen - offsetof(sockaddr_un, sun_path);
+      if (sun_max_length == 0) {
+        result += " path=<empty>";
+      } else if (un->sun_path[0] == '\0') {
+        // abstract namespace
+        result += base::StringPrintf(" path=@%.*s", sun_max_length - 1,
+                                     un->sun_path + 1);
+      } else {
+        result += base::StringPrintf(" path=%s", un->sun_path);
+      }
       break;
     }
     default:

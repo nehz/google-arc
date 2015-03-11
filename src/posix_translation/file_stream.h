@@ -84,15 +84,15 @@ class FileStream : public base::RefCounted<FileStream> {
   virtual int munmap(void* addr, size_t length);
   virtual ssize_t pread(void* buf, size_t count, off64_t offset);
   virtual ssize_t read(void* buf, size_t count) = 0;
-  virtual ssize_t readv(const struct iovec* iov, int count);
+  virtual int readv(const struct iovec* iov, int count);
   virtual ssize_t recv(void* buf, size_t len, int flags);
   virtual ssize_t recvfrom(void* buf, size_t len, int flags, sockaddr* addr,
                            socklen_t* addrlen);
-  virtual ssize_t recvmsg(struct msghdr* msg, int flags);
+  virtual int recvmsg(struct msghdr* msg, int flags);
   virtual ssize_t send(const void* buf, size_t len, int flags);
   virtual ssize_t sendto(const void* buf, size_t len, int flags,
                          const sockaddr* dest_addr, socklen_t addrlen);
-  virtual ssize_t sendmsg(const struct msghdr* msg, int flags);
+  virtual int sendmsg(const struct msghdr* msg, int flags);
   virtual int setsockopt(int level, int optname, const void* optval,
                          socklen_t optlen);
   // Note: In write() and writev(), do not call any function which
@@ -101,7 +101,7 @@ class FileStream : public base::RefCounted<FileStream> {
   // FileStream. printf() and fprintf() are good examples. ARC logging
   // functions in common/alog.h and common/arc_strace.h are safe to call.
   virtual ssize_t write(const void* buf, size_t count) = 0;
-  virtual ssize_t writev(const struct iovec* iov, int count);
+  virtual int writev(const struct iovec* iov, int count);
 
   // For the implementation of select().
   // Streams which support select must override these 3 functions.
