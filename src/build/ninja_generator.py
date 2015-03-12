@@ -908,11 +908,12 @@ class CNinjaGenerator(NinjaGenerator):
         self.add_include_paths('android/bionic/libc/include')
     if gl_flags:
       self.emit_gl_common_flags()
-    # We need 4-byte alignment to pass host function pointers to arm code.
-    if not self._is_host and not OPTIONS.is_nacl_build():
-      self.add_compiler_flags('-falign-functions=4')
     self._enable_clang = (enable_clang and
                           toolchain.has_clang(OPTIONS.target(), self._is_host))
+    # We need 4-byte alignment to pass host function pointers to arm code.
+    if (not self._is_host and not OPTIONS.is_nacl_build() and
+        not self._enable_clang):
+      self.add_compiler_flags('-falign-functions=4')
     self._object_list = []
     self._shared_deps = []
     self._static_deps = []
@@ -3604,9 +3605,6 @@ class AtfNinjaGenerator(ApkNinjaGenerator):
 class AaptNinjaGenerator(NinjaGenerator):
   """Implements a simple aapt package generator."""
 
-  _resource_paths = []
-  _assets_path = None
-
   def __init__(self, module_name, base_path, manifest, intermediates,
                install_path=None, **kwargs):
     super(AaptNinjaGenerator, self).__init__(
@@ -3614,6 +3612,8 @@ class AaptNinjaGenerator(NinjaGenerator):
     self._manifest = manifest
     self._intermediates = intermediates
     self._install_path = install_path
+    self._resource_paths = []
+    self._assets_path = None
 
   def add_resource_paths(self, paths):
     self._resource_paths += paths

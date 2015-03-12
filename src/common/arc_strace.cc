@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <linux/android_alarm.h>  // ANDROID_ALARM_*
 #include <linux/ashmem.h>  // ASHMEM_*
 #include <linux/sched.h>  // SCHED_BATCH
 #include <linux/sync.h>  // SYNC_IOC_*
@@ -675,6 +676,14 @@ void StraceResetStats() {
   g_arc_strace->ResetStats();
 }
 
+std::string GetStraceEnterString(const char* name, const char* format, ...) {
+  va_list ap;
+  va_start(ap, format);
+  std::string body = base::StringPrintV(format, ap);
+  va_end(ap);
+  return base::StringPrintf("%s(%s)", name, body.c_str());
+}
+
 void StraceInit(const std::string& plugin_type_prefix) {
   ALOG_ASSERT(!g_arc_strace);
   if (Options::GetInstance()->enable_arc_strace) {
@@ -776,8 +785,9 @@ std::string GetEpollEventStr(uint32_t events) {
 }
 
 std::string GetFdStr(int fd) {
-  ALOG_ASSERT(g_arc_strace);
-  const std::string result = g_arc_strace->GetFdString(fd);
+  std::string result;
+  if (g_arc_strace)
+    result = g_arc_strace->GetFdString(fd);
   return result.empty() ? "???" : result;
 }
 
@@ -1169,6 +1179,8 @@ std::string GetIoctlRequestStr(int request) {
   std::string result;
   switch (request) {
     CASE_APPEND_ENUM_STR(FIONREAD, result);
+    CASE_APPEND_ENUM_STR(ANDROID_ALARM_WAIT, result);
+    CASE_APPEND_ENUM_STR(ANDROID_ALARM_SET_RTC, result);
     default: {
       // Unable to write switch-case since Bionic ioctl.h enables _IOC_TYPECHECK
       // which is not allowed in constant expression.
@@ -1200,6 +1212,38 @@ std::string GetIoctlRequestStr(int request) {
       } else if (urequest == ASHMEM_PURGE_ALL_CACHES) {
         AppendResult("ASHMEM_PURGE_ALL_CACHES", &result);
       } else {
+        int android_alarm_cmd = ANDROID_ALARM_BASE_CMD(request);
+        int android_alarm_type = ANDROID_ALARM_IOCTL_TO_TYPE(request);
+        std::string cmd_str;
+        // To get command value, passing "0" for each macro.
+        switch (android_alarm_cmd) {
+          case ANDROID_ALARM_GET_TIME(0):
+            cmd_str = "ANDROID_ALARM_GET_TIME";
+            break;
+          case ANDROID_ALARM_CLEAR(0):
+            cmd_str = "ANDROID_ALARM_CLEAR";
+            break;
+          case ANDROID_ALARM_SET_AND_WAIT(0):
+            cmd_str = "ANDROID_ALARM_SET_AND_WAIT";
+            break;
+          case ANDROID_ALARM_SET(0):
+            cmd_str = "ANDROID_ALARM_SET";
+            break;
+        }
+        std::string type_str;
+        switch (android_alarm_type) {
+          CASE_APPEND_ENUM_STR(ANDROID_ALARM_RTC_WAKEUP, type_str);
+          CASE_APPEND_ENUM_STR(ANDROID_ALARM_RTC, type_str);
+          CASE_APPEND_ENUM_STR(ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP, type_str);
+          CASE_APPEND_ENUM_STR(ANDROID_ALARM_ELAPSED_REALTIME, type_str);
+          CASE_APPEND_ENUM_STR(ANDROID_ALARM_SYSTEMTIME, type_str);
+        }
+
+        if (!cmd_str.empty() && !type_str.empty()) {
+          result = cmd_str + "(" + type_str + ")";
+          break;
+        }
+
         AppendResult(base::StringPrintf("%d???", request), &result);
       }
     }

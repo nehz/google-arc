@@ -16,8 +16,16 @@ namespace arc {
 // https://android.googlesource.com/platform/bionic/+/gingerbread/linker/linker.c
 // TODO(olonho): investigate why even with hint 0 linker expects memory
 // in certain range. Short ARM branches?
+//
+// Also handle RWX pages for whitelisted apps on Bare Metal mode.
 void* MmapForNdk(void* addr, size_t length, int prot, int flags,
                  int fd, off_t offset);
+
+#if defined(USE_NDK_DIRECT_EXECUTION)
+// Handles RWX pages for whitelisted apps on Bare Metal mode with NDK
+// direct execution.
+int MprotectForNdk(void* addr, size_t len, int prot);
+#endif
 
 }  // namespace arc
 

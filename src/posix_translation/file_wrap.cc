@@ -227,10 +227,8 @@ int __wrap_access(const char* pathname, int mode) {
                    arc::GetAccessModeStr(mode).c_str());
   int result = VirtualFileSystem::GetVirtualFileSystem()->access(
       pathname, mode);
-  if (result == -1 && errno != ENOENT) {
-    DANGERF("path=%s mode=%d: %s",
-            SAFE_CSTR(pathname), mode, safe_strerror(errno).c_str());
-  }
+  if (result == -1 && errno != ENOENT)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN(result);
 }
 
@@ -388,9 +386,8 @@ IRT_WRAPPER(lstat, const char* path, struct nacl_abi_stat* buf) {
   struct stat st;
   int result = VirtualFileSystem::GetVirtualFileSystem()->lstat(path, &st);
   if (result == -1) {
-    if (errno != ENOENT) {
-      DANGERF("path=%s: %s", SAFE_CSTR(path), safe_strerror(errno).c_str());
-    }
+    if (errno != ENOENT)
+      ARC_STRACE_ALWAYS_WARN_FAILURE();
   } else {
     StatToNaClAbiStat(&st, buf);
     ARC_STRACE_REPORT("buf=%s", arc::GetNaClAbiStatStr(buf).c_str());
@@ -401,10 +398,8 @@ IRT_WRAPPER(lstat, const char* path, struct nacl_abi_stat* buf) {
 IRT_WRAPPER(mkdir, const char* pathname, mode_t mode) {
   ARC_STRACE_ENTER("mkdir", "\"%s\", 0%o", SAFE_CSTR(pathname), mode);
   int result = VirtualFileSystem::GetVirtualFileSystem()->mkdir(pathname, mode);
-  if (result == -1 && errno != EEXIST) {
-    DANGERF("path=%s mode=%d: %s",
-            SAFE_CSTR(pathname), mode, safe_strerror(errno).c_str());
-  }
+  if (result == -1 && errno != EEXIST)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN_IRT_WRAPPER(result == 0 ? 0 : errno);
 }
 
@@ -438,10 +433,8 @@ int __wrap_open(const char* pathname, int flags, ...) {
   } else {
     fd = VirtualFileSystem::GetVirtualFileSystem()->open(pathname, flags, mode);
   }
-  if (fd == -1 && errno != ENOENT) {
-    DANGERF("pathname=%s flags=%d: %s",
-            SAFE_CSTR(pathname), flags, safe_strerror(errno).c_str());
-  }
+  if (fd == -1 && errno != ENOENT)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_REGISTER_FD(fd, SAFE_CSTR(pathname));
   ARC_STRACE_RETURN(fd);
 }
@@ -473,10 +466,8 @@ ssize_t __wrap_readlink(const char* path, char* buf, size_t bufsiz) {
                    SAFE_CSTR(path), buf, bufsiz);
   ssize_t result = VirtualFileSystem::GetVirtualFileSystem()->readlink(
       path, buf, bufsiz);
-  if (result == -1) {
-    DANGERF("path=%s bufsiz=%zu: %s",
-            SAFE_CSTR(path), bufsiz, safe_strerror(errno).c_str());
-  }
+  if (result == -1)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN(result);
 }
 
@@ -484,10 +475,8 @@ char* __wrap_realpath(const char* path, char* resolved_path) {
   ARC_STRACE_ENTER("realpath", "\"%s\", %p", SAFE_CSTR(path), resolved_path);
   char* result = VirtualFileSystem::GetVirtualFileSystem()->realpath(
       path, resolved_path);
-  if (!result) {
-    DANGERF("path=%s resolved_path=%p: %s",
-            SAFE_CSTR(path), resolved_path, safe_strerror(errno).c_str());
-  }
+  if (!result)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN_PTR(result, !result);
 }
 
@@ -495,7 +484,7 @@ int __wrap_remove(const char* pathname) {
   ARC_STRACE_ENTER("remove", "\"%s\"", SAFE_CSTR(pathname));
   int result = VirtualFileSystem::GetVirtualFileSystem()->remove(pathname);
   if (result == -1 && errno != ENOENT)
-    DANGERF("path=%s: %s", SAFE_CSTR(pathname), safe_strerror(errno).c_str());
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN(result);
 }
 
@@ -504,11 +493,8 @@ int __wrap_rename(const char* oldpath, const char* newpath) {
                    SAFE_CSTR(oldpath), SAFE_CSTR(newpath));
   int result = VirtualFileSystem::GetVirtualFileSystem()->rename(
       oldpath, newpath);
-  if (result == -1) {
-    DANGERF("oldpath=%s newpath=%s: %s",
-            SAFE_CSTR(oldpath), SAFE_CSTR(newpath),
-            safe_strerror(errno).c_str());
-  }
+  if (result == -1)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN(result);
 }
 
@@ -535,7 +521,7 @@ int __wrap_statfs(const char* pathname, struct statfs* stat) {
   int result = VirtualFileSystem::GetVirtualFileSystem()->statfs(
       pathname, stat);
   if (result == -1 && errno != ENOENT)
-    DANGERF("path=%s: %s", SAFE_CSTR(pathname), safe_strerror(errno).c_str());
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_REPORT(
       "stat={type=%lld bsize=%lld blocks=%llu bfree=%llu bavail=%llu "
       "files=%llu ffree=%llu fsid=%d,%d namelen=%lld frsize=%lld "
@@ -592,11 +578,8 @@ static int TruncateImpl(const char* pathname, OffsetType length) {
                    SAFE_CSTR(pathname), static_cast<int64_t>(length));
   int result = VirtualFileSystem::GetVirtualFileSystem()->truncate(
       pathname, length);
-  if (result == -1) {
-    DANGERF("path=%s length=%lld: %s",
-            SAFE_CSTR(pathname), static_cast<int64_t>(length),
-            safe_strerror(errno).c_str());
-  }
+  if (result == -1)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN(result);
 }
 
@@ -612,7 +595,7 @@ int __wrap_unlink(const char* pathname) {
   ARC_STRACE_ENTER("unlink", "\"%s\"", SAFE_CSTR(pathname));
   int result = VirtualFileSystem::GetVirtualFileSystem()->unlink(pathname);
   if (result == -1 && errno != ENOENT)
-    DANGERF("path=%s: %s", SAFE_CSTR(pathname), safe_strerror(errno).c_str());
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN(result);
 }
 
@@ -620,10 +603,8 @@ int __wrap_utimes(const char* filename, const struct timeval times[2]) {
   ARC_STRACE_ENTER("utimes", "\"%s\", %p", SAFE_CSTR(filename), times);
   int result = VirtualFileSystem::GetVirtualFileSystem()->utimes(
       filename, times);
-  if (result == -1 && errno != ENOENT) {
-    DANGERF("path=%s: %s",
-            SAFE_CSTR(filename), safe_strerror(errno).c_str());
-  }
+  if (result == -1 && errno != ENOENT)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN(result);
 }
 
@@ -632,9 +613,8 @@ IRT_WRAPPER(stat, const char* pathname, struct nacl_abi_stat* buf) {
   struct stat st;
   int result = VirtualFileSystem::GetVirtualFileSystem()->stat(pathname, &st);
   if (result == -1) {
-    if (errno != ENOENT) {
-      DANGERF("path=%s: %s", SAFE_CSTR(pathname), safe_strerror(errno).c_str());
-    }
+    if (errno != ENOENT)
+      ARC_STRACE_ALWAYS_WARN_FAILURE();
   } else {
     StatToNaClAbiStat(&st, buf);
     ARC_STRACE_REPORT("buf=%s", arc::GetNaClAbiStatStr(buf).c_str());
@@ -659,7 +639,7 @@ int __wrap_close(int fd) {
     // hits the case.
     if (errno == EBADF)
       DANGERF("Close of bad file descriptor may indicate double close");
-    DANGERF("fd=%d: %s", fd, safe_strerror(errno).c_str());
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   }
   ARC_STRACE_RETURN(result);
 }
@@ -676,7 +656,7 @@ IRT_WRAPPER(dup, int oldfd, int* newfd) {
   ARC_STRACE_ENTER_FD("dup", "%d", oldfd);
   int fd = VirtualFileSystem::GetVirtualFileSystem()->dup(oldfd);
   if (fd == -1)
-    DANGERF("oldfd=%d: %s", oldfd, safe_strerror(errno).c_str());
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   *newfd = fd;
   ARC_STRACE_RETURN_IRT_WRAPPER(fd >= 0 ? 0 : errno);
 }
@@ -684,10 +664,8 @@ IRT_WRAPPER(dup, int oldfd, int* newfd) {
 IRT_WRAPPER(dup2, int oldfd, int newfd) {
   ARC_STRACE_ENTER_FD("dup2", "%d, %d", oldfd, newfd);
   int fd = VirtualFileSystem::GetVirtualFileSystem()->dup2(oldfd, newfd);
-  if (fd == -1) {
-    DANGERF("oldfd=%d newfd=%d: %s",
-            oldfd, newfd, safe_strerror(errno).c_str());
-  }
+  if (fd == -1)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN_IRT_WRAPPER(fd >= 0 ? 0 : errno);
 }
 
@@ -704,7 +682,7 @@ int __wrap_fcntl(int fd, int cmd, ...) {
   va_end(ap);
 
   if (result == -1)
-    DANGERF("fd=%d cmd=%d: %s", fd, cmd, safe_strerror(errno).c_str());
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN(result);
 }
 
@@ -726,7 +704,7 @@ IRT_WRAPPER(fstat, int fd, struct nacl_abi_stat* buf) {
   int result = VirtualFileSystem::GetVirtualFileSystem()->fstat(fd, &st);
   if (result) {
     result = errno;
-    DANGERF("fd=%d: %s", fd, safe_strerror(errno).c_str());
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   } else {
     StatToNaClAbiStat(&st, buf);
     ARC_STRACE_REPORT("buf=%s", arc::GetNaClAbiStatStr(buf).c_str());
@@ -739,10 +717,8 @@ static int FtruncateImpl(int fd, OffsetType length) {
   ARC_STRACE_ENTER_FD("ftruncate", "%d, %lld",
                       fd, static_cast<int64_t>(length));
   int result = VirtualFileSystem::GetVirtualFileSystem()->ftruncate(fd, length);
-  if (result == -1) {
-    DANGERF("fd=%d length=%lld: %s", fd, static_cast<int64_t>(length),
-            safe_strerror(errno).c_str());
-  }
+  if (result == -1)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN(result);
 }
 
@@ -764,7 +740,7 @@ int __wrap_ioctl(int fd, int request, ...) {
       fd, request, ap);
   va_end(ap);
   if (result == -1)
-    DANGERF("fd=%d request=%d: %s", fd, request, safe_strerror(errno).c_str());
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN(result);
 }
 
@@ -775,11 +751,8 @@ static OffsetType LseekImpl(int fd, OffsetType offset, int whence) {
                       arc::GetLseekWhenceStr(whence).c_str());
   OffsetType result = VirtualFileSystem::GetVirtualFileSystem()->lseek(
       fd, offset, whence);
-  if (result == -1) {
-    DANGERF("fd=%d offset=%lld whence=%d: %s",
-            fd, static_cast<int64_t>(offset), whence,
-            safe_strerror(errno).c_str());
-  }
+  if (result == -1)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN(result);
 }
 
@@ -794,8 +767,7 @@ int __wrap_madvise(void* addr, size_t length, int advice) {
   int result = VirtualFileSystem::GetVirtualFileSystem()->madvise(
       addr, length, advice);
   if (result != 0) {
-    DANGERF("errno=%d addr=%p length=%zu advice=%d: %s",
-            errno, addr, length, advice, safe_strerror(errno).c_str());
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
     if (errno == ENOSYS && advice != MADV_REMOVE) {
       // TODO(crbug.com/362862): Stop special-casing ENOSYS once the bug is
       // fixed.
@@ -859,11 +831,8 @@ void* __wrap_mmap(
         MapCurrentStackFrame(result, length);
 #endif
 
-  if (result == MAP_FAILED) {
-    DANGERF("addr=%p length=%zu prot=%d flags=%d fd=%d offset=%lld: %s",
-            addr, length, prot, flags, fd, static_cast<int64_t>(offset),
-            safe_strerror(errno).c_str());
-  }
+  if (result == MAP_FAILED)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN_PTR(result, result == MAP_FAILED);
 }
 
@@ -953,8 +922,7 @@ int __wrap_poll(struct pollfd* fds, nfds_t nfds, int timeout) {
   int result = VirtualFileSystem::GetVirtualFileSystem()->poll(
       fds, nfds, timeout);
   if (result == -1) {
-    DANGERF("fds=%p nfds=%u timeout=%d[ms]: %s",
-            fds, nfds, timeout, safe_strerror(errno).c_str());
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   } else if (arc::StraceEnabled()) {
     for (int i = 0; i < result; ++i) {
       if (!fds[i].revents)
@@ -973,11 +941,8 @@ static ssize_t PreadImpl(int fd, void* buf, size_t count, OffsetType offset) {
                       fd, buf, count, static_cast<int64_t>(offset));
   ssize_t result = VirtualFileSystem::GetVirtualFileSystem()->pread(
       fd, buf, count, offset);
-  if (result == -1) {
-    DANGERF("fd=%d buf=%p count=%zu offset=%lld: %s",
-            fd, buf, count, static_cast<int64_t>(offset),
-            safe_strerror(errno).c_str());
-  }
+  if (result == -1)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   if (result >= 0)
     ARC_STRACE_REPORT("buf=%s", arc::GetRWBufStr(buf, result).c_str());
   ARC_STRACE_RETURN(result);
@@ -998,11 +963,8 @@ static ssize_t PwriteImpl(int fd, const void* buf, size_t count,
                       fd, buf, count, static_cast<int64_t>(offset));
   ssize_t result = VirtualFileSystem::GetVirtualFileSystem()->pwrite(
       fd, buf, count, offset);
-  if (result == -1) {
-    DANGERF("fd=%d buf=%p count=%zu offset=%lld: %s",
-            fd, buf, count, static_cast<int64_t>(offset),
-            safe_strerror(errno).c_str());
-  }
+  if (result == -1)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   if (errno != EFAULT)
     ARC_STRACE_REPORT("buf=%s", arc::GetRWBufStr(buf, count).c_str());
   ARC_STRACE_RETURN(result);
@@ -1021,10 +983,8 @@ ssize_t __wrap_read(int fd, void* buf, size_t count) {
   ARC_STRACE_ENTER_FD("read", "%d, %p, %zu", fd, buf, count);
   ssize_t result = VirtualFileSystem::GetVirtualFileSystem()->read(
       fd, buf, count);
-  if (result == -1 && errno != EAGAIN) {
-    DANGERF("fd=%d buf=%p count=%zu: %s",
-            fd, buf, count, safe_strerror(errno).c_str());
-  }
+  if (result == -1 && errno != EAGAIN)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   if (result >= 0)
     ARC_STRACE_REPORT("buf=%s", arc::GetRWBufStr(buf, result).c_str());
   ARC_STRACE_RETURN(result);
@@ -1035,10 +995,8 @@ ssize_t __wrap_readv(int fd, const struct iovec* iov, int iovcnt) {
   ARC_STRACE_ENTER_FD("readv", "%d, %p, %d", fd, iov, iovcnt);
   ssize_t result = VirtualFileSystem::GetVirtualFileSystem()->readv(
       fd, iov, iovcnt);
-  if (result == -1) {
-    DANGERF("fd=%d iov=%p iovcnt=%d: %s",
-            fd, iov, iovcnt, safe_strerror(errno).c_str());
-  }
+  if (result == -1)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN(result);
 }
 
@@ -1046,7 +1004,7 @@ int __wrap_rmdir(const char* pathname) {
   ARC_STRACE_ENTER("rmdir", "\"%s\"", SAFE_CSTR(pathname));
   int result = VirtualFileSystem::GetVirtualFileSystem()->rmdir(pathname);
   if (result == -1 && errno != ENOENT)
-    DANGERF("path=%s: %s", SAFE_CSTR(pathname), safe_strerror(errno).c_str());
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN(result);
 }
 
@@ -1054,10 +1012,8 @@ int __wrap_utime(const char* filename, const struct utimbuf* times) {
   ARC_STRACE_ENTER("utime", "\"%s\", %p", SAFE_CSTR(filename), times);
   int result = VirtualFileSystem::GetVirtualFileSystem()->utime(
       filename, times);
-  if (result == -1 && errno != ENOENT) {
-    DANGERF("path=%s: %s",
-            SAFE_CSTR(filename), safe_strerror(errno).c_str());
-  }
+  if (result == -1 && errno != ENOENT)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN(result);
 }
 
@@ -1080,10 +1036,8 @@ ssize_t __wrap_write(int fd, const void* buf, size_t count) {
     if (errno != EFAULT)
       ARC_STRACE_REPORT("buf=%s", arc::GetRWBufStr(buf, count).c_str());
     g_wrap_write_nest_count.Set(wrap_write_nest_count);
-    if (result == -1 && errno != EAGAIN) {
-      DANGERF("fd=%d buf=%p count=%zu: %s",
-              fd, buf, count, safe_strerror(errno).c_str());
-    }
+    if (result == -1 && errno != EAGAIN)
+      ARC_STRACE_ALWAYS_WARN_FAILURE();
     ARC_STRACE_RETURN(result);
   }
 }
@@ -1094,10 +1048,8 @@ ssize_t __wrap_writev(int fd, const struct iovec* iov, int iovcnt) {
   ARC_STRACE_ENTER_FD("writev", "%d, %p, %d", fd, iov, iovcnt);
   ssize_t result = VirtualFileSystem::GetVirtualFileSystem()->writev(
       fd, iov, iovcnt);
-  if (result == -1) {
-    DANGERF("fd=%d iov=%p iovcnt=%d: %s",
-            fd, iov, iovcnt, safe_strerror(errno).c_str());
-  }
+  if (result == -1)
+    ARC_STRACE_ALWAYS_WARN_FAILURE();
   ARC_STRACE_RETURN(result);
 }
 

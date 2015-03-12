@@ -212,7 +212,7 @@ def _get_link_targets(root):
   for dirpath, dirs, fnames in os.walk(root):
     for name in fnames:
       link_path = os.path.join(dirpath, name)
-      if os.path.islink(link_path):
+      if os.path.islink(link_path) and os.path.isfile(link_path):
         link_target_map[link_path] = os.readlink(link_path)
   return link_target_map
 
@@ -247,11 +247,36 @@ def create_staging():
 
   # Update modification time for files that do not point to the same location
   # that they pointed to in the previous tree to make sure they are built.
-  new_staging_links = _get_link_targets(staging_root)
-  for key in new_staging_links:
-    if key in old_staging_links:
-      if old_staging_links[key] != new_staging_links[key]:
-        os.utime(key, None)
+
+  if old_staging_links:
+    new_staging_links = _get_link_targets(staging_root)
+
+    # Every file under staging is in either one of following two states:
+    #
+    #   F. The file itself is a symbolic link to a file under third_party or
+    #      mods.
+    #   D. Some ancestor directory is a symbolic link to a directory under
+    #      third_party. (It is important that we do not create symbolic links to
+    #      directories under mods)
+    #
+    # Note that a file is in state F if and only if it is in |*_staging_links|
+    # dictionary. Let us say a file falls under "X-Y" case if it was in state X
+    # before re-staging and now in state Y. For all 4 possible cases, we can
+    # check if the actual destination of the file changed or not in the
+    # following way:
+    #
+    #   F-F: We can just compare the target of the link.
+    #   F-D, D-F: The target may have changed, but it needs some complicated
+    #        computation to check. We treat them as changed to be conservative.
+    #   D-D: We can leave it as-is since both point third_party.
+
+    for path in set(list(old_staging_links) + list(new_staging_links)):
+      if path in old_staging_links and path in new_staging_links:
+        should_touch = old_staging_links[path] != new_staging_links[path]
+      else:
+        should_touch = True
+      if should_touch and os.path.exists(path):
+        os.utime(path, None)
 
   timer.done()
   return True

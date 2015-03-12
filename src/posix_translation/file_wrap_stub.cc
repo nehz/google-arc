@@ -31,7 +31,7 @@
 extern "C" ARC_EXPORT int __wrap_fchdir(int fd) {
   ARC_STRACE_ENTER_FD("fchdir", "%d", fd);
   // TODO(crbug.com/178515): Implement this.
-  DANGERF("fchdir: fd=%d", fd);
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   ALOG_ASSERT(0);
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
@@ -45,7 +45,8 @@ extern "C" ARC_EXPORT int __wrap_flock(int fd, int operation) {
   //   at the same time.
   ARC_STRACE_ENTER_FD("flock", "%d, %s",
                       fd, arc::GetFlockOperationStr(operation).c_str());
-  ARC_STRACE_REPORT("not implemented, always succeeds");
+  // Do not call ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED() which is too noisy.
+  ARC_STRACE_REPORT("not implemented yet");
   ARC_STRACE_RETURN(0);
 }
 
@@ -53,8 +54,7 @@ extern "C" ARC_EXPORT int __wrap_lchown(
     const char* path, uid_t owner, gid_t group) {
   ARC_STRACE_ENTER("lchown", "\"%s\", %u, %u",
                    SAFE_CSTR(path), owner, group);
-  DANGERF("lchown: path=%s owner=%u group=%u",
-          SAFE_CSTR(path), owner, group);
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   ALOG_ASSERT(0);
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
@@ -62,7 +62,7 @@ extern "C" ARC_EXPORT int __wrap_lchown(
 
 extern "C" ARC_EXPORT int __wrap_mlock(const void* addr, size_t len) {
   ARC_STRACE_ENTER("mlock", "%p, %zu", addr, len);
-  DANGERF("mlock: addr=%p len=%zu", addr, len);
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }
@@ -70,7 +70,7 @@ extern "C" ARC_EXPORT int __wrap_mlock(const void* addr, size_t len) {
 extern "C" ARC_EXPORT int __wrap_mlockall(int flags) {
   // TODO(crbug.com/241955): Stringify |flags|?
   ARC_STRACE_ENTER("mlockall", "%d", flags);
-  DANGERF("mlockall: flags=%d", flags);
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   ALOG_ASSERT(0);
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
@@ -84,10 +84,7 @@ extern "C" ARC_EXPORT int __wrap_mount(
   ARC_STRACE_ENTER("mount", "\"%s\", \"%s\", \"%s\", %lu, %p",
                    SAFE_CSTR(source), SAFE_CSTR(target),
                    SAFE_CSTR(filesystemtype), mountflags, data);
-  DANGERF("mount: source=%s target=%s "
-          "filesystemtype=%s mountflags=%lu data=%p",
-          SAFE_CSTR(source), SAFE_CSTR(target),
-          SAFE_CSTR(filesystemtype), mountflags, data);
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   ALOG_ASSERT(0);
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
@@ -98,8 +95,7 @@ extern "C" ARC_EXPORT void* __wrap_mremap(
   ARC_STRACE_ENTER("mremap", "%p, %zu, %zu, %s",
                    old_address, old_size, new_size,
                    arc::GetMremapFlagStr(flags).c_str());
-  DANGERF("mremap: old_address=%p old_size=%zu new_size=%zu flags=%d",
-          old_address, old_size, new_size, flags);
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   ALOG_ASSERT(0);
   errno = ENOSYS;
   ARC_STRACE_RETURN_PTR(MAP_FAILED, true);
@@ -107,14 +103,14 @@ extern "C" ARC_EXPORT void* __wrap_mremap(
 
 extern "C" ARC_EXPORT int __wrap_munlock(const void* addr, size_t len) {
   ARC_STRACE_ENTER("munlock", "%p, %zu", addr, len);
-  DANGERF("munlock: addr=%p len=%zu", addr, len);
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }
 
 extern "C" ARC_EXPORT int __wrap_munlockall() {
   ARC_STRACE_ENTER("munlockall", "%s", "");
-  DANGERF("munlockall");
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   ALOG_ASSERT(0);
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
@@ -122,7 +118,7 @@ extern "C" ARC_EXPORT int __wrap_munlockall() {
 
 extern "C" ARC_EXPORT int __wrap_umount(const char* target) {
   ARC_STRACE_ENTER("umount", "\"%s\"", SAFE_CSTR(target));
-  DANGERF("umount: target=%s", SAFE_CSTR(target));
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   ALOG_ASSERT(0);
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
@@ -131,7 +127,7 @@ extern "C" ARC_EXPORT int __wrap_umount(const char* target) {
 extern "C" ARC_EXPORT int __wrap_umount2(const char* target, int flags) {
   // TODO(crbug.com/241955): Stringify |flags|?
   ARC_STRACE_ENTER("umount2", "\"%s\", %d", SAFE_CSTR(target), flags);
-  DANGERF("umount2: target=%s flags=%d", SAFE_CSTR(target), flags);
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   ALOG_ASSERT(0);
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
@@ -144,13 +140,13 @@ extern "C" ARC_EXPORT int __wrap_umount2(const char* target, int flags) {
 extern "C" ARC_EXPORT int __wrap_chmod(const char* path, mode_t mode) {
   // TODO(crbug.com/242355): Implement this.
   ARC_STRACE_ENTER("chmod", "\"%s\", 0%o", SAFE_CSTR(path), mode);
-  ARC_STRACE_REPORT("not implemented yet");
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   ARC_STRACE_RETURN(0);  // Returning -1 breaks SQLite.
 }
 
 extern "C" ARC_EXPORT int __wrap_eventfd(unsigned int initval, int flags) {
   ARC_STRACE_ENTER("eventfd", "%u, %d", initval, flags);
-  ARC_STRACE_REPORT("not implemented yet");
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }
@@ -158,21 +154,21 @@ extern "C" ARC_EXPORT int __wrap_eventfd(unsigned int initval, int flags) {
 extern "C" ARC_EXPORT int __wrap_fchmod(int fd, mode_t mode) {
   // TODO(crbug.com/242355): Implement this.
   ARC_STRACE_ENTER_FD("fchmod", "%d, 0%o", fd, mode);
-  ARC_STRACE_REPORT("not implemented yet");
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   ARC_STRACE_RETURN(0);
 }
 
 extern "C" ARC_EXPORT int __wrap_fchown(int fd, uid_t owner, gid_t group) {
   // TODO(crbug.com/242355): Implement this.
   ARC_STRACE_ENTER_FD("fchown", "%d, %u, %u", fd, owner, group);
-  ARC_STRACE_REPORT("not implemented yet");
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   ARC_STRACE_RETURN(0);
 }
 
 extern "C" ARC_EXPORT int __wrap_futimens(
     int fd, const struct timespec times[2]) {
   ARC_STRACE_ENTER_FD("futimens", "%d, %p", fd, times);
-  ARC_STRACE_REPORT("not implemented yet");
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }
@@ -182,8 +178,7 @@ extern "C" ARC_EXPORT int __wrap_inotify_add_watch(
   ARC_STRACE_ENTER_FD("inotify_add_watch", "%d, \"%s\", %u",
                       fd, SAFE_CSTR(pathname), mask);
   // TODO(crbug.com/236903): Implement this.
-  DANGERF("inotify_add_watch: fd=%d pathname=%s mask=%u",
-          fd, SAFE_CSTR(pathname), mask);
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }
@@ -191,7 +186,7 @@ extern "C" ARC_EXPORT int __wrap_inotify_add_watch(
 extern "C" ARC_EXPORT int __wrap_inotify_init() {
   ARC_STRACE_ENTER("inotify_init", "%s", "");
   // TODO(crbug.com/236903): Implement this.
-  DANGERF("inotify_init");
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }
@@ -199,14 +194,14 @@ extern "C" ARC_EXPORT int __wrap_inotify_init() {
 extern "C" ARC_EXPORT int __wrap_inotify_rm_watch(int fd, int wd) {
   ARC_STRACE_ENTER_FD("inotify_rm_watch", "%d, %d", fd, wd);
   // TODO(crbug.com/236903): Implement this.
-  DANGERF("inotify_rm_watch: fd=%d wd=%d", fd, wd);
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   errno = ENOSYS;
   ARC_STRACE_RETURN(-1);
 }
 
 extern "C" ARC_EXPORT int __wrap_msync(void* addr, size_t length, int flags) {
   ARC_STRACE_ENTER("msync", "%p, %zu, %d", addr, length, flags);
-  ARC_STRACE_REPORT("not implemented yet");
+  ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   // msync is called by dexopt and some apps (crbug.com/363545). Although dexopt
   // does not check the return value, the apps may. Return 0 without doing
   // anything so that such apps will not fail. This should be safe as long as

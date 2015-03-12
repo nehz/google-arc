@@ -75,9 +75,11 @@ void InitDlfcnInjection() {
   // of host's, we inject the syscall function for ARM.
   (*g_wrapped_symbol_map)["syscall"] =
       reinterpret_cast<void*>(&RunArmLibcSyscall);
-  // See src/common/ndk_support/mmap.cc for detail.
+  // See src/common/ndk_support/mmap.h for detail.
   (*g_wrapped_symbol_map)["mmap"] =
       reinterpret_cast<void*>(&MmapForNdk);
+  (*g_wrapped_symbol_map)["mprotect"] =
+      reinterpret_cast<void*>(&MprotectForNdk);
 #endif
 
   // Inject the custom symbol resolver and posix_translation based

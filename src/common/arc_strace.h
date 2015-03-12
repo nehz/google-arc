@@ -74,6 +74,8 @@ void StraceUnregisterDsoHandle(const void* handle);
 void StraceDupFD(int oldfd, int newfd);
 void StraceDumpStats(const std::string& user_str);
 void StraceResetStats();
+std::string GetStraceEnterString(const char* name, const char* format, ...)
+    ATTR_PRINTF(2, 3);
 
 // Pretty printers for enum values.
 std::string GetAccessModeStr(int mode);
@@ -81,7 +83,6 @@ std::string GetOpenFlagStr(int flag);
 std::string GetDlopenFlagStr(int flag);
 std::string GetEpollCtlOpStr(int op);
 std::string GetEpollEventStr(uint32_t events);
-std::string GetFdStr(int fd);
 std::string GetMadviseAdviceStr(int advice);
 std::string GetMmapProtStr(int prot);
 std::string GetMmapFlagStr(int flag);
@@ -97,6 +98,10 @@ std::string GetLseekWhenceStr(int whence);
 std::string GetMremapFlagStr(int flag);
 std::string GetFcntlCommandStr(int cmd);
 std::string GetIoctlRequestStr(int request);
+
+// A pretty printer for file descriptors. You can call this even when ARC-strace
+// is not enabled, but in that case, the function returns "???".
+std::string GetFdStr(int fd);
 
 // Pretty printers for struct values.
 std::string GetSockaddrStr(const struct sockaddr* addr, socklen_t addrlen);
@@ -125,19 +130,64 @@ int64_t GetMedian(std::vector<int64_t>* samples);
 // display variable arguments. You must call ARC_STRACE_RETURN* if
 // you called this.
 //
+// Note: Unlike others, this macro emits TWO blocks. Use with caution.
+//
 // TODO(crbug.com/345825): Reorganize the macros.
-# define ARC_STRACE_ENTER(...) do {           \
-    if (arc::StraceEnabled())                 \
-      arc::StraceEnter(__VA_ARGS__);          \
+# define ARC_STRACE_ENTER(...)                                                \
+  /* Remember the parameters passed to the macro without evaluating them. */  \
+  auto arc_strace_get_enter_string__                                          \
+  __attribute__((unused)) = [&]() -> std::string { /* NOLINT(build/c++11) */  \
+    return arc::GetStraceEnterString(__VA_ARGS__);                            \
+  };                                                                          \
+  do {                                                                        \
+    if (arc::StraceEnabled())                                                 \
+      arc::StraceEnter(__VA_ARGS__);                                          \
   } while (0)
 
 // ARC_STRACE_ENTER_FD(const char* name, const char* format, int fd, ...)
 //
 // The pathname or stream type of |fd| will be displayed. |format|
 // must start with "%d". Otherwise, this is as same as ARC_STRACE_ENTER.
-# define ARC_STRACE_ENTER_FD(...) do {        \
-    if (arc::StraceEnabled())                 \
-      arc::StraceEnterFD(__VA_ARGS__);        \
+//
+// Note: Unlike others, this macro emits TWO blocks. Use with caution.
+# define ARC_STRACE_ENTER_FD(...)                                             \
+  /* Remember the parameters passed to the macro without evaluating them. */  \
+  auto arc_strace_get_enter_string__                                          \
+  __attribute__((unused)) = [&]() -> std::string { /* NOLINT(build/c++11) */  \
+    return arc::GetStraceEnterString(__VA_ARGS__);                            \
+  };                                                                          \
+  do {                                                                        \
+    if (arc::StraceEnabled())                                                 \
+      arc::StraceEnterFD(__VA_ARGS__);                                        \
+  } while (0)
+
+// ARC_STRACE_ALWAYS_WARN_FAILURE()
+//
+// Emits a warning log that contains the current function name,
+// its parameters (pretty-printed), and the current errno.
+// This macro works regardress of whether ARC-strace is enabled or not,
+// but ARC_STRACE_ENTER*() must be called in the same function before
+// this macro is called.
+# define ARC_STRACE_ALWAYS_WARN_FAILURE() do {                    \
+    /* Do not check arc::StraceEnabled() here, hence 'ALWAYS' */  \
+    ALOGW("FAILED: %s: errno=%d (%s)",                            \
+          arc_strace_get_enter_string__().c_str(),                \
+          errno, safe_strerror(errno).c_str());                   \
+  } while (0)
+
+// ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED()
+//
+// Emits a warning log that contains the current function name,
+// its parameters (pretty-printed). This also calls ARC_STRACE_REPORT
+// with "not implemented yet".
+// This macro works regardress of whether ARC-strace is enabled or not,
+// but ARC_STRACE_ENTER*() must be called in the same function before
+// this macro is called.
+# define ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED() do {             \
+    /* Do not check arc::StraceEnabled() here, hence 'ALWAYS' */  \
+    ALOGW("NOT IMPLEMENTED: %s",                                  \
+          arc_strace_get_enter_string__().c_str());               \
+    ARC_STRACE_REPORT("not implemented yet");                     \
   } while (0)
 
 // ARC_STRACE_REPORT_HANDLER(const char* handler_name)
