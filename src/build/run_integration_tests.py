@@ -347,7 +347,7 @@ def parse_args(args):
   parser.add_argument('--total-timeout', metavar='T', default=0, type=int,
                       help=('If specified, this script stops after running '
                             'this seconds.'))
-  parser.add_argument('--use-xvfb', action='store_true', help='Use xvfb-run'
+  parser.add_argument('--use-xvfb', action='store_true', help='Use xvfb-run '
                       'when launching tests.  Used by buildbots.')
   parser.add_argument('-v', '--verbose', action='store_const', const='verbose',
                       dest='output', help='Verbose output.')

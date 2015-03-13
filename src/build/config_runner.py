@@ -2,12 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import cPickle
 import collections
 import errno
 import logging
 import marshal
 import os
-import pickle
 import re
 
 import build_common
@@ -66,12 +66,12 @@ class ConfigCache(object):
   """Represents an on-disk cache entry to persist the cache."""
 
   def __init__(self, config_name, entry_point,
-               files, listings, generated_ninjas):
+               files, listings, serialized_generated_ninjas):
     self.config_name = config_name
     self.entry_point = entry_point
     self.files = files
     self.listings = listings
-    self.generated_ninjas = generated_ninjas
+    self.serialized_generated_ninjas = serialized_generated_ninjas
 
   def refresh_with_config_result(self, config_result):
     assert self.config_name == config_result.config_name
@@ -97,7 +97,8 @@ class ConfigCache(object):
       listing.refresh_cache()
     self.listings = new_listings
 
-    self.generated_ninjas = config_result.generated_ninjas
+    self.serialized_generated_ninjas = cPickle.dumps(
+        config_result.generated_ninjas)
 
   def check_cache_freshness(self):
     """Returns True if the cache is fresh."""
@@ -116,10 +117,16 @@ class ConfigCache(object):
     return True
 
   def to_config_result(self):
+    try:
+      generated_ninjas = cPickle.loads(self.serialized_generated_ninjas)
+    except Exception:
+      logging.warning('Failed to load NinjaGenerator from cache: %s',
+                      self.config_name, exc_info=True)
+      return None
     return ConfigResult(self.config_name, self.entry_point,
                         set(self.files.keys()),
                         {listing.query for listing in self.listings},
-                        self.generated_ninjas)
+                        generated_ninjas)
 
   def to_dict(self):
     return {
@@ -129,7 +136,7 @@ class ConfigCache(object):
         'files': [(path, entry.mtime)
                   for path, entry in self.files.iteritems()],
         'listings': [listing.to_dict() for listing in self.listings],
-        'generated_ninjas': pickle.dumps(self.generated_ninjas),
+        'generated_ninjas': self.serialized_generated_ninjas,
     }
 
   def save_to_file(self, path):
@@ -162,14 +169,9 @@ def _load_config_cache_from_file(path):
       return None
     listings.add(listing)
 
-  try:
-    generated_ninjas = pickle.loads(data['generated_ninjas'])
-  except StandardError:
-    logging.exception('Fail to load NinjaGenerator from cache: %s', path)
-    return None
-
+  serialized_generated_ninjas = data['generated_ninjas']
   return ConfigCache(config_name, entry_point, files, listings,
-                     generated_ninjas)
+                     serialized_generated_ninjas)
 
 
 def _config_cache_from_config_result(config_result):
@@ -191,7 +193,7 @@ def _config_cache_from_config_result(config_result):
       config_result.config_name,
       config_result.entry_point,
       files, listings,
-      config_result.generated_ninjas)
+      cPickle.dumps(config_result.generated_ninjas))
 
 
 class ConfigContext:
@@ -386,11 +388,14 @@ def _generate_independent_ninjas():
     config_cache = _load_config_cache_from_file(cache_path)
 
     if config_cache is not None and config_cache.check_cache_freshness():
-      cached_result_list.append(config_cache.to_config_result())
-    else:
-      task_list.append(ninja_generator_runner.GeneratorTask(
-          config_context, generator))
-      cache_miss[cache_path] = config_cache
+      cached_result = config_cache.to_config_result()
+      if cached_result is not None:
+        cached_result_list.append(cached_result)
+        continue
+
+    task_list.append(ninja_generator_runner.GeneratorTask(
+        config_context, generator))
+    cache_miss[cache_path] = config_cache
 
   result_list = ninja_generator_runner.run_in_parallel(
       task_list, OPTIONS.configure_jobs())
@@ -475,8 +480,8 @@ def _generate_dependent_ninjas(ninja_list):
           for config_context, generator in generator_list],
       OPTIONS.configure_jobs())
   dependent_ninjas = []
-  for config_cache in result_list:
-    dependent_ninjas.extend(config_cache.generated_ninjas)
+  for config_result in result_list:
+    dependent_ninjas.extend(config_result.generated_ninjas)
 
   notice_ninja = ninja_generator.NoticeNinjaGenerator('notices')
   notice_ninja.build_notices(ninja_list + dependent_ninjas)
