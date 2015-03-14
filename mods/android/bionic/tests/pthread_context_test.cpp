@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 
 #include <private/pthread_context.h>
+#include <thread_context.h>
 
 struct Args {
   Args() : should_exit(false) {}
@@ -66,4 +67,29 @@ TEST(pthread_thread_context, QEMU_DISABLED_get_thread_infos) {
 
     args.should_exit = true;
     pthread_join(thread, NULL);
+}
+
+TEST(pthread_thread_context, get_cur_thread_context) {
+    __pthread_context_info_t info;
+    info.has_context_regs = true;
+    __pthread_get_current_thread_info(&info);
+    ASSERT_FALSE(info.has_context_regs);
+
+    SAVE_CONTEXT_REGS();
+    memset(&info, 0, sizeof(info));
+    __pthread_get_current_thread_info(&info);
+#if defined(__x86_64__)
+    ASSERT_TRUE(info.has_context_regs);
+    ASSERT_NE(0u, info.context_regs[REG_RIP]);
+#elif defined(__arm__)
+    ASSERT_TRUE(info.has_context_regs);
+    ASSERT_NE(0u, info.context_regs[15]);
+#else
+    ASSERT_FALSE(info.has_context_regs);
+#endif
+
+    CLEAR_CONTEXT_REGS();
+    info.has_context_regs = true;
+    __pthread_get_current_thread_info(&info);
+    ASSERT_FALSE(info.has_context_regs);
 }

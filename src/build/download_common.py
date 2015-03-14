@@ -4,7 +4,6 @@
 
 import logging
 import os
-import shutil
 import sys
 import subprocess
 import tempfile
@@ -47,7 +46,7 @@ class BaseGetAndUnpackArchiveFromURL(object):
     try:
       tmp_dir = tempfile.mkdtemp(suffix='.tmp', prefix=cls.DOWNLOAD_NAME)
       try:
-        shutil.rmtree(cls.STAGE_DIR, ignore_errors=True)
+        file_util.rmtree(cls.STAGE_DIR, ignore_errors=True)
         os.mkdir(cls.STAGE_DIR)
 
         download_file = os.path.join(tmp_dir, cls.DOWNLOAD_NAME)
@@ -58,11 +57,11 @@ class BaseGetAndUnpackArchiveFromURL(object):
 
         cls._unpack_update(download_file)
 
-        shutil.rmtree(cls.FINAL_DIR, ignore_errors=True)
+        file_util.rmtree(cls.FINAL_DIR, ignore_errors=True)
         os.rename(cls.STAGE_DIR, cls.FINAL_DIR)
       finally:
-        shutil.rmtree(cls.STAGE_DIR, ignore_errors=True)
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+        file_util.rmtree(cls.STAGE_DIR, ignore_errors=True)
+        file_util.rmtree(tmp_dir, ignore_errors=True)
     except Exception as e:
       print e
       result = False

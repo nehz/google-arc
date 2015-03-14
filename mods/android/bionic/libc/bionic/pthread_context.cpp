@@ -25,15 +25,14 @@
 
 extern "C" {
 
-__LIBC_HIDDEN__ void __pthread_save_context_regs(
-        void* regs, int size) {
+void __pthread_save_context_regs(void* regs, int size) {
     pthread_internal_t* thread = __get_thread();
     memcpy(thread->context_regs, regs, size);
     thread->has_context_regs = 1;
     ANDROID_MEMBAR_FULL();
 }
 
-__LIBC_HIDDEN__ void __pthread_clear_context_regs() {
+void __pthread_clear_context_regs() {
     pthread_internal_t* thread = __get_thread();
     thread->has_context_regs = 0;
     ANDROID_MEMBAR_FULL();
@@ -66,6 +65,47 @@ int __pthread_get_thread_count(bool try_lock) {
     return count;
 }
 
+static void copy_thread_info(__pthread_context_info_t* dst,
+                             const pthread_internal_t* src) {
+    dst->stack_base = NULL;
+    dst->has_context_regs = 0;
+
+    // Copy the stack boundaries.
+#if defined(BARE_METAL_BIONIC)
+    // Main thread or any other thread that has no stack info
+    // (e.g. stack_end_from_irt) will not be reported here, and so will be
+    // omitted from caller's outputs.
+    // TODO(crbug.com/467085): Support tracing sleeping main thread.
+    // TODO(crbug.com/372248): Remove the use of stack_end_from_irt.
+    if (src->stack_end_from_irt) {
+        // Value from chrome/src/components/nacl/loader/nonsfi/irt_thread.cc.
+        static const int kIrtStackSize = 1024 * 1024;
+        dst->stack_base = src->stack_end_from_irt - kIrtStackSize;
+        dst->stack_size = kIrtStackSize;
+    }
+#else
+    if (src->attr.stack_base) {
+        dst->stack_base =
+            reinterpret_cast<char*>(src->attr.stack_base) +
+            src->attr.guard_size;
+        dst->stack_size = src->attr.stack_size - src->attr.guard_size;
+    }
+#endif
+
+    // Copy registers, then do a second (racy) read of has_context_regs.
+    if (src->has_context_regs) {
+        memcpy(dst->context_regs, src->context_regs,
+               sizeof(dst->context_regs));
+        ANDROID_MEMBAR_FULL();
+        dst->has_context_regs = src->has_context_regs;
+    }
+}
+
+void __pthread_get_current_thread_info(__pthread_context_info_t* info) {
+    pthread_internal_t* cur_thread = __get_thread();
+    copy_thread_info(info, cur_thread);
+}
+
 int __pthread_get_thread_infos(
         bool try_lock, bool include_current,
         int max_info_count, __pthread_context_info_t* infos) {
@@ -76,39 +116,12 @@ int __pthread_get_thread_infos(
     pthread_internal_t* cur_thread = __get_thread();
     for (pthread_internal_t* thread = gThreadList;
          thread && idx < max_info_count; thread = thread->next) {
-        __pthread_context_info_t* info = infos + idx;
         if (!include_current && thread == cur_thread)
             continue;
 
-        // Copy the stack boundaries.
-#if defined(BARE_METAL_BIONIC)
-        // TODO(crbug.com/372248): Remove the use of stack_end_from_irt.
-        if (!thread->stack_end_from_irt)
-          continue;
-        // Value from chrome/src/components/nacl/loader/nonsfi/irt_thread.cc.
-        static const int kIrtStackSize = 1024 * 1024;
-        info->stack_base = thread->stack_end_from_irt - kIrtStackSize;
-        info->stack_size = kIrtStackSize;
-#else
-        if (!thread->attr.stack_base)
-          continue;
-        info->stack_base =
-            reinterpret_cast<char*>(thread->attr.stack_base) +
-            thread->attr.guard_size;
-        info->stack_size = thread->attr.stack_size - thread->attr.guard_size;
-#endif
-
-        // Copy registers, then do a second (racy) read of has_context_regs.
-        if (thread->has_context_regs) {
-            memcpy(info->context_regs, thread->context_regs,
-                   sizeof(info->context_regs));
-            ANDROID_MEMBAR_FULL();
-            info->has_context_regs = thread->has_context_regs;
-        } else {
-            info->has_context_regs = 0;
-        }
-
-        ++idx;
+        copy_thread_info(infos + idx, thread);
+        if (infos[idx].stack_base)
+            ++idx;
     }
 
     pthread_mutex_unlock(&gThreadListLock);

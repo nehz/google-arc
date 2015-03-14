@@ -40,6 +40,7 @@
 #include "common/arc_strace.h"
 #include "common/logd_write.h"
 #include <private/pthread_context.h>
+#include <ucontext.h>
 // ARC MOD END
 
 extern char __executable_start[];  // Start of code segment
@@ -384,6 +385,10 @@ static void SaveBionicThreadState(MinidumpAllocator *minidump_writer,
   // Copy registers as defined in BionicInternalSaveRegContext().
   uintptr_t stack_start;
 #if defined(__x86_64__)
+  // We save only lower halves of the registers, because otherwise Breakpad
+  // cannot unwind the stack. Possibly we could just clean RIP, RSP and RBP,
+  // but that sounds arbitrary as other registers may also contain memory
+  // location data necessary for unwinding.
 #define COPY_REG(REG, src_idx)     \
     regs.get()->REG = info.context_regs[src_idx] & 0xffffffff
   TypedMDRVA<MDRawContextAMD64> regs(minidump_writer);
@@ -393,23 +398,23 @@ static void SaveBionicThreadState(MinidumpAllocator *minidump_writer,
   regs.get()->context_flags =
       MD_CONTEXT_AMD64_CONTROL | MD_CONTEXT_AMD64_INTEGER;
   regs.get()->eflags = 0;
-  COPY_REG(rax, 0);
-  COPY_REG(rbx, 1);
-  COPY_REG(rcx, 2);
-  COPY_REG(rdx, 3);
-  COPY_REG(rbp, 4);
-  COPY_REG(rsi, 5);
-  COPY_REG(rdi, 6);
-  COPY_REG(r8, 7);
-  COPY_REG(r9, 8);
-  COPY_REG(r10, 9);
-  COPY_REG(r11, 10);
-  COPY_REG(r12, 11);
-  COPY_REG(r13, 12);
-  COPY_REG(r14, 13);
-  COPY_REG(r15, 14);
-  COPY_REG(rsp, 15);
-  COPY_REG(rip, 16);
+  COPY_REG(r8, REG_R8);
+  COPY_REG(r9, REG_R9);
+  COPY_REG(r10, REG_R10);
+  COPY_REG(r11, REG_R11);
+  COPY_REG(r12, REG_R12);
+  COPY_REG(r13, REG_R13);
+  COPY_REG(r14, REG_R14);
+  COPY_REG(r15, REG_R15);
+  COPY_REG(rdi, REG_RDI);
+  COPY_REG(rsi, REG_RSI);
+  COPY_REG(rbp, REG_RBP);
+  COPY_REG(rbx, REG_RBX);
+  COPY_REG(rdx, REG_RDX);
+  COPY_REG(rax, REG_RAX);
+  COPY_REG(rcx, REG_RCX);
+  COPY_REG(rsp, REG_RSP);
+  COPY_REG(rip, REG_RIP);
   stack_start = regs.get()->rsp;
 #undef COPY_REG
 #elif defined(__arm__)

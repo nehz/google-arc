@@ -26,21 +26,22 @@
 BionicInternalSaveRegContext:
   .cfi_startproc
 
-  store_reg %rax, 0x00
-  store_reg %rbx, 0x08
-  store_reg %rcx, 0x10
-  store_reg %rdx, 0x18
-  store_reg %rbp, 0x20
-  store_reg %rsi, 0x28
-  store_reg %rdi, 0x30
-  store_reg %r8,  0x38
-  store_reg %r9,  0x40
-  store_reg %r10, 0x48
-  store_reg %r11, 0x50
-  store_reg %r12, 0x58
-  store_reg %r13, 0x60
-  store_reg %r14, 0x68
-  store_reg %r15, 0x70
+  // The ordering matches the one specified in ucontext.h.
+  store_reg %r8,  0x00
+  store_reg %r9,  0x08
+  store_reg %r10, 0x10
+  store_reg %r11, 0x18
+  store_reg %r12, 0x20
+  store_reg %r13, 0x28
+  store_reg %r14, 0x30
+  store_reg %r15, 0x38
+  store_reg %rdi, 0x40
+  store_reg %rsi, 0x48
+  store_reg %rbp, 0x50
+  store_reg %rbx, 0x58
+  store_reg %rdx, 0x60
+  store_reg %rax, 0x68
+  store_reg %rcx, 0x70
 
   // Store caller's RSP.
   leaq 8(%rsp), %rax

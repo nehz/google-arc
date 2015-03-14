@@ -79,7 +79,7 @@ def _ensure_naclsdk_downloaded():
 
   # Deleting the obsolete SDK tree usually takes only <1s.
   logging.info('Deleting old NaCl SDK...')
-  shutil.rmtree(_NACL_SDK_DIR, ignore_errors=True)
+  file_util.rmtree(_NACL_SDK_DIR, ignore_errors=True)
 
   # Download sdk zip if needed. The zip file only contains a set of Python
   # scripts that download the actual SDK. This step usually takes only <1s.

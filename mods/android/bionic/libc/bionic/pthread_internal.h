@@ -61,7 +61,7 @@ typedef struct pthread_internal_t
     // ARC MOD BEGIN bionic-thread-info
     // Storage for thread context at the time of invoking a blocking call.
     volatile bool has_context_regs;
-    PthreadRegValue context_regs[PTHREAD_MAX_SAVED_REGS];
+    greg_t context_regs[NGREG];
     // ARC MOD END
 
     /*

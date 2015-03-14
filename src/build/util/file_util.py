@@ -53,10 +53,18 @@ def makedirs_safely(path):
   assert os.path.isdir(path)
 
 
+def rmtree(path, ignore_errors=False):
+  """Removes a directory tree or unlinks a symbolic link."""
+  if os.path.islink(path):
+    os.unlink(path)
+  else:
+    shutil.rmtree(path, ignore_errors=ignore_errors)
+
+
 def rmtree_with_retries(d):
   for retry_count in xrange(10):
     try:
-      shutil.rmtree(d)
+      rmtree(d)
       break
     except:
       time.sleep(1)

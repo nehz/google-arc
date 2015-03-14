@@ -19,15 +19,15 @@
 
 #include <stdint.h>
 #include <sys/cdefs.h>
+#include <ucontext.h>
 
 __BEGIN_DECLS
 
-#define PTHREAD_MAX_SAVED_REGS  32
-
-#if defined(__x86_64__)
-typedef uint64_t PthreadRegValue;
-#else
-typedef uint32_t PthreadRegValue;
+// K-based Android does not have NGREG, but L has.
+#if defined(__arm__)
+#define NGREG    18
+#elif defined(__i386__)
+#define NGREG    19
 #endif
 
 typedef struct __pthread_context_info_t {
@@ -36,7 +36,7 @@ typedef struct __pthread_context_info_t {
     int stack_size;
     int has_context_regs;
     // The actual number of saved registers depends on architecture.
-    PthreadRegValue context_regs[PTHREAD_MAX_SAVED_REGS];
+    greg_t context_regs[NGREG];
 } __pthread_context_info_t;
 
 // Returns the count of live threads. |try_lock| will use a "try" operation
@@ -51,6 +51,10 @@ int __pthread_get_thread_count(bool try_lock);
 int __pthread_get_thread_infos(
     bool try_lock, bool include_current,
     int max_info_count, __pthread_context_info_t* infos);
+
+// Stores information about the current thread. Async-signal-safe.
+// May be useful in profilers.
+void __pthread_get_current_thread_info(__pthread_context_info_t* info);
 
 __END_DECLS
 

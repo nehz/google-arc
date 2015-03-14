@@ -18,6 +18,9 @@
 #ifndef _IRT_CONTEXT_H
 #define _IRT_CONTEXT_H
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
 
 extern void __pthread_save_context_regs(void* regs, int size);
 extern void __pthread_clear_context_regs();
@@ -68,7 +71,7 @@ extern void BionicInternalSaveRegContext(uint64_t*);
 #define SAVE_CONTEXT_REGS()                                     \
   {                                                             \
     uint32_t regs_tmp[16];                                      \
-    BionicInternalSaveRegContext(regs_tmp);                     \
+    BionicInternalSaveRegContext((char*) regs_tmp);             \
     __pthread_save_context_regs(regs_tmp, sizeof(regs_tmp));    \
   }
 
@@ -76,6 +79,10 @@ extern void BionicInternalSaveRegContext(uint64_t*);
 
 #define SAVE_CONTEXT_REGS()  ;
 
+#endif
+
+#if defined(__cplusplus)
+}
 #endif
 
 #endif  // _IRT_CONTEXT_H

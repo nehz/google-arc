@@ -143,6 +143,10 @@ def _find_sync_set(src, src_submodules_paths):
     # by copying files, but checking out the same revision.
     subdirs[:] = [s for s in subdirs
                   if os.path.join(src_dir, s) not in src_submodules_paths]
+    # Prune all subdirectories which are symbolic links. If we walk into these
+    # and ask git whether or not the files inside are ignorable, git will error
+    # out complaining that the path includes a symbolic link.
+    subdirs[:] = [s for s in subdirs if not os.path.islink(s)]
     # Prune any subdirectory matching gitignores, like out.
     subdirs[:] = [s for s in subdirs
                   if not _is_ignorable(os.path.join(src_dir, s), True, cwd=src)]
@@ -196,6 +200,10 @@ def _purge_non_synced_ignored_files(dest, src, sync_set, submodule_paths):
     pruned_subdirs = []
     for s in subdirs:
       rel_dest_subdir = os.path.normpath(os.path.join(rel_dest_dir, s))
+      # Ignore any directory symbolic links. The git ignore check will fail if
+      # the walk enumerates any children under the link.
+      if os.path.islink(rel_dest_subdir):
+        continue
       if _is_ignorable(rel_dest_dir, False, cwd=src):
         continue
       if rel_dest_subdir in submodule_paths:
