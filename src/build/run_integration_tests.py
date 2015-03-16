@@ -61,7 +61,7 @@ _REPORT_COLOR_FOR_SUITE_EXPECTATION = {
 
 def get_all_suite_runners(on_bot, use_gpu):
   """Gets all the suites defined in the various config.py files."""
-  sys.path.append('src')
+  sys.path.insert(0, 'src')
   result = suite_runner_config.load_from_suite_definitions(
       _DEFINITIONS_ROOT, _EXPECTATIONS_ROOT, on_bot, use_gpu)
 

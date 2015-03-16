@@ -278,6 +278,12 @@ def _generate_check_symbols_ninja():
             implicit=[script, staging.as_staging(so_file)])
 
 
+def _generate_canned_android_gen_sources_ninja():
+  n = ninja_generator.CannedAndroidGenSourcesNinjaGenerator(
+      'canned_android_gen_sources')
+  n.build_gen_sources()
+
+
 def _generate_expected_driver_times_test():
   ninja_generator.generate_python_test_ninja(
       'src/build',
@@ -289,6 +295,7 @@ def _generate_expected_driver_times_test():
 def generate_ninjas():
   ninja_generator_runner.request_run_in_parallel(
       _generate_breakpad_ninja,
+      _generate_canned_android_gen_sources_ninja,
       _generate_check_symbols_ninja,
       _generate_checkdeps_ninjas,
       _generate_disallowed_symbols_ninja,

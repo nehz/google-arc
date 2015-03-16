@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import os
+import re
 import subprocess
 import sys
 
@@ -29,6 +30,7 @@ _CLANG_INCLUDE_DIR = os.path.join(_CLANG_DIR, 'lib', 'clang', '3.5', 'include')
 
 # Used in get_gcc_raw_version().
 _GCC_RAW_VERSION_CACHE = {}
+_CLANG_RAW_VERSION_CACHE = {}
 
 # The pinned version of the Android SDK's build tools is used for ARC build.
 _ANDROID_SDK_BUILD_TOOLS_PINNED_VERSION = '19.1.0'
@@ -406,7 +408,7 @@ def get_gcc_raw_version(target):
 
 
 def get_gcc_version(target):
-  """Returns the gcc version of as an array of three integers.
+  """Returns the gcc version as an array of three integers.
 
   Array of intgers is used so that two versions can be compared easily.
   Example: [4, 8, 0] < [4, 10, 0]. The result is cached so gcc is not run
@@ -419,6 +421,33 @@ def get_gcc_version(target):
     version.append(0)
   assert len(version) == 3
 
+  return version
+
+
+def _get_clang_raw_version(target):
+  raw_version = _CLANG_RAW_VERSION_CACHE.get(target)
+  if raw_version:
+    return raw_version
+  clang = get_tool(target, 'clang', with_cc_wrapper=False)
+  # Should call split() as cc might be prefixed with a wrapper like goma.
+  raw_version = subprocess.check_output(clang.split() + ['--version'])
+
+  _CLANG_RAW_VERSION_CACHE[target] = raw_version
+  return raw_version
+
+
+def get_clang_version(target):
+  """Returns the clang version as an array of three integers.
+
+  See also get_gcc_version.
+  """
+
+  raw_version = _get_clang_raw_version(target)
+  match = re.search('clang version ([0-9.]+)', raw_version)
+  assert match is not None
+  version = [int(x) for x in match.group(1).split('.')]
+  while len(version) < 3:
+    version.append(0)
   return version
 
 

@@ -22,6 +22,7 @@ import analyze_diffs
 import build_common
 import open_source
 import staging
+import tarfile
 import toolchain
 import wrapped_functions
 from build_common import as_list, as_dict
@@ -606,6 +607,8 @@ class NinjaGenerator(ninja_syntax.Writer):
     self._build_rule_list.append((self._target_groups, set(outputs),
                                   set(as_list(implicit)) | set(all_inputs)))
 
+    CannedAndroidGenSourcesNinjaGenerator.maybe_add_implicit(outputs, implicit)
+
     self._check_implicit(rule, implicit)
     self._check_order_only(implicit, order_only)
     self._check_target_independent_does_not_depend_on_target(
@@ -646,9 +649,11 @@ class NinjaGenerator(ninja_syntax.Writer):
     # builds.)  The trade off is moot since we must have missing
     # headers result in errors.
     is_clang = rule_prefix.startswith('clang')
-    if not is_clang and toolchain.get_gcc_version(target) >= [4, 8, 0]:
-      # gcc 4.8 has a new check warning "-Wunused-local-typedefs", but most
-      # sources are not ready for this.  So we disable this warning for now.
+    if ((is_clang and toolchain.get_clang_version(target) >= [3, 6, 0]) or
+        (not is_clang and toolchain.get_gcc_version(target) >= [4, 8, 0])):
+      # gcc 4.8 and clang-3.6 have a new check warning
+      # "-Wunused-local-typedefs", but most sources are not ready for this.
+      # So we disable this warning for now.
       extra_flags.append('-Wno-unused-local-typedefs')
 
     if supports_deps:
@@ -1757,6 +1762,7 @@ class TopLevelNinjaGenerator(NinjaGenerator):
     ApkFromSdkNinjaGenerator.emit_common_rules(self)
     ApkNinjaGenerator.emit_common_rules(self)
     AtfNinjaGenerator.emit_common_rules(self)
+    CannedAndroidGenSourcesNinjaGenerator.emit_common_rules(self)
     CNinjaGenerator.emit_common_rules(self)
     JarNinjaGenerator.emit_common_rules(self)
     JavaNinjaGenerator.emit_common_rules(self)
@@ -2172,6 +2178,67 @@ class NoticeNinjaGenerator(NinjaGenerator):
         self._merge_notice_archive(n, module_to_ninja_map, notice_files_dir)
       else:
         self._build_notice(n, module_to_ninja_map, notice_files_dir)
+
+
+# TODO(crbug.com/382716): Remove this class once we remove canned gen sources.
+class CannedAndroidGenSourcesNinjaGenerator(NinjaGenerator):
+  """Encapsulates ninja file generation for canned android gen sources."""
+
+  _CANNED_GEN_SOURCES_TAR = 'canned/target/android/generated/gen_sources.tar.gz'
+
+  def __init__(self, module_name, **kwargs):
+    super(CannedAndroidGenSourcesNinjaGenerator, self).__init__(
+        module_name, **kwargs)
+
+  @classmethod
+  def get_gen_sources_dir(cls):
+    return os.path.join(build_common.get_target_common_dir(),
+                        'android_gen_sources')
+
+  @classmethod
+  def get_stamp_file(cls):
+    return os.path.join(cls.get_gen_sources_dir(), 'STAMP')
+
+  @classmethod
+  def maybe_add_implicit(cls, outputs, implicit):
+    # When the stamp file in android gen sources directory is updated,
+    # the directory might be re-created. To deal with this case, make files
+    # under android gen sources directory depend on the stamp file so that they
+    # are re-generated.
+    for output in outputs:
+      if (output.startswith(cls.get_gen_sources_dir() + '/') and
+          output != cls.get_stamp_file()):
+        implicit.append(cls.get_stamp_file())
+        break
+
+  def build_gen_sources(self):
+    tar = CannedAndroidGenSourcesNinjaGenerator._CANNED_GEN_SOURCES_TAR
+    outdir = CannedAndroidGenSourcesNinjaGenerator.get_gen_sources_dir()
+    stamp_file = CannedAndroidGenSourcesNinjaGenerator.get_stamp_file()
+    # Recreate the android gen sources directory when the canned tar file is
+    # updated.
+    self.build([stamp_file],
+               'recreate_outdir',
+               inputs=[tar],
+               variables={'outdir': outdir, 'stamp': stamp_file})
+
+    with tarfile.open(tar) as t:
+      outputs = [os.path.join(outdir, member.name) for member
+                 in t.getmembers() if member.isfile()]
+    self.build(outputs,
+               rule='extract_tar',
+               inputs=[tar],
+               variables={'outdir': outdir})
+
+  @staticmethod
+  def emit_common_rules(n):
+    n.rule('recreate_outdir',
+           command='rm -rf $outdir && mkdir -p $outdir && touch $stamp',
+           description='recreate $outdir')
+    n.rule('extract_tar',
+           command=('tar -xf $in -C $outdir 2> /dev/null'),
+           description='extract $in to $outdir',
+           restat=True)
 
 
 class TestNinjaGenerator(ExecNinjaGenerator):

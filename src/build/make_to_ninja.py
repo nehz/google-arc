@@ -13,17 +13,16 @@ import shlex
 import shutil
 import stat
 import subprocess
-import tarfile
 
 import build_common
 import dependency_inspection
 import ninja_generator
 import staging
 import toolchain
-from build_common import StampFile
 from build_options import OPTIONS
 from ninja_generator import AaptNinjaGenerator
 from ninja_generator import ArchiveNinjaGenerator
+from ninja_generator import CannedAndroidGenSourcesNinjaGenerator
 from ninja_generator import ExecNinjaGenerator
 from ninja_generator import JarNinjaGenerator
 from ninja_generator import NinjaGenerator
@@ -54,13 +53,8 @@ _MAKE_TO_NINJA_DIR = os.path.join(_ARC_ROOT, _MAKE_TO_NINJA_SUBDIR)
 _MAKE_TO_NINJA_BIN_DIR = os.path.join(_MAKE_TO_NINJA_DIR, 'bin')
 _MAKE_BUILD_DIR = os.path.join(_MAKE_TO_NINJA_DIR, 'build')
 
-_ANDROID_GEN_SOURCES_DIR = os.path.join(build_common.get_target_common_dir(),
-                                        'android_gen_sources')
 _INTERMEDIATE_HEADERS_DIR = os.path.join(build_common.get_target_common_dir(),
                                          'intermediate_headers')
-
-_CANNED_GEN_SOURCES_TAR = os.path.join(
-    'canned', 'target', 'android', 'generated', 'gen_sources.tar.gz')
 
 _VARS_PREFIX = '=== VARIABLES FOR: '
 _VAR_PREFIX = '=== VARIABLE '
@@ -505,13 +499,6 @@ exec /usr/bin/find -L "$@"
     f.write(contents)
 
 
-def _extract_dir(tar, dst_dir, name):
-  for member in tar.getmembers():
-    if member.isfile() and \
-       (name is None or os.path.dirname(member.name) == name):
-      tar.extract(member, path=dst_dir)
-
-
 def _copy_build_scripts():
   # Copy only necessary parts from core. We want to see errors if
   # a previously-unused mk becomes included - it may need to be replaced.
@@ -568,24 +555,6 @@ def _copy_build_scripts():
       'external/stlport/libstlport.mk'])
 
 
-def _copy_canned_generated_sources():
-  # Do nothing if a stamp file is up to date.
-  stamp_file_path = os.path.join(_ANDROID_GEN_SOURCES_DIR, 'STAMP')
-  tar_stat = os.stat(_CANNED_GEN_SOURCES_TAR)
-  tar_revision = '%s:%s' % (tar_stat.st_size, tar_stat.st_mtime)
-  stamp_file = StampFile(tar_revision, stamp_file_path)
-  if stamp_file.is_up_to_date():
-    return
-
-  # Wipe existing directory in case files are removed from the tarball.
-  shutil.rmtree(_ANDROID_GEN_SOURCES_DIR, True)
-  t = tarfile.open(_CANNED_GEN_SOURCES_TAR)
-  _extract_dir(t, _ANDROID_GEN_SOURCES_DIR, None)
-  t.close()
-
-  stamp_file.update()
-
-
 def _copy_external_file(stem):
   src = staging.as_staging(os.path.join('android', stem))
   dst = os.path.join(_MAKE_TO_NINJA_DIR, stem)
@@ -640,7 +609,6 @@ def prepare_make_to_ninja():
   else:
     _create_noop_makefiles(['../../external/libcxx/libcxx.mk'])
   _copy_external_file('build/tools/findleaves.py')
-  _copy_canned_generated_sources()
   _create_tool_scripts()
 
   file_util.makedirs_safely(_MAKE_BUILD_DIR)
@@ -1016,12 +984,12 @@ class MakeVars:
     self._includes.append(self._path)
     if self.is_shared():
       self._android_gen_path = os.path.join(
-          _ANDROID_GEN_SOURCES_DIR, 'SHARED_LIBRARIES',
-          self._module_name + '_intermediates')
+          CannedAndroidGenSourcesNinjaGenerator.get_gen_sources_dir(),
+          'SHARED_LIBRARIES', self._module_name + '_intermediates')
     else:
       self._android_gen_path = os.path.join(
-          _ANDROID_GEN_SOURCES_DIR, 'STATIC_LIBRARIES',
-          self._module_name + '_intermediates')
+          CannedAndroidGenSourcesNinjaGenerator.get_gen_sources_dir(),
+          'STATIC_LIBRARIES', self._module_name + '_intermediates')
     self._includes.append(self._android_gen_path)
     self._includes += vars_helper.get_optional_list('JNI_H_INCLUDE')
 
@@ -1779,7 +1747,8 @@ def _adjust_gen_output(path):
   if not path.startswith(prefix):
     return path
   path = os.path.relpath(path, prefix)
-  return os.path.join(_ANDROID_GEN_SOURCES_DIR, path)
+  return os.path.join(
+      CannedAndroidGenSourcesNinjaGenerator.get_gen_sources_dir(), path)
 
 
 def _adjust_source_path(path):
