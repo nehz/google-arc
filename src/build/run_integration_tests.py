@@ -19,11 +19,9 @@ running that test suite.
 
 import argparse
 import collections
-import itertools
 import logging
 import multiprocessing
 import os
-import shutil
 import subprocess
 import sys
 
@@ -36,6 +34,7 @@ from util import color
 from util import concurrent
 from util import debug
 from util import file_util
+from util import logging_util
 from util import platform_util
 from util import remote_executor
 from util.test import scoreboard_constants
@@ -382,7 +381,7 @@ def _prepare_output_directory(args):
   if args.output_dir:
     suite_runner.SuiteRunnerBase.set_output_directory(args.output_dir)
   if os.path.exists(suite_runner.SuiteRunnerBase.get_output_directory()):
-    shutil.rmtree(suite_runner.SuiteRunnerBase.get_output_directory())
+    file_util.rmtree(suite_runner.SuiteRunnerBase.get_output_directory())
   file_util.makedirs_safely(
       suite_runner.SuiteRunnerBase.get_output_directory())
 
@@ -428,8 +427,7 @@ def _run_suites_and_output_results_local(test_driver_list, args):
 
 def _process_args(raw_args):
   args = parse_args(raw_args)
-  logging.basicConfig(
-      level=logging.DEBUG if args.output == 'verbose' else logging.WARNING)
+  logging_util.setup(verbose=(args.output == 'verbose'))
 
   OPTIONS.parse_configure_file()
 

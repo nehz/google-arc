@@ -51,7 +51,6 @@ import argparse
 import cStringIO
 import contextlib
 import os
-import shutil
 import stat
 import subprocess
 import sys
@@ -61,6 +60,7 @@ import zipfile
 
 from build_common import SimpleTimer
 from build_common import StampFile
+from util import file_util
 
 ADB_OUTPUT_DIR = 'out/adb'
 
@@ -103,7 +103,7 @@ def _download_adb_source(force):
     return
 
   if os.path.exists(source_dir):
-    shutil.rmtree(source_dir)
+    file_util.rmtree(source_dir)
 
   try:
     timer = SimpleTimer()
@@ -166,7 +166,7 @@ def _download_adb(target, force):
     return
 
   if os.path.exists(output_dir):
-    shutil.rmtree(output_dir)
+    file_util.rmtree(output_dir)
   os.makedirs(output_dir)
 
   is_windows = target.startswith('win-')

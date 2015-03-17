@@ -17,6 +17,7 @@ import urllib
 
 import build_common
 from util import file_util
+from util import logging_util
 
 
 _ROOT_DIR = build_common.get_arc_root()
@@ -125,12 +126,7 @@ def main(args):
                       help='Update pinned NaCl SDK manifest version to the '
                       'latest..')
   args = parser.parse_args(args)
-
-  if args.verbose:
-    level = logging.DEBUG
-  else:
-    level = logging.WARNING
-  logging.basicConfig(level=level, format='%(levelname)s: %(message)s')
+  logging_util.setup(verbose=args.verbose)
 
   if args.roll:
     _roll_forward_pinned_manifest()

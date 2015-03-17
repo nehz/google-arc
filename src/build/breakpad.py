@@ -17,6 +17,7 @@ import toolchain
 from build_options import OPTIONS
 from util import concurrent
 from util import file_util
+from util import logging_util
 
 
 _MINIDUMP_DUMP_TOOL = toolchain.get_nacl_tool('minidump_dump')
@@ -96,5 +97,5 @@ def main():
 
 
 if __name__ == '__main__':
-  logging.basicConfig(level=logging.INFO)
+  logging_util.setup(verbose=True)
   sys.exit(main())

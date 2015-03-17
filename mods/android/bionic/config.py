@@ -1018,9 +1018,20 @@ def _generate_bionic_tests():
   for f in ['bzero', 'memcmp', 'memset', 'nearbyint', 'nearbyintf',
             'nearbyintl', 'sqrt', 'strcmp', 'strcpy', 'strlen']:
     n.add_compiler_flags('-fno-builtin-' + f)
-  n.run(n.link(variables={'ldflags': ldflags}),
-        implicit=os.path.join(build_common.get_load_library_path(),
-                              'no-elf-hash-table-library.so'))
+
+  test_binary = n.link(variables={'ldflags': ldflags})
+  implicit = os.path.join(build_common.get_load_library_path(),
+                          'no-elf-hash-table-library.so')
+  n.add_disabled_tests('pthread_thread_context.*')
+  n.run(test_binary, implicit=implicit)
+
+  # pthread_context_test should run only with a single thread. As
+  # other pthread tests start detached threads which can affect the
+  # result of this test, we use a separate TestNinjaGenerator for this
+  # test.
+  n = ninja_generator.TestNinjaGenerator('bionic_pthread_context_test')
+  n.add_enabled_tests('pthread_thread_context.*')
+  n.run(test_binary, implicit=implicit)
 
   # Build the shared object for dlfcn.dlopen_library_with_only_gnu_hash.
   def _filter(vars):

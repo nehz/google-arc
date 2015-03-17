@@ -31,42 +31,35 @@ static void* SleepFn(void* arg) {
     return NULL;
 }
 
-TEST(pthread_thread_context, QEMU_DISABLED_get_thread_infos) {
-    // Remember initial thread count.
-    int initial_thread_count = __pthread_get_thread_count(true);
-    ASSERT_GT(initial_thread_count, 0);
+TEST(pthread_thread_context, get_thread_infos) {
+  ASSERT_EQ(1, __pthread_get_thread_count(true));
 
 #if defined(BARE_METAL_BIONIC)
-    // For some reason BMM_x86 does not set stack_end_from_irt,
-    // and so the list of thread infos comes out as empty.
-    // TODO(igorc): Find out why it also fails on defined(__arm__) devices.
-    return;
-#endif
-#if defined(__native_client__)
-    // TODO(crbug.com/465635): Disabled on defined(__native_client__) as it's
-    // flaky.
-    return;
+  // For some reason BMM_x86 does not set stack_end_from_irt,
+  // and so the list of thread infos comes out as empty.
+  // TODO(igorc): Find out why it also fails on defined(__arm__) devices.
+  return;
 #endif
 
-    // Create a new thread.
-    Args args;
-    pthread_t thread;
-    ASSERT_EQ(0, pthread_create(&thread, NULL, SleepFn, &args));
+  // Create a new thread.
+  Args args;
+  pthread_t thread;
+  ASSERT_EQ(0, pthread_create(&thread, NULL, SleepFn, &args));
 
-    // Verify data in the thread list.
-    __pthread_context_info_t infos[100];
-    int thread_count = __pthread_get_thread_infos(true, true, 100, infos);
-    ASSERT_EQ(initial_thread_count + 1, thread_count);
-    for (int i = 0; i < thread_count; ++i) {
-        ASSERT_TRUE(infos[i].stack_base != NULL);
-        ASSERT_GT(infos[i].stack_size, 0);
+  // Verify data in the thread list.
+  __pthread_context_info_t infos[100];
+  int thread_count = __pthread_get_thread_infos(true, true, 100, infos);
+  ASSERT_EQ(2, thread_count);
+  for (int i = 0; i < thread_count; ++i) {
+    ASSERT_TRUE(infos[i].stack_base != NULL);
+    ASSERT_GT(infos[i].stack_size, 0);
 #if defined(BARE_METAL_BIONIC)
-        ASSERT_EQ(infos[i].stack_size, 1024 * 1024);
+    ASSERT_EQ(infos[i].stack_size, 1024 * 1024);
 #endif
-    }
+  }
 
-    args.should_exit = true;
-    pthread_join(thread, NULL);
+  args.should_exit = true;
+  pthread_join(thread, NULL);
 }
 
 TEST(pthread_thread_context, get_cur_thread_context) {

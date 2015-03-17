@@ -12,6 +12,7 @@ import sys
 import shutil
 
 import build_common
+from util import file_util
 
 
 _ARC_ROOT = build_common.get_arc_root()
@@ -36,7 +37,7 @@ def _build_apk(source_path, use_ndk, build_path, install_apk, debug, verbose):
   work_path = os.path.join(build_path, 'work')
 
   if os.path.isdir(work_path):
-    shutil.rmtree(work_path)
+    file_util.rmtree(work_path)
   shutil.copytree(os.path.join('.', source_path), work_path)
   print os.path.join(_SDK_PATH, 'tools', 'android')
   # Any target 14+ should work (tested on 17).

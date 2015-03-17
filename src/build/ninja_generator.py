@@ -22,7 +22,6 @@ import analyze_diffs
 import build_common
 import open_source
 import staging
-import tarfile
 import toolchain
 import wrapped_functions
 from build_common import as_list, as_dict
@@ -394,6 +393,11 @@ class NinjaGenerator(ninja_syntax.Writer):
                NinjaGenerator._PRETTY_PRINT_JSON_PATH),
            description='Build test info $out')
 
+    n.rule('generate_html',
+           command=('src/packaging/generate_file_from_template.py $minify_opt '
+                    '$keyvalues $in > $out || (rm -f $out; exit 1)'),
+           description='generate_html $in')
+
   @staticmethod
   def consume_ninjas():
     """Returns the list of NinjaGenerator created in the process."""
@@ -606,8 +610,6 @@ class NinjaGenerator(ninja_syntax.Writer):
 
     self._build_rule_list.append((self._target_groups, set(outputs),
                                   set(as_list(implicit)) | set(all_inputs)))
-
-    CannedAndroidGenSourcesNinjaGenerator.maybe_add_implicit(outputs, implicit)
 
     self._check_implicit(rule, implicit)
     self._check_order_only(implicit, order_only)
@@ -1762,7 +1764,6 @@ class TopLevelNinjaGenerator(NinjaGenerator):
     ApkFromSdkNinjaGenerator.emit_common_rules(self)
     ApkNinjaGenerator.emit_common_rules(self)
     AtfNinjaGenerator.emit_common_rules(self)
-    CannedAndroidGenSourcesNinjaGenerator.emit_common_rules(self)
     CNinjaGenerator.emit_common_rules(self)
     JarNinjaGenerator.emit_common_rules(self)
     JavaNinjaGenerator.emit_common_rules(self)
@@ -2180,67 +2181,6 @@ class NoticeNinjaGenerator(NinjaGenerator):
         self._build_notice(n, module_to_ninja_map, notice_files_dir)
 
 
-# TODO(crbug.com/382716): Remove this class once we remove canned gen sources.
-class CannedAndroidGenSourcesNinjaGenerator(NinjaGenerator):
-  """Encapsulates ninja file generation for canned android gen sources."""
-
-  _CANNED_GEN_SOURCES_TAR = 'canned/target/android/generated/gen_sources.tar.gz'
-
-  def __init__(self, module_name, **kwargs):
-    super(CannedAndroidGenSourcesNinjaGenerator, self).__init__(
-        module_name, **kwargs)
-
-  @classmethod
-  def get_gen_sources_dir(cls):
-    return os.path.join(build_common.get_target_common_dir(),
-                        'android_gen_sources')
-
-  @classmethod
-  def get_stamp_file(cls):
-    return os.path.join(cls.get_gen_sources_dir(), 'STAMP')
-
-  @classmethod
-  def maybe_add_implicit(cls, outputs, implicit):
-    # When the stamp file in android gen sources directory is updated,
-    # the directory might be re-created. To deal with this case, make files
-    # under android gen sources directory depend on the stamp file so that they
-    # are re-generated.
-    for output in outputs:
-      if (output.startswith(cls.get_gen_sources_dir() + '/') and
-          output != cls.get_stamp_file()):
-        implicit.append(cls.get_stamp_file())
-        break
-
-  def build_gen_sources(self):
-    tar = CannedAndroidGenSourcesNinjaGenerator._CANNED_GEN_SOURCES_TAR
-    outdir = CannedAndroidGenSourcesNinjaGenerator.get_gen_sources_dir()
-    stamp_file = CannedAndroidGenSourcesNinjaGenerator.get_stamp_file()
-    # Recreate the android gen sources directory when the canned tar file is
-    # updated.
-    self.build([stamp_file],
-               'recreate_outdir',
-               inputs=[tar],
-               variables={'outdir': outdir, 'stamp': stamp_file})
-
-    with tarfile.open(tar) as t:
-      outputs = [os.path.join(outdir, member.name) for member
-                 in t.getmembers() if member.isfile()]
-    self.build(outputs,
-               rule='extract_tar',
-               inputs=[tar],
-               variables={'outdir': outdir})
-
-  @staticmethod
-  def emit_common_rules(n):
-    n.rule('recreate_outdir',
-           command='rm -rf $outdir && mkdir -p $outdir && touch $stamp',
-           description='recreate $outdir')
-    n.rule('extract_tar',
-           command=('tar -xf $in -C $outdir 2> /dev/null'),
-           description='extract $in to $outdir',
-           restat=True)
-
-
 class TestNinjaGenerator(ExecNinjaGenerator):
   """Create a googletest/googlemock executable ninja file."""
 
@@ -2260,6 +2200,7 @@ class TestNinjaGenerator(ExecNinjaGenerator):
     self._run_counter = 0
     self._disabled_tests = []
     self._qemu_disabled_tests = []
+    self._enabled_tests = []
     if OPTIONS.is_arm():
       self._qemu_disabled_tests.append('*.QEMU_DISABLED_*')
 
@@ -2285,21 +2226,21 @@ class TestNinjaGenerator(ExecNinjaGenerator):
         'run_test': (
             '$runner $in $argv',
             build_common.get_test_output_handler(),
-            'run_test $in'),
+            'run_test $test_name'),
         'run_gtest': (
             '$runner $in $argv $gtest_options',
             build_common.get_test_output_handler(use_crash_analyzer=True),
-            'run_gtest $in'),
+            'run_gtest $test_name'),
         'run_gtest_with_valgrind': (
             '$valgrind_runner $in $argv $gtest_options',
             build_common.get_test_output_handler(),
-            'run_gtest_with_valgrind $in')
+            'run_gtest_with_valgrind $test_name')
     }
     if OPTIONS.is_bare_metal_build():
       rules['run_gtest_glibc'] = (
           '$qemu_arm $in $argv $gtest_options',
           build_common.get_test_output_handler(use_crash_analyzer=True),
-          'run_gtest_glibc $in')
+          'run_gtest_glibc $test_name')
     return rules
 
   @staticmethod
@@ -2325,7 +2266,7 @@ class TestNinjaGenerator(ExecNinjaGenerator):
         'variables': merged_variables,
         'command': rules[rule][0],
     }
-    self._build_test_info(test_path, counter, test_info)
+    self._build_test_info(self._module_name, counter, test_info)
 
   def find_all_contained_test_sources(self):
     all_sources = self.find_all_files(self._base_path,
@@ -2345,11 +2286,27 @@ class TestNinjaGenerator(ExecNinjaGenerator):
 
   def add_disabled_tests(self, *disabled_tests):
     """Add tests to be disabled."""
+    # Disallow setting both enabled_tests and disabled_tests.
+    assert not self._enabled_tests
     self._disabled_tests += list(disabled_tests)
 
   def add_qemu_disabled_tests(self, *qemu_disabled_tests):
     """Add tests to be disabled only on QEMU."""
+    # Disallow setting both enabled_tests and qemu_disabled_tests.
+    assert not self._enabled_tests
     self._qemu_disabled_tests += list(qemu_disabled_tests)
+
+  def add_enabled_tests(self, *enabled_tests):
+    """Add tests to be enabled.
+
+    When you use this function, you must not use add_disabled_tests
+    and add_qemu_disabled_tests.
+    """
+    # Disallow setting both enabled_tests and *disabled_tests.
+    assert not self._disabled_tests
+    # Only '*.QEMU_DISABLED_*' is allowed.
+    assert len(self._qemu_disabled_tests) < 2
+    self._enabled_tests += list(enabled_tests)
 
   def link(self, **kwargs):
     # Be very careful here.  If you have no objects because of
@@ -2382,11 +2339,18 @@ class TestNinjaGenerator(ExecNinjaGenerator):
     # sources and run that built version here.
     if open_source.is_open_source_repo() and OPTIONS.is_arm():
       return
-    variables = {}
+    variables = {'test_name': self._module_name}
     if argv:
       variables['argv'] = argv
     variables['gtest_options'] = '--gtest_color=yes'
-    if self._disabled_tests or self._qemu_disabled_tests:
+    if self._enabled_tests:
+      variables['gtest_options'] += ' --gtest_filter=' + ':'.join(
+          self._enabled_tests)
+      # Disallow setting both enabled_tests and *disabled_tests.
+      assert not self._disabled_tests
+      # Only '*.QEMU_DISABLED_*' is allowed.
+      assert len(self._qemu_disabled_tests) < 2
+    elif self._disabled_tests or self._qemu_disabled_tests:
       variables['gtest_options'] += ' --gtest_filter=-' + ':'.join(
           self._disabled_tests + self._qemu_disabled_tests)
 
@@ -2404,7 +2368,9 @@ class TestNinjaGenerator(ExecNinjaGenerator):
       implicit.append('src/build/valgrind/memcheck/suppressions.txt')
     if not rule:
       rule = self._get_test_rule_name(enable_valgrind)
-    self.build(test_path + '.results.' + str(self._run_counter), rule,
+    test_result_prefix = os.path.join(os.path.dirname(test_path),
+                                      self._module_name)
+    self.build(test_result_prefix + '.results.' + str(self._run_counter), rule,
                inputs=test_path, variables=variables, implicit=implicit)
 
     self._save_test_info(test_path, self._run_counter, rule, variables)

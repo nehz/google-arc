@@ -12,6 +12,7 @@
 #include <inttypes.h>
 #include <linux/android_alarm.h>  // ANDROID_ALARM_*
 #include <linux/ashmem.h>  // ASHMEM_*
+#include <linux/futex.h>  // FUTEX_*
 #include <linux/sched.h>  // SCHED_BATCH
 #include <linux/sync.h>  // SYNC_IOC_*
 #include <nacl_stat.h>
@@ -81,6 +82,48 @@ class ThreadIDManager* g_thread_id_manager;
 class ArcStrace* g_arc_strace;
 const char* g_plugin_type_prefix;
 
+// Takes a function |name|, |format| string that starts with "%d",
+// and va_list whose first argument type is int, and returns a string
+// like 'access(3 "/path/to/file", F_OK)'. When arc::StraceEnabled()
+// is false, the function uses "???" as the path name. The path name
+// used in the string returned is also stored in |out_fd_path| if
+// arc::StraceEnabled() is enalbed. When it is disabled, an empty
+// string is stored in |out_fd_path|.
+std::string FormatEnterFD(const char* name, const char* format, va_list ap,
+                          std::string* out_fd_path) {
+  ALOG_ASSERT(out_fd_path);
+
+  // Consume %d and file descriptor in the first variable argument.
+  // It's not possible to make file descriptor a non-variable
+  // argument. There are some functions which don't have arguments
+  // except file descriptor (e.g., close). The compiler will
+  // complain for such functions because there are no variable
+  // arguments for __attribute__((format(printf))) function.
+  ALOG_ASSERT(format[0] == '%' && format[1] == 'd');
+  format += 2;
+  const int fd = va_arg(ap, int);
+
+  std::string call = name;
+  call += base::StringPrintf("(%d ", fd);
+
+  *out_fd_path = arc::GetFdStr(fd);
+  if (*out_fd_path == arc::GetFdStr(-1)) {
+    out_fd_path->clear();
+    call += "\"???\"";
+    // -1 is a valid FD for mmap with MAP_ANONYMOUS.
+    if (fd != -1 && arc::StraceEnabled())
+      STRACE_WARN("%sUnknown FD! fd=%d", g_plugin_type_prefix, fd);
+  } else {
+    call += base::StringPrintf("\"%s\"", out_fd_path->c_str());
+  }
+
+  if (*format)
+    base::StringAppendV(&call, format, ap);
+  call += ')';
+
+  return call;
+}
+
 // A helper class which returns an appropriate unique ID for current
 // thread. pthread_self() can be used for this purpose but it isn't
 // very readable if pthread_t is a pointer type, so we'll generate a
@@ -135,39 +178,9 @@ class ArcStrace {
   void EnterFD(const char* name, const char* format, va_list ap) {
     ThreadID tid = g_thread_id_manager->Get();
 
-    // Consume %d and file descriptor in the first variable argument.
-    // It's not possible to make file descriptor a non-variable
-    // argument. There are some functions which don't have arguments
-    // except file descriptor (e.g., close). The compiler will
-    // complain for such functions because there are no variable
-    // arguments for __attribute__((format(printf))) function.
-    ALOG_ASSERT(format[0] == '%' && format[1] == 'd');
-    format += 2;
-    int fd = va_arg(ap, int);
-
-    std::string call = name;
-    call += base::StringPrintf("(%d ", fd);
-
-    bool should_print = true;
-
-    {
-      base::AutoLock lock(mu_);
-      FDToNameMap::const_iterator found = fd_to_name_.find(fd);
-      if (found == fd_to_name_.end()) {
-        call += "???";
-        // -1 is a valid FD for mmap with MAP_ANONYMOUS.
-        if (fd != -1)
-          STRACE_WARN("%sUnknown FD! fd=%d", g_plugin_type_prefix, fd);
-      } else {
-        const char* path = found->second.c_str();
-        should_print = ShouldPrintCall(name, path, call);
-        call += base::StringPrintf("\"%s\"", path);
-      }
-    }
-
-    if (*format)
-      base::StringAppendV(&call, format, ap);
-    call += ')';
+    std::string fd_path;
+    const std::string call = FormatEnterFD(name, format, ap, &fd_path);
+    const bool should_print = ShouldPrintCall(name, fd_path, call);
 
     CallStackType* call_stack = GetCallStackForThreadID(tid);
     if (should_print) {
@@ -684,6 +697,15 @@ std::string GetStraceEnterString(const char* name, const char* format, ...) {
   return base::StringPrintf("%s(%s)", name, body.c_str());
 }
 
+std::string GetStraceEnterFdString(const char* name, const char* format, ...) {
+  va_list ap;
+  va_start(ap, format);
+  std::string fd_path;
+  std::string result = FormatEnterFD(name, format, ap, &fd_path);
+  va_end(ap);
+  return result;
+}
+
 void StraceInit(const std::string& plugin_type_prefix) {
   ALOG_ASSERT(!g_arc_strace);
   if (Options::GetInstance()->enable_arc_strace) {
@@ -784,9 +806,28 @@ std::string GetEpollEventStr(uint32_t events) {
   return result;
 }
 
+std::string GetFutexOpStr(int op) {
+  std::string result;
+  switch (op) {
+    CASE_APPEND_ENUM_STR(FUTEX_WAIT, result);
+    CASE_APPEND_ENUM_STR(FUTEX_WAKE, result);
+    CASE_APPEND_ENUM_STR(FUTEX_FD, result);
+    CASE_APPEND_ENUM_STR(FUTEX_REQUEUE, result);
+    CASE_APPEND_ENUM_STR(FUTEX_CMP_REQUEUE, result);
+    CASE_APPEND_ENUM_STR(FUTEX_WAKE_OP, result);
+    CASE_APPEND_ENUM_STR(FUTEX_LOCK_PI, result);
+    CASE_APPEND_ENUM_STR(FUTEX_UNLOCK_PI, result);
+    CASE_APPEND_ENUM_STR(FUTEX_TRYLOCK_PI, result);
+    CASE_APPEND_ENUM_STR(FUTEX_WAIT_PRIVATE, result);
+    CASE_APPEND_ENUM_STR(FUTEX_WAKE_PRIVATE, result);
+    default: AppendResult(base::StringPrintf("%d???", op), &result);
+  }
+  return result;
+}
+
 std::string GetFdStr(int fd) {
   std::string result;
-  if (g_arc_strace)
+  if (arc::StraceEnabled())
     result = g_arc_strace->GetFdString(fd);
   return result.empty() ? "???" : result;
 }

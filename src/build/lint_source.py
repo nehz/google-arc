@@ -12,7 +12,6 @@ import json
 import logging
 import os
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -21,6 +20,7 @@ import analyze_diffs
 import build_common
 import open_source
 from util import file_util
+from util import logging_util
 
 _GROUP_ASM = 'Assembly'
 _GROUP_CPP = 'C/C++'
@@ -602,7 +602,7 @@ def process(target_path_list, ignore_file=None, output_file=None):
         cPickle.dump(statistic_list, stream)
   finally:
     if output_dir:
-      shutil.rmtree(output_dir)
+      file_util.rmtree(output_dir)
   return 0
 
 
@@ -676,9 +676,7 @@ def main():
   parser.add_argument('--verbose', '-v', action='store_true',
                       help='Prints additional output.')
   args = parser.parse_args()
-
-  log_level = logging.DEBUG if args.verbose else logging.WARNING
-  logging.basicConfig(format='%(message)s', level=log_level)
+  logging_util.setup(verbose=args.verbose)
 
   if not args.ignore_file and not args.files:
     args.ignore_file = os.path.join(

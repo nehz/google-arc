@@ -7,6 +7,7 @@
 import filtered_subprocess
 import fnmatch
 import json
+import logging
 import os
 import subprocess
 import threading
@@ -14,6 +15,7 @@ import threading
 import build_common
 from util import file_util
 from util import launch_chrome_util
+from util import logging_util
 from util.test import scoreboard
 from util.test import suite_runner_config
 from util.test import suite_runner_config_flags as flags
@@ -445,6 +447,21 @@ class SuiteRunnerBase(object):
           print '@@@STEP_WARNINGS@@@'
           print '@@@STEP_TEXT@Retrying ' + self.name + ' (Chrome flake)@@@'
           continue
+        raise
+      except Exception:
+        # Exception other than subprocess.CalledProcessError means
+        # starting ./launch_chrome failed. Here, log the command line,
+        # in the form to be copy-and-pasted for manual debugging.
+        safe_args, unsafe_args = (
+            launch_chrome_util.split_launch_chrome_args(command))
+        logging.error('Launch chrome failed: %s',
+                      logging_util.format_commandline(
+                          args, kwargs.get('cwd'), kwargs.get('env')))
+        if unsafe_args:
+          logging.error(
+              'NOTE: The following options were ommitted in the command line '
+              'above to make it suitable for debugging use: %s',
+              logging_util.format_commandline(unsafe_args))
         raise
     else:
       # Here, we hit the Chrome flakiness retry count limit,

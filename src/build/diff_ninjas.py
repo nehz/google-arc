@@ -12,6 +12,7 @@ import sys
 import tempfile
 
 import build_common
+from util import file_util
 
 
 _USER = os.getenv('USER', 'default')
@@ -23,7 +24,7 @@ _CURRENT_DIR = os.path.join(tempfile.gettempdir(),
 
 def _copy_off(where):
   if os.path.exists(where):
-    shutil.rmtree(where)
+    file_util.rmtree(where)
   root = build_common.get_arc_root()
   generated_ninja_dir = os.path.join(root, build_common.OUT_DIR,
                                      'generated_ninja')

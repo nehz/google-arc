@@ -6,7 +6,6 @@ import contextlib
 import logging
 import os
 import re
-import shutil
 import signal
 import socket
 import stat
@@ -322,7 +321,7 @@ def _accept_tcp_connection_on_chromeos(port):
 
 
 def create_or_remove_bare_metal_gdb_lock_dir(gdb_target_list):
-  shutil.rmtree(_BARE_METAL_GDB_LOCK_DIR, ignore_errors=True)
+  file_util.rmtree(_BARE_METAL_GDB_LOCK_DIR, ignore_errors=True)
   if 'plugin' in gdb_target_list and OPTIONS.is_bare_metal_build():
     file_util.makedirs_safely(_BARE_METAL_GDB_LOCK_DIR)
 

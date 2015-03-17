@@ -14,7 +14,6 @@ import atexit
 import json
 import os
 import pipes
-import shutil
 import sys
 
 import build_common
@@ -44,7 +43,7 @@ def _remove_ndk_libraries(apk_path):
                                             build_common.get_android_root(),
                                             'data', 'app-lib',
                                             apk_name)
-    shutil.rmtree(native_library_directory, ignore_errors=True)
+    file_util.rmtree(native_library_directory, ignore_errors=True)
 
 
 def _generate_shell_command(parsed_args):

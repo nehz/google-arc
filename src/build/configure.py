@@ -89,7 +89,7 @@ def _cleanup_orphaned_pyc_files():
 
 def _cleanup_unittest_info():
   if os.path.exists(build_common.get_unittest_info_path()):
-    shutil.rmtree(build_common.get_unittest_info_path())
+    file_util.rmtree(build_common.get_unittest_info_path())
 
 
 def _gclient_sync_third_party():
@@ -184,7 +184,7 @@ def _configure_build_options():
   if os.path.lexists(old_path):
     if os.path.isdir(old_path) and not os.path.islink(old_path):
       if os.path.exists(new_path):
-        shutil.rmtree(old_path)
+        file_util.rmtree(old_path)
       else:
         shutil.move(old_path, new_path)
     else:
@@ -255,7 +255,7 @@ def _set_up_chromium_org_submodules():
     # If a real directory exists, remove it explicitly. |overwrite| flag does
     # not care for real directories and files, but old symlinks.
     if not os.path.islink(symlink) and os.path.isdir(symlink):
-      shutil.rmtree(symlink)
+      file_util.rmtree(symlink)
     file_util.create_link(symlink, source, overwrite=True)
 
 

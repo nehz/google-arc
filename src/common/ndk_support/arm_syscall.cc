@@ -5,8 +5,10 @@
 #include "common/ndk_support/arm_syscall.h"
 
 #include <errno.h>
+#include <linux/futex.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include "common/alog.h"
@@ -35,23 +37,42 @@ void RunCacheFlush(va_list ap) {
 }
 #endif
 
-int RunArmKernelSyscallImpl(int sysno, va_list ap) {
-  int result = -1;
-  switch (sysno) {
+int RunArmKernelSyscallImpl(int arm_sysno, va_list ap) {
+  switch (arm_sysno) {
     case 178:  // rt_sigqueueinfo
-      ALOGE("rt_sigqueueinfo is not supported, returning ENOSYS");
       return -ENOSYS;
     case 186:  // sigaltstack
-      ALOGE("sigaltstack is not supported, returning ENOSYS");
       return -ENOSYS;
-    case 224:  // gettid
-      result = gettid();
-      break;
+    case 224: {  // gettid
+      // Forward the call to __wrap_syscall in posix_translation.
+      int result = syscall(__NR_gettid);  // always succeeds
+      LOG_ALWAYS_FATAL_IF(result < 0);
+      return result;
+    }
+    case 240: {  // futex
+      // Forward the call to __wrap_syscall in posix_translation.
+      const int saved_errno = errno;
+      int* addr = va_arg(ap, int*);
+      int op = va_arg(ap, int);
+      int val = va_arg(ap, int);
+      timespec* timeout = va_arg(ap, timespec*);
+      int* addr2 = va_arg(ap, int*);
+      int val3 = va_arg(ap, int);
+
+      int result = syscall(__NR_futex, addr, op, val, timeout, addr2, val3);
+      if (result >= 0 && (op == FUTEX_WAKE || op == FUTEX_WAKE_PRIVATE))
+        return result;  // woken threads
+
+      if (result) {
+        result = -errno;
+        errno = saved_errno;
+      }
+      return result;
+    }
     case 241:  // sched_setaffinity
       ALOGI("sched_setaffinity is not supported, returning 0");
       return 0;  // pretend to succeed.
     case 307:  // shmget
-      ALOGE("shmget is not supported, returning ENOSYS");
       return -ENOSYS;
     case kCacheFlushSysno:  // cacheflush
 #if defined(USE_NDK_DIRECT_EXECUTION)
@@ -61,32 +82,39 @@ int RunArmKernelSyscallImpl(int sysno, va_list ap) {
 #endif
       return 0;
     default:
-      LOG_ALWAYS_FATAL("ARM syscall 0x%x not supported\n", sysno);
+      break;
   }
-  if (result < 0)
-    result = -errno;
-  return result;
+  LOG_ALWAYS_FATAL("ARM syscall %s not supported\n",
+                   arc::GetArmSyscallStr(arm_sysno).c_str());
+  return -ENOSYS;  // not reached
 }
 
 }  // namespace
 
-int RunArmKernelSyscall(int sysno, ...) {
-  // TODO(crbug.com/241955): Stringify |number|.
-  ARC_STRACE_ENTER("syscall_ndk", "%d, ...", sysno);
+int RunArmKernelSyscall(int arm_sysno, ...) {
+  // This function handles syscall (svc instructions) in ARM NDK binaries. This
+  // is for NDK translation. Since this is just for emulating svc, |errno| is
+  // never updated.
+  ARC_STRACE_ENTER("arm_kernel_syscall", "%s, ...",
+                   arc::GetArmSyscallStr(arm_sysno).c_str());
   va_list ap;
-  va_start(ap, sysno);
-  int result = RunArmKernelSyscallImpl(sysno, ap);
+  va_start(ap, arm_sysno);
+  const int result = RunArmKernelSyscallImpl(arm_sysno, ap);
   va_end(ap);
+  if (result == -ENOSYS)
+    ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   ARC_STRACE_RETURN_INT(result, false);
 }
 
 #if defined(USE_NDK_DIRECT_EXECUTION)
-int RunArmLibcSyscall(int sysno, ...) {
-  // TODO(crbug.com/241955): Stringify |number|.
-  ARC_STRACE_ENTER("syscall_libc", "%d, ...", sysno);
+int RunArmLibcSyscall(int arm_sysno, ...) {
+  // This function handles syscall() libc calls in ARM NDK binaries. Unlike
+  // RunArmKernelSyscall, this updates |errno| as needed.
+  ARC_STRACE_ENTER("arm_libc_syscall", "%s, ...",
+                   arc::GetArmSyscallStr(arm_sysno).c_str());
   va_list ap;
-  va_start(ap, sysno);
-  int result = RunArmKernelSyscallImpl(sysno, ap);
+  va_start(ap, arm_sysno);
+  int result = RunArmKernelSyscallImpl(arm_sysno, ap);
   va_end(ap);
 
   // This matches with the behavior of Bionic. See
@@ -95,6 +123,8 @@ int RunArmLibcSyscall(int sysno, ...) {
     errno = -result;
     result = -1;
   }
+  if (result == -1 && errno == ENOSYS)
+    ARC_STRACE_ALWAYS_WARN_NOTIMPLEMENTED();
   ARC_STRACE_RETURN(result);
 }
 #endif

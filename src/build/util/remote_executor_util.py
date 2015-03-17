@@ -8,6 +8,7 @@
 
 import atexit
 import glob
+import logging
 import os
 import pipes
 import shutil
@@ -20,9 +21,9 @@ from build_options import OPTIONS
 import filtered_subprocess
 from util import file_util
 from util import gdb_util
+from util import logging_util
 from util.minidump_filter import MinidumpFilter
 from util.test import unittest_util
-
 
 RUN_UNIT_TEST = 'src/build/run_unittest.py'
 SYNC_ADB = 'src/build/sync_adb.py'
@@ -274,7 +275,7 @@ class RemoteExecutor(object):
   def run_command_for_output(self, cmd):
     """Runs the command on remote host and returns stdout as a string."""
     full_cmd = self._build_ssh_command(cmd)
-    build_common.log_subprocess_popen(full_cmd)
+    logging.info('%s', logging_util.format_commandline(cmd))
     return subprocess.check_output(full_cmd)
 
   def _build_shared_command_options(self, port_option='-p'):
@@ -325,7 +326,7 @@ class RemoteExecutor(object):
 
 
 def run_command(cmd, ignore_failure=False):
-  build_common.log_subprocess_popen(cmd)
+  logging.info('%s', logging_util.format_commandline(cmd))
   call_func = subprocess.call if ignore_failure else subprocess.check_call
   return call_func(cmd)
 

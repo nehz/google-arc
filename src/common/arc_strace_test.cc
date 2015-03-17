@@ -5,6 +5,7 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
 
 #include "base/strings/stringprintf.h"
 #include "common/arc_strace.h"
@@ -95,6 +96,26 @@ TEST(ArcStrace, GetMedian) {
   input.push_back(3);
   input.push_back(4);
   EXPECT_EQ(3LL, GetMedian(&input));
+}
+
+TEST(ArcStrace, GetArmSyscallStr) {
+  EXPECT_EQ("__NR_exit", arc::GetArmSyscallStr(1));
+  EXPECT_EQ("__NR_gettid", arc::GetArmSyscallStr(224));
+  EXPECT_EQ("__NR_futex", arc::GetArmSyscallStr(240));
+  EXPECT_EQ("__NR_process_vm_writev", arc::GetArmSyscallStr(377));
+  EXPECT_EQ("__ARM_NR_cacheflush", arc::GetArmSyscallStr(0xf0002));
+  EXPECT_EQ("__ARM_NR_set_tls", arc::GetArmSyscallStr(0xf0005));
+}
+
+TEST(ArcStrace, GetSyscallStr) {
+  EXPECT_EQ("__NR_exit", arc::GetSyscallStr(__NR_exit));
+  EXPECT_EQ("__NR_gettid", arc::GetSyscallStr(__NR_gettid));
+  EXPECT_EQ("__NR_futex", arc::GetSyscallStr(__NR_futex));
+  EXPECT_EQ("__NR_setns", arc::GetSyscallStr(__NR_setns));
+#if defined(__arm__)
+  EXPECT_EQ("__ARM_NR_cacheflush", arc::GetSyscallStr(__ARM_NR_cacheflush));
+  EXPECT_EQ("__ARM_NR_set_tls", arc::GetSyscallStr(__ARM_NR_set_tls));
+#endif
 }
 
 }  // namespace arc

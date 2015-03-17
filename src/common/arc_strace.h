@@ -76,28 +76,33 @@ void StraceDumpStats(const std::string& user_str);
 void StraceResetStats();
 std::string GetStraceEnterString(const char* name, const char* format, ...)
     ATTR_PRINTF(2, 3);
+std::string GetStraceEnterFdString(const char* name, const char* format, ...)
+    ATTR_PRINTF(2, 3);
 
 // Pretty printers for enum values.
 std::string GetAccessModeStr(int mode);
-std::string GetOpenFlagStr(int flag);
+std::string GetArmSyscallStr(int arm_sysno);
 std::string GetDlopenFlagStr(int flag);
 std::string GetEpollCtlOpStr(int op);
 std::string GetEpollEventStr(uint32_t events);
+std::string GetFcntlCommandStr(int cmd);
+std::string GetFlockOperationStr(int operation);
+std::string GetFutexOpStr(int op);
+std::string GetIoctlRequestStr(int request);
+std::string GetLseekWhenceStr(int whence);
 std::string GetMadviseAdviceStr(int advice);
-std::string GetMmapProtStr(int prot);
 std::string GetMmapFlagStr(int flag);
+std::string GetMmapProtStr(int prot);
+std::string GetMremapFlagStr(int flag);
+std::string GetOpenFlagStr(int flag);
 std::string GetPollEventStr(int16_t events);
 std::string GetSchedSetSchedulerPolicyStr(int policy);
 std::string GetSetPriorityPrioStr(int prio);
 std::string GetSetPriorityWhichStr(int which);
 std::string GetSocketDomainStr(int domain);
-std::string GetSocketTypeStr(int type);
 std::string GetSocketProtocolStr(int protocol);
-std::string GetFlockOperationStr(int operation);
-std::string GetLseekWhenceStr(int whence);
-std::string GetMremapFlagStr(int flag);
-std::string GetFcntlCommandStr(int cmd);
-std::string GetIoctlRequestStr(int request);
+std::string GetSocketTypeStr(int type);
+std::string GetSyscallStr(int sysno);
 
 // A pretty printer for file descriptors. You can call this even when ARC-strace
 // is not enabled, but in that case, the function returns "???".
@@ -154,7 +159,7 @@ int64_t GetMedian(std::vector<int64_t>* samples);
   /* Remember the parameters passed to the macro without evaluating them. */  \
   auto arc_strace_get_enter_string__                                          \
   __attribute__((unused)) = [&]() -> std::string { /* NOLINT(build/c++11) */  \
-    return arc::GetStraceEnterString(__VA_ARGS__);                            \
+    return arc::GetStraceEnterFdString(__VA_ARGS__);                          \
   };                                                                          \
   do {                                                                        \
     if (arc::StraceEnabled())                                                 \

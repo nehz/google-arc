@@ -7,7 +7,6 @@
 
 import argparse
 import json
-import logging
 import os
 import re
 import sys
@@ -611,7 +610,4 @@ Native Client Debugging
 
   _resolve_perf_test_mode(args)
   _setup_filterspec_from_args(args)
-
-  logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
-
   return args

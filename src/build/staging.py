@@ -14,7 +14,6 @@
 # files are created as symlinks.
 
 import os
-import shutil
 import subprocess
 import sys
 
@@ -227,7 +226,7 @@ def create_staging():
   old_staging_links = _get_link_targets(staging_root)
 
   if os.path.lexists(staging_root):
-    shutil.rmtree(staging_root)
+    file_util.rmtree(staging_root)
 
   _create_symlink_tree(_MODS_DIR, _THIRD_PARTY_DIR, staging_root)
 

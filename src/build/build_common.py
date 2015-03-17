@@ -11,7 +11,6 @@ import json
 import logging
 import modulefinder
 import os
-import pipes
 import platform
 import random
 import re
@@ -23,7 +22,6 @@ import urllib2
 import dependency_inspection
 from build_options import OPTIONS
 from util import file_util
-from util import launch_chrome_util
 from util import platform_util
 
 OUT_DIR = 'out'
@@ -120,42 +118,6 @@ def as_dict(input):
   if isinstance(input, dict):
     return input
   raise TypeError('Cannot convert to dictionary')
-
-
-def log_subprocess_popen(args, bufsize=0, executable=None, stdin=None,
-                         stdout=None, stderr=None, preexec_fn=None,
-                         close_fds=False, shell=False, cwd=None, env=None,
-                         universal_newlines=False, startupinfo=None,
-                         creationflags=0):
-  """Outputs the subprocess command line to the logging.info.
-
-  The arguments of this function are the same as that of the Popen constructor.
-  """
-  safe_args = args
-  unsafe_args = []
-  if launch_chrome_util.is_launch_chrome_command(args):
-    (safe_args, unsafe_args) = launch_chrome_util.split_launch_chrome_args(args)
-
-  output_text = []
-
-  # If cwd was specified, emulate it with a pushd
-  if cwd:
-    output_text.extend(['pushd', cwd, ';'])
-  if env:
-    output_text.extend('%s=%s' % item for item in env.iteritems())
-  if executable:
-    output_text.append(executable)
-  output_text.extend(safe_args)
-  # If cwd was specified, clean up with a popd
-  if cwd:
-    output_text.extend([';', 'popd'])
-
-  logging.info('$ ' + pipes.quote(' '.join(output_text)))
-
-  if unsafe_args:
-    logging.info('NOTE: The following options were omitted in the command '
-                 'line above to make it suitable for debugging use: %s ' %
-                 pipes.quote(' '.join(unsafe_args)))
 
 
 def get_arc_root():

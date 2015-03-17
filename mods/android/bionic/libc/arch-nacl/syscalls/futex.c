@@ -61,7 +61,7 @@ int  __futex_syscall4(volatile void *ftx, int op, int val,
         nacl_timeout_ptr = &nacl_timeout;
       }
       SAVE_CONTEXT_REGS();
-      // NaCL returns positive error codes, while syscalls returns negative.
+      // NaCl returns positive error codes, while syscalls return negative.
       int result = -__nacl_irt_futex_wait_abs(ftx, val, nacl_timeout_ptr);
       CLEAR_CONTEXT_REGS();
       return result;
@@ -69,9 +69,11 @@ int  __futex_syscall4(volatile void *ftx, int op, int val,
     case FUTEX_WAKE:
     case FUTEX_WAKE_PRIVATE: {
       int count;
-      // NaCl futex_wake syscall never returns an error.
-      __nacl_irt_futex_wake(ftx, val, &count);
-      return count;
+      // NaCl returns positive error codes, while syscalls return negative.
+      int result = -__nacl_irt_futex_wake(ftx, val, &count);
+      if (!result)
+        return count;
+      return result;
     }
     default: {
       static const int kStderrFd = 2;

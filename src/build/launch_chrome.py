@@ -26,6 +26,7 @@ from util import debug
 from util import file_util
 from util import gdb_util
 from util import jdb_util
+from util import logging_util
 from util import nonblocking_io
 from util import platform_util
 from util import remote_executor
@@ -343,6 +344,7 @@ def main():
   OPTIONS.parse_configure_file()
 
   parsed_args = launch_chrome_options.parse_args(sys.argv)
+  logging_util.setup(verbose=parsed_args.verbose)
 
   _prepare_chrome_user_data_dir(parsed_args)
   global _CHROME_PID_PATH

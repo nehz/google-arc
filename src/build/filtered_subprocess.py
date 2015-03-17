@@ -13,8 +13,8 @@ import subprocess
 import sys
 import time
 
-import build_common
 from util import nonblocking_io
+from util import logging_util
 
 
 class _BlackHoleOutputHandler(object):
@@ -68,15 +68,16 @@ class Popen(subprocess.Popen):
         'We do not expect to run process with shell.')
     assert kwargs.get('bufsize', 0) == 0, (
         'buffering should be disabled.')
+    formatted_commandline = logging_util.format_commandline(
+        args, cwd=kwargs.get('cwd'), env=kwargs.get('env'))
+    logging.info('Popen: %s', formatted_commandline)
     try:
       super(Popen, self).__init__(
           args, stdout=stdout, stderr=stderr, stdin=stdin, **kwargs)
-    except:
-      logging.error('Popen for args %s failed', args)
+    except Exception:
+      logging.error('Popen failed: %s', formatted_commandline)
       raise
-
-    logging.info('Created pid %d; the command follows:', self.pid)
-    build_common.log_subprocess_popen(args, **kwargs)
+    logging.info('Created pid %d', self.pid)
     self._initialize_state()
 
   def _initialize_state(self):

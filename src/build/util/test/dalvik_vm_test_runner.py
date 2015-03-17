@@ -4,7 +4,6 @@
 
 import os
 import re
-import shutil
 import stat
 import subprocess
 import time
@@ -120,7 +119,7 @@ class DalvikVMTestRunner(suite_runner.SuiteRunnerBase):
     """Builds test jar files for a test."""
     test_dir = self._test_dir
     if os.path.exists(test_dir):
-      shutil.rmtree(test_dir)
+      file_util.rmtree(test_dir)
 
     # Copy the source directory to the working directory.
     # Note that we must not copy the files by python's internal utilities

@@ -32,6 +32,7 @@ from build_options import OPTIONS
 from ninja_generator import ApkFromSdkNinjaGenerator
 from util import file_util
 from util import launch_chrome_util
+from util import logging_util
 from util import remote_executor
 from util.test import dalvik_vm_test_runner
 from util.test import suite_runner
@@ -337,11 +338,6 @@ class VMPerfDriver(BaseDriver):
     _queue_data(self._args, 'vm_benchmarks', 'ms', results)
 
 
-def _set_logging_level(args):
-  logging_level = logging.DEBUG if args.verbose else logging.WARNING
-  logging.basicConfig(format='%(message)s', level=logging_level)
-
-
 class ApkBenchDriver(BaseDriver):
   """Run APK via ATF for performance benchmarks.
 
@@ -422,8 +418,7 @@ def main():
 
   args = parser.parse_args()
   remote_executor.maybe_detect_remote_host_type(args)
-
-  _set_logging_level(args)
+  logging_util.setup(verbose=args.verbose)
 
   clazz = create_test_class(args.mode)
   clazz(args).main()

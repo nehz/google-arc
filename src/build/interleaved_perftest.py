@@ -17,6 +17,7 @@ import sys
 import build_common
 from build_options import OPTIONS
 import filtered_subprocess
+from util import logging_util
 from util import statistics
 
 # Prefixes for stash directories.
@@ -121,10 +122,6 @@ Typical usage:
   clean_parser.set_defaults(entrypoint=handle_clean)
 
   parsed_args = root_parser.parse_args(args)
-
-  logging.basicConfig(
-      level=logging.DEBUG if parsed_args.verbose else logging.INFO)
-
   return parsed_args
 
 
@@ -314,7 +311,8 @@ class InteractivePerfTestRunner(object):
     else:
       args = ['bash', '-c']
     args.append('rm -f "%s"' % self._iteration_lock_file)
-    build_common.log_subprocess_popen(args, cwd=self._arc_root)
+    logging.info('$ %s',
+                 logging_util.format_commandline(args, cwd=self._arc_root))
     subprocess.check_call(args, cwd=self._arc_root)
 
   def _on_perf(self, perf):
@@ -538,6 +536,7 @@ def handle_compare(parsed_args):
 def main():
   OPTIONS.parse_configure_file()
   parsed_args = _parse_args(sys.argv[1:])
+  logging_util.setup(verbose=parsed_args.verbose)
   return parsed_args.entrypoint(parsed_args)
 
 
