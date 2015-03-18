@@ -459,7 +459,7 @@ def _compute_chrome_plugin_params(parsed_args):
   params.append(
       '--user-data-dir=' + remote_executor.resolve_path(_USER_DATA_DIR))
 
-  # Not all targets can use nonsfi mode (even with the whitelist).
+  # Not all targets can use nonsfi mode.
   if OPTIONS.is_bare_metal_build():
     params.append('--enable-nacl-nonsfi-mode')
 
