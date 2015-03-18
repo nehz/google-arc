@@ -82,7 +82,7 @@ static void* SignalAll(void* ftx) {
   return NULL;
 }
 
-TEST(SyscallWrapTest, TestFutexWakePrivate) {
+TEST(SyscallWrapTest, QEMU_DISABLED_TestFutexWakePrivate) {
   int ftx = 0;
 
   pthread_t th;

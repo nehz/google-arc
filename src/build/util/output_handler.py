@@ -305,7 +305,6 @@ class PerfTestHandler(object):
     else:
       self.in_exception = False
     self.last_line = line
-    self._update_timeout()
 
   def handle_stderr(self, line):
     self._handle_line_common(line)
@@ -324,16 +323,11 @@ class PerfTestHandler(object):
       sys.stderr.write(dash_line + '\n')
 
       self.resumed_time = time.time()
-      if self.parsed_args.minimum_lifetime:
-        self.chrome_process.update_timeout(self.parsed_args.minimum_lifetime)
-        return
       if self.parsed_args.mode == 'perftest' and self.cache_warming:
         # Wait for NaCl validation cache to flush before killing chrome.
-        self.chrome_process.update_timeout(_CACHE_WARMING_CHROME_KILL_DELAY)
+        self.chrome_process.terminate_later(_CACHE_WARMING_CHROME_KILL_DELAY)
         return
-      if not self.parsed_args.minimum_steady:
-        self._finish()
-    self._update_timeout()
+      self._finish()
 
   def _finish(self):
     if not self.any_errors:
@@ -341,14 +335,6 @@ class PerfTestHandler(object):
     else:
       print '[  FAILED  ]'
     self.reached_done = True
-
-  def _update_timeout(self):
-    if not self.resumed_time or not self.parsed_args.minimum_steady:
-      return
-    secs_after_resumed = time.time() - self.resumed_time
-    if secs_after_resumed > self.parsed_args.timeout:
-      return
-    self.chrome_process.update_timeout(self.parsed_args.minimum_steady)
 
   def is_done(self):
     return self.reached_done

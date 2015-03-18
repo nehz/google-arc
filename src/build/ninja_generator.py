@@ -293,7 +293,8 @@ class NinjaGenerator(ninja_syntax.Writer):
   def __init__(self, module_name, ninja_name=None,
                host=False, generate_path=True, base_path=None,
                implicit=None, target_groups=None,
-               extra_notices=None, notices_only=False):
+               extra_notices=None, notices_only=False,
+               use_global_scope=False):
     if ninja_name is None:
       ninja_name = module_name
     self._module_name = module_name
@@ -325,6 +326,14 @@ class NinjaGenerator(ninja_syntax.Writer):
       self._notices.add_sources(extra_notices)
     # TODO(crbug.com/366751): remove notice_archive hack when possible
     self._notice_archive = None
+
+    # This Ninja will be imported to the top-level ninja by "include" statement
+    # instead of "subninja" if |_use_global_scope| is True.  So that all
+    # variables and rules are available in all subninjas.
+    # TODO(tzik): Shared rules needs to be in the global scope to support
+    # Ninja-1.5.3 or older. Move them to where the rule is used once we fully
+    # moved to a newer Ninja.
+    self._use_global_scope = use_global_scope
 
     for line in self._debuginfo.split('\n'):
       self.comment(line)
@@ -392,11 +401,6 @@ class NinjaGenerator(ninja_syntax.Writer):
                build_common.get_unittest_info_path(),
                NinjaGenerator._PRETTY_PRINT_JSON_PATH),
            description='Build test info $out')
-
-    n.rule('generate_html',
-           command=('src/packaging/generate_file_from_template.py $minify_opt '
-                    '$keyvalues $in > $out || (rm -f $out; exit 1)'),
-           description='generate_html $in')
 
   @staticmethod
   def consume_ninjas():
@@ -1776,7 +1780,10 @@ class TopLevelNinjaGenerator(NinjaGenerator):
   def emit_subninja_rules(self, ninja_list):
     for ninja in ninja_list:
       if ninja._ninja_path != self.get_module_name():
-        self.subninja(ninja._ninja_path)
+        if ninja._use_global_scope:
+          self.include(ninja._ninja_path)
+        else:
+          self.subninja(ninja._ninja_path)
 
   def emit_target_groups_rules(self, ninja_list):
     all_target_groups = _TargetGroups()

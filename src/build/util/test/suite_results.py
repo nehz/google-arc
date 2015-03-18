@@ -180,7 +180,7 @@ class SuiteResultsBase(object):
   Records basically how many suites of various kinds occurred, with plain output
   presented.  Messages are formatted using the writer given during construction.
   """
-  def __init__(self, suite_states, options, writer=_PLAIN_WRITER,
+  def __init__(self, test_driver_list, options, writer=_PLAIN_WRITER,
                reverse_writer=_PLAIN_WRITER):
     self._writer = writer
     self._reverse_writer = reverse_writer
@@ -188,8 +188,8 @@ class SuiteResultsBase(object):
     self._start_time = time.time()
     self._important_warnings = 0
 
-    self._suite_states = suite_states
-    self._remaining_suites = suite_states[:]
+    self._test_driver_list = test_driver_list
+    self._remaining_suites = test_driver_list[:]
     self._running_suites = set()
 
     self._run_count = 0
@@ -197,8 +197,8 @@ class SuiteResultsBase(object):
     self._expected_test_count = 0
     self._counters = collections.Counter()
 
-    for suite_state in suite_states:
-      self._expected_test_count += suite_state.scoreboard.total
+    for test_driver in test_driver_list:
+      self._expected_test_count += test_driver.scoreboard.total
 
   @property
   def pass_count(self):
@@ -238,52 +238,52 @@ class SuiteResultsBase(object):
     if self.should_write(msgtype):
       self._writer.write(msgtype, message)
 
-  def _get_suite_state(self, score_board):
-    return next((ss for ss in self._suite_states
-                 if ss.scoreboard == score_board), None)
+  def _get_test_driver(self, score_board):
+    return next((test_driver for test_driver in self._test_driver_list
+                 if test_driver.scoreboard == score_board), None)
 
   def start(self, score_board):
-    suite_state = self._get_suite_state(score_board)
-    self._running_suites.add(suite_state)
-    self.report_start(suite_state)
+    test_driver = self._get_test_driver(score_board)
+    self._running_suites.add(test_driver)
+    self.report_start(test_driver)
 
   def restart(self, score_board):
-    suite_state = self._get_suite_state(score_board)
+    test_driver = self._get_test_driver(score_board)
     incomplete = score_board.get_incomplete_tests()
     if len(incomplete):
       self.warn('Retrying %d tests in %s that did not complete.\n' %
-                (len(incomplete), suite_state.name), True)
+                (len(incomplete), test_driver.name), True)
     blacklist = score_board.get_incomplete_blacklist()
     if len(blacklist):
       self.warn('Blacklisting %d tests in %s that did not complete\n' %
-                (len(blacklist), suite_state.name), True)
+                (len(blacklist), test_driver.name), True)
     self.warn('Retrying %d tests in %s.\n' %
-              (len(suite_state.tests_to_run), suite_state.name), False)
-    self.report_restart(suite_state)
+              (len(test_driver.tests_to_run), test_driver.name), False)
+    self.report_restart(test_driver)
 
   def abort(self, score_board):
     self.warn('Aborting running %s -- the number of tests remaining to run is'
               ' not decreasing.' % score_board.name)
 
   def start_test(self, score_board, test):
-    suite_state = self._get_suite_state(score_board)
-    self.report_start_test(suite_state, test)
+    test_driver = self._get_test_driver(score_board)
+    self.report_start_test(test_driver, test)
 
   def update_test(self, score_board, name, status, duration):
-    suite_state = self._get_suite_state(score_board)
+    test_driver = self._get_test_driver(score_board)
     self._run_count += 1
     if status in _PASS_STATUS:
       self._pass_count += 1
     self._counters.update([status])
-    self.report_update_test(suite_state, name, status, duration)
+    self.report_update_test(test_driver, name, status, duration)
 
   def end(self, score_board):
-    suite_state = self._get_suite_state(score_board)
-    if suite_state in self._remaining_suites:
-      self._remaining_suites.remove(suite_state)
-    if suite_state in self._running_suites:
-      self._running_suites.remove(suite_state)
-    self.report_end(suite_state, score_board)
+    test_driver = self._get_test_driver(score_board)
+    if test_driver in self._remaining_suites:
+      self._remaining_suites.remove(test_driver)
+    if test_driver in self._running_suites:
+      self._running_suites.remove(test_driver)
+    self.report_end(test_driver, score_board)
 
   def warn(self, message, important=True):
     warntype = _WARNING
@@ -305,13 +305,13 @@ class SuiteResultsBase(object):
   def report_restart(self, suite):
     pass
 
-  def report_start_test(self, suite_state, test):
+  def report_start_test(self, test_driver, test):
     pass
 
-  def report_update_test(self, suite_state, name, status, duration):
+  def report_update_test(self, test_driver, name, status, duration):
     pass
 
-  def report_end(self, suite_state, scoreboard):
+  def report_end(self, test_driver, scoreboard):
     pass
 
   def report_summary(self):
@@ -386,11 +386,11 @@ class SuiteResultsBase(object):
     return w
 
   def _write_results(self):
-    if self._suite_states:
+    if self._test_driver_list:
       self._writer.header(_INFO, 'Results')
-      for suite_state in self._suite_states:
-        sb = suite_state.scoreboard
-        label = _pretty_label(suite_state.name)
+      for test_driver in self._test_driver_list:
+        sb = test_driver.scoreboard
+        label = _pretty_label(test_driver.name)
         self._writer.write(_NORMAL, label)
         self._write_scoreboard_stats(self._writer, sb)
         self._writer.write(_NORMAL, '  ')
@@ -398,7 +398,7 @@ class SuiteResultsBase(object):
         self._writer.write(_NORMAL, '\n')
 
   def _write_raw_output(self):
-    for suite in self._suite_states:
+    for suite in self._test_driver_list:
       if (suite.scoreboard.unexpected_failed or
           suite.scoreboard.expected_failed or
           suite.scoreboard.incompleted):
@@ -411,8 +411,8 @@ class SuiteResultsBase(object):
     expected_failures = []
     unexpected_passes = []
     unexpected_failures = []
-    for suite_state in self._suite_states:
-      sb = suite_state.scoreboard
+    for test_driver in self._test_driver_list:
+      sb = test_driver.scoreboard
 
       def prepend_suite_name(test):
         return '%s:%s' % (sb.name, test)
@@ -463,10 +463,10 @@ class SuiteResultsBuildBot(SuiteResultsBase):
   the integration test run phase of the buildbot.
   """
 
-  def __init__(self, suite_states, options):
+  def __init__(self, test_driver_list, options):
     # TODO(elijahtaylor): Investigate HTML formatting on the bots. These HTML
     # bits are being escaped in the bot logs. For now do no formatting.
-    super(SuiteResultsBuildBot, self).__init__(suite_states, options)
+    super(SuiteResultsBuildBot, self).__init__(test_driver_list, options)
     self._warn_on_failure = options.warn_on_failure
 
   def _emit_step_text_annotation(self, message):
@@ -489,30 +489,30 @@ class SuiteResultsBuildBot(SuiteResultsBase):
           self._counters[scoreboard_constants.UNEXPECT_PASS]):
       self._emit_step_message('WARNINGS')
 
-  def report_start_test(self, suite_state, test):
+  def report_start_test(self, test_driver, test):
     if self._options.output == 'verbose':
       self.write(_NORMAL, '- ')
-    sb = suite_state.scoreboard
+    sb = test_driver.scoreboard
     # Add 1 since this test is not included in the 'completed' count yet.
     progress = _pretty_progress(sb.completed + 1, sb.total)
     label = _pretty_label(sb.name + ' ' + progress)
     self.write(_NORMAL, '%s - ' % (label))
     self.write(_NORMAL, '(Running) %s\n' % (test))
 
-  def report_update_test(self, suite_state, name, status, duration):
+  def report_update_test(self, test_driver, name, status, duration):
     if self._options.output == 'verbose':
       self.write(_NORMAL, '- ')
-    sb = suite_state.scoreboard
+    sb = test_driver.scoreboard
     progress = _pretty_progress(sb.completed, sb.total)
     label = _pretty_label(sb.name + ' ' + progress)
     self.write(_NORMAL, '%s - ' % (label))
     self._write_status(self._writer, status, duration, True)
     self.write(_NORMAL, ' %s\n' % (name))
 
-  def report_end(self, suite_state, sb):
+  def report_end(self, test_driver, sb):
     if self._options.output == 'verbose':
       self.write(_NORMAL, '- ')
-    label = _pretty_label(suite_state.name)
+    label = _pretty_label(test_driver.name)
     self.write(_NORMAL, '%s # ' % (label))
     self._write_status(self._writer, sb.overall_status, sb.duration, True)
     self._write_scoreboard_stats(self._writer, sb)
@@ -536,9 +536,9 @@ class SuiteResultsAnsi(SuiteResultsBase):
   finally shows a summary of the results.  Handles verbose mode as well.
   """
 
-  def __init__(self, suite_states, options):
+  def __init__(self, test_driver_list, options):
     super(SuiteResultsAnsi, self).__init__(
-        suite_states, options, writer=_ANSI_WRITER,
+        test_driver_list, options, writer=_ANSI_WRITER,
         reverse_writer=_REVERSE_ANSI_WRITER)
 
   def should_write(self, message_type):
@@ -569,7 +569,7 @@ class SuiteResultsAnsi(SuiteResultsBase):
   def report_start(self, suite):
     self._update_progress()
 
-  def report_update_test(self, suite_state, name, status, duration):
+  def report_update_test(self, test_driver, name, status, duration):
     self._update_progress()
 
   def report_results(self, suite_name, is_completed=True):
@@ -583,32 +583,31 @@ class SuiteResultsAnsi(SuiteResultsBase):
     self._write_summary(terse=True)
 
 
-class SuiteResultsPrepare(SuiteResultsAnsi):
+class SuiteResultsPrepare(SuiteResultsBase):
   """Outputs the progress of preparing files for remote executions."""
 
-  def should_write(self, message_type):
-    return False
+  def __init__(self, test_driver_list, options):
+    super(SuiteResultsPrepare, self).__init__(test_driver_list, options)
+    self._suites = set()
 
-  def _write_progress(self):
-    writer = self._reverse_writer
-    remaining = color.get_terminal_width()
-    remaining -= writer.write(_INFO, 'Preparing tests: %d/%d % 3s%% ' %
-                              (self.run_count, self.total_count,
-                               self.run_percent))
-    self._write_running_tests(writer, remaining)
-
-  def report_summary(self):
-    self.write(_INFO, 'Finished preparations.\n')
+  def report_update_test(self, test_driver, name, status, duration):
+    # Print messages in report_update_test because only report_update_test and
+    # report_end are called in the case of prepare_only path.
+    # As report_update_test is called per test method, limit the output per
+    # suite so that the output does not get too verbose.
+    if test_driver.name not in self._suites:
+      self._writer.write(_INFO, 'Preparing: %s\n' % test_driver.name)
+      self._suites.add(test_driver.name)
 
 
-def initialize(suite_states, args, prepare_only):
+def initialize(test_driver_list, args, prepare_only):
   global SuiteResults
   if prepare_only:
-    SuiteResults = Synchronized(SuiteResultsPrepare(suite_states, args))
+    SuiteResults = Synchronized(SuiteResultsPrepare(test_driver_list, args))
   elif args.ansi:
-    SuiteResults = Synchronized(SuiteResultsAnsi(suite_states, args))
+    SuiteResults = Synchronized(SuiteResultsAnsi(test_driver_list, args))
   else:
-    SuiteResults = Synchronized(SuiteResultsBuildBot(suite_states, args))
+    SuiteResults = Synchronized(SuiteResultsBuildBot(test_driver_list, args))
 
 
 def summarize():

@@ -210,7 +210,7 @@ def _run_suites(test_driver_list, args, prepare_only=False):
   """Runs the indicated suites."""
   _prepare_output_directory(args)
 
-  util.test.suite_results.initialize(test_driver_list, args, args.remote)
+  util.test.suite_results.initialize(test_driver_list, args, prepare_only)
 
   if not test_driver_list:
     return False

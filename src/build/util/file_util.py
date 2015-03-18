@@ -105,10 +105,19 @@ def write_atomically(filepath, content):
   temporary file to the desired file path. In this way, an incomplete file is
   not created even if the thread is interrupted in the middle of the function.
   """
+  generate_file_atomically(filepath, lambda f: f.write(content))
+
+
+def generate_file_atomically(filepath, generator):
+  """Generate a file atomically.
+
+  This function is similar to write_atomically but takes a function to generate
+  file content instead of the content itself.
+  """
   with tempfile.NamedTemporaryFile(
       delete=False, dir=os.path.dirname(filepath)) as f:
     atexit.register(lambda: remove_file_force(f.name))
-    f.write(content)
+    generator(f.file)
   os.rename(f.name, filepath)
 
 

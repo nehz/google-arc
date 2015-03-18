@@ -16,18 +16,17 @@ import time
 import urlparse
 
 import build_common
-import filtered_subprocess
 import launch_chrome_options
 import prep_launch_chrome
 import toolchain
 import util.statistics
 from build_options import OPTIONS
+from util import chrome_process
 from util import debug
 from util import file_util
 from util import gdb_util
 from util import jdb_util
 from util import logging_util
-from util import nonblocking_io
 from util import platform_util
 from util import remote_executor
 from util.minidump_filter import MinidumpFilter
@@ -393,83 +392,22 @@ def main():
   return 0
 
 
-class ChromeProcess(filtered_subprocess.Popen):
-  def __init__(self, params):
-    if not platform_util.is_running_on_cygwin():
-      super(ChromeProcess, self).__init__(params)
-      self._tail_stdout_process = None
-      self._tail_stderr_process = None
-      return
-
-    # To launch on Cygwin, stdout and stderr for NaCl is not yet supported.
-    # Instead, here we redirect them to each file, and use "tail -f".
-    # See also remote_windows_executor.py for more details.
-    # We also stdout and stderr of Chrome to temporary files and pass them to
-    # tail so that the outputs from both Chrome and NaCl are filtered by the
-    # output handler.
-    chrome_stdout = file_util.create_tempfile_deleted_at_exit(
-        prefix='Chrome-stdout')
-    chrome_stderr = file_util.create_tempfile_deleted_at_exit(
-        prefix='Chrome-stderr')
-    super(ChromeProcess, self).__init__(params,
-                                        stdout=chrome_stdout,
-                                        stderr=chrome_stderr)
-    nacl_logfile_path = os.environ['NACLLOG']
-    nacl_stdout_path = os.environ['NACL_EXE_STDOUT']
-    nacl_stderr_path = os.environ['NACL_EXE_STDERR']
-
-    # Poll until all files are created.
-    while (not os.path.exists(nacl_logfile_path) or
-           not os.path.exists(nacl_stdout_path) or
-           not os.path.exists(nacl_stderr_path)):
-      time.sleep(0.1)
-    self._tail_stdout_process = subprocess.Popen(
-        ['tail', '-f', chrome_stdout.name, nacl_stdout_path, '-n', '+1'],
-        stdout=subprocess.PIPE)
-    self._tail_stderr_process = subprocess.Popen(
-        ['tail', '-f', chrome_stderr.name, nacl_stderr_path, '-n', '+1'],
-        stdout=subprocess.PIPE)
-    self.stdout = nonblocking_io.LineReader(self._tail_stdout_process.stdout)
-    self.stderr = nonblocking_io.LineReader(self._tail_stderr_process.stdout)
-
-  def terminate_tail_processes(self):
-    if self._tail_stdout_process and self._tail_stdout_process.poll() is None:
-      self._tail_stdout_process.terminate()
-      self._tail_stdout_process = None
-    if self._tail_stderr_process and self._tail_stderr_process.poll() is None:
-      self._tail_stderr_process.terminate()
-      self._tail_stderr_process = None
-
-  def kill_tail_processes(self):
-    if self._tail_stdout_process and self._tail_stdout_process.poll() is None:
-      self._tail_stdout_process.kill()
-      self._tail_stdout_process = None
-    if self._tail_stderr_process and self._tail_stderr_process.poll() is None:
-      self._tail_stderr_process.kill()
-      self._tail_stderr_process = None
-
-  def terminate(self):
-    self.terminate_tail_processes()
-    super(ChromeProcess, self).terminate()
-
-  def kill(self):
-    self.kill_tail_processes()
-    super(ChromeProcess, self).kill()
-
-  def get_error_level(self):
-    error_level = self.returncode
+def _get_status_code(chrome_returncode, output_handler):
+  if chrome_returncode == -signal.SIGTERM:
     # Chrome exits with -signal.SIGTERM (-15) on Mac and Cygwin when it
     # receives SIGTERM, so -signal.SIGTERM (-15) is an expected exit code.
     # Although Chrome on Linux handles SIGTERM and exits with 0, we treat it
     # in the same way as other platforms for consistency.
-    if error_level == -signal.SIGTERM:
-      error_level = 0
+    error_level = 0
+  elif chrome_returncode == -signal.SIGKILL:
     # Sometimes Chrome is not terminated by SIGTERM.
     # In such a case, we send SIGKILL to kill the process, so -signal.SIGKILL
     # (-9) is also expected exit code.
-    if error_level == -signal.SIGKILL:
-      error_level = 0
-    return error_level
+    error_level = 0
+  else:
+    # Otherwise, use the Chrome's returncode as is.
+    error_level = chrome_returncode
+  return output_handler.get_error_level(error_level)
 
 
 def _compute_chrome_plugin_params(parsed_args):
@@ -485,7 +423,7 @@ def _compute_chrome_plugin_params(parsed_args):
     params.append(
         '--user-data-dir=' + remote_executor.resolve_path(_USER_DATA_DIR))
 
-  # Not all targets can use nonsfi mode (even with the whitelist).
+  # Not all targets can use nonsfi mode.
   if OPTIONS.is_bare_metal_build():
     params.append('--enable-nacl-nonsfi-mode')
 
@@ -725,12 +663,6 @@ def _select_chrome_timeout(parsed_args):
   return parsed_args.timeout
 
 
-def _select_chrome_output_timeout(parsed_args):
-  if not _should_timeouts_be_used(parsed_args):
-    return None
-  return parsed_args.output_timeout
-
-
 def _select_output_handler(parsed_args, stats, chrome_process, **kwargs):
   if parsed_args.mode == 'atftest':
     output_handler = AtfTestHandler()
@@ -773,10 +705,6 @@ def _select_output_handler(parsed_args, stats, chrome_process, **kwargs):
 def _terminate_chrome(chrome):
   _remove_chrome_pid_file(chrome.pid)
 
-  if chrome.poll() is not None:
-    # The chrome process is already terminated.
-    return
-
   if OPTIONS.is_nacl_build():
     # For now use sigkill, as NaCl's debug stub seems to cause sigterm to
     # be ignored.
@@ -784,16 +712,7 @@ def _terminate_chrome(chrome):
   else:
     chrome.terminate()
 
-  # Unfortunately, there is no convenient API to wait subprocess's termination
-  # with timeout. So, here we just poll it.
-  wait_time_limit = time.time() + _CHROME_KILL_TIMEOUT
-  while True:
-    if chrome.poll() is not None:
-      break
-    now = time.time()
-    if now > wait_time_limit:
-      break
-    time.sleep(min(_CHROME_KILL_DELAY, wait_time_limit - now))
+  chrome.wait(_CHROME_KILL_TIMEOUT)
 
 
 def _run_chrome(parsed_args, stats, **kwargs):
@@ -812,7 +731,8 @@ def _run_chrome(parsed_args, stats, **kwargs):
 
   # Similar to adb subprocess, using atexit has timing issue. See above comment
   # for the details.
-  p = ChromeProcess(params)
+  chrome_timeout = _select_chrome_timeout(parsed_args)
+  p = chrome_process.ChromeProcess(params, timeout=chrome_timeout)
   atexit.register(_terminate_chrome, p)
 
   gdb_util.maybe_launch_gdb(parsed_args.gdb, parsed_args.gdb_type, p.pid)
@@ -825,24 +745,21 @@ def _run_chrome(parsed_args, stats, **kwargs):
   with open(_CHROME_PID_PATH, 'w') as pid_file:
     pid_file.write('%d\n' % p.pid)
 
-  chrome_timeout = _select_chrome_timeout(parsed_args)
-  chrome_output_timeout = _select_chrome_output_timeout(parsed_args)
   output_handler = _select_output_handler(parsed_args, stats, p, **kwargs)
 
   # Wait for the process to finish or us to be interrupted.
   try:
-    p.run_process_filtering_output(output_handler, timeout=chrome_timeout,
-                                   output_timeout=chrome_output_timeout)
+    chrome_returncode = p.handle_output(output_handler)
   except KeyboardInterrupt:
     sys.exit(1)
 
-  if p.returncode:
-    logging.error('Chrome is terminated with status code: %d', p.returncode)
+  if chrome_returncode:
+    logging.error('Chrome is terminated with status code: %d',
+                  chrome_returncode)
 
-  error_level = p.get_error_level()
-  error_level = output_handler.get_error_level(error_level)
-  if error_level != 0:
-    sys.exit(error_level)
+  status_code = _get_status_code(chrome_returncode, output_handler)
+  if status_code:
+    sys.exit(status_code)
 
 
 if __name__ == '__main__':

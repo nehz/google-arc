@@ -140,14 +140,12 @@ class ConfigCache(object):
     }
 
   def save_to_file(self, path):
-    file_util.makedirs_safely(os.path.dirname(path))
-    with open(path, 'w') as file:
-      marshal.dump(self.to_dict(), file)
+    _save_dict_to_file(self.to_dict(), path)
 
 
-def _load_config_cache_from_file(path):
+def _load_dict_from_file(path):
   try:
-    with open(path, 'r') as file:
+    with open(path) as file:
       data = marshal.load(file)
   except EOFError:
     return None
@@ -155,8 +153,17 @@ def _load_config_cache_from_file(path):
     if e.errno == errno.ENOENT:
       return None
     raise
+  return data
 
-  if data['version'] != _CONFIG_CACHE_VERSION:
+
+def _save_dict_to_file(dict, path):
+  file_util.makedirs_safely(os.path.dirname(path))
+  file_util.generate_file_atomically(path, lambda f: marshal.dump(dict, f))
+
+
+def _load_config_cache_from_file(path):
+  data = _load_dict_from_file(path)
+  if data is None or data['version'] != _CONFIG_CACHE_VERSION:
     return None
 
   config_name = data['config_name']

@@ -7,6 +7,7 @@
 # CRX files, config files, and test jar files.
 
 import argparse
+import logging
 import os
 import re
 import subprocess
@@ -121,6 +122,7 @@ if __name__ == '__main__':
   if parsed_args.run_ninja:
     build_common.run_ninja()
 
+  logging.basicConfig(level=logging.WARNING)
   integration_tests_args = _get_integration_tests_args(parsed_args.jobs)
   assert run_integration_tests.prepare_suites(integration_tests_args)
 

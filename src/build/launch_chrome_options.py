@@ -117,10 +117,6 @@ def _validate_perftest_settings(parser, args):
       parser.error("--no-cache-warming only valid in 'perftest' mode")
     if args.iterations:
       parser.error("--iterations only valid in 'perftest' mode")
-    if args.minimum_lifetime:
-      parser.error("--minimum-lifetime only valid in 'perftest' mode")
-    if args.minimum_steady:
-      parser.error("--minimum-steady only valid in 'perftest' mode")
     if args.iteration_lock_file:
       parser.error("--iteration-lock-file only valid in 'perftest' mode")
 
@@ -452,16 +448,6 @@ Native Client Debugging
   parser.add_argument('--log-load-progress', action='store_true', default=None,
                       help='Log asset and class accesses')
 
-  parser.add_argument('--minimum-lifetime', type=int, default=0, metavar='<T>',
-                      help='Works with perftest only. Specifies timeout after '
-                      'onResume.')
-
-  parser.add_argument('--minimum-steady', type=int, default=0, metavar='<T>',
-                      help='Works with perftest only. After onResume, the '
-                      'script waits until either no logs are output for the '
-                      'time specified by this flag or --timeout seconds have '
-                      'passed after onResume.')
-
   parser.add_argument('--minimum-launch-delay', type=int, default=None,
                       metavar='<T>',
                       help='Specifies delay in milliseconds for launching the '
@@ -500,13 +486,6 @@ Native Client Debugging
   parser.add_argument('--orientation', '-o', choices=_ALLOWED_ORIENTATIONS,
                       type=_parse_orientation,
                       help='Set desired orientation in manifest.')
-
-  parser.add_argument('--output-timeout', type=int, default=None,
-                      metavar='<T>',
-                      help='Works with atftest, system and perftest commands '
-                      'only.  Specifies the timeout in seconds for requiring '
-                      'some amount of output from the running test. The '
-                      'default is no output timeout.')
 
   parser.add_argument('--perfstartup', type=int, metavar='<N>',
                       help='Launch with perf and collect data for the first '
