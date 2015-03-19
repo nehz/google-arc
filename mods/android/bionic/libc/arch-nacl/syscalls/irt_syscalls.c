@@ -5,9 +5,6 @@
 #include <nacl_stat.h>
 // ARC MOD BEGIN
 // Add some include files.
-#if defined(BARE_METAL_BIONIC)
-#include <bare_metal/common/bare_metal_irt.h>
-#endif
 #include <irt_syscalls.h>
 #include <irt.h>
 #include <irt_dev.h>
@@ -341,13 +338,6 @@ int (*__nacl_irt_write_real) (int fd, const void *buf, size_t count,
                               size_t *nwrote);
 // Add __nacl_irt_clear_cache.
 int (*__nacl_irt_clear_cache) (void *addr, size_t size);
-
-// Add Bare Metal specific interfaces.
-#if defined(BARE_METAL_BIONIC)
-void (*__bare_metal_irt_notify_gdb_of_load)(struct link_map* map);
-void (*__bare_metal_irt_notify_gdb_of_unload)(struct link_map* map);
-void (*__bare_metal_irt_notify_gdb_of_libraries)(void);
-#endif
 // ARC MOD END
 
 void
@@ -384,9 +374,6 @@ __init_irt_table (void)
     struct nacl_irt_futex nacl_irt_futex;
     struct nacl_irt_dev_list_mappings nacl_irt_list_mappings;
     struct nacl_irt_icache nacl_irt_icache;
-#if defined(BARE_METAL_BIONIC)
-    struct bare_metal_irt_debugger bare_metal_irt_debugger;
-#endif
     // ARC MOD END
   } u;
 
@@ -684,23 +671,6 @@ __init_irt_table (void)
       sizeof(u.nacl_irt_icache)) {
     __nacl_irt_clear_cache = u.nacl_irt_icache.clear_cache;
   }
-  // ARC MOD END
-  // ARC MOD BEGIN
-  // Add Bare Metal specific interfaces.
-#if defined(BARE_METAL_BIONIC)
-  if (__nacl_irt_query &&
-      __nacl_irt_query(BARE_METAL_IRT_DEBUGGER_v0_1,
-                       &u.bare_metal_irt_debugger,
-                       sizeof(u.bare_metal_irt_debugger)) ==
-      sizeof(u.bare_metal_irt_debugger)) {
-    __bare_metal_irt_notify_gdb_of_load =
-        u.bare_metal_irt_debugger.notify_gdb_of_load;
-    __bare_metal_irt_notify_gdb_of_unload =
-        u.bare_metal_irt_debugger.notify_gdb_of_unload;
-    __bare_metal_irt_notify_gdb_of_libraries =
-        u.bare_metal_irt_debugger.notify_gdb_of_libraries;
-  }
-#endif
   // ARC MOD END
 
   __nacl_irt_epoll_create = not_implemented;

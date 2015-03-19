@@ -104,6 +104,25 @@ def _construct_command(test_info, gtest_filter, gtest_list_tests):
     # paths of filesystem mounted with exec.
     variables['argv'] = variables['argv'].replace(
         build_dir, os.path.join(arc_root_with_exec, build_dir))
+  else:
+    if build_options.OPTIONS.is_arm():
+      # Pass environment variables by -E flag for qemu-arm instead of
+      # "env" command.
+      # TODO(hamaji): This and the is_running_on_chromeos() case above
+      # are both hacky. We probably want to construct the command to
+      # run a unittest here based on the info in variables, and remove
+      # test_info['command'].
+      qemu_arm = variables['qemu_arm'].split(' ')
+      if '$qemu_arm' in test_info['command']:
+        runner = variables['runner'].split(' ')
+        assert runner[0] == 'env'
+        runner.pop(0)
+        qemu_arm.append('-E')
+        while '=' in runner[0]:
+          qemu_arm.append(runner[0])
+          runner.pop(0)
+        variables['qemu_arm'] = ' '.join(qemu_arm)
+        variables['runner'] = ' '.join(runner)
 
   if gtest_filter:
     variables['gtest_options'] = '--gtest_filter=' + gtest_filter

@@ -16,7 +16,7 @@ from util import gdb_util
 def get_nacl_tools():
   """Returns a list of the NaCl tools that are needed to run unit tests."""
   if build_options.OPTIONS.is_bare_metal_build():
-    return [build_common.get_bare_metal_loader()]
+    return [toolchain.get_nonsfi_loader()]
 
   bitsize = build_options.OPTIONS.get_target_bitsize()
   arch = 'x86_%d' % bitsize
@@ -90,9 +90,10 @@ def _run_gdb_for_nacl(args, test_args):
 
 def _get_gdb_command_to_inject_bare_metal_gdb_py(main_binary):
   bare_metal_gdb_init_args = map(gdb_util.to_python_string_literal, [
-      build_common.get_bare_metal_loader(),
+      toolchain.get_nonsfi_loader(),
       main_binary,
       build_common.get_load_library_path(),
+      build_common.get_bionic_runnable_ld_so(),
   ])
 
   # This GDB command sequence initializes the Python script for GDB to
@@ -106,7 +107,7 @@ def _get_gdb_command_to_inject_bare_metal_gdb_py(main_binary):
 def _run_gdb_for_bare_metal_arm(runner_args, test_args):
   gdb = toolchain.get_tool(build_options.OPTIONS.target(), 'gdb')
   bare_metal_loader_index = runner_args.index(
-      build_common.get_bare_metal_loader())
+      toolchain.get_nonsfi_loader())
 
   # For Bare Metal ARM, we use qemu's remote debugging interface.
   args = (runner_args[:bare_metal_loader_index] +
@@ -124,7 +125,7 @@ def _run_gdb_for_bare_metal_arm(runner_args, test_args):
           gdb_util.get_args_for_stlport_pretty_printers() +
           ['-ex',
            'echo \n*** Type \'continue\' or \'c\' to start debugging ***\n\n',
-           build_common.get_bare_metal_loader()])
+           toolchain.get_nonsfi_loader()])
   subprocess.call(args)
 
   qemu_arm_proc.kill()
@@ -133,7 +134,7 @@ def _run_gdb_for_bare_metal_arm(runner_args, test_args):
 def _run_gdb_for_bare_metal(runner_args, test_args):
   gdb = toolchain.get_tool(build_options.OPTIONS.target(), 'gdb')
   bare_metal_loader_index = runner_args.index(
-      build_common.get_bare_metal_loader())
+      toolchain.get_nonsfi_loader())
 
   gdb_command = _get_gdb_command_to_inject_bare_metal_gdb_py(test_args[0])
 

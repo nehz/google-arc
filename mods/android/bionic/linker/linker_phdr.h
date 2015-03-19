@@ -34,19 +34,8 @@
  * to the ELF spec, and does not depend on linker-specific data
  * structures (e.g. the exact layout of struct soinfo).
  */
-// ARC MOD BEGIN
-// When this file is used for bare_metal_loader, we cannot include
-// linker.h. Include a couple of headers instead.
-// TODO(crbug.com/364632): Remove this MOD when we remove src/bare_metal.
-#if defined(FOR_BARE_METAL_LOADER)
-#include <elf.h>
-#include <stddef.h>
-#else
-// ARC MOD END
+
 #include "linker.h"
-// ARC MOD BEGIN
-#endif
-// ARC MOD END
 
 class ElfReader {
  public:

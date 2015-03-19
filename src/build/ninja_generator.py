@@ -2369,8 +2369,6 @@ class TestNinjaGenerator(ExecNinjaGenerator):
     if OPTIONS.is_nacl_build() and not self._is_host:
       implicit.append(self.get_ncval_test_output(test_path))
     implicit.append(build_common.get_bionic_runnable_ld_so())
-    if OPTIONS.is_bare_metal_build():
-      implicit.append(build_common.get_bare_metal_loader())
     if OPTIONS.enable_valgrind():
       implicit.append('src/build/valgrind/memcheck/suppressions.txt')
     if not rule:

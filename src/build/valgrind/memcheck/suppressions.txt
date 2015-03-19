@@ -32,32 +32,6 @@
    ...
 }
 {
-   # TODO(crbug.com/376666): Currently, our IRT thread implementation
-   # leaks glibc's pthread struct.
-   bare_metal_thread_leak_for_gprecise
-   Memcheck:Leak
-   fun:calloc
-   fun:*
-   fun:_dl_allocate_tls
-   fun:pthread_create@@GLIBC_2.1
-   fun:_ZN12_GLOBAL__N_122nacl_irt_thread_createEPFvvEPvS2_
-   fun:__pthread_clone
-   fun:pthread_create
-   ...
-}
-{
-   # TODO(crbug.com/376666): Currently, our IRT thread implementation
-   # leaks glibc's pthread struct.
-   bare_metal_thread_leak_for_gtrusty
-   Memcheck:Leak
-   fun:calloc
-   obj:/lib/i386-linux-gnu/ld-2.19.so
-   fun:_ZN12_GLOBAL__N_122nacl_irt_thread_createEPFvvEPvS2_
-   fun:__pthread_clone
-   fun:pthread_create
-   ...
-}
-{
    # Chromium base's ThreadIdNameManager intentionally leaks the name
    # of threads.
    chromium_thread_name_is_intentionally_leaked
@@ -181,4 +155,29 @@
    fun:_ZN12_GLOBAL__N_19RunThreadEPv
    fun:start_thread
    fun:clone
+}
+{
+   # TODO(hamaji): Check if this failure is OK. If not, file an
+   # appropriate NaCl bug.
+   nonsfi_loader_set_thread_area
+   Memcheck:Param
+   set_thread_area(u_info)
+   fun:nacl_tls_init
+   fun:__pthread_initialize_minimal
+   fun:__pthread_initialize
+   fun:_start
+   fun:__pnacl_start_linux_c
+}
+{
+   # TODO(hamaji): Check if this failure is OK. If not, file an
+   # appropriate NaCl bug.
+   nonsfi_loader_thread_create
+   Memcheck:Param
+   clone(tlsinfo)
+   fun:nacl_irt_thread_create
+   fun:pthread_create
+   fun:thread_create
+   ...
+   fun:nacl_irt_nonsfi_entry
+   fun:main
 }

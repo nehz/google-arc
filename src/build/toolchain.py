@@ -123,6 +123,21 @@ def get_nacl_irt_core(bitsize):
   return get_nacl_tool('irt_core_x86_%d.nexe' % bitsize)
 
 
+def _get_runner_env_vars(extra_library_paths=None, extra_envs=None):
+  extra_library_paths = extra_library_paths or []
+  extra_envs = extra_envs or {}
+  load_library_path = build_common.get_load_library_path()
+  envs = {
+      'LD_LIBRARY_PATH': ':'.join([load_library_path] + extra_library_paths)
+  }
+  if extra_envs:
+    conflict_keys = envs.viewkeys() & extra_envs.viewkeys()
+    assert not conflict_keys, ('The following keys are duplicated: %s' %
+                               sorted(conflict_keys))
+    envs.update(extra_envs)
+  return envs
+
+
 def get_nacl_runner(bitsize, bin_dir=None,
                     extra_library_paths=None, extra_envs=None):
   extra_library_paths = extra_library_paths or []
@@ -148,23 +163,28 @@ def get_nacl_runner(bitsize, bin_dir=None,
   return args
 
 
-def get_bare_metal_runner(use_qemu_arm=False, bin_dir=None,
-                          extra_library_paths=None, extra_envs=None):
-  extra_library_paths = extra_library_paths or []
-  extra_envs = extra_envs or {}
+def get_nonsfi_loader(nacl_arch=None):
+  if nacl_arch is None:
+    nacl_arch = 'arm' if OPTIONS.is_arm() else 'x86_32'
+  return os.path.join(_NACL_TOOLS_PATH, 'nonsfi_loader_' + nacl_arch)
+
+
+def get_bare_metal_runner(nacl_arch=None, use_qemu_arm=False, bin_dir=None,
+                          extra_library_paths=None, extra_envs=None,
+                          with_env_cmd=True):
   args = []
+  if with_env_cmd:
+    args.append('env')
+    envs = _get_runner_env_vars(extra_library_paths, extra_envs)
+    args.extend('%s=%s' % item for item in envs.iteritems())
   if use_qemu_arm:
     args.extend(get_qemu_arm_args())
-  loader = build_common.get_bare_metal_loader()
+  loader = get_nonsfi_loader(nacl_arch)
   load_library_path = build_common.get_load_library_path()
   if bin_dir:
     load_library_path = os.path.join(bin_dir, load_library_path)
     loader = os.path.join(bin_dir, loader)
   args.append(loader)
-  args.extend(['-E', 'LD_LIBRARY_PATH=' +
-               ':'.join([load_library_path] + extra_library_paths)])
-  for key, value in extra_envs.iteritems():
-    args.extend(['-E', '%s=%s' % (key, value)])
   args.append(os.path.join(load_library_path, 'runnable-ld.so'))
   return args
 
@@ -211,17 +231,21 @@ def _get_native_runner(target):
   return 'env LD_LIBRARY_PATH=' + build_common.get_load_library_path(target)
 
 
-def _get_valgrind_runner(target):
+def _get_valgrind_runner(target, nacl_arch=None):
   valgrind_lib_path = 'third_party/valgrind/linux_x64/lib/valgrind'
-  valgrind_env = ('env VALGRIND_LIB=%s VALGRIND_LIB_INNER=%s' %
-                  (valgrind_lib_path, valgrind_lib_path))
+  env_vars = _get_runner_env_vars(extra_envs={
+      'VALGRIND_LIB': valgrind_lib_path,
+      'VALGRIND_LIB_INNER': valgrind_lib_path,
+  })
+  valgrind_env = 'env ' + ' '.join(
+      '%s=%s' % item for item in env_vars.iteritems())
   valgrind_path = 'third_party/valgrind/linux_x64/bin/valgrind'
   valgrind_options = [
       '--error-exitcode=1', '--num-callers=50', '--gen-suppressions=all',
       '--trace-children=yes', '--trace-children-skip=env', '--leak-check=full',
       '--suppressions=src/build/valgrind/memcheck/suppressions.txt']
   if target.startswith('bare_metal_'):
-    runner = ' '.join(get_bare_metal_runner())
+    runner = ' '.join(get_bare_metal_runner(nacl_arch, with_env_cmd=False))
   else:
     runner = _get_native_runner(target)
   return '%s %s %s %s' % (
@@ -329,8 +353,9 @@ def _get_tool_map():
           'objdump': os.getenv('TARGETOBJDUMP', 'objdump'),
           'addr2line': os.getenv('TARGETADDR2LINE', 'addr2line'),
           'strip': os.getenv('TARGETSTRIP', 'strip'),
-          'runner': ' '.join(get_bare_metal_runner()),
-          'valgrind_runner': _get_valgrind_runner('bare_metal_i686'),
+          'runner': ' '.join(get_bare_metal_runner('x86_32')),
+          'valgrind_runner': _get_valgrind_runner('bare_metal_i686',
+                                                  nacl_arch='x86_32'),
           'gdb': 'gdb',
           'deps': [],
           'llvm_tblgen': build_common.get_build_path_for_executable(
@@ -349,9 +374,10 @@ def _get_tool_map():
           'addr2line': os.getenv('TARGETADDR2LINE',
                                  'arm-linux-gnueabihf-addr2line'),
           'strip': os.getenv('TARGETSTRIP', 'arm-linux-gnueabihf-strip'),
-          'runner': ' '.join(get_bare_metal_runner(use_qemu_arm=True)),
+          'runner': ' '.join(get_bare_metal_runner('arm', use_qemu_arm=True)),
           # We do not support valgrind on Bare Metal ARM.
-          'valgrind_runner': ' '.join(get_bare_metal_runner(use_qemu_arm=True)),
+          'valgrind_runner': ' '.join(
+              get_bare_metal_runner('arm', use_qemu_arm=True)),
           'gdb': build_common.get_gdb_multiarch_path(),
           'deps': [],
           'llvm_tblgen': build_common.get_build_path_for_executable(

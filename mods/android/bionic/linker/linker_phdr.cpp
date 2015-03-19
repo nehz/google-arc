@@ -31,56 +31,8 @@
 #include <errno.h>
 #include <sys/mman.h>
 
-// ARC MOD BEGIN
-// When this file is used for bare_metal_loader, we cannot include
-// linker.h and linker_debug.h. Include some headers and define a few
-// macros instead.
-// TODO(crbug.com/364632): Remove this MOD when we remove src/bare_metal.
-#if defined(FOR_BARE_METAL_LOADER)
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
-#define PAGE_SIZE 4096
-#define PAGE_MASK (PAGE_SIZE-1)
-
-/* Returns the address of the page starting at address 'x' */
-#define PAGE_START(x)  ((x) & ~PAGE_MASK)
-
-/* Returns the offset of address 'x' in its memory page, i.e. this is the
- * same than 'x' - PAGE_START(x) */
-#define PAGE_OFFSET(x) ((x) & PAGE_MASK)
-
-/* Returns the address of the next page after address 'x', unless 'x' is
- * itself at the start of a page. Equivalent to:
- *
- *  (x == PAGE_START(x)) ? x : PAGE_START(x)+PAGE_SIZE
- */
-#define PAGE_END(x)    PAGE_START((x) + (PAGE_SIZE-1))
-
-#define PRINT(...) fprintf(stderr, __VA_ARGS__)
-#define DL_ERR(...) do {                        \
-    fprintf(stderr, __VA_ARGS__);               \
-    abort();                                    \
-  } while(0)
-
-#if defined(__arm__)
-#define ANDROID_ARM_LINKER
-#elif defined(__i386__)
-#define ANDROID_X86_LINKER
-#else
-#error "Unsupported architecture"
-#endif
-
-#else
-// ARC MOD END
 #include "linker.h"
 #include "linker_debug.h"
-// ARC MOD BEGIN
-#endif
-// ARC MOD END
 
 // ARC MOD BEGIN
 #if defined(BIONIC_LOADER_LOGGING)

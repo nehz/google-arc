@@ -177,12 +177,6 @@ def get_build_type():
   return 'user'
 
 
-def get_bare_metal_loader():
-  # This function will be called even for non Bare Metal build because
-  # this is used by toolchain.py, hence there is no assertion.
-  return os.path.join(get_build_dir(), 'bin/bare_metal_loader')
-
-
 def get_bionic_crtbegin_o():
   return os.path.join(get_load_library_path(), 'crtbegin.o')
 

@@ -159,6 +159,11 @@ TEST(dirent, readdir_r) {
 // ARC MOD END
 
 TEST(dirent, rewinddir) {
+  // ARC MOD BEGIN
+  // nonsfi_loader does not support getdents IRT and it aborts.
+  // TODO(crbug.com/468208): Consider supporting it.
+#if !defined(BARE_METAL_BIONIC)
+  // ARC MOD END
   DIR* d = opendir("/proc/self");
   ASSERT_TRUE(d != NULL);
 
@@ -185,4 +190,7 @@ TEST(dirent, rewinddir) {
   for (size_t i = 0; i < pass1.size(); ++i) {
     ASSERT_EQ(pass1[i], pass2[i]);
   }
+  // ARC MOD BEGIN
+#endif
+  // ARC MOD END
 }

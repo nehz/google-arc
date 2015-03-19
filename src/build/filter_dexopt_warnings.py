@@ -12,7 +12,7 @@ import warning_filter
 
 _AMBIGUOUS_CLASS = 'I/libdvm.*: DexOpt: not resolving ambiguous class \'L%s;\''
 
-my_filter = warning_filter.WarningFilter('|'.join([
+my_filter = warning_filter.WarningFilter(
     r'.*method Landroid/test/InstrumentationTestRunner\$StringResultPrinter;'
     r'\.print incorrectly overrides package-private method with same name in '
     r'Ljunit/textui/ResultPrinter;',
@@ -22,7 +22,7 @@ my_filter = warning_filter.WarningFilter('|'.join([
     # These warnings are also shown even on building a real Android.
     _AMBIGUOUS_CLASS % 'java/lang/Daemons\$Daemon',
     _AMBIGUOUS_CLASS % 'java/lang/Object',
-    _AMBIGUOUS_CLASS % 'java/lang/reflect/AccessibleObject']))
+    _AMBIGUOUS_CLASS % 'java/lang/reflect/AccessibleObject')
 
 p = filtered_subprocess.Popen(sys.argv[1:])
 p.run_process_filtering_output(my_filter)

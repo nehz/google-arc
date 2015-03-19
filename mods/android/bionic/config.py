@@ -698,8 +698,6 @@ def _generate_bionic_fundamental_test_runners(n):
 
     result = os.path.join(test_out_dir, test_name + '.result')
     test_deps = BionicFundamentalTest.ALL_OUTPUT_BINARIES + [script_name]
-    if OPTIONS.is_bare_metal_build():
-       test_deps.append(build_common.get_bare_metal_loader())
     n.build(result, rule_name, implicit=test_deps,
             variables={'test_name': test_name})
 

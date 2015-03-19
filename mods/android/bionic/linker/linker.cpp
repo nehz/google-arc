@@ -378,18 +378,6 @@ static void notify_gdb_of_load(soinfo* info) {
     map->l_ld = (uintptr_t)info->dynamic;
 
     __bare_metal_notify_gdb_of_load(info->name, info->base);
-
-    // TODO(crbug.com/376666): nonsfi_loader does not support IRT
-    // interfaces for GDB. Use bare_metal_gdb.lock even for unittests and
-    // remove this code.
-    // Ask the Bare Metal loader to interact with GDB.
-    if (__bare_metal_irt_notify_gdb_of_load) {
-        // GDB has already known about the Bionic loader.
-        if (info->flags & FLAG_LINKER)
-            return;
-        __bare_metal_irt_notify_gdb_of_load(
-            reinterpret_cast<struct link_map*>(map));
-    }
 #else
     // ARC MOD END
     if (info->flags & FLAG_EXE) {
@@ -413,12 +401,8 @@ static void notify_gdb_of_load(soinfo* info) {
 
 static void notify_gdb_of_unload(soinfo* info) {
     // ARC MOD BEGIN
-    // Ask the Bare Metal loader to interact with GDB.
 #if defined(BARE_METAL_BIONIC)
-    if (__bare_metal_irt_notify_gdb_of_unload) {
-        __bare_metal_irt_notify_gdb_of_unload(
-            reinterpret_cast<struct link_map*>(&info->link_map));
-    }
+    // We do not support notifying module unload to GDB yet.
 #else
     // ARC MOD END
     if (info->flags & FLAG_EXE) {
@@ -444,8 +428,7 @@ void notify_gdb_of_libraries() {
     // ARC MOD BEGIN
     // Ask the Bare Metal loader to interact with GDB.
 #if defined(BARE_METAL_BIONIC)
-    if (__bare_metal_irt_notify_gdb_of_libraries)
-        __bare_metal_irt_notify_gdb_of_libraries();
+    // We do not support notifying all module updates to GDB yet.
 #else
     // ARC MOD END
     _r_debug.r_state = RT_ADD;
@@ -2432,16 +2415,15 @@ static Elf32_Addr __linker_init_post_relocation(KernelArgumentBlock& args, Elf32
   // Temporary support of GDB.
 #if defined(BARE_METAL_BIONIC)
   // Wait for gdb attaching to this process.
-  // If __bare_metal_irt_notify_gdb_of_libraries exists, the Bionic
-  // loader is launched by bare_metal_loader and not by nacl_helper,
-  // so we should not wait. Note that run_unittest.py does not rely
-  // on /tmp/bare_metal_gdb.
+  // If the main binary is /lib/main.nexe, the Bionic loader is
+  // launched by nacl_helper and not by nonsfi_loader, so we should
+  // wait for GDB. Note that run_unittest.py does not rely on
+  // /tmp/bare_metal_gdb.
   // TODO(crbug.com/354290): Remove this hack. Use __nacl_irt_open and
   // __nacl_irt_close instead of the direct syscalls when we add more
   // restrictions to the syscall sandbox.
-  if (!__bare_metal_irt_notify_gdb_of_libraries) {
+  if (args.argc == 1 && !strcmp(args.argv[0], "/lib/main.nexe"))
     maybe_wait_gdb_attach();
-  }
 #endif  // BARE_METAL_BIONIC
   // ARC MOD END
 
