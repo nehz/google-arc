@@ -13,9 +13,11 @@ import subprocess
 import sys
 
 import build_common
+import re
 import toolchain
 from build_options import OPTIONS
 from util import concurrent
+from util import concurrent_subprocess
 from util import file_util
 from util import logging_util
 
@@ -32,6 +34,59 @@ def _get_symbol_marker(path):
   return os.path.join(_SYMBOL_OUT_DIR, 'hash', sha1.hexdigest())
 
 
+class _DumpSymsFilter(object):
+  _WARNING_RE = re.compile('|'.join([
+      # TODO(crbug.com/468597): Figure out if these are benign.
+      # From src/common/dwarf_cu_to_module.cc
+      r".*: in compilation unit '.*' \(offset 0x.*\):",
+      r".*: warning: function at offset .* has no name",
+      (r": the DIE at offset 0x.* has a DW_AT_abstract_origin"
+       r" attribute referring to the die at offset 0x.*, which either"
+       r" was not marked as an inline, or comes later in the file"),
+      (r".*: the DIE at offset 0x.* has a DW_AT_specification"
+       r" attribute referring to the die at offset 0x.*, which either"
+       r" was not marked as a declaration, or comes later in the file"),
+      # From src/common/dwarf_cfi_to_module.cc
+      (r".*, section '.*': "
+       r"the call frame entry at offset .* refers to register .*,"
+       r" whose name we don't know"),
+      (r".*, section '.*': "
+       r"the call frame entry at offset 0x%zx sets the rule for "
+       r"register '.*' to 'undefined', but the Breakpad symbol file format"
+       r" cannot express this\n"),
+      # TODO(crbug.com/393140): It might be that this needs to be implemented
+      # for stack trace to work.
+      (r".*, section '.*': "
+       r"the call frame entry at offset .* uses a DWARF expression to "
+       r"describe how to recover register '.*',  but this translator cannot "
+       r"yet translate DWARF expressions to Breakpad postfix expressions"),
+      # TODO(http://crbug.com/468587): Host cxa_demangle doesn't like some
+      # C++ names.
+      r".*: warning: failed to demangle .* with error -2"]))
+
+  def __init__(self):
+    """Generate a filter that will filter warnings and also allow stdout
+    result to be obtained as |stdout_result|.
+    """
+    self.stdout_result = []
+
+  def _has_warning(self, line):
+    return self._WARNING_RE.match(line) is not None
+
+  def handle_stdout(self, line):
+    self.stdout_result.append(line)
+
+  def handle_stderr(self, line):
+    if not self._has_warning(line):
+      sys.stderr.write(line)
+
+  def is_done(self):
+    return False
+
+  def handle_timeout(self):
+    pass
+
+
 def _extract_symbols_from_one_binary(binary):
   # If the marker is already written, we should already have the
   # extracted symbols.
@@ -43,7 +98,10 @@ def _extract_symbols_from_one_binary(binary):
   logging.info('Extracting symbols from: %s' % binary)
   dump_syms_tool = build_common.get_build_path_for_executable(
       'dump_syms', is_host=True)
-  syms = subprocess.check_output([dump_syms_tool, binary])
+  p = concurrent_subprocess.Popen([dump_syms_tool, binary])
+  my_filter = _DumpSymsFilter()
+  p.handle_output(my_filter)
+  syms = ''.join(my_filter.stdout_result)
   # The first line should look like:
   # MODULE Linux arm 0222CE01F27D6870B1FA991F84B9E0460 libc.so
   symhash = syms.splitlines()[0].split()[3]
@@ -84,12 +142,14 @@ def _parse_args():
   parser.add_argument('mode', choices=('stackwalk', 'dump'))
   parser.add_argument('minidump', type=str, metavar='<file>',
                       help='The minidump file to be analyzed.')
+  parser.add_argument('--verbose', '-v', action='store_true')
   return parser.parse_args()
 
 
 def main():
-  OPTIONS.parse_configure_file()
   args = _parse_args()
+  logging_util.setup(verbose=args.verbose)
+  OPTIONS.parse_configure_file()
   if args.mode == 'stackwalk':
     _stackwalk(args.minidump)
   elif args.mode == 'dump':
@@ -97,5 +157,4 @@ def main():
 
 
 if __name__ == '__main__':
-  logging_util.setup(verbose=True)
   sys.exit(main())

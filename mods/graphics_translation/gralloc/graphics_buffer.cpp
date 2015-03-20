@@ -198,6 +198,21 @@ int GraphicsBuffer::Lock(int usage, int left, int top, int width, int height,
     if (sw_buffer_ == NULL && sw_buffer_size_ > 0) {
       sw_buffer_ = new char[sw_buffer_size_];
     }
+    // Read ColorBuffer content for read-only access. This is made to support
+    // screen capture that accesses this graphics buffer for reading only
+    // (GRALLOC_USAGE_SW_READ_OFTEN). Read-only access is also used to copy
+    // graphics buffers in Surface::copyBlt operation (used frequently). Java
+    // surface locking mechanism generates calls to lock this buffer with
+    // read/write access and potentially some code needs content of this buffer,
+    // but currently we do not handle read-write access here in order not to
+    // introduce additional performance regression.
+    if ((usage & GRALLOC_USAGE_SW_READ_MASK) == usage) {
+      ColorBufferPtr cb = GetColorBuffer(hw_handle_);
+      if (!cb) {
+        return -EACCES;
+      }
+      cb->ReadPixels(sw_buffer_);
+    }
     locked_addr_ = sw_buffer_;
   }
 
@@ -224,20 +239,22 @@ int GraphicsBuffer::Unlock() {
     ColorBufferPtr cb = GetColorBuffer(hw_handle_);
     if (cb) {
       if (locked_addr_ == sw_buffer_) {
-        const int bpp = GetBytesPerPixel(gl_format_, gl_type_);
-        const int dst_line_len = locked_width_ * bpp;
-        const int src_line_len = width_ * bpp;
-        const char* src = locked_addr_ + (locked_top_ * src_line_len) +
-                          (locked_left_ * bpp);
-        void* tmp = cb->Lock(locked_left_, locked_top_, locked_width_,
-                             locked_height_, gl_format_, gl_type_);
-        char* dst = static_cast<char*>(tmp);
-        for (int y = 0; y < locked_height_; y++) {
-          memcpy(dst, src, dst_line_len);
-          src += src_line_len;
-          dst += dst_line_len;
+        if (locked_width_ && locked_height_) {
+          const int bpp = GetBytesPerPixel(gl_format_, gl_type_);
+          const int dst_line_len = locked_width_ * bpp;
+          const int src_line_len = width_ * bpp;
+          const char* src = locked_addr_ + (locked_top_ * src_line_len) +
+                            (locked_left_ * bpp);
+          void* tmp = cb->Lock(locked_left_, locked_top_, locked_width_,
+                               locked_height_, gl_format_, gl_type_);
+          char* dst = static_cast<char*>(tmp);
+          for (int y = 0; y < locked_height_; y++) {
+            memcpy(dst, src, dst_line_len);
+            src += src_line_len;
+            dst += dst_line_len;
+          }
+          cb->Unlock(tmp);
         }
-        cb->Unlock(tmp);
       } else {
         cb->Unlock(locked_addr_);
       }

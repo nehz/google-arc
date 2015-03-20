@@ -228,6 +228,34 @@ void ColorBuffer::BindHostContext(void* host_context) {
   }
 }
 
+void ColorBuffer::ReadPixels(void* dst) {
+  EglDisplayImpl* d = EglDisplayImpl::GetDisplay(display_);
+  if (d->Lock()) {
+    // Get current frame buffer. 0 - means default.
+    GLint prevFbName = 0;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFbName);
+
+    uint32_t tempFbName = 0;
+    glGenFramebuffers(1, &tempFbName);
+    glBindFramebuffer(GL_FRAMEBUFFER, tempFbName);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+        texture_, 0);
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (status == GL_FRAMEBUFFER_COMPLETE) {
+      glReadPixels(0, 0, width_, height_, format_, type_, dst);
+      ALOGE_IF(glGetError() != GL_NO_ERROR,
+          "Cannot read pixels from ColorBuffer");
+    } else {
+      ALOGE("Cannot set frame buffer for ColorBuffer to read pixels.");
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, prevFbName);
+    glDeleteFramebuffers(1, &tempFbName);
+
+    d->Unlock();
+  }
+}
+
 uint32_t ColorBuffer::Acquire() {
   ++refcount_;
   return refcount_;

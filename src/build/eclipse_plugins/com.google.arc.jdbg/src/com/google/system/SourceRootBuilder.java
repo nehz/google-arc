@@ -20,6 +20,7 @@ public class SourceRootBuilder {
     try {
       ProcessBuilder pb = new ProcessBuilder(new String[] {
           "find",
+          "-L",
           rootFolder,
           "-name", "*.java"
       });

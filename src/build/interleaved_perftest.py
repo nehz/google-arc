@@ -223,7 +223,9 @@ class InteractivePerfTestRunner(object):
     self._remote = remote
     self._launch_chrome_opts = launch_chrome_opts
     self._instance_id = instance_id
-    self._iteration_lock_file = '/var/tmp/iteration-lock-arc%d' % instance_id
+    user = os.getenv('USER', 'default')
+    self._iteration_lock_file = '/var/tmp/arc-iteration-lock-%s-%d' % (
+        user, instance_id)
     self._process = None
     self._process_generator = None
 

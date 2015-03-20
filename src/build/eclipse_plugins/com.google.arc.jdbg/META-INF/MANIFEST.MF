@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Google ARC Java Debugger
 Bundle-SymbolicName: com.google.arc.jdbg;singleton:=true
-Bundle-Version: 1.0.0.e
+Bundle-Version: 1.0.0.f
 Bundle-Activator: com.google.arc.jdbg.Activator
 Bundle-Vendor: Google
 Require-Bundle: org.eclipse.ui,

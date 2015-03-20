@@ -608,6 +608,7 @@ def _copy_external_dir(dir_name):
 
 # Creates common mk files and related links.
 def prepare_make_to_ninja():
+  shutil.rmtree(_MAKE_TO_NINJA_DIR, ignore_errors=True)
   _create_noop_makefiles([
       # TODO(crbug.com/363472): clang.mk is used to build
       # frameworks/compile/slang/BitWriter_3_2. The slang depends on clang.mk,
