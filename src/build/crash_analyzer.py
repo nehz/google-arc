@@ -38,7 +38,7 @@ class CrashAnalyzer(object):
 
     line = line.strip()
     matched = re.match(
-        r'linker: Loaded text: 0x([0-9a-f]+)-0x([0-9a-f]+) (.*)', line)
+        r'linker: Loaded text: 0x([0-9a-fA-F]+)-0x([0-9a-fA-F]+) (.*)', line)
     if matched:
       start_addr = int(matched.group(1), 16)
       end_addr = int(matched.group(2), 16)
@@ -47,9 +47,9 @@ class CrashAnalyzer(object):
       return False
 
     if self._is_annotating:
-      addr_reg = r'.*0x([0-9a-f]+)'
+      addr_reg = r'.*0x([0-9a-fA-F]+)'
     else:
-      addr_reg = r'\*\* Signal \d+ from untrusted code: pc=([0-9a-f]+)'
+      addr_reg = r'\*\* Signal \d+ from untrusted code: pc=([0-9a-fA-F]+)'
 
     matched = re.match(addr_reg, line)
     if matched:

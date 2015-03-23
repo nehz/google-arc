@@ -695,9 +695,11 @@ def _generate_bionic_fundamental_test_runners(n):
     }
     test_path = os.path.join(test_out_dir, test_name)
     n._build_test_info(test_path, 1, test_info)
+    test_info_path = n.get_test_info_path(test_path, 1)
 
     result = os.path.join(test_out_dir, test_name + '.result')
-    test_deps = BionicFundamentalTest.ALL_OUTPUT_BINARIES + [script_name]
+    test_deps = (BionicFundamentalTest.ALL_OUTPUT_BINARIES +
+                 [script_name, test_info_path])
     n.build(result, rule_name, implicit=test_deps,
             variables={'test_name': test_name})
 

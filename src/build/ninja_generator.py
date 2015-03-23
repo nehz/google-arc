@@ -859,10 +859,13 @@ class NinjaGenerator(ninja_syntax.Writer):
                'make_list',
                all_test_lists)
 
-  def _build_test_info(self, test_path, counter, test_info):
+  def get_test_info_path(self, test_path, counter):
     test_name = os.path.basename(test_path)
     filename = '%s.%d.json' % (test_name, counter)
-    test_info_path = build_common.get_unittest_info_path(filename)
+    return build_common.get_unittest_info_path(filename)
+
+  def _build_test_info(self, test_path, counter, test_info):
+    test_info_path = self.get_test_info_path(test_path, counter)
     self._test_info_list.append(test_info_path)
 
     test_info_str = json.dumps(test_info)

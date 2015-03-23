@@ -3,8 +3,8 @@
 # found in the LICENSE file.
 #
 # Provides basic utilities to implement remote-host-execution of
-# launch_chrome, dalvik test and run_integration_tests on Chrome OS and Windows
-# (Cygwin).
+# launch_chrome, run_integration_tests, and run_unittests.py on Chrome OS,
+# Windows (Cygwin), and Mac.
 
 import atexit
 import glob
@@ -43,12 +43,9 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     'out/data_roots/arc.*',
     'out/data_roots/cts.*',
     'out/data_roots/dalvik.*',
-    'out/data_roots/file_system_manager.*',
-    'out/data_roots/gles.*',
     'out/data_roots/graphics.*',
-    'out/data_roots/jstests*/*',
+    'out/data_roots/jstests.*',
     'out/data_roots/ndk.*',
-    'out/data_roots/posix_translation.*',
     'out/data_roots/system_mode.*',
     'out/staging/android/dalvik/tests/*/expected.txt',
     'out/staging/android/dalvik/tests/*/info.txt',
