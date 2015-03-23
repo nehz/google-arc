@@ -877,7 +877,6 @@ EGLint eglClientWaitSyncKHR(EGLDisplay dpy, EGLSyncKHR sync, EGLint flags,
   }
   // We call glFinish when the sync object is acquired so there should be
   // nothing to wait for anymore.
-  SetError(EGL_SUCCESS);
   return EGL_CONDITION_SATISFIED_KHR;
 }
 
