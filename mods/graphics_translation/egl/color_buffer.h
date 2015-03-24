@@ -58,6 +58,7 @@ class ColorBuffer {
   EglImagePtr GetImage() const { return image_; }
   void BindToTexture();
 
+  void ReadPixels(void* dst);
  private:
   ColorBuffer(EGLDisplay dpy, GLuint width, GLuint height, GLenum format,
               GLenum type, bool sw_write);

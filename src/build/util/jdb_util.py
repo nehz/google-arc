@@ -4,8 +4,10 @@
 # found in the LICENSE file.
 
 import re
+import staging
 import subprocess
 import sys
+import time
 
 import eclipse_connector
 
@@ -35,10 +37,19 @@ class JdbHandlerAdapter(object):
     self._base_handler.handle_stdout(line)
 
   def _start_emacsclient_jdb(self):
+    source_path = ':'.join([
+        staging.as_staging('android/frameworks/base/core/java/'),
+        # Add the real paths too to let emacs know these paths too are
+        # candidates for setting breakpoints etc.
+        './mods/android/frameworks/base/core/java/',
+        './third_party/android/frameworks/base/core/java/'])
     command = ['emacsclient', '-e',
-               '(jdb "jdb -attach localhost:%i")' % self._jdb_port]
-    subprocess.Popen(command,
-                     cwd='out/staging/android/frameworks/base/core/java/')
+               ('(jdb "jdb -attach localhost:%i '
+                '-sourcepath%s ")') % (self._jdb_port, source_path)]
+    # TODO(crbug.com/469037): Try to wait until JDWP port is
+    # really available. There should be a better way?
+    time.sleep(0.6)
+    subprocess.Popen(command)
 
   def handle_stderr(self, line):
     self._base_handler.handle_stderr(line)

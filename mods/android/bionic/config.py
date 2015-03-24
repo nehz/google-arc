@@ -338,6 +338,10 @@ def _filter_libc(vars):
           'android/bionic/libc/arch-arm/bionic/_setjmp.S',
           'android/bionic/libc/arch-arm/bionic/sigsetjmp.S',
           'android/bionic/libc/arch-nacl/syscalls/cacheflush.c'])
+  if OPTIONS.enable_valgrind():
+    vars.get_sources().append(
+        'android/bionic/libc/bionic/valgrind_supplement.c')
+
   vars.get_includes().append('android/bionic/libc/arch-nacl/syscalls')
   vars.get_implicit_deps().extend([build_common.get_bionic_crtbegin_so_o(),
                                    build_common.get_bionic_crtend_o()])
@@ -910,6 +914,9 @@ def _add_runnable_ld_cflags(n):
     n.add_defines('BIONIC_LOADER_LOGGING')
   _add_bare_metal_flags_to_ninja_generator(n)
 
+  if OPTIONS.enable_valgrind():
+    n.add_defines('RUNNING_ON_VALGRIND')
+
 
 def _generate_runnable_ld_ninja():
   linker_script = _generate_linker_script_for_runnable_ld()
@@ -1012,6 +1019,9 @@ def _generate_bionic_tests():
                       'string.strsignal_concurrent',
                       'string.strerror_concurrent']
     n.add_qemu_disabled_tests(*disabled_tests)
+  if OPTIONS.enable_valgrind():
+    # Valgrind injects a few LD_PRELOAD binaries.
+    n.add_disabled_tests('dl_iterate_phdr.Basic')
   n.add_compiler_flags('-W', '-Wno-unused-parameter', '-Werror')
   # GCC's builtin ones should be disabled when testing our own ones.
   # TODO(crbug.com/357564): Change this to -fno-builtin.

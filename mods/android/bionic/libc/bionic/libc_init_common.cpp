@@ -119,6 +119,14 @@ void __libc_init_tls(KernelArgumentBlock& args) {
   thread.tls = tls;
   pthread_attr_init(&thread.attr);
   pthread_attr_setstack(&thread.attr, (void*) stack_bottom, stack_size);
+  // ARC MOD BEGIN
+  // Fill |stack_end_from_irt| as well as other thread attributes.
+  // TODO(crbug.com/372248): Remove the use of stack_end_from_irt.
+#if defined(BARE_METAL_BIONIC)
+  thread.stack_end_from_irt =
+      reinterpret_cast<char*>(stack_bottom + stack_size);
+#endif
+  // ARC MOD END
   _init_thread(&thread, false);
   __init_tls(&thread);
   tls[TLS_SLOT_BIONIC_PREINIT] = &args;

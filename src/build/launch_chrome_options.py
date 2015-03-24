@@ -171,6 +171,13 @@ def _validate_timeout(parser, args):
     parser.error("--timeout  only valid in 'perftest' or 'atftest' mode")
 
 
+def _validate_valgrind(parser, args):
+  if OPTIONS.enable_valgrind():
+    parser.error("You cannot run ARC with binaries built for Valgrind "
+                 "because Valgrind build uses runnable-ld.so with a "
+                 "special hack for Valgrind.")
+
+
 def _setup_filterspec_from_args(args):
   if args.silent:
     args.stderr_log = 'S'
@@ -586,6 +593,7 @@ Native Client Debugging
   _validate_system_settings(parser, args)
   _validate_debug_modes(parser, args)
   _validate_timeout(parser, args)
+  _validate_valgrind(parser, args)
 
   _resolve_perf_test_mode(args)
   _setup_filterspec_from_args(args)

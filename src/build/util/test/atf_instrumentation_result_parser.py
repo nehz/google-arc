@@ -32,19 +32,22 @@ class AtfInstrumentationResultParser(object):
   _I13N_STATUS_CODE = re.compile(r'INSTRUMENTATION_STATUS_CODE: (-?\d+)')
 
   # Status codes as returned/displayed by ATF tests.
-  _INCOMPLETE = 1
+  # cf) http://developer.android.com/reference/android/test/InstrumentationTestRunner.html#constants  # NOQA
+  _START = 1
   _OK = 0
   _ERROR = -1
   _FAILURE = -2
-  _FAILURE_2 = -3  # TODO(lpique): Find out which test is returning -3
+
+  # Following status code is defined in com.android.pts.util.DeviceReportLog.
+  # We simply ignore that message.
+  _IN_PROGRESS = 2
 
   # Map from ATF test status code to TestMethodResult code.
   _METHOD_RESULT_MAP = {
-      _INCOMPLETE: TestMethodResult.INCOMPLETE,
+      _START: TestMethodResult.INCOMPLETE,
       _OK: TestMethodResult.PASS,
       _ERROR: TestMethodResult.FAIL,
       _FAILURE: TestMethodResult.FAIL,
-      _FAILURE_2: TestMethodResult.FAIL,
   }
 
   # RESULT_CODE which instrumentation returns. See Activity.java.
@@ -52,7 +55,7 @@ class AtfInstrumentationResultParser(object):
   _RESULT_CANCELED = 0
   _RESULT_FIRST_USER = 1
 
-  def __init__(self, ignore_status_codes_before_class=False):
+  def __init__(self):
     self._suite_code = None
     self._suite_message = None
     self._tests_total = None
@@ -65,9 +68,6 @@ class AtfInstrumentationResultParser(object):
     self._test_fqn_to_result_map = {}
     self._multiline_stream = False
     self._recognized = False
-    # TODO(crbug.com/423988) uiautomator tests have a trailing status code that
-    # cause assertions to fail.  This flag causes the line to be ignored.
-    self._ignore_status_codes_before_class = ignore_status_codes_before_class
 
     self._clear_current_values()
 
@@ -98,14 +98,17 @@ class AtfInstrumentationResultParser(object):
     self._suite_message = self._get_current_stream_message()
 
   def _handle_status_code(self, match):
-    if self._current_class is None and self._ignore_status_codes_before_class:
+    code = int(match.group(1))
+    if code == AtfInstrumentationResultParser._IN_PROGRESS:
+      # Ignore IN_PROGRESS message, which is delivered from
+      # android.cts.util.DeviceReportLog, as it is not related to test status.
       return
+
     assert self._current_class is not None
     assert self._current_test is not None
-    code = int(match.group(1))
 
     duration = 0
-    if code == self._INCOMPLETE:
+    if code == AtfInstrumentationResultParser._START:
       self._current_test_start_time = time.time()
     else:
       duration = time.time() - self._current_test_start_time

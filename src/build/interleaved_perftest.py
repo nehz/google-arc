@@ -498,34 +498,37 @@ def handle_compare(parsed_args):
   print 'VRAWPERF_CTRL=%r' % dict(ctrl_perfs)  # Convert from defaultdict.
   print 'VRAWPERF_EXPT=%r' % dict(expt_perfs)  # Convert from defaultdict.
   print
-  print 'PERF=runs:%d CI:%d%%' % (
+  print 'PERF=runs=%d CI=%d%%' % (
       parsed_args.iterations, parsed_args.confidence_level)
   if expt_options == ctrl_options:
-    print '     configure_opts:%s' % expt_options
+    print '     configure_opts=%s' % expt_options
   else:
-    print '     configure_opts:%s (vs. %s)' % (expt_options, ctrl_options)
-  print '     launch_chrome_opts:%s' % ' '.join(parsed_args.launch_chrome_opt)
+    print '     configure_opts=%s (vs. %s)' % (expt_options, ctrl_options)
+  print '     launch_chrome_opts=%s' % ' '.join(parsed_args.launch_chrome_opt)
 
   def _print_metric(prefix, key, unit):
     ctrl_sample = ctrl_perfs[key]
     expt_sample = expt_perfs[key]
-    expt_estimate = statistics.compute_median(expt_sample)
+    ctrl_median = statistics.compute_median(ctrl_sample)
+    expt_median = statistics.compute_median(expt_sample)
     diff_estimate_lower, diff_estimate_upper = (
         bootstrap_estimation(
             ctrl_sample, expt_sample,
             statistics.compute_median,
             parsed_args.confidence_level))
-    sign = ''
     if diff_estimate_upper < -0.5:
-      sign = '[-]'
-    if diff_estimate_lower > +0.5:
-      sign = '[+]'
-    print '     %s:%.0f%s (%+.0f%s, %+.0f%s) %s' % (
+      significance = '[--]'
+    elif diff_estimate_lower > +0.5:
+      significance = '[++]'
+    else:
+      significance = '[not sgfnt.]'
+    print '     %s: expt=%.0f%s, ctrl=%.0f%s, diffCI=(%+.0f%s,%+.0f%s) %s' % (
         prefix,
-        expt_estimate, unit,
+        ctrl_median, unit,
+        expt_median, unit,
         diff_estimate_lower, unit,
         diff_estimate_upper, unit,
-        sign)
+        significance)
 
   _print_metric('boot', 'boot_time_ms', 'ms')
   _print_metric('  preEmbed', 'pre_embed_time_ms', 'ms')
@@ -533,6 +536,8 @@ def handle_compare(parsed_args):
   _print_metric('  onResume', 'on_resume_time_ms', 'ms')
   _print_metric('virt', 'app_virt_mem', 'MB')
   _print_metric('res', 'app_res_mem', 'MB')
+
+  print '     (see go/arcipt for how to interpret these numbers)'
 
 
 def main():

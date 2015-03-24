@@ -75,6 +75,11 @@ static void copy_thread_info(__pthread_context_info_t* dst,
     // Main thread or any other thread that has no stack info
     // (e.g. stack_end_from_irt) will not be reported here, and so will be
     // omitted from caller's outputs.
+    // Note: Because |stack_end_from_irt| is initialized in the
+    // created thread there is a chance we get an uninitialized value
+    // from it. As pthread_create always initializes
+    // pthread_internal_t by zero, this will not be a big issue. Such
+    // threads will be just ignored.
     // TODO(crbug.com/467085): Support tracing sleeping main thread.
     // TODO(crbug.com/372248): Remove the use of stack_end_from_irt.
     if (src->stack_end_from_irt) {

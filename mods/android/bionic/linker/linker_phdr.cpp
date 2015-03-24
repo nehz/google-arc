@@ -43,7 +43,9 @@
 #if defined(__native_client__)
 #include <nacl_dyncode.h>
 #endif  // __native_client__
-
+#if defined(RUNNING_ON_VALGRIND)
+#include <sys/syscall.h>  // For direct mmap.
+#endif
 // ARC MOD END
 /**
   TECHNICAL NOTE ON ELF LOADING.
@@ -525,12 +527,35 @@ bool ElfReader::LoadSegments() {
         // segments.
 #endif
         // ARC MOD END
+      // ARC MOD BEGIN
+      // nonsfi_loader's mmap is implemented by mmap without PROT_EXEC
+      // and mprotect with PROT_EXEC, to work-around a limitation of
+      // Chrome OS. With such code pattern, valgrind cannot detect the
+      // loaded text segments properly. We use direct mmap syscall on
+      // valgrind.
+#if defined(RUNNING_ON_VALGRIND)
+      // New mmap syscall interface (mmap2) takes the offset into the
+      // file in 4096-byte units.
+      static const int kPageBits = 12;
+      void* seg_addr = reinterpret_cast<void*>(
+          syscall(__NR_mmap2,
+                  seg_page_start,
+                  file_length,
+                  PFLAGS_TO_PROT(phdr->p_flags),
+                  MAP_FIXED|MAP_PRIVATE,
+                  fd_,
+                  file_page_start >> kPageBits));
+#else
+      // ARC MOD END
       void* seg_addr = mmap((void*)seg_page_start,
                             file_length,
                             PFLAGS_TO_PROT(phdr->p_flags),
                             MAP_FIXED|MAP_PRIVATE,
                             fd_,
                             file_page_start);
+      // ARC MOD BEGIN
+#endif
+      // ARC MOD END
       if (seg_addr == MAP_FAILED) {
         DL_ERR("couldn't map \"%s\" segment %d: %s", name_, i, strerror(errno));
         return false;

@@ -64,8 +64,7 @@ class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
   def setUp(self, test_methods_to_run):
     self._print('Setting up %d uiAutomator tests of suite %s' %
                 (len(test_methods_to_run), self._name))
-    self._result_parser = result_parser.AtfInstrumentationResultParser(
-        ignore_status_codes_before_class=True)
+    self._result_parser = result_parser.AtfInstrumentationResultParser()
     self._scoreboard_updater = (
         scoreboard_updater.AtfInstrumentationScoreboardUpdater(
             self.get_scoreboard()))

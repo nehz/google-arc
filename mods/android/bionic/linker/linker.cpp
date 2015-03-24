@@ -2247,6 +2247,18 @@ static bool soinfo_link_image(soinfo* si) {
             *pneeded++ = lsi;
         }
     }
+    // ARC MOD BEGIN
+    // Valgrind injects vgpreload_*.so and they require a few symbols
+    // in libc.so. However, they do not have DT_NEEDED entry. With
+    // glibc loader's semantics, symbols will be properly resolved
+    // from libc.so but with Bionic, we need an explicit DT_NEEDED
+    // entry for libc.so.
+#if defined(RUNNING_ON_VALGRIND)
+    if (!strcmp(si->name, "vgpreload_core-x86-linux.so") ||
+        !strcmp(si->name, "vgpreload_memcheck-x86-linux.so"))
+        *pneeded++ = find_library("libc.so");
+#endif
+    // ARC MOD END
     *pneeded = NULL;
 
     if (si->has_text_relocations) {

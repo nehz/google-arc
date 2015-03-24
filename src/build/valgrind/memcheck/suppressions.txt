@@ -5,10 +5,14 @@
    Memcheck:Leak
    fun:malloc
    ...
-   fun:_ZN6soinfo12CallFunctionEPKcPFvvE
-   fun:_ZN6soinfo9CallArrayEPKcPPFvvEjb
-   fun:_ZN6soinfo16CallConstructorsEv
+   fun:_ZL9traceInitv
+   obj:*/runnable-ld.so
    ...
+   # This "main" is the main in nonsfi_loader, not in ARC
+   # binaries. So, this means we are running initialization in the
+   # Bionic loader.
+   fun:nacl_irt_nonsfi_entry
+   fun:main
 }
 {
    # TODO(crbug.com/404987): As wo do not run global destructors,
@@ -107,9 +111,11 @@
    # plugin_load_test leak.
    ctors_leak_in_some_modules
    Memcheck:Leak
+   fun:malloc
    fun:_Znwj
    ...
-   fun:dlopen
+   # This should be dlopen.
+   obj:*/runnable-ld.so
    ...
    fun:_ZN37PluginTest_LoadAllLibrarySymbols_Test8TestBodyEv
    ...
@@ -180,4 +186,15 @@
    ...
    fun:nacl_irt_nonsfi_entry
    fun:main
+}
+{
+   # TODO(hamaji): Check if this failure is OK. If not, file an
+   # appropriate NaCl bug.
+   nonsfi_loader_thread_leak
+   Memcheck:Leak
+   fun:malloc
+   fun:nc_allocate_memory_block_mu
+   fun:pthread_create
+   fun:thread_create
+   ...
 }
