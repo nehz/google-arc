@@ -86,9 +86,24 @@ void* __next_func_needs_irt_query = NEXT_CTOR_FUNC_NEEDS_IRT_QUERY_MARKER;
 /* This function must be called before other constructors in Bionic.
  * Note that android/bionic/libc/unistd/time.c actually has an
  * __attribute__((constructor)). Note that 101 is the highest
- * priority allowed for user programs. */
+ * priority allowed for user programs. For NaCl, we explicitly specify the
+ * section name as nacl-clang 3.6 uses .init_array instead of .ctors for
+ * __attribute__((constructor)). */
+#if defined(__native_client__)
+static void __libc_preinit(__nacl_irt_query_fn_t irt_query);
+
+/* This is 65535 - 101. The priority for .ctors will be subtracted
+ * from 65535. This symbol is intended to place right before
+ * __next_func_needs_irt_query defined above. */
+__attribute__((section(".ctors.65434"), used))
+void* __libc_preinit_for_ctors = (void*)&__libc_preinit;
+
+static void __libc_preinit(__nacl_irt_query_fn_t irt_query) {
+#else
 __attribute__((constructor(101)))
 static void __libc_preinit(__nacl_irt_query_fn_t irt_query) {
+#endif
+
 #else
 /* ARC MOD END */
 // We flag the __libc_preinit function as a constructor to ensure

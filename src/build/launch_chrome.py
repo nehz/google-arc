@@ -22,13 +22,13 @@ import toolchain
 import util.statistics
 from build_options import OPTIONS
 from util import chrome_process
-from util import debug
 from util import file_util
 from util import gdb_util
 from util import jdb_util
 from util import logging_util
 from util import platform_util
 from util import remote_executor
+from util import signal_util
 from util.minidump_filter import MinidumpFilter
 from util.output_handler import AtfTestHandler
 from util.output_handler import ArcStraceFilter
@@ -326,19 +326,8 @@ def _get_nacl_irt_path(parsed_args):
     return nacl_irt_path
 
 
-def _setup_sigterm_handler():
-  # We much rely on atexit module in this script. Some other scripts, such as
-  # run_integration_tests, send the SIGTERM to let this script know to be
-  # graceful shutdown. So we translate it to sys.exit, which is just raising an
-  # SystemExit so that functions registered to atexit should work properly.
-  def sigterm_handler(signum, frame):
-    debug.write_frames(sys.stderr)
-    sys.exit(1)
-  signal.signal(signal.SIGTERM, sigterm_handler)
-
-
 def main():
-  _setup_sigterm_handler()
+  signal_util.setup()
 
   OPTIONS.parse_configure_file()
 
@@ -717,14 +706,10 @@ def _terminate_chrome(chrome):
 
 def _run_chrome(parsed_args, stats, **kwargs):
   if parsed_args.logcat is not None:
-    # Using atexit for terminating subprocesses has timing issue.
-    # There is (commonly very short) period between the subprocess creation and
-    # registering the callback to atexit.register(). So, if some signal is sent
-    # between them, atexit will not work well. However, it should cover most
-    # cases.
-    adb = subprocess.Popen(
+    # adb process will be terminated in the atexit handler, registered
+    # in the signal_util.setup().
+    subprocess.Popen(
         [toolchain.get_tool('host', 'adb'), 'logcat'] + parsed_args.logcat)
-    atexit.register(lambda: adb.poll() is not None or adb.kill())
 
   params = _compute_chrome_params(parsed_args)
   gdb_util.create_or_remove_bare_metal_gdb_lock_dir(parsed_args.gdb)
@@ -748,10 +733,7 @@ def _run_chrome(parsed_args, stats, **kwargs):
   output_handler = _select_output_handler(parsed_args, stats, p, **kwargs)
 
   # Wait for the process to finish or us to be interrupted.
-  try:
-    chrome_returncode = p.handle_output(output_handler)
-  except KeyboardInterrupt:
-    sys.exit(1)
+  chrome_returncode = p.handle_output(output_handler)
 
   if chrome_returncode:
     logging.error('Chrome is terminated with status code: %d',

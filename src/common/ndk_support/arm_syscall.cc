@@ -39,10 +39,6 @@ void RunCacheFlush(va_list ap) {
 
 int RunArmKernelSyscallImpl(int arm_sysno, va_list ap) {
   switch (arm_sysno) {
-    case 178:  // rt_sigqueueinfo
-      return -ENOSYS;
-    case 186:  // sigaltstack
-      return -ENOSYS;
     case 224: {  // gettid
       // Forward the call to __wrap_syscall in posix_translation.
       int result = syscall(__NR_gettid);  // always succeeds
@@ -72,8 +68,6 @@ int RunArmKernelSyscallImpl(int arm_sysno, va_list ap) {
     case 241:  // sched_setaffinity
       ALOGI("sched_setaffinity is not supported, returning 0");
       return 0;  // pretend to succeed.
-    case 307:  // shmget
-      return -ENOSYS;
     case kCacheFlushSysno:  // cacheflush
 #if defined(USE_NDK_DIRECT_EXECUTION)
       RunCacheFlush(ap);
@@ -84,9 +78,7 @@ int RunArmKernelSyscallImpl(int arm_sysno, va_list ap) {
     default:
       break;
   }
-  LOG_ALWAYS_FATAL("ARM syscall %s not supported\n",
-                   arc::GetArmSyscallStr(arm_sysno).c_str());
-  return -ENOSYS;  // not reached
+  return -ENOSYS;
 }
 
 }  // namespace

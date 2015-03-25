@@ -46,11 +46,8 @@ def _get_text_section_file_offset(path):
 
 
 def _strip_gdb_result(result):
-  # Strip the leading string like "$5 = " and uninterested lines.
-  # TODO(hamaji): Once I get a sample which has uninterested lines,
-  # write a unittest. See
-  # https://chrome-internal-review.googlesource.com/#/c/185719/
-  matched = re.search(r'^\$\d+ = (.*)', result, re.M)
+  # Strip the leading string like "$5 = ".
+  matched = re.match(r'\$\d+ = (.*)', result)
   if not matched:
     print('GDB returned an unexpected expression: ' + result)
     return None

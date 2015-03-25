@@ -12,6 +12,7 @@ import time
 
 from util import logging_util
 from util import nonblocking_io
+from util import signal_util
 
 try:
   import psutil
@@ -174,7 +175,7 @@ class Popen(object):
   def _terminate_locked(self, is_timedout):
     # Check if the subprocess is already terminated, just before sending
     # terminate message.
-    if self._poll_locked() is not None:
+    if self._process.returncode is not None:
       return
 
     logging.info('Terminating process: %d', self._process.pid)
@@ -188,14 +189,15 @@ class Popen(object):
 
   def terminate_later(self, timeout):
     with self._lock:
-      if self._poll_locked() is None:
+      if self._process.returncode is None:
         self._start_timer_locked(timeout, self.terminate)
 
   def kill(self):
     with self._lock:
-      if self._poll_locked() is None:
+      if self._process.returncode is None:
         logging.info('Killing process: %d', self._process.pid)
         self._process.kill()
+        signal_util.kill_recursively(self._process.pid)
 
   def poll(self):
     with self._lock:

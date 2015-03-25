@@ -2,12 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import errno
 import time
 import os
-import signal
 import subprocess
-import threading
 
 from util import concurrent_subprocess
 from util import file_util
@@ -28,119 +25,10 @@ class ChromeProcess(concurrent_subprocess.Popen):
       # supported.
       subprocess_factory = _TailProxyChromePopen
     else:
-      subprocess_factory = _ChromePopen
+      subprocess_factory = None
     super(ChromeProcess, self).__init__(
         args=args, stdout=stdout, stderr=stderr, cwd=cwd, env=env,
         timeout=timeout, subprocess_factory=subprocess_factory)
-
-
-class _ChromePopen(subprocess.Popen):
-  """Popen for Chrome to stabilize the handling Chrome flakiness problem.
-
-  concurrent_subprocess.Popen relies on that the write-side of PIPEs passed to
-  stdout and stderr are closed when the subprocess is terminated.
-  However, if the subprocess fork()s another process with inheriting stdout
-  or stderr, the PIPEs will not be closed until all the processes are
-  terminated.
-  In most cases, this does not cause a problem, because sending SIGTERM to
-  a process usually causes SIGTERMs to its children. However, not sure why,
-  Chrome sometimes gets hung-up, and then the child processes are not
-  terminated properly. It means, the write-sides of PIPEs are kept opened,
-  so that concurrent_subprocess.Popen will not work, unexpectedly.
-  So, here, we set up a new process group, and send SIGKILL to the *group*
-  on kill(), instead of the process only. This should work as a last resort
-  of process termination.
-  On the other hand, when we hit CTRL+C, SIGINT is sent to the foreground
-  process group, so setting up a new process group disallows this mechanism.
-  As a work around, we deliver SIGINT manually in the signal handler.
-  """
-  def __init__(self, args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-               cwd=None, env=None):
-    # During creation of the subprocess, we need to block SIGINT. Otherwise,
-    # SIGINT may not be sent to the Chrome process (and its children), since
-    # we set a new process group to them.
-    # Unfortunately, sigprocmask is not provided as a Python API. So emulate
-    # it in simpler way. Here, temporarily block the SIGINT.
-    event = threading.Event()
-
-    def _sigint_block_handler(signum, frame):
-      event.set()
-    old_handler = signal.signal(signal.SIGINT, _sigint_block_handler)
-
-    # Then create a subprocess.
-    try:
-      # Here we fork(), and setpgid() for the process. We setpgid() *both* in
-      # the parent process and the subprocess, to avoid the race condition.
-      # In the subprocess, we call setpgid(0, 0) in preexec. This is called
-      # between fork() and exec().
-      super(_ChromePopen, self).__init__(
-          args, stdout=stdout, stderr=stderr,
-          preexec_fn=lambda: os.setpgid(0, 0), cwd=cwd, env=env)
-
-      # In the parent process, we call setpgid(childpid, childpid) with
-      # ignoring EACCES error. EACCES is raised when the subprocess' exec() is
-      # already invoked.
-      try:
-        os.setpgid(self.pid, self.pid)
-      except OSError as e:
-        if e.errno != errno.EACCES:
-          raise
-    except Exception as e:
-      # On error, we restore the signal handler. Also, if SIGINT is called
-      # during the block period, we manually re-send it to this process.
-      signal.signal(signal.SIGINT, old_handler)
-      if event.is_set():
-        os.kill(os.getpid(), signal.SIGINT)
-      raise
-    except BaseException as e:
-      # Regardless of the exception type, we restore the signal handler,
-      # but for other than Exception's subclasses, we ignore signal.signal()'s
-      # errors, and re-raise the current exception.
-      # We do not re-send SIGINT here, because the |e|'s type should be
-      # SystemExit (as KeyboardInterrupt should be blocked here).
-      try:
-        signal.signal(signal.SIGINT, old_handler)
-      except Exception:
-        # Note, exceptions other than Exception's subclasses must not be
-        # handled here, even if it overrides the original |e|.
-        pass
-      raise e
-
-    # Hereafter, pgid for the Chrome process is properly set.
-    # Install the new SIGINT handler.
-    def _new_sigint_handler(signum, frame):
-      # On hitting CTRL+C, SIGINT is delivered to the foreground process group.
-      # As the Chrome process is now set to a new process group, it cannot
-      # receive the SIGINT by default. Instead, we manually deliver the SIGINT
-      # to the process group.
-      try:
-        os.kill(-self.pid, signum)
-      except Exception:
-        # We ignore the errors here.
-        # The expected error would be OSError with ESRCH only, which can occur
-        # when the process group is already terminated. However, expecting
-        # a KeyboardInterrupt will be raised from |old_handler()| below,
-        # we ignore most of exceptions.
-        # Note that, ESRCH error means a race. However, unfortunately, there
-        # seems no simpler way to avoid such a situation, and practically
-        # it should not be problem, because PID is generated in the
-        # round-robin way, so the IDs will rarely conflict.
-        pass
-      old_handler(signum, frame)
-    signal.signal(signal.SIGINT, _new_sigint_handler)
-    if event.is_set():
-      os.kill(os.getpid(), signal.SIGINT)
-
-  def kill(self):
-    # For Chrome's kill(), instead of kill the process, we kill() the process
-    # *group*.
-    # Note that, as we expect that Chrome shutdowns gracefully on SIGTERM,
-    # we do *not* do this in terminate().
-    os.kill(-self.pid, signal.SIGKILL)
-
-  def wait(self):
-    # From concurrent_subprocess.Popen, wait() should not be called.
-    raise NotImplementedError('_ChromePopen does not support wait().')
 
 
 def _maybe_create_output_file(output, prefix):
@@ -200,7 +88,7 @@ def _maybe_poll(process):
     process.poll()
 
 
-class _TailProxyChromePopen(_ChromePopen):
+class _TailProxyChromePopen(subprocess.Popen):
   """Customized Popen to read NaCl's stdout and stderr via "tail -f".
 
   Currently, on Windows, stdout and stderr are not inherited to the
@@ -265,3 +153,7 @@ class _TailProxyChromePopen(_ChromePopen):
     _maybe_poll(self._tail_stdout_process)
     _maybe_poll(self._tail_stderr_process)
     return super(_TailProxyChromePopen, self).poll()
+
+  def wait(self):
+    # From concurrent_subprocess.Popen, wait() should not be called.
+    raise NotImplementedError('_TailProxyChromePopen does not support wait().')
