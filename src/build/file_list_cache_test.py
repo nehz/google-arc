@@ -6,12 +6,14 @@
 
 """Unittest for file_list_cache.py."""
 
+import atexit
 import os
 import re
 import tempfile
 import unittest
 
 import file_list_cache
+from util import file_util
 
 
 def _touch(path):
@@ -32,7 +34,9 @@ def _list_files(*args):
 
 class FileListCacheUnittest(unittest.TestCase):
   def setUp(self):
-    os.chdir(tempfile.mkdtemp())
+    tmpdir = tempfile.mkdtemp()
+    os.chdir(tmpdir)
+    atexit.register(lambda: file_util.rmtree(tmpdir, ignore_errors=True))
 
     os.makedirs('foo/bar/baz')
     _touch('foo/bar/baz/hoge.cc')

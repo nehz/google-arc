@@ -339,7 +339,7 @@ class SuiteResultsBase(object):
   def _write_list(self, writer, mode, label, tests):
     if len(tests):
       writer.header(mode, '%s (%d)' % (label, len(tests)))
-      writer.write(mode, '%s\n' % ('\n'.join(tests)))
+      writer.write(mode, '%s\n' % ('\n'.join(sorted(tests))))
 
   def _write_single_stat(self, writer, mode, value, label):
     mode = mode if value else _NORMAL
@@ -388,7 +388,8 @@ class SuiteResultsBase(object):
   def _write_results(self):
     if self._test_driver_list:
       self._writer.header(_INFO, 'Results')
-      for test_driver in self._test_driver_list:
+      for test_driver in sorted(self._test_driver_list,
+                                key=lambda driver: driver.name):
         sb = test_driver.scoreboard
         label = _pretty_label(test_driver.name)
         self._writer.write(_NORMAL, label)
@@ -437,7 +438,7 @@ class SuiteResultsBase(object):
     for key in _EXPECTED_STATUS_STRING:
       self._reverse_writer.write(
           _STATUS_MODE[key] if counts[key] else _NORMAL,
-          " % 4d %s " % (counts[key], _TERSE_STATUS[key]))
+          " % 5d %s " % (counts[key], _TERSE_STATUS[key]))
     self._writer.write(_STATUS_MODE[status],
                        "[%- 20s]" % _STATUS_STRING[status])
     self._writer.write(_NORMAL, " %s\n" % name)

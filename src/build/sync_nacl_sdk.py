@@ -6,116 +6,42 @@
 # Syncs the nacl sdk at a pinned version given in NACLSDK.json
 
 import argparse
-import filecmp
 import logging
 import os
-import shutil
-import subprocess
 import sys
-import time
 import urllib
 
 import build_common
-from util import file_util
 from util import logging_util
+from util import download_package_util
 
 
-_ROOT_DIR = build_common.get_arc_root()
-_NACL_SDK_DIR = os.path.join(_ROOT_DIR, 'third_party', 'nacl_sdk')
-_STAMP_PATH = os.path.join(_NACL_SDK_DIR, 'STAMP')
-_PINNED_MANIFEST = os.path.join(_ROOT_DIR, 'src', 'build', 'DEPS.naclsdk')
+_DEPS_FILE_PATH = 'src/build/DEPS.naclsdk'
 _NACL_MIRROR = 'https://commondatastorage.googleapis.com/nativeclient-mirror'
 _LATEST_MANIFEST_URL = _NACL_MIRROR + '/nacl/nacl_sdk/naclsdk_manifest2.json'
 _NACL_SDK_ZIP_URL = _NACL_MIRROR + '/nacl/nacl_sdk/nacl_sdk.zip'
 
 
-def _log_check_call(log_function, *args, **kwargs):
-  """Log each line of output from a command.
-
-  Args:
-    log_function: Function to call to log.
-    *args: Ordered args.
-    **kwargs: Keyword args.
-  """
-  p = subprocess.Popen(
-      *args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs)
-  for line in p.stdout:
-    log_function(line.rstrip())
-  return_code = p.wait()
-  if return_code:
-    # Unlike subprocess.check_call, as we do not use 'args' kw-arg in this
-    # module, we do not check it.
-    cmd = args[0]
-    raise subprocess.CalledProcessError(return_code, cmd)
-
-
-def _roll_forward_pinned_manifest():
+@build_common.with_retry_on_exception
+def roll_pinned_manifest_forward():
   """Roll forward the pinned manifest to the latest version."""
-  logging.info('Rolling forward the pinned NaCl manifest...')
-
-  @build_common.with_retry_on_exception
-  def retrieve_manifest():
-    urllib.urlretrieve(_LATEST_MANIFEST_URL, _PINNED_MANIFEST)
-  retrieve_manifest()
+  logging.info('Rolling forward the pinned NaCl manifest.')
+  urllib.urlretrieve(_LATEST_MANIFEST_URL, _DEPS_FILE_PATH)
   logging.info('Done.')
 
 
-def _should_delete_nacl_sdk():
-  """Returns True if the SDK tree should be deleted."""
-  if not os.path.exists(_STAMP_PATH):
-    return False
-  # Returns true if _PINNED_MANIFEST is modified. This is necessary because
-  # './naclsdk update' does nothing when _PINNED_MANIFEST is reverted back
-  # to an older revision. We use filecmp.cmp() rather than parsing the manifest
-  # file. Since deleting the SDK is relatively cheap, and updating the SDK is
-  # as slow as installing it from scratch, just comparing files would be okay.
-  return not filecmp.cmp(_PINNED_MANIFEST, _STAMP_PATH)
-
-
-def _ensure_naclsdk_downloaded():
-  """Downloads the naclsdk script if necessary."""
-  if (not _should_delete_nacl_sdk() and
-      os.path.exists(os.path.join(_NACL_SDK_DIR, 'naclsdk'))):
-    return
-
-  # Deleting the obsolete SDK tree usually takes only <1s.
-  logging.info('Deleting old NaCl SDK...')
-  file_util.rmtree(_NACL_SDK_DIR, ignore_errors=True)
-
-  # Download sdk zip if needed. The zip file only contains a set of Python
-  # scripts that download the actual SDK. This step usually takes only <1s.
-  logging.info('Downloading nacl_sdk.zip...')
-  zip_content = build_common.download_content(_NACL_SDK_ZIP_URL)
-  # The archived path starts with nacl_sdk/, so we inflate the contents
-  # into the one level higher directory.
-  file_util.inflate_zip(zip_content, os.path.dirname(_NACL_SDK_DIR))
-  os.chmod(os.path.join(_NACL_SDK_DIR, 'naclsdk'), 0700)
-
-
-def _update_nacl_sdk():
-  """Syncs the NaCL SDK. based on pinned manifest."""
-
-  # In ./naclsdk execution, it sometimes fails due to the server-side or
-  # network errors. So, here we retry on failure sometimes.
+class NaClSDKFiles(download_package_util.BasicCachedPackage):
+  """Handles syncing the NaCl SDK."""
   @build_common.with_retry_on_exception
-  def internal():
-    start = time.time()
-    logging.info('Updating NaCl SDK...')
-    _log_check_call(
-        logging.info,
-        ['./naclsdk', 'update', '-U', 'file://' + _PINNED_MANIFEST,
-         '--force', 'pepper_canary'],
-        cwd=_NACL_SDK_DIR)
-    elapsed_time = time.time() - start
-    if elapsed_time > 1:
-      print 'NaCl SDK update took %0.3fs' % elapsed_time
-    logging.info('Done. [%fs]' % elapsed_time)
-  return internal()
-
-
-def _update_stamp():
-  """Update a stamp file for build tracking."""
-  shutil.copyfile(_PINNED_MANIFEST, _STAMP_PATH)
+  def post_update_work(self):
+    # Update based on pinned manifest. This part can be as slow as 1-2 minutes
+    # regardless of whether it is a fresh install or an update.
+    logging.info('%s: Updating naclsdk using manifest.', self.name)
+    download_package_util.execute_subprocess([
+        './naclsdk', 'update', '-U',
+        'file://' + os.path.join(build_common.get_arc_root(),
+                                 _DEPS_FILE_PATH),
+        '--force', 'pepper_canary'], cwd=self.unpacked_linked_cache_path)
 
 
 def main(args):
@@ -127,13 +53,15 @@ def main(args):
                       'latest..')
   args = parser.parse_args(args)
   logging_util.setup(verbose=args.verbose)
-
   if args.roll:
-    _roll_forward_pinned_manifest()
+    roll_pinned_manifest_forward()
 
-  _ensure_naclsdk_downloaded()
-  _update_nacl_sdk()
-  _update_stamp()
+  NaClSDKFiles(
+      _DEPS_FILE_PATH,
+      'third_party/nacl_sdk',
+      url=_NACL_SDK_ZIP_URL,
+      link_subdir='nacl_sdk'
+  ).check_and_perform_update()
 
 
 if __name__ == '__main__':

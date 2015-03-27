@@ -21,7 +21,8 @@ _OPEN_SOURCE_URL = 'https://chromium.googlesource.com/arc/arc'
 def _update_submodules(dest):
   logging.info('Submodule update')
   subprocess.check_call(['git', 'submodule', 'sync'], cwd=dest)
-  subprocess.check_call(['git', 'submodule', 'update', '--init'], cwd=dest)
+  subprocess.check_call(['git', 'submodule', 'update', '--init', '--force'],
+                        cwd=dest)
 
 
 def _clone_repo_if_needed(dest):
@@ -97,9 +98,13 @@ def _push_changes(dest):
 def _reset_and_clean_repo(dest):
   logging.info('Resetting local open source repository')
   subprocess.check_call(['git', 'reset', '--hard'], cwd=dest)
+  subprocess.check_call(['git', 'submodule', 'foreach',
+                         'git', 'reset', '--hard'], cwd=dest)
   logging.info('Clearing untracked files from repository')
   # -f -f is intentional, this will get rid of untracked modules left behind.
   subprocess.check_call(['git', 'clean', '-f', '-f', '-d'], cwd=dest)
+  subprocess.check_call(['git', 'submodule', 'foreach',
+                         'git', 'clean', '-f', '-f', '-d', '-x'], cwd=dest)
 
 
 def _validate_args(args):

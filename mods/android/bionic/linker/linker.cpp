@@ -935,7 +935,12 @@ static int open_library_nacl(const char* name) {
 #endif
 
 // ARC MOD END
-static int open_library_on_path(const char* name, const char* const paths[]) {
+// ARC MOD BEGIN bionic-linker-ndk-detection
+// Add |is_in_vendor_lib| argument.
+// TODO(crbug.com/364344): Remove /vendor/lib.
+static int open_library_on_path(const char* name, const char* const paths[],
+                                int* is_in_vendor_lib) {
+// ARC MOD END
   char buf[512];
   for (size_t i = 0; paths[i] != NULL; ++i) {
     int n = __libc_format_buffer(buf, sizeof(buf), "%s/%s", paths[i], name);
@@ -945,13 +950,24 @@ static int open_library_on_path(const char* name, const char* const paths[]) {
     }
     int fd = TEMP_FAILURE_RETRY(open(buf, O_RDONLY | O_CLOEXEC));
     if (fd != -1) {
+      // ARC MOD BEGIN bionic-linker-ndk-detection
+      // Unlike the MOD in load_library, we do not need to check files
+      // in /data/app-lib as this path is not in LD_LIBRARY_PATH.
+      if (!strcmp(paths[i], kVendorLibDir)) {
+        *is_in_vendor_lib = 1;
+      }
+      // ARC MOD END
       return fd;
     }
   }
   return -1;
 }
 
-static int open_library(const char* name) {
+// ARC MOD BEGIN bionic-linker-ndk-detection
+// Add |is_in_vendor_lib| argument.
+// TODO(crbug.com/364344): Remove /vendor/lib.
+static int open_library(const char* name, int* is_in_vendor_lib) {
+// ARC MOD END
   // ARC MOD BEGIN
   // Note on which code path is used for which case:
   //
@@ -996,7 +1012,7 @@ static int open_library(const char* name) {
   // "out/target/nacl_i686_opt/lib/", not in "/lib". Also note that
   // open_library_on_path does nothing as gLdPaths is empty on
   // production ARC and therefore is fast.
-  return open_library_on_path(name, gLdPaths);
+  return open_library_on_path(name, gLdPaths, is_in_vendor_lib);
 
   // We have already tried /system/lib by __nacl_irt_open_resource
   // (before __inject_arc_linker_hooks) or __nacl_irt_open (after
@@ -1018,7 +1034,12 @@ static int open_library(const char* name) {
 
 static soinfo* load_library(const char* name) {
     // Open the file.
-    int fd = open_library(name);
+    // ARC MOD BEGIN bionic-linker-ndk-detection
+    // Pass |is_in_vendor_lib| to open_library.
+    // TODO(crbug.com/364344): Remove /vendor/lib.
+    int is_in_vendor_lib = 0;
+    int fd = open_library(name, &is_in_vendor_lib);
+    // ARC MOD END
     if (fd == -1) {
         DL_ERR("library \"%s\" not found", name);
         return NULL;
@@ -1052,11 +1073,13 @@ static soinfo* load_library(const char* name) {
       si->entry = header.e_entry + elf_reader.load_bias();
     if (!si->phdr)
       DL_ERR("Cannot locate a program header in \"%s\".", name);
-
+    // ARC MOD END
+    // ARC MOD BEGIN bionic-linker-ndk-detection
     // Set is_ndk appropriately. NDK libraries in APKs are in
     // /data/app-lib/<app-name>.
     const char kNdkLibraryDir[] = "/data/app-lib/";
-    si->is_ndk = (!strncmp(name, kNdkLibraryDir, sizeof(kNdkLibraryDir) - 1) ||
+    si->is_ndk = (is_in_vendor_lib ||
+                  !strncmp(name, kNdkLibraryDir, sizeof(kNdkLibraryDir) - 1) ||
                   !strncmp(name, kVendorLibDir, sizeof(kVendorLibDir) - 1));
 #endif
     // ARC MOD END
@@ -1326,6 +1349,8 @@ static int soinfo_relocate(soinfo* si, Elf32_Rel* rel, unsigned count,
               lsi = si;
             } else {
 #if defined(__native_client__) || defined(BARE_METAL_BIONIC)
+            // ARC MOD END
+              // ARC MOD BEGIN bionic-linker-ndk-detection
               // If |g_resolve_symbol| is injected, try this first for NDK.
               if (si->is_ndk && g_resolve_symbol) {
                   sym_addr = reinterpret_cast<Elf32_Addr>(
@@ -1334,7 +1359,8 @@ static int soinfo_relocate(soinfo* si, Elf32_Rel* rel, unsigned count,
                       goto symbol_found;
                   }
               }
-
+              // ARC MOD END
+              // ARC MOD BEGIN
               // Then look up the symbol following Android's default
               // semantics.
               s = soinfo_do_lookup(si, sym_name, &lsi, needed);

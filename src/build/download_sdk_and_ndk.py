@@ -4,150 +4,149 @@
 # found in the LICENSE file.
 
 import argparse
-import io
 import logging
 import os
 import select
 import subprocess
 import sys
 
-import build_common
-import download_common
 import toolchain
-from util import file_util
-
-_ROOT_DIR = build_common.get_arc_root()
-
-
-class BaseAndroidCompressedTarDownload(
-    download_common.BaseGetAndUnpackArchiveFromURL):
-  """Handle syncing Android source code packages in compressed tar forms."""
-
-  @classmethod
-  def _unpack_update(cls, download_file):
-    subprocess.check_call(['tar', '--extract',
-                           '--use-compress-program=' + cls.COMPRESSION_PROGRAM,
-                           '--directory=' + cls.STAGE_DIR,
-                           '--strip-components=1',
-                           '--file=' + download_file])
+from util import download_package_util
+from util import nonblocking_io
 
 
-class AndroidNDKFiles(BaseAndroidCompressedTarDownload):
-  """The Android NDK."""
-  NAME = 'Android NDK'
-  DEPS_FILE = os.path.join(_ROOT_DIR, 'src', 'build', 'DEPS.ndk')
-  FINAL_DIR = os.path.join(_ROOT_DIR, 'third_party', 'ndk')
-  STAGE_DIR = os.path.join(_ROOT_DIR, 'third_party', 'ndk.bak')
-  DOWNLOAD_NAME = 'ndk.tar.bz2'
-  COMPRESSION_PROGRAM = 'pbzip2'
+# TODO(lpique): This code really needs to use or otherwise be unified with
+# filtered_subprocess.py
+def _process_sdk_update_output_fragment(process, fragment):
+  # Look for the last newline, and split there
+  if '\n' in fragment:
+    completed, remaining = fragment.rsplit('\n', 1)
+    if completed:
+      sys.stdout.write(completed + '\n')
+  else:
+    remaining = fragment
+  if remaining.startswith('Do you accept the license '):
+    sys.stdout.write(remaining)
+    process.stdin.write('y\n')
+    remaining = ''
+  return remaining
 
 
-class AndroidSDKFiles(BaseAndroidCompressedTarDownload):
+# TODO(lpique): This code really needs to use or otherwise be unified with
+# filtered_subprocess.py
+def accept_android_license_subprocess(args):
+  logging.info('accept_android_license_subprocess: %s', args)
+  p = subprocess.Popen(
+      args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE)
+  stdout = nonblocking_io.LineReader(p.stdout)
+  stderr = nonblocking_io.LineReader(p.stderr)
+  current_line = ''
+  while True:
+    select_streams = []
+    if not stdout.closed:
+      select_streams.append(stdout)
+    if not stderr.closed:
+      select_streams.append(stderr)
+    rset = []
+    if select_streams:
+      rset, _, _ = select.select(select_streams, [], [])
+
+    for stream in rset:
+      new_fragment = os.read(stream.fileno(), 4096)
+      if not new_fragment:
+        stream.close()
+        continue
+      current_line = _process_sdk_update_output_fragment(
+          p, current_line + new_fragment)
+    if p.poll() is not None:
+      while not stdout.closed:
+        stdout.read_full_line()
+      while not stderr.closed:
+        stderr.read_full_line()
+      break
+  if p.wait() != 0:
+    raise subprocess.CalledProcessError(p.returncode, args)
+
+
+class AndroidSDKFiles(download_package_util.BasicCachedPackage):
   """The Android SDK."""
-  NAME = 'Android SDK'
-  DEPS_FILE = os.path.join(_ROOT_DIR, 'src', 'build', 'DEPS.android-sdk')
-  FINAL_DIR = os.path.join(_ROOT_DIR, 'third_party', 'android-sdk')
-  STAGE_DIR = os.path.join(_ROOT_DIR, 'third_party', 'android-sdk.bak')
-  DOWNLOAD_NAME = 'sdk.tgz'
-  COMPRESSION_PROGRAM = 'pigz'
-  # This tag is used for downloading the default version, which may be newer
-  # than the pinned version defined in toolchain.py.
-  SDK_BUILD_TOOLS_TAG = 'Android SDK Build-tools'
 
-  @classmethod
-  def post_update_work(cls):
-    api_tag = file_util.read_metadata_file(cls.DEPS_FILE)[1]
-    android_tool = os.path.join(cls.FINAL_DIR, 'tools', 'android')
-    packages = subprocess.Popen([android_tool, 'list', 'sdk'],
-                                stdout=subprocess.PIPE).communicate()[0]
-    filters = ['platform-tools']
-    for line in packages.split('\n'):
-      if api_tag in line or cls.SDK_BUILD_TOOLS_TAG in line:
-        ind = line.find('-')
-        if ind > 0:
-          filters.append(line[:ind].strip())
-    assert len(filters) >= 3, 'No "%s" or "%s" packages found' % (
-        api_tag, cls.SDK_BUILD_TOOLS_TAG)
+  _SDK_TOOLS_ID = 'tools'
+  _SDK_PLATFORM_TOOLS_ID = 'platform-tools'
 
-    return AndroidSDKFiles._update_sdk(android_tool, filters)
+  def __init__(self, *args, **kwargs):
+    super(AndroidSDKFiles, self).__init__(*args, **kwargs)
+    self.android_tool = os.path.join(
+        self.unpacked_linked_cache_path, 'tools', 'android')
 
-  @staticmethod
-  def _update_sdk(android_tool, filters, extra_args=None):
-    args = [android_tool, 'update', 'sdk', '--no-ui',
-            '--filter', ','.join(filters)]
-    if extra_args:
-      args.extend(extra_args)
+  def _update_component_by_id(self, update_component_ids):
+    if not update_component_ids:
+      return
 
-    p = subprocess.Popen(
-        args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE)
-    p.stdout = AndroidSDKFiles._reopen_without_buffering(p.stdout)
-    p.stderr = AndroidSDKFiles._reopen_without_buffering(p.stderr)
-    streams = [p.stdout, p.stderr]
-    current_line = ''
-    while True:
-      rset, _, _ = select.select([p.stdout, p.stderr], [], [])
-      for stream in streams:
-        if stream not in rset:
-          continue
-        new_fragment = os.read(stream.fileno(), 4096)
-        if not new_fragment:
-          stream.close()
-          continue
-        current_line = AndroidSDKFiles._process_sdk_update_output_fragment(
-            p, current_line + new_fragment)
-      if p.poll() is not None:
-        break
-    if p.wait() != 0:
-      raise subprocess.CalledProcessError(p.returncode, args)
+    logging.info('Updating Android SDK components: %s',
+                 ','.join(update_component_ids))
+    accept_android_license_subprocess([
+        self.android_tool, 'update', 'sdk', '--all', '--no-ui', '--filter',
+        ','.join(update_component_ids)])
 
-    return True
+    # Ensure the final directory properly links to the cache.
+    self.populate_final_directory()
 
-  @staticmethod
-  def _process_sdk_update_output_fragment(p, fragment):
-    # Look for the last newline, and split there
-    if '\n' in fragment:
-      completed, remaining = fragment.rsplit('\n', 1)
-      if completed:
-        sys.stdout.write(completed + '\n')
-    else:
-      remaining = fragment
-    if remaining.startswith('Do you accept the license '):
-      sys.stdout.write(remaining)
-      p.stdin.write('y\n')
-      remaining = ''
-    return remaining
+  def post_update_work(self):
+    """Perform some one time work after the SDK is first downloaded."""
+    # Perform a self-update on the SDK tools, to ensure we have the latest
+    # version. We do this update before downloading any other components so that
+    # the tools are up to date for even doing that fetch.
+    self._update_component_by_id([AndroidSDKFiles._SDK_TOOLS_ID])
 
-  @staticmethod
-  def _reopen_without_buffering(stream):
-    if not stream:
-      return None
-    new_stream = io.open(os.dup(stream.fileno()), mode='rb', buffering=0)
-    stream.close()
-    return new_stream
+  def _check_platform_tools_update(self, update_component_ids):
+    """Checks and performs update for the platform-tools."""
+    platform_tools_dir = os.path.join(
+        self.unpacked_linked_cache_path, 'build-tools')
+    if not os.path.exists(platform_tools_dir):
+      update_component_ids.append(AndroidSDKFiles._SDK_PLATFORM_TOOLS_ID)
 
-  @classmethod
-  def check_and_perform_pinned_build_tools_update(cls):
+  def _check_sdk_platform_update(self, update_component_ids):
+    """Checks and performs update for the sdk platform."""
+    pinned_version = toolchain.get_android_sdk_build_tools_pinned_version()
+    pinned_id = 'android-' + pinned_version.split('.')[0]
+    pinned_dir = os.path.join(
+        self.unpacked_linked_cache_path, 'platforms', pinned_id)
+    if not os.path.exists(pinned_dir):
+      update_component_ids.append(pinned_id)
+
+  def _check_pinned_build_tools_update(self, update_component_ids):
     """Checks and performs update for the pinned build-tools."""
     pinned_version = toolchain.get_android_sdk_build_tools_pinned_version()
     pinned_id = 'build-tools-' + pinned_version
-    pinned_dir = os.path.join(cls.FINAL_DIR, 'build-tools', pinned_version)
+    pinned_dir = os.path.join(
+        self.unpacked_linked_cache_path, 'build-tools', pinned_version)
     if not os.path.exists(pinned_dir):
-      android_tool = os.path.join(cls.FINAL_DIR, 'tools', 'android')
-      filters = [pinned_id]
-      # Add --all so that the bulid tools package is selected even if it's
-      # obsolete or newer than the installed version.
-      extra_args = ['--all']
-      return AndroidSDKFiles._update_sdk(android_tool, filters, extra_args)
-    return True
+      update_component_ids.append(pinned_id)
+
+  def check_and_perform_component_updates(self):
+    update_component_ids = []
+    self._check_platform_tools_update(update_component_ids)
+    self._check_sdk_platform_update(update_component_ids)
+    self._check_pinned_build_tools_update(update_component_ids)
+    self._update_component_by_id(update_component_ids)
 
 
 def check_and_perform_updates(include_media=False):
-  success = True
-  success &= AndroidNDKFiles.check_and_perform_update()
-  success &= AndroidSDKFiles.check_and_perform_update()
-  success &= AndroidSDKFiles.check_and_perform_pinned_build_tools_update()
-  return not success
+  download_package_util.BasicCachedPackage(
+      'src/build/DEPS.ndk',
+      'third_party/ndk',
+      unpack_method=download_package_util.unpack_tar_archive('pbzip2')
+  ).check_and_perform_update()
+
+  sdk = AndroidSDKFiles(
+      'src/build/DEPS.android-sdk',
+      'third_party/android-sdk',
+      unpack_method=download_package_util.unpack_tar_archive('pigz')
+  )
+  sdk.check_and_perform_update()
+  sdk.check_and_perform_component_updates()
 
 
 def main():
@@ -156,7 +155,7 @@ def main():
   args = parser.parse_args(sys.argv[1:])
   if args.verbose:
     logging.getLogger().setLevel(logging.INFO)
-  return check_and_perform_updates()
+  check_and_perform_updates()
 
 
 if __name__ == '__main__':

@@ -39,7 +39,8 @@ def _set_up_git_hooks():
   hooks = {
       'pre-push': os.path.join(script_dir, 'git_pre_push.py'),
       'prepare-commit-msg': os.path.join(script_dir, 'git_prepare_commit.py'),
-      'commit-msg': staging.as_staging('gerrit/commit-msg')}
+      'commit-msg': 'third_party/gerrit/commit-msg',
+  }
   obsolete_hooks = ['pre-commit']  # Replaced by pre-push hook.
 
   git_hooks_dir = os.path.join(build_common.get_arc_root(), '.git', 'hooks')

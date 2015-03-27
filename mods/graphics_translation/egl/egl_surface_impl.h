@@ -46,6 +46,7 @@ class EglSurfaceImpl {
   virtual void BindTexImage() {}
   virtual void EnsureBufferReady() {}
   virtual void SetSwapInterval(int interval) {}
+  virtual void SetTimestamp(int64_t time) {}
   virtual EGLBoolean SwapBuffers() { return EGL_TRUE; }
 
   EGLSurface GetKey() const { return key_; }

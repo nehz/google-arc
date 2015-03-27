@@ -248,6 +248,16 @@ class AtfTestHandler(object):
     return False
 
 
+_PRE_PLUGIN_PERF_MESSAGE_PATTERN = re.compile(
+    r'W/libplugin.*Time spent before plugin: '
+    r'(?P<pre_plugin>\d+)ms = (?P<pre_embed>\d+)ms \+ (?P<plugin_load>\d+)ms')
+
+_START_MESSAGE_PATTERN = re.compile(
+    r'\d+\.\d+s \+ (?P<on_resume>\d+\.\d+)s = \d+\.\d+s '
+    r'\(\+(?P<virt_mem>\d+)M virt, \+(?P<res_mem>\d+)M res.*\): '
+    r'Activity onResume .*')
+
+
 class PerfTestHandler(object):
   def __init__(self, parsed_args, stats, chrome_process, cache_warming=False):
     self.parsed_args = parsed_args
@@ -308,10 +318,10 @@ class PerfTestHandler(object):
 
   def handle_stderr(self, line):
     self._handle_line_common(line)
-    if self.stats.parse_pre_plugin_perf_message(line):
+    if self._parse_pre_plugin_perf_message(line):
       return
 
-    if self.stats.parse_app_start_message(line):
+    if self._parse_app_start_message(line):
       dash_line = '--------------------------------'
       sys.stderr.write(dash_line + '\n')
       sys.stderr.write(line)
@@ -328,6 +338,32 @@ class PerfTestHandler(object):
         self.chrome_process.terminate_later(_CACHE_WARMING_CHROME_KILL_DELAY)
         return
       self._finish()
+
+  def _parse_pre_plugin_perf_message(self, line):
+    # We use re.search instead of re.match to work around stdout mixing.
+    match = _PRE_PLUGIN_PERF_MESSAGE_PATTERN.search(line)
+    if not match:
+      return False
+
+    self.stats.pre_plugin_time_ms = int(match.group('pre_plugin'))
+    self.stats.pre_embed_time_ms = int(match.group('pre_embed'))
+    self.stats.plugin_load_time_ms = int(match.group('plugin_load'))
+    return True
+
+  def _parse_app_start_message(self, line):
+    if self.stats.on_resume_time_ms is not None:
+      # If the message is already found, ignore subsequent messages.
+      return False
+
+    # We use re.search instead of re.match to work around stdout mixing.
+    match = _START_MESSAGE_PATTERN.search(line)
+    if not match:
+      return False
+
+    self.stats.on_resume_time_ms = int(float(match.group('on_resume')) * 1000)
+    self.stats.app_virt_mem = int(match.group('virt_mem'))
+    self.stats.app_res_mem = int(match.group('res_mem'))
+    return True
 
   def _finish(self):
     if not self.any_errors:

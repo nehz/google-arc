@@ -4,6 +4,9 @@
 
 #include "posix_translation/passthrough.h"
 
+#include <poll.h>
+#include <unistd.h>
+
 #include <string>
 
 #include "common/alog.h"
@@ -152,11 +155,13 @@ ssize_t PassthroughStream::write(const void* buf, size_t count) {
 
 bool PassthroughStream::IsSelectReadReady() const {
   ALOG_ASSERT(native_fd_ >= 0);
-  return false;
+  // Let us pretend we can always read from stdin.
+  return (native_fd_ == STDIN_FILENO);
 }
 bool PassthroughStream::IsSelectWriteReady() const {
   ALOG_ASSERT(native_fd_ >= 0);
-  return false;
+  // Let us pretend we can always write to stdout and stderr.
+  return (native_fd_ == STDOUT_FILENO || native_fd_ == STDERR_FILENO);
 }
 bool PassthroughStream::IsSelectExceptionReady() const {
   ALOG_ASSERT(native_fd_ >= 0);
@@ -165,7 +170,9 @@ bool PassthroughStream::IsSelectExceptionReady() const {
 
 int16_t PassthroughStream::GetPollEvents() const {
   ALOG_ASSERT(native_fd_ >= 0);
-  return 0;
+  return ((IsSelectReadReady() ? POLLIN : 0) |
+          (IsSelectWriteReady() ? POLLOUT : 0) |
+          (IsSelectExceptionReady() ? POLLERR : 0));
 }
 
 size_t PassthroughStream::GetSize() const {

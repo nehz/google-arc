@@ -106,7 +106,8 @@ Typical usage:
       '--confidence-level', type=int, metavar='<%>', default=90,
       help='Confidence level of confidence intervals.')
   compare_parser.add_argument(
-      '--launch-chrome-opt', action='append', default=[], metavar='OPTIONS',
+      '--launch-chrome-opt', action='append',
+      default=['--enable-nacl-list-mappings'], metavar='OPTIONS',
       help=('An Option to pass on to launch_chrome. Repeat as needed for any '
             'options to pass on.'))
   compare_parser.add_argument(
@@ -522,7 +523,7 @@ def handle_compare(parsed_args):
       significance = '[++]'
     else:
       significance = '[not sgfnt.]'
-    print '     %s: expt=%.0f%s, ctrl=%.0f%s, diffCI=(%+.0f%s,%+.0f%s) %s' % (
+    print '     %s: ctrl=%.0f%s, expt=%.0f%s, diffCI=(%+.0f%s,%+.0f%s) %s' % (
         prefix,
         ctrl_median, unit,
         expt_median, unit,

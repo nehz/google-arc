@@ -39,6 +39,7 @@
 #include "common/dlfcn_injection.h"
 #include "common/export.h"
 #include "common/file_util.h"
+#include "common/irt_wrapper_util.h"
 #include "common/logd_write.h"
 #include "common/memory_state.h"
 #include "common/options.h"
@@ -47,25 +48,6 @@
 #include "common/trace_event.h"
 #include "posix_translation/virtual_file_system.h"
 #include "posix_translation/wrap.h"
-
-// A macro to wrap an IRT function. Note that the macro does not wrap IRT
-// calls made by the Bionic loader. For example, wrapping mmap with DO_WRAP
-// does not hook the mmap IRT calls in phdr_table_load_segments() in
-// mods/android/bionic/linker/linker_phdr.c. This is because the loader has
-// its own set of IRT function pointers that are not visible from non-linker
-// code.
-#define DO_WRAP(name)                                   \
-  __nacl_irt_ ## name ## _real = __nacl_irt_ ## name;   \
-  __nacl_irt_ ## name  = __nacl_irt_ ## name ## _wrap
-
-// A macro to define an IRT wrapper and a function pointer to store
-// the real IRT function. Note that initializing __nacl_irt_<name>_real
-// with __nacl_irt_<name> by default is not a good idea because it requires
-// a static initializer.
-#define IRT_WRAPPER(name, ...)                              \
-  extern int (*__nacl_irt_ ## name)(__VA_ARGS__);           \
-  static int (*__nacl_irt_ ## name ## _real)(__VA_ARGS__);  \
-  int (__nacl_irt_ ## name ## _wrap)(__VA_ARGS__)
 
 // A helper macro to show both DIR pointer and its file descriptor in
 // ARC strace.

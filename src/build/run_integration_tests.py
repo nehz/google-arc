@@ -19,7 +19,6 @@ running that test suite.
 
 import argparse
 import collections
-import logging
 import multiprocessing
 import os
 import subprocess
@@ -472,7 +471,8 @@ def main(raw_args):
   if args.plan_report:
     util.test.suite_results.initialize(test_driver_list, args, False)
     suite_results.report_expected_results(
-        driver.scoreboard for driver in test_driver_list)
+        driver.scoreboard for driver in sorted(test_driver_list,
+                                               key=lambda driver: driver.name))
     return 0
   elif args.list:
     list_fully_qualified_test_names(

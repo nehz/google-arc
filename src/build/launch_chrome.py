@@ -7,7 +7,6 @@
 import atexit
 import logging
 import os
-import re
 import signal
 import subprocess
 import sys
@@ -19,7 +18,6 @@ import build_common
 import launch_chrome_options
 import prep_launch_chrome
 import toolchain
-import util.statistics
 from build_options import OPTIONS
 from util import chrome_process
 from util import file_util
@@ -29,6 +27,7 @@ from util import logging_util
 from util import platform_util
 from util import remote_executor
 from util import signal_util
+from util import startup_stats
 from util.minidump_filter import MinidumpFilter
 from util.output_handler import AtfTestHandler
 from util.output_handler import ArcStraceFilter
@@ -126,111 +125,6 @@ def _prepare_chrome_user_data_dir(parsed_args):
     _USER_DATA_DIR = build_common.get_chrome_default_user_data_dir()
 
 
-class StartupStats:
-  STAT_VARS = ['pre_plugin_time_ms',
-               'pre_embed_time_ms',
-               'plugin_load_time_ms',
-               'on_resume_time_ms',
-               'app_virt_mem',
-               'app_res_mem']
-  DERIVED_STAT_VARS = ['boot_time_ms']
-  ALL_STAT_VARS = STAT_VARS + DERIVED_STAT_VARS
-
-  def __init__(self, num_runs=1):
-    self.num_runs = num_runs
-    for name in StartupStats.STAT_VARS:
-      setattr(self, name, None)
-
-    self.pre_plugin_perf_message_pattern = re.compile(
-        r'W/libplugin.*Time spent before plugin: (\d+)ms = (\d+)ms \+ (\d+)ms')
-    self.start_message_pattern = re.compile(
-        (r'\d+\.\d+s \+ (\d+\.\d+)s = \d+\.\d+s '
-         '\(\+(\d+)M virt\, \+(\d+)M res.*\): '
-         'Activity onResume .*'))
-
-  def check(self):
-    if not self.is_complete():
-      raise Exception('Not all stats were collected')
-
-  def is_complete(self):
-    if any(getattr(self, num) is None for num in StartupStats.STAT_VARS):
-      return False
-    return True
-
-  def parse_pre_plugin_perf_message(self, line):
-    # We use re.search instead of re.match to work around stdout mixing.
-    match = self.pre_plugin_perf_message_pattern.search(line)
-    if match:
-      print line
-      self.pre_plugin_time_ms = int(match.group(1))
-      self.pre_embed_time_ms = int(match.group(2))
-      self.plugin_load_time_ms = int(match.group(3))
-      return True
-    return False
-
-  def parse_app_start_message(self, line):
-    if self.on_resume_time_ms is not None:
-      return  # Ignore subsequent messages
-    # We use re.search instead of re.match to work around stdout mixing.
-    match = self.start_message_pattern.search(line)
-    if match:
-      self.on_resume_time_ms = int(float(match.group(1)) * 1000)
-      self.app_virt_mem = int(match.group(2))
-      self.app_res_mem = int(match.group(3))
-      return True
-    return False
-
-  @property
-  def boot_time_ms(self):
-    return self.pre_plugin_time_ms + self.on_resume_time_ms
-
-  def PrintRawStats(self):
-    rawstats = {key: [getattr(self, key)] for key in StartupStats.ALL_STAT_VARS}
-    print ('VRAWPERF=%s' % rawstats)
-
-  def PrintDetailedStats(self):
-    rawstats = {key: [] for key in StartupStats.ALL_STAT_VARS}
-    for num in StartupStats.ALL_STAT_VARS:
-      for run in getattr(self, 'raw'):
-        rawstats[num].append(getattr(run, num))
-      unit = 'ms' if num.endswith('_ms') else 'MB'
-      val = getattr(self, num)
-      p90 = getattr(self, num + '_90')
-      print ('VPERF=%s: %.2f%s 90%%=%.2f' %
-             (num, val, unit, p90))
-    print ('VRAWPERF=%s' % rawstats)
-
-  def Print(self):
-    # Note: since each value is the median for each data set, they are not
-    # guaranteed to add up.
-    print ('\nPERF=boot:%dms (preEmbed:%dms + pluginLoad:%dms + onResume:%dms),'
-           '\n     virt:%dMB, res:%dMB, runs:%d\n' % (
-               self.boot_time_ms,
-               self.pre_embed_time_ms,
-               self.plugin_load_time_ms,
-               self.on_resume_time_ms,
-               self.app_virt_mem,
-               self.app_res_mem,
-               self.num_runs))
-
-  @staticmethod
-  def compute_stats(stat_list):
-    # Skip incomplete stats (probably crashed during this run).  We collect
-    # enough runs to make up for an occasional missed run.
-    stat_list = filter(lambda s: s.is_complete(), stat_list)
-
-    result = StartupStats(len(stat_list))
-    setattr(result, 'raw', stat_list)
-    for num in StartupStats.ALL_STAT_VARS:
-      values = [getattr(s, num) for s in stat_list]
-      percentiles = util.statistics.compute_percentiles(values, (50, 90))
-
-      # Report median and 90th percentile.
-      setattr(result, num, percentiles[0])
-      setattr(result, num + '_90', percentiles[1])
-    return result
-
-
 def set_environment_for_chrome():
   # Prevent GTK from attempting to move the menu bar, which prints many warnings
   # about undefined symbol "menu_proxy_module_load"
@@ -252,8 +146,7 @@ def _maybe_wait_iteration_lock(parsed_args):
 def _run_chrome_iterations(parsed_args):
   if not parsed_args.no_cache_warming:
     _maybe_wait_iteration_lock(parsed_args)
-    stats = StartupStats()
-    _run_chrome(parsed_args, stats, cache_warming=True)
+    stats = _run_chrome(parsed_args, cache_warming=True)
     if parsed_args.mode == 'perftest':
       total = (stats.pre_embed_time_ms + stats.plugin_load_time_ms +
                stats.on_resume_time_ms)
@@ -261,24 +154,22 @@ def _run_chrome_iterations(parsed_args):
                                      stats.pre_embed_time_ms,
                                      stats.plugin_load_time_ms,
                                      stats.on_resume_time_ms)
-      stats.PrintRawStats()
+      startup_stats.print_raw_stats(stats)
       sys.stdout.flush()
 
   if parsed_args.iterations > 0:
     stat_list = []
     for i in xrange(parsed_args.iterations):
       _maybe_wait_iteration_lock(parsed_args)
-      stats = StartupStats()
-      sys.stderr.write('\nStarting Chrome, test run #%s\n' %
-                       (len(stat_list) + 1))
-      _run_chrome(parsed_args, stats)
-      stats.PrintRawStats()
+
+      sys.stderr.write('\nStarting Chrome, test run #%s\n' % (i + 1))
+      stats = _run_chrome(parsed_args)
+      startup_stats.print_raw_stats(stats)
       sys.stdout.flush()
       stat_list.append(stats)
-    stats = StartupStats.compute_stats(stat_list)
-    if stats.num_runs:
-      stats.PrintDetailedStats()
-    stats.Print()
+
+    startup_stats.print_aggregated_stats(stat_list)
+    sys.stdout.flush()
 
 
 def _check_apk_existence(parsed_args):
@@ -704,7 +595,7 @@ def _terminate_chrome(chrome):
   chrome.wait(_CHROME_KILL_TIMEOUT)
 
 
-def _run_chrome(parsed_args, stats, **kwargs):
+def _run_chrome(parsed_args, **kwargs):
   if parsed_args.logcat is not None:
     # adb process will be terminated in the atexit handler, registered
     # in the signal_util.setup().
@@ -730,6 +621,7 @@ def _run_chrome(parsed_args, stats, **kwargs):
   with open(_CHROME_PID_PATH, 'w') as pid_file:
     pid_file.write('%d\n' % p.pid)
 
+  stats = startup_stats.StartupStats()
   output_handler = _select_output_handler(parsed_args, stats, p, **kwargs)
 
   # Wait for the process to finish or us to be interrupted.
@@ -742,6 +634,8 @@ def _run_chrome(parsed_args, stats, **kwargs):
   status_code = _get_status_code(chrome_returncode, output_handler)
   if status_code:
     sys.exit(status_code)
+
+  return stats
 
 
 if __name__ == '__main__':

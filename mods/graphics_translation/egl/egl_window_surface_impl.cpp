@@ -123,9 +123,8 @@ EGLBoolean EglWindowSurfaceImpl::SwapBuffers() {
   return EGL_TRUE;
 }
 
-void EglWindowSurfaceImpl::BeginFrame() {
-  int64_t timestamp = systemTime(SYSTEM_TIME_MONOTONIC);
-  native_window_set_buffers_timestamp(android_window_, timestamp);
+void EglWindowSurfaceImpl::SetTimestamp(int64_t time) {
+  native_window_set_buffers_timestamp(android_window_, time);
 }
 
 void EglWindowSurfaceImpl::EnsureBufferReady() {

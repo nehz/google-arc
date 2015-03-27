@@ -4,6 +4,7 @@
 
 #include <elf.h>  // For ELFMAG
 #include <fcntl.h>
+#include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -83,4 +84,51 @@ TEST_F(PassthroughTest, TestFcntl) {
   EXPECT_EQ(new_flag, DoFcntl(stream, F_GETFL));
 }
 
+TEST_F(PassthroughTest, TestSelectStdin) {
+  PassthroughHandler handler;
+  scoped_refptr<FileStream> stream =
+      handler.open(STDIN_FILENO, "", O_RDONLY, 0);
+  EXPECT_TRUE(stream->IsSelectReadReady());
+  EXPECT_FALSE(stream->IsSelectWriteReady());
+  EXPECT_FALSE(stream->IsSelectExceptionReady());
+}
+
+TEST_F(PassthroughTest, TestSelectStdout) {
+  PassthroughHandler handler;
+  scoped_refptr<FileStream> stream =
+      handler.open(STDOUT_FILENO, "", O_RDONLY, 0);
+  EXPECT_FALSE(stream->IsSelectReadReady());
+  EXPECT_TRUE(stream->IsSelectWriteReady());
+  EXPECT_FALSE(stream->IsSelectExceptionReady());
+}
+
+TEST_F(PassthroughTest, TestSelectStderr) {
+  PassthroughHandler handler;
+  scoped_refptr<FileStream> stream =
+      handler.open(STDERR_FILENO, "", O_RDONLY, 0);
+  EXPECT_FALSE(stream->IsSelectReadReady());
+  EXPECT_TRUE(stream->IsSelectWriteReady());
+  EXPECT_FALSE(stream->IsSelectExceptionReady());
+}
+
+TEST_F(PassthroughTest, TestPollStdin) {
+  PassthroughHandler handler;
+  scoped_refptr<FileStream> stream =
+      handler.open(STDIN_FILENO, "", O_RDONLY, 0);
+  EXPECT_EQ(POLLIN, stream->GetPollEvents());
+}
+
+TEST_F(PassthroughTest, TestPollStdout) {
+  PassthroughHandler handler;
+  scoped_refptr<FileStream> stream =
+      handler.open(STDOUT_FILENO, "", O_RDONLY, 0);
+  EXPECT_EQ(POLLOUT, stream->GetPollEvents());
+}
+
+TEST_F(PassthroughTest, TestPollStderr) {
+  PassthroughHandler handler;
+  scoped_refptr<FileStream> stream =
+      handler.open(STDERR_FILENO, "", O_RDONLY, 0);
+  EXPECT_EQ(POLLOUT, stream->GetPollEvents());
+}
 }  // namespace posix_translation

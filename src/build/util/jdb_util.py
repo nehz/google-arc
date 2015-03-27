@@ -3,13 +3,21 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import os
 import re
 import staging
 import subprocess
 import sys
-import time
 
 import eclipse_connector
+
+
+# The list of Java source file root paths.
+# TODO(crbug.com/470798): Find proper paths.
+_JAVA_SOURCE_PATHS = (
+    'android/libcore/luni/src/main/java',
+    'android/frameworks/base/core/java',
+)
 
 
 def maybe_launch_jdb(jdb_port, jdb_type):
@@ -23,7 +31,7 @@ def maybe_launch_jdb(jdb_port, jdb_type):
 
 class JdbHandlerAdapter(object):
   _WAITING_JDB_CONNECTION_PATTERN = re.compile(
-      r'Waiting for JDWP connection on port (\d+)')
+      r'Hello ARC, start jdb please at port (\d+)')
 
   def __init__(self, base_handler, jdb_port, jdb_type):
     self._base_handler = base_handler
@@ -37,18 +45,19 @@ class JdbHandlerAdapter(object):
     self._base_handler.handle_stdout(line)
 
   def _start_emacsclient_jdb(self):
-    source_path = ':'.join([
-        staging.as_staging('android/frameworks/base/core/java/'),
-        # Add the real paths too to let emacs know these paths too are
-        # candidates for setting breakpoints etc.
-        './mods/android/frameworks/base/core/java/',
-        './third_party/android/frameworks/base/core/java/'])
-    command = ['emacsclient', '-e',
-               ('(jdb "jdb -attach localhost:%i '
-                '-sourcepath%s ")') % (self._jdb_port, source_path)]
-    # TODO(crbug.com/469037): Try to wait until JDWP port is
-    # really available. There should be a better way?
-    time.sleep(0.6)
+    source_paths = []
+    for path in _JAVA_SOURCE_PATHS:
+      source_paths.extend([
+          staging.as_staging(path),
+          # Add the real paths too to let emacs know these paths too are
+          # candidates for setting breakpoints etc.
+          os.path.join('./mods', path),
+          os.path.join('./third_party', path),
+      ])
+    command = [
+        'emacsclient', '-e',
+        '(jdb "jdb -attach localhost:%d -sourcepath%s")' %
+        (self._jdb_port, ':'.join(source_paths))]
     subprocess.Popen(command)
 
   def handle_stderr(self, line):
