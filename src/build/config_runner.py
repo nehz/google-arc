@@ -22,7 +22,7 @@ from config_loader import ConfigLoader
 from util import file_util
 
 
-_CONFIG_CACHE_VERSION = 0
+_CONFIG_CACHE_VERSION = 1
 
 _config_loader = ConfigLoader()
 
@@ -54,7 +54,7 @@ class ConfigResult(object):
     self.generated_ninjas.extend(other.generated_ninjas)
 
   def get_file_dependency(self):
-    return self.files.union(_get_build_system_dependencies())
+    return self.files
 
 
 class FileEntry(object):
@@ -62,22 +62,18 @@ class FileEntry(object):
     self.mtime = mtime
 
 
-class ConfigCache(object):
-  """Represents an on-disk cache entry to persist the cache."""
+class CacheDependency(object):
+  """Represents the dependency part of Config Cache. The instance holds
+  informations to decide a cache is fresh.
+  """
 
-  def __init__(self, config_name, entry_point,
-               files, listings, serialized_generated_ninjas):
-    self.config_name = config_name
-    self.entry_point = entry_point
-    self.files = files
-    self.listings = listings
-    self.serialized_generated_ninjas = serialized_generated_ninjas
+  def __init__(self, files=None, listings=None):
+    self.files = {} if files is None else files
+    self.listings = set() if listings is None else listings
 
-  def refresh_with_config_result(self, config_result):
-    assert self.config_name == config_result.config_name
-    assert self.entry_point == config_result.entry_point
+  def refresh(self, file_paths, queries):
     files = {}
-    for path in config_result.get_file_dependency():
+    for path in file_paths:
       try:
         files[path] = FileEntry(os.stat(path).st_mtime)
       except OSError as e:
@@ -85,24 +81,21 @@ class ConfigCache(object):
           raise
     self.files = files
 
-    new_listings = set()
-    queries = config_result.listing_queries.copy()
+    listings = set()
+    new_queries = queries.difference({
+        listing.query for listing in self.listings})
+    reused_queries = queries.difference(new_queries)
+    for query in new_queries:
+      listings.add(file_list_cache.FileListCache(query))
     for listing in self.listings:
-      if listing.query in queries:
-        new_listings.add(listing)
-        queries.remove(listing.query)
-    for query in queries:
-      new_listings.add(file_list_cache.FileListCache(query))
-    for listing in new_listings:
+      if listing.query in reused_queries:
+        listings.add(listing)
+
+    for listing in listings:
       listing.refresh_cache()
-    self.listings = new_listings
+    self.listings = listings
 
-    self.serialized_generated_ninjas = cPickle.dumps(
-        config_result.generated_ninjas)
-
-  def check_cache_freshness(self):
-    """Returns True if the cache is fresh."""
-
+  def check_freshness(self):
     for path in self.files:
       try:
         if os.stat(path).st_mtime != self.files[path].mtime:
@@ -116,6 +109,40 @@ class ConfigCache(object):
         return False
     return True
 
+  def to_dict(self):
+    return {
+        'version': _CONFIG_CACHE_VERSION,
+        'files': [(path, entry.mtime)
+                  for path, entry in self.files.iteritems()],
+        'listings': [listing.to_dict() for listing in self.listings]}
+
+  def save_to_file(self):
+    _save_dict_to_file(self.to_dict(), _get_global_deps_file_path())
+
+
+class ConfigCache(object):
+  """Represents an on-disk cache entry to persist the cache."""
+
+  def __init__(self, config_name, entry_point,
+               files, listings, serialized_generated_ninjas):
+    self.config_name = config_name
+    self.entry_point = entry_point
+    self.deps = CacheDependency(files, listings)
+    self.serialized_generated_ninjas = serialized_generated_ninjas
+
+  def refresh_with_config_result(self, config_result):
+    assert self.config_name == config_result.config_name
+    assert self.entry_point == config_result.entry_point
+    self.deps.refresh(config_result.get_file_dependency(),
+                      config_result.listing_queries)
+    self.serialized_generated_ninjas = cPickle.dumps(
+        config_result.generated_ninjas)
+
+  def check_cache_freshness(self):
+    """Returns True if the cache is fresh."""
+
+    return self.deps.check_freshness()
+
   def to_config_result(self):
     try:
       generated_ninjas = cPickle.loads(self.serialized_generated_ninjas)
@@ -124,8 +151,8 @@ class ConfigCache(object):
                       self.config_name, exc_info=True)
       return None
     return ConfigResult(self.config_name, self.entry_point,
-                        set(self.files.keys()),
-                        {listing.query for listing in self.listings},
+                        set(self.deps.files.keys()),
+                        {listing.query for listing in self.deps.listings},
                         generated_ninjas)
 
   def to_dict(self):
@@ -134,8 +161,8 @@ class ConfigCache(object):
         'config_name': self.config_name,
         'entry_point': self.entry_point,
         'files': [(path, entry.mtime)
-                  for path, entry in self.files.iteritems()],
-        'listings': [listing.to_dict() for listing in self.listings],
+                  for path, entry in self.deps.files.iteritems()],
+        'listings': [listing.to_dict() for listing in self.deps.listings],
         'generated_ninjas': self.serialized_generated_ninjas,
     }
 
@@ -159,6 +186,23 @@ def _load_dict_from_file(path):
 def _save_dict_to_file(dict, path):
   file_util.makedirs_safely(os.path.dirname(path))
   file_util.generate_file_atomically(path, lambda f: marshal.dump(dict, f))
+
+
+def _load_global_deps_from_file():
+  """Load a set of dependency that is depended by all config.py."""
+  path = _get_global_deps_file_path()
+  data = _load_dict_from_file(path)
+  if data is None or data['version'] != _CONFIG_CACHE_VERSION:
+    return None
+
+  files = {path: FileEntry(mtime) for path, mtime in data['files']}
+  listings = set()
+  for dict in data['listings']:
+    listing = file_list_cache.file_list_cache_from_dict(dict)
+    if listing is None:
+      return None
+    listings.add(listing)
+  return CacheDependency(files, listings)
 
 
 def _load_config_cache_from_file(path):
@@ -228,6 +272,10 @@ class ConfigContext:
   def make_result(self, ninja_list):
     return ConfigResult(self.config_name, self.entry_point,
                         self.files, self.listing_queries, ninja_list)
+
+
+def _get_global_deps_file_path():
+  return os.path.join(build_common.get_config_cache_dir(), 'global_deps')
 
 
 def _get_cache_file_path(config_name, entry_point):
@@ -367,12 +415,31 @@ def _set_up_generate_ninja():
   # Set up global filter for makefile to ninja translator.
   make_to_ninja.MakefileNinjaTranslator.add_global_filter(
       _filter_all_make_to_ninja)
+
+  dependency_inspection.start_inspection()
+  dependency_inspection.add_files(*_get_build_system_dependencies())
   make_to_ninja.prepare_make_to_ninja()
+  depended_files = dependency_inspection.get_files()
+  depended_listings = dependency_inspection.get_listings()
+  dependency_inspection.stop_inspection()
+
+  needs_clobbering = False
+  global_deps = _load_global_deps_from_file()
+  if global_deps is None:
+    needs_clobbering = True
+    global_deps = CacheDependency()
+  else:
+    if not global_deps.check_freshness():
+      needs_clobbering = True
+  global_deps.refresh(depended_files, depended_listings)
+  global_deps.save_to_file()
 
   _config_loader.load_from_default_path()
 
+  return needs_clobbering
 
-def _generate_independent_ninjas():
+
+def _generate_independent_ninjas(needs_clobbering):
   timer = build_common.SimpleTimer()
 
   # Invoke an unordered set of ninja-generators distributed across config
@@ -392,7 +459,10 @@ def _generate_independent_ninjas():
   for config_context, generator in generator_list:
     cache_path = _get_cache_file_path(config_context.config_name,
                                       config_context.entry_point)
-    config_cache = _load_config_cache_from_file(cache_path)
+    if needs_clobbering:
+      config_cache = None
+    else:
+      config_cache = _load_config_cache_from_file(cache_path)
 
     if config_cache is not None and config_cache.check_cache_freshness():
       cached_result = config_cache.to_config_result()
@@ -554,9 +624,9 @@ def _verify_ninja_generator_list(ninja_list):
 
 
 def generate_ninjas():
-  _set_up_generate_ninja()
+  needs_clobbering = _set_up_generate_ninja()
   ninja_list = []
-  ninja_list.extend(_generate_independent_ninjas())
+  ninja_list.extend(_generate_independent_ninjas(needs_clobbering))
   ninja_list.extend(
       _generate_shared_lib_depending_ninjas(ninja_list))
   ninja_list.extend(_generate_dependent_ninjas(ninja_list))

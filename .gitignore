@@ -27,4 +27,5 @@ third_party/tools/python_mock
 .cproject
 .pydevproject
 .subversion
-internal
+/internal
+

@@ -129,8 +129,13 @@ def default_download_url():
 def gsutil_download_url():
   """Creates a closure for downloading a Google Cloud Storage file."""
   def _download(url, destination_path):
-    execute_subprocess([
-        build_common.get_gsutil_executable(), 'cp', url, destination_path])
+    try:
+      execute_subprocess([
+          build_common.get_gsutil_executable(), 'cp', url, destination_path])
+    except subprocess.CalledProcessError:
+      logging.error('Try prodaccess, and if it does not solve the problem try '
+                    'rm ~/.devstore_token')
+      raise
   return _download
 
 

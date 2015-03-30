@@ -2,16 +2,17 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Defines several output handlers used for filtered_subprocess.
+"""Defines several output handlers used for concurrent_subprocess.Popen."""
 
 import logging
 import re
 import subprocess
+import threading
 import time
 import sys
-from build_options import OPTIONS
 
 import crash_analyzer
+from build_options import OPTIONS
 from util import platform_util
 from util.test import atf_instrumentation_result_parser as result_parser
 
@@ -442,4 +443,65 @@ class CrashAddressFilter(object):
     self._output_handler.handle_timeout()
 
   def get_error_level(self, child_level):
+    return self._output_handler.get_error_level(child_level)
+
+
+class ChromeFlakinessHandler(object):
+  """Output Handler to take care of Chrome flakiness stuck.
+
+  On Chrome launching, sometimes it stuck with output just a few lines.
+  This handler detects such a case. When such a case is found, this tries
+  to terminate the Chrome process, and returns None via get_error_level().
+  """
+  _LAUNCH_CHROME_MINIMUM_LINES = 16
+  _LAUNCH_CHROME_TIMEOUT = 30  # In seconds.
+
+  def __init__(self, output_handler, chrome_process):
+    self._output_handler = output_handler
+    self._chrome_process = chrome_process
+    self._line_count = 0
+    self._timedout = threading.Event()
+
+    # Start a threading.Timer on creation.
+    logging.info('Flakiness timer started')
+    self._timer = threading.Timer(
+        ChromeFlakinessHandler._LAUNCH_CHROME_TIMEOUT, self._timeout_callback)
+    self._timer.daemon = True
+    self._timer.start()
+
+  def handle_stdout(self, line):
+    self._output_handler.handle_stdout(line)
+    self._handle_line(line)
+
+  def handle_stderr(self, line):
+    self._output_handler.handle_stderr(line)
+    self._handle_line(line)
+
+  def is_done(self):
+    return self._output_handler.is_done()
+
+  def handle_timeout(self):
+    self._output_handler.handle_timeout()
+
+  def _handle_line(self, line):
+    if not self._timer:
+      # The termination timer is already cancelled. Do nothing.
+      return
+
+    self._line_count += 1
+    if self._line_count > ChromeFlakinessHandler._LAUNCH_CHROME_MINIMUM_LINES:
+      # When enough number of lines are observed, cancel the timer.
+      logging.info('Chrome flakiness timer is cancelled')
+      self._timer.cancel()
+      self._timer = None
+
+  def _timeout_callback(self):
+    logging.error('Chrome looks flaky. Terminating for retry...')
+    self._timedout.set()
+    self._chrome_process.terminate()
+
+  def get_error_level(self, child_level):
+    if self._timedout.is_set():
+      # On timeout, return None.
+      return None
     return self._output_handler.get_error_level(child_level)

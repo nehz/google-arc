@@ -185,6 +185,7 @@ like and start debugging by
 
 Now you can attach GDB. Run the following command in another shell.
 
+$ cd /path/to/arc
 $ sh %s
 
 Then, set breakpoints as you like and start debugging by
@@ -264,6 +265,10 @@ def _attach_bare_metal_gdb(
   gdb_args = []
   if nacl_helper_binary:
     gdb_args.append(nacl_helper_binary)
+    # TODO(crbug.com/376666): Remove this once newlib-switch is done. The
+    # new loader is always statically linked and does not need this trick.
+    gdb_args.extend(['-ex', 'set solib-search-path %s' % os.path.dirname(
+        nacl_helper_binary)])
   gdb_args.extend([
       '-ex', 'target remote %s:%d' % (remote_address or _LOCAL_HOST, gdb_port)])
   gdb_args.extend(_get_bare_metal_gdb_init_commands(

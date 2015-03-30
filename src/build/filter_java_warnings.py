@@ -10,19 +10,23 @@
 # build, filter them out.  We show all other warnings and preserve
 # exit status.
 
-import filtered_subprocess
 import sys
+
 import warning_filter
+from util import concurrent_subprocess
 
-my_filter = warning_filter.WarningFilter(
-    r'Note: Some input files use or override a deprecated API\.',
-    r'Note: .* uses or overrides a deprecated API\.',
-    r'Note: Recompile with -Xlint:deprecation for details\.',
-    r'Note: Some input files use unchecked or unsafe operations\.',
-    r'Note: .* uses unchecked or unsafe operations\.',
-    r'Note: Recompile with -Xlint:unchecked for details\.')
 
-p = filtered_subprocess.Popen(sys.argv[1:])
-p.run_process_filtering_output(my_filter)
+def main():
+  my_filter = warning_filter.WarningFilter(
+      r'Note: Some input files use or override a deprecated API\.',
+      r'Note: .* uses or overrides a deprecated API\.',
+      r'Note: Recompile with -Xlint:deprecation for details\.',
+      r'Note: Some input files use unchecked or unsafe operations\.',
+      r'Note: .* uses unchecked or unsafe operations\.',
+      r'Note: Recompile with -Xlint:unchecked for details\.')
+  p = concurrent_subprocess.Popen(sys.argv[1:])
+  return p.handle_output(my_filter)
 
-sys.exit(p.returncode)
+
+if __name__ == '__main__':
+  sys.exit(main())

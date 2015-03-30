@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import atexit
+import logging
 import os
 import signal
 import subprocess
@@ -66,6 +67,7 @@ def _sigterm_handler(signum, frame):
   """Signal handler for the SIGTERM."""
   # First of all, on TERMINATE, print the stacktrace.
   assert signum == signal.SIGTERM
+  logging.error('SIGTERM is recieved.')
   debug.write_frames(sys.stderr)
 
   # If we can send SIGTERM to child processes, we do not exit here,

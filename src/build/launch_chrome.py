@@ -24,16 +24,12 @@ from util import file_util
 from util import gdb_util
 from util import jdb_util
 from util import logging_util
+from util import minidump_filter
+from util import output_handler
 from util import platform_util
 from util import remote_executor
 from util import signal_util
 from util import startup_stats
-from util.minidump_filter import MinidumpFilter
-from util.output_handler import AtfTestHandler
-from util.output_handler import ArcStraceFilter
-from util.output_handler import CrashAddressFilter
-from util.output_handler import OutputDumper
-from util.output_handler import PerfTestHandler
 
 
 _ROOT_DIR = build_common.get_arc_root()
@@ -272,7 +268,7 @@ def main():
   return 0
 
 
-def _get_status_code(chrome_returncode, output_handler):
+def _get_status_code(chrome_returncode, handler):
   if chrome_returncode == -signal.SIGTERM:
     # Chrome exits with -signal.SIGTERM (-15) on Mac and Cygwin when it
     # receives SIGTERM, so -signal.SIGTERM (-15) is an expected exit code.
@@ -287,7 +283,7 @@ def _get_status_code(chrome_returncode, output_handler):
   else:
     # Otherwise, use the Chrome's returncode as is.
     error_level = chrome_returncode
-  return output_handler.get_error_level(error_level)
+  return handler.get_error_level(error_level)
 
 
 def _compute_chrome_plugin_params(parsed_args):
@@ -545,41 +541,43 @@ def _select_chrome_timeout(parsed_args):
 
 def _select_output_handler(parsed_args, stats, chrome_process, **kwargs):
   if parsed_args.mode == 'atftest':
-    output_handler = AtfTestHandler()
+    handler = output_handler.AtfTestHandler()
   elif parsed_args.mode == 'perftest':
-    output_handler = PerfTestHandler(parsed_args, stats, chrome_process,
-                                     **kwargs)
+    handler = output_handler.PerfTestHandler(
+        parsed_args, stats, chrome_process, **kwargs)
   else:
-    output_handler = OutputDumper(parsed_args)
+    handler = output_handler.OutputDumper(parsed_args)
 
   if 'gpu' in parsed_args.gdb or 'renderer' in parsed_args.gdb:
-    output_handler = gdb_util.GdbHandlerAdapter(
-        output_handler, parsed_args.gdb, parsed_args.gdb_type)
+    handler = gdb_util.GdbHandlerAdapter(
+        handler, parsed_args.gdb, parsed_args.gdb_type)
 
   if 'plugin' in parsed_args.gdb:
     if OPTIONS.is_nacl_build():
-      output_handler = gdb_util.NaClGdbHandlerAdapter(
-          output_handler, _get_nacl_irt_path(parsed_args), parsed_args.gdb_type)
+      handler = gdb_util.NaClGdbHandlerAdapter(
+          handler, _get_nacl_irt_path(parsed_args), parsed_args.gdb_type)
     elif OPTIONS.is_bare_metal_build():
-      output_handler = gdb_util.BareMetalGdbHandlerAdapter(
-          output_handler, _get_nacl_helper_path(parsed_args),
-          parsed_args.gdb_type)
+      handler = gdb_util.BareMetalGdbHandlerAdapter(
+          handler, _get_nacl_helper_path(parsed_args), parsed_args.gdb_type)
 
   if (parsed_args.enable_arc_strace and
       parsed_args.arc_strace_output != 'stderr'):
-    output_handler = ArcStraceFilter(output_handler,
-                                     parsed_args.arc_strace_output)
+    handler = output_handler.ArcStraceFilter(
+        handler, parsed_args.arc_strace_output)
 
-  output_handler = CrashAddressFilter(output_handler)
+  handler = output_handler.CrashAddressFilter(handler)
 
   if parsed_args.jdb_port:
-    output_handler = jdb_util.JdbHandlerAdapter(
-        output_handler, parsed_args.jdb_port, parsed_args.jdb_type)
+    handler = jdb_util.JdbHandlerAdapter(
+        handler, parsed_args.jdb_port, parsed_args.jdb_type)
 
   if not platform_util.is_running_on_remote_host():
-    output_handler = MinidumpFilter(output_handler)
+    handler = minidump_filter.MinidumpFilter(handler)
 
-  return output_handler
+  if parsed_args.chrome_flakiness_retry:
+    handler = output_handler.ChromeFlakinessHandler(handler, chrome_process)
+
+  return handler
 
 
 def _terminate_chrome(chrome):
@@ -608,34 +606,46 @@ def _run_chrome(parsed_args, **kwargs):
   # Similar to adb subprocess, using atexit has timing issue. See above comment
   # for the details.
   chrome_timeout = _select_chrome_timeout(parsed_args)
-  p = chrome_process.ChromeProcess(params, timeout=chrome_timeout)
-  atexit.register(_terminate_chrome, p)
+  for i in xrange(parsed_args.chrome_flakiness_retry + 1):
+    if i:
+      logging.error('Chrome is flaky. Retrying...: %d', i)
 
-  gdb_util.maybe_launch_gdb(parsed_args.gdb, parsed_args.gdb_type, p.pid)
-  jdb_util.maybe_launch_jdb(parsed_args.jdb_port, parsed_args.jdb_type)
+    p = chrome_process.ChromeProcess(params, timeout=chrome_timeout)
+    atexit.register(_terminate_chrome, p)
 
-  # Write the PID to a file, so that other launch_chrome process sharing the
-  # same user data can find the process. In common case, the file will be
-  # removed by _terminate_chrome() defined above.
-  file_util.makedirs_safely(_USER_DATA_DIR)
-  with open(_CHROME_PID_PATH, 'w') as pid_file:
-    pid_file.write('%d\n' % p.pid)
+    gdb_util.maybe_launch_gdb(parsed_args.gdb, parsed_args.gdb_type, p.pid)
+    jdb_util.maybe_launch_jdb(parsed_args.jdb_port, parsed_args.jdb_type)
 
-  stats = startup_stats.StartupStats()
-  output_handler = _select_output_handler(parsed_args, stats, p, **kwargs)
+    # Write the PID to a file, so that other launch_chrome process sharing the
+    # same user data can find the process. In common case, the file will be
+    # removed by _terminate_chrome() defined above.
+    file_util.makedirs_safely(_USER_DATA_DIR)
+    with open(_CHROME_PID_PATH, 'w') as pid_file:
+      pid_file.write('%d\n' % p.pid)
 
-  # Wait for the process to finish or us to be interrupted.
-  chrome_returncode = p.handle_output(output_handler)
+    stats = startup_stats.StartupStats()
+    handler = _select_output_handler(parsed_args, stats, p, **kwargs)
 
-  if chrome_returncode:
-    logging.error('Chrome is terminated with status code: %d',
-                  chrome_returncode)
+    # Wait for the process to finish or us to be interrupted.
+    chrome_returncode = p.handle_output(handler)
 
-  status_code = _get_status_code(chrome_returncode, output_handler)
-  if status_code:
-    sys.exit(status_code)
+    if chrome_returncode:
+      logging.error('Chrome is terminated with status code: %d',
+                    chrome_returncode)
 
-  return stats
+    status_code = _get_status_code(chrome_returncode, handler)
+    if status_code is None:
+      # Status code None means Chrome is terminated due to its flakiness.
+      continue
+
+    if status_code:
+      sys.exit(status_code)
+    return stats
+
+  # Here, the Chrome flakiness failure has continued too many times.
+  # Terminate the script.
+  logging.error('Chrome is too flaky so that it hits retry limit.')
+  sys.exit(1)
 
 
 if __name__ == '__main__':

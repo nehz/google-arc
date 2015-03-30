@@ -10,11 +10,10 @@ import os
 import re
 import subprocess
 import threading
-import time
 import traceback
 
-import filtered_subprocess
 import toolchain
+from util import concurrent_subprocess
 from util import output_handler
 from util.test.suite_runner import SuiteRunnerBase
 from util.test.suite_runner import LAUNCH_CHROME_FLAKE_RETRY_COUNT
@@ -45,6 +44,8 @@ class SystemModeLogs:
             separator('Chrome logs') + ''.join(self._chrome_logs))
 
 
+# TODO(2015-03-31): This class has some race issues around starting and
+# terminating parts.
 class SystemModeThread(threading.Thread):
   def __init__(self, logs, suite_runner, additional_launch_chrome_opts):
     threading.Thread.__init__(self)
@@ -76,8 +77,8 @@ class SystemModeThread(threading.Thread):
       xvfb_output_filename = os.path.abspath(
           os.path.join(output_directory, self._name + '-system-mode-xvfb.log'))
       args = SuiteRunnerBase.get_xvfb_args(xvfb_output_filename) + args
-    self._chrome = filtered_subprocess.Popen(args)
-    self._chrome.run_process_filtering_output(self)
+    self._chrome = concurrent_subprocess.Popen(args)
+    self._chrome.handle_output(self)
 
   def handle_stderr(self, line):
     self._logs.add_to_chrome_log(line)
@@ -116,7 +117,6 @@ class SystemModeThread(threading.Thread):
 
   def handle_timeout(self):
     self._has_error = True
-    self.start_shutdown()
 
   def is_done(self):
     return self._shutdown
@@ -130,9 +130,7 @@ class SystemModeThread(threading.Thread):
     if self.isAlive() and self._chrome:
       self._logs.add_to_adb_log('SystemMode.__exit__: Killing Chrome process\n')
       self._chrome.terminate()
-      time.sleep(5)
-      if self._chrome.poll() is None:
-        self._chrome.kill()
+      self.join(10)
 
   def get_android_serial(self):
     return self._android_serial
@@ -227,7 +225,7 @@ class SystemMode:
 
   def __shutdown(self):
     # Send shutdown request to the ARC system mode. It also guarantees to
-    # make Chrome write enough output for filtered_subprocess to catch the
+    # make Chrome write enough output for concurrent_subprocess to catch the
     # _shutdown flag.
 
     # Do nothing when the system mode can not find a target adb service to

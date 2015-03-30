@@ -4,19 +4,22 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import Queue
 import argparse
 import ast
 import collections
+import contextlib
 import logging
 import os
 import random
 import re
 import subprocess
 import sys
+import threading
 
 import build_common
 from build_options import OPTIONS
-import filtered_subprocess
+from util import concurrent_subprocess
 from util import logging_util
 from util import statistics
 
@@ -154,35 +157,102 @@ def load_configure_options(arc_root):
     return f.read().strip()
 
 
-class InteractivePerfTestOutputHandler(object):
+class _InteractivePerfTestOutputHandler(object):
   """Output handler for InteractivePerfTestRunner."""
 
-  def __init__(self, runner):
-    self._runner = runner
+  def __init__(self, iteration_ready_event, vrawperf_queue):
+    self._iteration_ready_event = iteration_ready_event
+    self._vrawperf_queue = vrawperf_queue
 
-  def handle_stdout(self, text):
-    sys.stdout.write(text)
+  def handle_stdout(self, line):
+    sys.stdout.write(line)
     sys.stdout.flush()
-    return self._handle_common(text)
+    return self._handle_common(line)
 
-  def handle_stderr(self, text):
-    sys.stderr.write(text)
+  def handle_stderr(self, line):
+    sys.stderr.write(line)
     sys.stderr.flush()
-    return self._handle_common(text)
+    return self._handle_common(line)
 
-  def _handle_common(self, text):
-    m = re.search(r'VRAWPERF=(.*)', text)
+  def _handle_common(self, line):
+    m = re.search(r'VRAWPERF=(.*)', line)
     if m:
-      self._runner._on_perf(ast.literal_eval(m.group(1)))
-    m = re.search(r'waiting for next iteration', text)
+      # block=False triggers the Queue.Full if the queue is not empty.
+      # See also the comment in
+      # _InteractivePerfTestLaunchChromeThread.__init__().
+      self._vrawperf_queue.put(ast.literal_eval(m.group(1)), block=False)
+    m = re.search(r'waiting for next iteration', line)
     if m:
-      self._runner._on_ready()
+      self._iteration_ready_event.set()
 
   def handle_timeout(self):
     pass
 
   def is_done(self):
     return False
+
+
+class _InteractivePerfTestLaunchChromeThread(threading.Thread):
+  """Dedicated thread to communicate with ./launch_chrome"""
+
+  def __init__(self, name, args, cwd):
+    """Initializes the thread.
+
+    Args:
+      name: thread name.
+      arcs: ./launch_chrome's argument, including ./launch_chrome command.
+      cwd: working directory for ./launch_chrome.
+    """
+    super(_InteractivePerfTestLaunchChromeThread, self).__init__(name=name)
+    self._args = args
+    self._cwd = cwd
+    self._iteration_ready_event = threading.Event()
+    # We set |maxsize| to 1, expecting that the VRAMPERF is read by the
+    # main thread, before we run the next iteration.
+    self._vrawperf_queue = Queue.Queue(maxsize=1)
+
+    # It is necessary to guard |self._terminated| and |self._process| to be
+    # thread safe, which is touched by both run() invoked on the dedicated
+    # thread, and terminate() invoked on the main thread.
+    self._lock = threading.Lock()
+    self._terminated = False
+    self._process = None
+
+  def run(self):
+    # Overrides threading.Thread.run()
+    output_handler = _InteractivePerfTestOutputHandler(
+        self._iteration_ready_event, self._vrawperf_queue)
+    with self._lock:
+      if self._terminated:
+        return
+      self._process = concurrent_subprocess.Popen(self._args, cwd=self._cwd)
+    self._process.handle_output(output_handler)
+
+  def wait_iteration_ready(self):
+    """Waits until "waiting for next iteration" is read."""
+    self._iteration_ready_event.wait()
+    self._iteration_ready_event.clear()
+
+  def read_vrawperf(self):
+    """Reads VRAMPERF line from ./launch_chrome output.
+
+    This blocks until VRAMPERF line is output by ./launch_chrome.
+    """
+    result = self._vrawperf_queue.get()
+    self._vrawperf_queue.task_done()
+    return result
+
+  def terminate(self):
+    """Tries to terminate the ./launch_chrome process.
+
+    Returns immediately (i.e. does *not* block the calling thread).
+    The process termination eventually triggers the thread termination,
+    so the caller thread can wait for it by join().
+    """
+    with self._lock:
+      self._terminated = True
+      if self._process:
+        self._process.terminate()
 
 
 class InteractivePerfTestRunner(object):
@@ -227,8 +297,7 @@ class InteractivePerfTestRunner(object):
     user = os.getenv('USER', 'default')
     self._iteration_lock_file = '/var/tmp/arc-iteration-lock-%s-%d' % (
         user, instance_id)
-    self._process = None
-    self._process_generator = None
+    self._thread = None
 
   def start(self):
     """Starts launch_chrome script and performs warmup.
@@ -236,7 +305,8 @@ class InteractivePerfTestRunner(object):
     If instance_id is 0, launch_chrome script will also do extra setup if
     it's running on remote machine.
     """
-    assert not self._process
+    assert not self._thread, (
+        'InteractivePerfTestRunner cannot be started while it is running.')
     args = [
         './launch_chrome',
         'perftest',
@@ -245,6 +315,7 @@ class InteractivePerfTestRunner(object):
         '--iterations=99999999',
         '--noninja',
         '--use-temporary-data-dirs',
+        '--chrome-flakiness-retry=5',
         '--iteration-lock-file=%s' % self._iteration_lock_file]
     if self._remote:
       args.extend([
@@ -254,14 +325,14 @@ class InteractivePerfTestRunner(object):
         args.append('--no-remote-machine-setup')
     args.extend(self._launch_chrome_opts)
 
-    self._process = filtered_subprocess.Popen(args, cwd=self._arc_root)
-    self._process_generator = (
-        self._process.run_process_filtering_output_generator(
-            InteractivePerfTestOutputHandler(self)))
-
     # Remove the lock file in case it's left.
     self._remove_iteration_lock_file()
-    self._iteration_ready = False
+
+    # Run ./launch_chrome from a dedicated thread.
+    self._thread = _InteractivePerfTestLaunchChromeThread(
+        'InteractivePerfTestLaunchChromeThread-%d' % self._instance_id,
+        args, cwd=self._arc_root)
+    self._thread.start()
 
     # Process a warmup run.
     self.run()
@@ -272,30 +343,26 @@ class InteractivePerfTestRunner(object):
     Returns:
       VRAWPERF dictionary scraped from launch_chrome output.
     """
+    assert self._thread, 'InteractivePerfTestRunner has not been started.'
     # Wait until launch_chrome gets ready for an iteration.
-    while not self._iteration_ready:
-      self._process_generator.next()
-    self._iteration_ready = False
+    self._thread.wait_iteration_ready()
 
     # Remove the lock file so launch_chrome starts an iteration.
     self._remove_iteration_lock_file()
 
     # Watch the output to scrape VRAWPERF.
-    self._last_perf = None
-    while not self._last_perf:
-      self._process_generator.next()
-    return self._last_perf
+    return self._thread.read_vrawperf()
 
   def close(self):
     """Terminates launch_chrome."""
-    self._process.terminate()
-    while True:
-      try:
-        self._process_generator.next()
-      except StopIteration:
-        break
-    self._process = None
-    self._process_generator = None
+    if not self._thread:
+      return
+
+    # Terminates ./launch_chrome process, which eventually terminates
+    # the dedicated thread.
+    self._thread.terminate()
+    self._thread.join()
+    self._thread = None
 
   def _remove_iteration_lock_file(self):
     """Removes the iteration lock file, possibly on remote machine."""
@@ -317,14 +384,6 @@ class InteractivePerfTestRunner(object):
     logging.info('$ %s',
                  logging_util.format_commandline(args, cwd=self._arc_root))
     subprocess.check_call(args, cwd=self._arc_root)
-
-  def _on_perf(self, perf):
-    """Called back from output handler to notify VRAWPERF is scraped."""
-    self._last_perf = perf
-
-  def _on_ready(self):
-    """Called back from output handler to notify launch_chrome is ready."""
-    self._iteration_ready = True
 
 
 def merge_perfs(a, b):
@@ -389,6 +448,10 @@ def handle_stash(parsed_args):
   rules_text = """
   # No git repo.
   - .git/
+  # Referred from third_party/android-sdk/ below.
+  + /cache/android-sdk.*
+  - /cache/*
+  + /cache/
   # Artifacts for the target arch and common.
   + /{out}/target/{target}/runtime/
   - /{out}/target/{target}/*
@@ -481,19 +544,17 @@ def handle_compare(parsed_args):
       launch_chrome_opts=parsed_args.launch_chrome_opt,
       instance_id=1)
 
-  ctrl_runner.start()
-  expt_runner.start()
+  with contextlib.closing(ctrl_runner), contextlib.closing(expt_runner):
+    ctrl_runner.start()
+    expt_runner.start()
 
-  ctrl_perfs = collections.defaultdict(list)
-  expt_perfs = collections.defaultdict(list)
+    ctrl_perfs = collections.defaultdict(list)
+    expt_perfs = collections.defaultdict(list)
 
-  for iteration in xrange(parsed_args.iterations):
-    print '*** iteration %d/%d ***' % (iteration + 1, parsed_args.iterations)
-    merge_perfs(ctrl_perfs, ctrl_runner.run())
-    merge_perfs(expt_perfs, expt_runner.run())
-
-  ctrl_runner.close()
-  expt_runner.close()
+    for iteration in xrange(parsed_args.iterations):
+      print '*** iteration %d/%d ***' % (iteration + 1, parsed_args.iterations)
+      merge_perfs(ctrl_perfs, ctrl_runner.run())
+      merge_perfs(expt_perfs, expt_runner.run())
 
   print
   print 'VRAWPERF_CTRL=%r' % dict(ctrl_perfs)  # Convert from defaultdict.

@@ -18,7 +18,7 @@ import tempfile
 
 import build_common
 from build_options import OPTIONS
-import filtered_subprocess
+from util import concurrent_subprocess
 from util import file_util
 from util import gdb_util
 from util import logging_util
@@ -97,12 +97,13 @@ _TEMP_KNOWN_HOSTS = 'temp_arc_known_hosts'
 # File name pattern used for ssh connection sharing (%r: remote login name,
 # %h: host name, and %p: port). See man ssh_config for the detail.
 _TEMP_SSH_CONTROL_PATH = 'ssh-%r@%h:%p'
+_TEMP_REMOTE_BINARIES_DIR = 'remote_bin'
 
 
 def _get_temp_dir():
   global _TEMP_DIR
   if not _TEMP_DIR:
-    _TEMP_DIR = tempfile.mkdtemp()
+    _TEMP_DIR = tempfile.mkdtemp(prefix='arc_')
     atexit.register(lambda: file_util.rmtree_with_retries(_TEMP_DIR))
   return _TEMP_DIR
 
@@ -121,6 +122,13 @@ def _get_known_hosts():
 
 def _get_ssh_control_path():
   return os.path.join(_get_temp_dir(), _TEMP_SSH_CONTROL_PATH)
+
+
+def get_remote_binaries_dir():
+  """Gets a directory for storing remote binaries like nacl_helper."""
+  path = os.path.join(_get_temp_dir(), _TEMP_REMOTE_BINARIES_DIR)
+  file_util.makedirs_safely(path)
+  return path
 
 
 class RemoteOutputHandler(object):
@@ -170,6 +178,16 @@ class RemoteExecutor(object):
     else:
       self._remote = remote
       self._port = None
+    # Terminates the Control process at exit, explicitly. Otherwise,
+    # in some cases, the process keeps the stdout/stderr open so that
+    # wrapper scripts (especially interleaved_perftest.py) are confused and
+    # think that this process is still alive.
+    atexit_command = ['ssh', '%s@%s' % (self._user, self._remote),
+                      '-o', 'ControlPath=%s' % _get_ssh_control_path(),
+                      '-O', 'exit']
+    if self._port:
+      atexit_command.extend(['-p', self._port])
+    atexit.register(subprocess.call, atexit_command)
 
   def copy_remote_files(self, remote_files, local_dir):
     """Copies files from the remote host."""
@@ -330,10 +348,10 @@ def run_command(cmd, ignore_failure=False):
 
 def run_command_with_filter(cmd, output_handler):
   """Run the command with some output filters. """
-  p = filtered_subprocess.Popen(cmd)
-  p.run_process_filtering_output(output_handler)
-  if p.returncode:
-    raise subprocess.CalledProcessError(cmd, p.returncode)
+  p = concurrent_subprocess.Popen(cmd)
+  returncode = p.handle_output(output_handler)
+  if returncode:
+    raise subprocess.CalledProcessError(cmd, returncode)
 
 
 def create_launch_remote_chrome_param(argv):

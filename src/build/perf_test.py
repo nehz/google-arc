@@ -26,10 +26,10 @@ import subprocess
 import sys
 
 import dashboard_submit
-import filtered_subprocess
 import run_integration_tests
 from build_options import OPTIONS
 from ninja_generator import ApkFromSdkNinjaGenerator
+from util import concurrent_subprocess
 from util import file_util
 from util import launch_chrome_util
 from util import logging_util
@@ -200,33 +200,39 @@ class PerfDriverWithPlayServices(PerfDriver):
     super(PerfDriverWithPlayServices, self).__init__(args, True)
 
 
-class Run(filtered_subprocess.Popen):
-  TIMEOUT = 30
+class _AccumulateOutputHandler(object):
+  """Output handler to accumulate the outputs from the subprocess.
 
-  def __init__(self, params, until, **kargs):
-    super(Run, self).__init__(params, **kargs)
-    self.done = False
-    self.until_pattern = until
+  This accumulates all output from both subprocess's stdout and stderr into
+  |self.accumulated_output|.
+  """
+  def __init__(self, end_pattern):
+    """Initializes the handler.
+
+    Args:
+      end_pattern: termination message from the subprocess. Once this message is
+          observed, is_done() starts to return True.
+    """
     self.accumulated_output = []
+    self._end_pattern = end_pattern
+    self._done = False
 
-  def output(self):
-    self.run_process_filtering_output(self, timeout=Run.TIMEOUT)
-    return self.accumulated_output
+  def _handle_output(self, line):
+    if self._end_pattern in line:
+      self._done = True
+    self.accumulated_output.append(line)
 
   def handle_stdout(self, line):
-    if self.until_pattern in line:
-      self.done = True
-    else:
-      self.accumulated_output.append(line)
+    self._handle_output(line)
 
   def handle_stderr(self, line):
-    self.handle_stdout(line)
+    self._handle_output(line)
 
   def handle_timeout(self):
     logging.error('Unexpected timeout')
 
   def is_done(self):
-    return self.done
+    return self._done
 
 
 class GLPerfDriver(BaseDriver):
@@ -250,6 +256,7 @@ class GLPerfDriver(BaseDriver):
       # 'PepperGL: PageflipBenchmarkTest::RenderAsAppWithFrameworkCompositing':
       #    'pp-flip-comp',
   }
+  _TIMEOUT = 30
 
   def __init__(self, args):
     super(GLPerfDriver, self).__init__(args)
@@ -268,15 +275,23 @@ class GLPerfDriver(BaseDriver):
     self._post(results)
 
   def _run_pepper_perf(self):
-    return Run(['make', 'runbench'],
-               until='-------- FINISHED --------',
-               cwd=GLPerfDriver._PEPPER_BENCH_DIR).output()
+    return self._accumulate_subprocess_output(
+        ['make', 'runbench'],
+        '-------- FINISHED --------',
+        cwd=GLPerfDriver._PEPPER_BENCH_DIR)
 
   def _run_arc_perf(self):
-    return Run(
+    return self._accumulate_subprocess_output(
         launch_chrome_util.get_launch_chrome_command(
             ['run', 'mods/examples/PepperPerf/android/bin/GLPerf-debug.apk']),
-        until='--------------- END ---------------').output()
+        '--------------- END ---------------')
+
+  def _accumulate_subprocess_output(self, command, end_pattern, **kwargs):
+    output_handler = _AccumulateOutputHandler(end_pattern)
+    p = concurrent_subprocess.Popen(
+        command, timeout=GLPerfDriver._TIMEOUT, **kwargs)
+    p.handle_output(output_handler)
+    return output_handler.accumulated_output
 
   def _build_gl_perf_apk(self):
     return self._run(

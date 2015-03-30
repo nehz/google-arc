@@ -178,6 +178,14 @@ def _validate_valgrind(parser, args):
                  "special hack for Valgrind.")
 
 
+def _validate_flakiness_retry(parser, args):
+  if args.chrome_flakiness_retry and (args.jdb_port or args.gdb):
+    parser.error('--chrome-flakiness-retry cannot be used with '
+                 '--gdb or --jdb-port.')
+  if args.chrome_flakiness_retry < 0:
+    parser.error('--chrome-flakiness-retry must be non-negative value.')
+
+
 def _setup_filterspec_from_args(args):
   if args.silent:
     args.stderr_log = 'S'
@@ -337,6 +345,11 @@ Native Client Debugging
   parser.add_argument('--chrome-arg', metavar='<arg>', action='append',
                       dest='chrome_args',
                       help='The additional argument for launching the Chrome.')
+
+  parser.add_argument('--chrome-flakiness-retry', default=0, type=int,
+                      help='The max number of retry when Chrome looks flaky. '
+                      'This is applied for each iteration. This flag cannot '
+                      'be used with --jdb_port or --gdb flags at a same time.')
 
   parser.add_argument('--crx-name-override', metavar='<path>', default=None,
                       help='The name of the CRX which will be generated '
@@ -594,6 +607,7 @@ Native Client Debugging
   _validate_debug_modes(parser, args)
   _validate_timeout(parser, args)
   _validate_valgrind(parser, args)
+  _validate_flakiness_retry(parser, args)
 
   _resolve_perf_test_mode(args)
   _setup_filterspec_from_args(args)

@@ -70,8 +70,8 @@ SUMMARY_PARSER = re.compile(
             for field in SUMMARY_FIELD_NAMES))
 
 
-class _FakeFilteredSubprocess(object):
-  """A fake filtered_subprocess.Popen instance
+class _FakePopen(object):
+  """A fake concurrent_subprocess.Popen instance
 
   When the code under test calls run_process_filtering_output, the
   'output_generator' passed to the constructor will be used to provide fake
@@ -81,11 +81,9 @@ class _FakeFilteredSubprocess(object):
     self._output_generator = output_generator
     self._exit_code = exit_code
 
-  def run_process_filtering_output(self, handler):
+  def handle_output(self, handler):
     for line in self._output_generator:
       handler.handle_stdout(line + '\n')
-
-  def wait(self):
     return self._exit_code
 
 
@@ -183,7 +181,7 @@ def _make_atf_output_generator(results):
 def _make_fake_atf_test_process(fake_subprocess_generator):
   """Fakes running an atftest process a number of times.
 
-  This function patches filtered_subprocess.Popen to create fake subprocess
+  This function patches concurrent_subprocess.Popen to create fake subprocess
   objects. It examines the call made to Popen to verify that the call appears to
   be one that would launch an atf test run, and then returns the next fake
   subprocess from the _fake_atf_subprocess_generator. This allows for Popen to
@@ -205,7 +203,7 @@ def _make_fake_atf_test_process(fake_subprocess_generator):
 
     _stub_unexpected_popen(args, *vargs, **kwargs)
 
-  return patch('filtered_subprocess.Popen', _subprocess_creator)
+  return patch('util.concurrent_subprocess.Popen', _subprocess_creator)
 
 
 def _stub_return_empty_string(*args, **kwargs):
@@ -243,7 +241,7 @@ def _stub_expectation_loader_get(*args):
 # These patch decorators replace the named function with a stub/fake/mock for
 # each test in the suite.
 # Any call to create a general subprocess object will be caught as unexpected.
-@patch('filtered_subprocess.Popen', _stub_unexpected_popen)
+@patch('util.concurrent_subprocess.Popen', _stub_unexpected_popen)
 @patch('subprocess.Popen', _stub_unexpected_popen)
 # Any call to subprocess.check_call will just return None.
 @patch('subprocess.check_call', _stub_return_none)
@@ -277,7 +275,7 @@ class RunIntegrationTestsTest(unittest.TestCase):
   @classmethod
   def _fake_atf_subprocess_generator(cls, result_codes):
     for result_code in result_codes:
-      yield _FakeFilteredSubprocess(
+      yield _FakePopen(
           _make_atf_output_generator([(cls.EXAMPLE_TEST_NAME, result_code)]),
           (0 if result_code == ATF_CODE_PASSED else 1))
 
@@ -294,7 +292,7 @@ class RunIntegrationTestsTest(unittest.TestCase):
     The result
     """
 
-    # Intercept calls to filtered_subprocess so we can simulate the test.
+    # Intercept calls to concurrent_subprocess so we can simulate the test.
     with _make_fake_atf_test_process(
         self._fake_atf_subprocess_generator(result_codes)):
       args = ['-t', self.EXAMPLE_SUITE_NAME + ':' + self.EXAMPLE_TEST_NAME,

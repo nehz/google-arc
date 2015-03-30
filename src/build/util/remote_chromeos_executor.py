@@ -11,7 +11,6 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 import traceback
 
 import build_common
@@ -200,7 +199,6 @@ def launch_remote_chrome(parsed_args, argv):
     attach_nacl_gdb_type = None
     nacl_helper_binary = None
     need_copy_nacl_helper_binary = False
-    tmpdir = tempfile.gettempdir()
 
     if 'plugin' in parsed_args.gdb:
       attach_nacl_gdb_type = parsed_args.gdb_type
@@ -209,7 +207,9 @@ def launch_remote_chrome(parsed_args, argv):
         if not nacl_helper_binary:
           # We decide the path here, but the binary can be copied after
           # RemoteExecutor is constructed.
-          nacl_helper_binary = os.path.join(tmpdir, 'nacl_helper')
+          nacl_helper_binary = os.path.join(
+              remote_executor_util.get_remote_binaries_dir(),
+              os.path.basename(_REMOTE_NACL_HELPER_BINARY))
           need_copy_nacl_helper_binary = True
 
     executor = _create_remote_executor(
@@ -224,7 +224,27 @@ def launch_remote_chrome(parsed_args, argv):
     _setup_remote_environment(parsed_args, executor, copied_files)
 
     if need_copy_nacl_helper_binary:
-      executor.copy_remote_files([_REMOTE_NACL_HELPER_BINARY], tmpdir)
+      remote_binaries = [_REMOTE_NACL_HELPER_BINARY]
+      # List all DSOs _REMOTE_NACL_HELPER_BINARY directly or indirectly
+      # depends on and add them to |remote_binaries| so that they are
+      # copied to get_remote_binaries_dir(). Note: nacl_helper may dlopen()
+      # some more libraries like /usr/lib/libsoftokn3.so, libsqlite3.so.0,
+      # and libfreebl3.so. It is nice if we can also copy these DSOs in
+      # advance, but it is difficult to do so at this point.
+      # TODO(crbug.com/376666): Remove this once newlib-switch is done. The
+      # new loader is always statically linked and does not need this trick.
+      ldd = executor.run_command_for_output(
+          'ldd %s' % _REMOTE_NACL_HELPER_BINARY)
+      for line in ldd.splitlines():
+        dso_map = line.split()
+        if len(dso_map) > 0 and dso_map[0].startswith('/'):
+          # Process a line like ['/lib/ld-linux-XXX.so.X', '(0xdeadbeef)'].
+          remote_binaries.append(dso_map[0])
+        elif len(dso_map) > 2 and dso_map[2].startswith('/'):
+          # Process ['libX.so', '=>', '/lib/libX.so.1', '(0xfee1dead)'].
+          remote_binaries.append(dso_map[2])
+      executor.copy_remote_files(remote_binaries,
+                                 remote_executor_util.get_remote_binaries_dir())
 
     if nacl_helper_binary:
       # This should not happen, but for just in case.

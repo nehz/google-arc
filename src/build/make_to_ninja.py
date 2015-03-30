@@ -593,6 +593,8 @@ def _copy_external_file(stem):
   shutil.copyfile(src, dst)
   shutil.copymode(src, dst)
 
+  dependency_inspection.add_files(src)
+
 
 def _copy_external_files(stems):
   for stem in stems:
@@ -604,6 +606,8 @@ def _copy_external_dir(dir_name):
   dst = os.path.join(_MAKE_TO_NINJA_DIR, dir_name)
   file_util.rmtree(dst, ignore_errors=True)
   shutil.copytree(src, dst)
+
+  dependency_inspection.add_file_listing([src], None, None, True)
 
 
 # Creates common mk files and related links.
