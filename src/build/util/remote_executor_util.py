@@ -182,9 +182,11 @@ class RemoteExecutor(object):
     # in some cases, the process keeps the stdout/stderr open so that
     # wrapper scripts (especially interleaved_perftest.py) are confused and
     # think that this process is still alive.
+    # Suppress the warning with -q as the control path does not exist when the
+    # script exits normally.
     atexit_command = ['ssh', '%s@%s' % (self._user, self._remote),
                       '-o', 'ControlPath=%s' % _get_ssh_control_path(),
-                      '-O', 'exit']
+                      '-O', 'exit', '-q']
     if self._port:
       atexit_command.extend(['-p', self._port])
     atexit.register(subprocess.call, atexit_command)
@@ -245,6 +247,7 @@ class RemoteExecutor(object):
         # The remote files need to be writable and executable by chronos. This
         # option sets read, write, and execute permissions to all users.
         '--chmod=a=rwx',
+        '--compress',
         '--copy-links',
         '--delete',
         '--inplace',

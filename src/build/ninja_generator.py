@@ -29,6 +29,7 @@ from build_common import find_all_files
 from build_options import OPTIONS
 from ninja_generator_runner import request_run_in_parallel
 from notices import Notices
+from util.test import unittest_util
 
 # Pull in ninja_syntax from our tools/ninja directory.
 sys.path.insert(0, 'third_party/tools/ninja/misc')
@@ -868,7 +869,7 @@ class NinjaGenerator(ninja_syntax.Writer):
     test_info_path = self.get_test_info_path(test_path, counter)
     self._test_info_list.append(test_info_path)
 
-    test_info_str = json.dumps(test_info)
+    test_info_str = json.dumps(test_info, sort_keys=True)
     # Escape the string for shell
     test_info_str = pipes.quote(test_info_str)
     # Escape the string for ninja
@@ -2268,9 +2269,9 @@ class TestNinjaGenerator(ExecNinjaGenerator):
     merged_variables = TestNinjaGenerator._get_toplevel_run_test_variables()
     merged_variables.update(variables)
     merged_variables['in'] = test_path
-    merged_variables['disabled_tests'] = ':'.join(self._disabled_tests)
-    merged_variables['qemu_disabled_tests'] = ':'.join(
-        self._qemu_disabled_tests)
+    merged_variables['disabled_tests'] = self._disabled_tests
+    merged_variables['qemu_disabled_tests'] = self._qemu_disabled_tests
+    merged_variables['enabled_tests'] = self._enabled_tests
 
     test_info = {
         'variables': merged_variables,
@@ -2352,17 +2353,14 @@ class TestNinjaGenerator(ExecNinjaGenerator):
     variables = {'test_name': self._module_name}
     if argv:
       variables['argv'] = argv
-    variables['gtest_options'] = '--gtest_color=yes'
+
     if self._enabled_tests:
-      variables['gtest_options'] += ' --gtest_filter=' + ':'.join(
-          self._enabled_tests)
       # Disallow setting both enabled_tests and *disabled_tests.
       assert not self._disabled_tests
       # Only '*.QEMU_DISABLED_*' is allowed.
       assert len(self._qemu_disabled_tests) < 2
-    elif self._disabled_tests or self._qemu_disabled_tests:
-      variables['gtest_options'] += ' --gtest_filter=-' + ':'.join(
-          self._disabled_tests + self._qemu_disabled_tests)
+    variables['gtest_options'] = unittest_util.build_gtest_options(
+        self._enabled_tests, self._disabled_tests + self._qemu_disabled_tests)
 
     implicit = as_list(implicit)
     # When you run a test, you need to install .so files.

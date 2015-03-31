@@ -6,7 +6,6 @@
 # device.
 
 import atexit
-import json
 import os
 import re
 import subprocess
@@ -344,12 +343,11 @@ def _get_adb_path():
 def _copy_unittest_executables_to_arc_with_exec(executor, tests):
   """Copies executables for unit tests to a directory mounted with exec."""
   noexec_paths = set()
-  for test in tests:
-    if not unittest_util.is_bionic_fundamental_test(test):
-      with open(build_common.get_unittest_info_path(test + '.1.json')) as f:
-        noexec_paths.add(json.load(f)['variables']['in'])
+  copied_tests = [test for test in tests
+                  if not unittest_util.is_bionic_fundamental_test(test)]
+  noexec_paths.update(unittest_util.get_test_executables(copied_tests))
   noexec_paths.add(build_common.get_load_library_path())
-  noexec_paths = noexec_paths.union(unittest_util.get_nacl_tools())
+  noexec_paths.update(unittest_util.get_nacl_tools())
   for noexec_path in noexec_paths:
     executor.run(_copy_to_arc_root_with_exec(
         executor.get_remote_arc_root(), noexec_path))

@@ -333,6 +333,10 @@ class _Options(object):
     parser.add_argument('--enable-valgrind', action='store_true',
                         help='Run unit tests under Valgrind.')
 
+    parser.add_argument('--disable-config-cache', action='store_false',
+                        dest='enable_config_cache',
+                        help='Disable configuration cache.')
+
     parser.add_argument('--goma-dir', help='The directory for goma.')
 
     parser.add_argument('--java-dir',

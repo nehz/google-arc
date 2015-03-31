@@ -40,7 +40,7 @@ class _DumpSymsFilter(object):
       # From src/common/dwarf_cu_to_module.cc
       r".*: in compilation unit '.*' \(offset 0x.*\):",
       r".*: warning: function at offset .* has no name",
-      (r": the DIE at offset 0x.* has a DW_AT_abstract_origin"
+      (r".*: the DIE at offset 0x.* has a DW_AT_abstract_origin"
        r" attribute referring to the die at offset 0x.*, which either"
        r" was not marked as an inline, or comes later in the file"),
       (r".*: the DIE at offset 0x.* has a DW_AT_specification"

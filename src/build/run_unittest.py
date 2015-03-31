@@ -86,10 +86,8 @@ def _construct_command(test_info, gtest_filter, gtest_list_tests):
                                           bin_dir=arc_root_with_exec))
       # Update --gtest_filter to re-enable the tests disabled only on qemu.
       if variables.get('qemu_disabled_tests'):
-        variables['gtest_options'] = '--gtest_color=yes'
-        if variables.get('disabled_tests'):
-          variables['gtest_options'] = (
-              ' --gtest_filter=-' + variables['disabled_tests'])
+        variables['gtest_options'] = unittest_util.build_gtest_options(
+            variables.get('enabled_tests'), variables.get('disabled_tests'))
     else:
       variables['runner'] = ' '.join(
           toolchain.get_nacl_runner(

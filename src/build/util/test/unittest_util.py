@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import json
 import os
 import re
 import subprocess
@@ -28,9 +29,18 @@ def get_nacl_tools():
           for nacl_tool in nacl_tools]
 
 
+def _get_test_executable(test):
+  # Although <test>.2.json, <test>.3.json, .. may also exist, they use the same
+  # binary, so read <test>.1.json as a representative.
+  unittest_info_path = build_common.get_unittest_info_path('%s.1.json' % test)
+  with open(unittest_info_path) as f:
+    return json.load(f)['variables']['in']
+
+
 def get_test_executables(tests):
   """Returns a list of the unit test executables."""
-  return [build_common.get_build_path_for_executable(test) for test in tests]
+  # Remove duplicates because separate tests may use the same executable.
+  return list(set(_get_test_executable(test) for test in tests))
 
 
 def is_bionic_fundamental_test(test_name):
@@ -49,6 +59,19 @@ def get_all_tests():
       continue
     tests.add(m.group(1))
   return sorted(tests)
+
+
+def build_gtest_options(enabled_tests, disabled_tests):
+  """Returns gtest options based on |enabled_tests| and |disabled_tests|."""
+  gtest_options = ['--gtest_color=yes']
+  if enabled_tests or disabled_tests:
+    enabled_tests = build_common.as_list(enabled_tests)
+    disabled_tests = build_common.as_list(disabled_tests)
+    minus = '-' if disabled_tests else ''
+    gtest_filter = ' --gtest_filter=%s%s%s' % (
+        ':'.join(enabled_tests), minus, ':'.join(disabled_tests))
+    gtest_options.append(gtest_filter)
+  return ' '.join(gtest_options)
 
 
 def _run_gdb_for_nacl(args, test_args):

@@ -680,8 +680,7 @@ def _generate_bionic_fundamental_test_runners(n):
 
   for test_name, library_paths, test_argv, test_env in tests:
     test_binary_basename = re.sub(r'-.*', '', test_name)
-    test_binary = os.path.abspath(os.path.join(test_out_dir,
-                                               test_binary_basename))
+    test_binary = os.path.join(test_out_dir, test_binary_basename)
     runner = toolchain.get_target_runner(extra_library_paths=library_paths,
                                          extra_envs=test_env)
     qemu_arm = (' '.join(toolchain.get_qemu_arm_args())
