@@ -651,7 +651,7 @@ def prepare_make_to_ninja():
   file_util.makedirs_safely(_MAKE_BUILD_DIR)
 
 
-def _filter_make_output(workdir, stdout, stderr):
+def _filter_make_output(workdir, stdout, stderr, in_file):
   # Check if stderr from make contains any error info.
   errors = []
   for line in stderr.split('\n'):
@@ -659,7 +659,8 @@ def _filter_make_output(workdir, stdout, stderr):
     if not line or _IGNORED_WARNING_RE.search(line):
       continue
     errors.append('MAKE STDERR: ' + line)
-  assert not errors, 'make exited with warnings: ' + '\n'.join(errors)
+  assert not errors, ('make %s exited with warnings: ' % in_file +
+                      '\n'.join(errors))
 
   # Print and filter out "Reading makefile" lines from stdout if necessary.
   result = []
@@ -717,7 +718,8 @@ def _run_make(workdir, in_file, extra_env_vars):
   p = subprocess.Popen(
       make_cmd, cwd=_MAKE_TO_NINJA_DIR, env=env,
       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-  return _filter_make_output(workdir, *p.communicate(main_makefile))
+  return _filter_make_output(workdir, *p.communicate(main_makefile),
+                             in_file=in_file)
 
 
 def _filter_var_name(name):
@@ -987,8 +989,12 @@ class MakeVars:
       self._init_package(vars_helper)
     elif self.is_prebuilt():
       self._init_prebuilt(vars_helper)
+    else:
+      assert False, 'Unknown type %s in %s' % (
+          self._build_type, self._build_file)
 
     self._is_logtag_emission_enabled = True
+
     self._logtag = self._module_name
 
   def _init_c_program(self, vars_helper):
@@ -1001,6 +1007,7 @@ class MakeVars:
     # For consistency with NinjaGenerator, call it cxxflags rather than
     # cppflags.
     self._cxxflags = self._get_build_flags(vars_helper, 'CPPFLAGS')
+    self._conlyflags = self._get_build_flags(vars_helper, 'CONLYFLAGS')
     self._clangflags = self._get_build_flags(vars_helper, 'CLANG_FLAGS')
     self._asmflags = vars_helper.get_optional_flags('LOCAL_ASFLAGS')
 
@@ -1067,6 +1074,13 @@ class MakeVars:
       self._copy_headers_to = os.path.join(_INTERMEDIATE_HEADERS_DIR,
                                            self._copy_headers_to)
 
+    self._clang_incompatible_flags = vars_helper.get_optional_list(
+        'CLANG_CONFIG_UNKNOWN_CFLAGS')
+    if OPTIONS.is_nacl_build():
+      # Add flags that PNaCl clang does not recognize.
+      self._clang_incompatible_flags.extend([
+          '-no-canonical-prefixes', '-march=i686'])
+
     if self._cflags.count('-D_USING_LIBCXX'):
       self._is_stlport_enabled = False
       # TODO(crbug.com/406226): Remove following workaround that provide missing
@@ -1078,6 +1092,19 @@ class MakeVars:
           ['-include', 'external/libcxx/aosp_bionic_compat.h'])
 
     # TODO(igorc): Maybe support LOCAL_SYSTEM_SHARED_LIBRARIES
+
+  def _update_flags_for_clang(self):
+    # Remove flags that are not supported by clang.
+    # See also build/core/clang/{HOST|TARGET}_<arch>.mk.
+    self._cflags = [x for x in self._cflags
+                    if x not in self._clang_incompatible_flags]
+    self._conlyflags = [x for x in self._conlyflags
+                        if x not in self._clang_incompatible_flags]
+    self._cxxflags = [x for x in self._cxxflags
+                      if x not in self._clang_incompatible_flags]
+    self._ldlags = [x for x in self._ldflags
+                    if x not in self._clang_incompatible_flags]
+    self._cflags.extend(self._clangflags)
 
   def _init_java_library(self, vars_helper):
     """Does initialization for jar Java library."""
@@ -1302,15 +1329,42 @@ class MakeVars:
     assert self.is_c_library() or self.is_executable()
     return self._is_clang_enabled
 
-  # TODO(crbug.com/415511): Let make_to_ninja detect clang ready
-  # modules automatically and do not expose this function to filters.
-  def enable_clang(self):
+  def is_clang_linker_enabled(self):
     assert self.is_c_library() or self.is_executable()
+    return self._is_clang_linker_enabled
+
+  def _check_flags_unmodified(self):
     assert self._cflags == self._orig_cflags, (
-        'enable_clang() must be called before modifying cflags')
-    if toolchain.has_clang(OPTIONS.target(), self.is_host()):
-      self._cflags = self._clangflags
-      self._is_clang_enabled = True
+        '{disable|enable}_clang() must be called before modifying cflags')
+    assert self._conlyflags == self._orig_conlyflags, (
+        '{disable|enable}_clang() must be called before modifying conlyflags')
+    assert self._cxxflags == self._orig_cxxflags, (
+        '{disable|enable}_clang() must be called before modifying cxxflags')
+    # TODO(crbug.com/414569): L-rebase: Figure out why this assert
+    # fails in libnativehelper for -t ba.
+    # assert self._ldflags == self._orig_ldflags, (
+    #    '{disable|enable}_clang() must be called before modifying ldflags')
+
+  def disable_clang(self):
+    assert self._is_clang_enabled
+    assert self.is_c_library() or self.is_executable()
+    self._check_flags_unmodified()
+    self._cflags = list(self._gcc_cflags)
+    self._conlyflags = list(self._gcc_conlyflags)
+    self._cxxflags = list(self._gcc_cxxflags)
+    self._ldflags = list(self._gcc_ldflags)
+    self._is_clang_enabled = False
+
+  def enable_clang(self):
+    assert not self._is_clang_enabled
+    assert self.is_c_library() or self.is_executable()
+    self._check_flags_unmodified()
+    self._update_flags_for_clang()
+    self._is_clang_enabled = True
+
+  def enable_clang_linker(self):
+    assert self.is_c_library() or self.is_executable()
+    self._is_clang_linker_enabled = True
 
   def is_logtag_emission_enabled(self):
     return self._is_logtag_emission_enabled
@@ -1325,7 +1379,7 @@ class MakeVars:
     return self._generator_args
 
   def export_intermediates(self, files):
-    self._check_package()
+    self._check_package_or_java_library()
     self._exported_intermediates += files
 
   def get_exported_intermediates(self):
@@ -1334,6 +1388,10 @@ class MakeVars:
   def get_cflags(self):
     self._check_c_library_or_executable()
     return self._cflags
+
+  def get_conlyflags(self):
+    self._check_c_library_or_executable()
+    return self._conlyflags
 
   def get_cxxflags(self):
     self._check_c_library_or_executable()
@@ -1391,11 +1449,11 @@ class MakeVars:
     self._force_optimization = True
 
   def get_aapt_flags(self):
-    self._check_package()
+    self._check_package_or_java_library()
     return self._aapt_flags
 
   def get_aapt_manifest(self):
-    self._check_package()
+    self._check_package_or_java_library()
     return self._aapt_manifest
 
   def get_copy_headers(self):
@@ -1430,6 +1488,10 @@ class MakeVars:
             self.is_java_library()):
       raise Exception('Can only call this function for a C library, an '
                       'executable, or a Java library')
+
+  def _check_package_or_java_library(self):
+    if not self.is_package() and not self.is_java_library():
+      raise Exception('Can only call this function for a package or library')
 
   def _check_package(self):
     if not self.is_package():
@@ -1576,6 +1638,8 @@ def _append_out_lib_deps(out_lib_deps, out_libs):
 def _add_compiler_flags(n, vars):
   for f in vars.get_cflags():
     n.add_compiler_flags(f)
+  for f in vars.get_conlyflags():
+    n.add_c_flags(f)
   for f in vars.get_cxxflags():
     n.add_cxx_flags(f)
   for f in vars.get_ldflags():
@@ -1611,6 +1675,13 @@ def _generate_c_ninja(vars, out_lib_deps):
   n.variable('cflags', '$cflags')
   n.variable('cxxflags', '$cxxflags')
 
+  if vars.is_host():
+    # Host targets link against glibc instead of bionic.
+    ldflags_to_remove = ['-nostdlib', '-nodefaultlibs']
+    for ldflag in ldflags_to_remove:
+      if ldflag in vars.get_ldflags():
+        vars.get_ldflags().remove(ldflag)
+
   _add_compiler_flags(n, vars)
 
   # Build lists of includes.
@@ -1624,8 +1695,8 @@ def _generate_c_ninja(vars, out_lib_deps):
   copied_headers = _emit_header_copy_rules(n, vars)
   _emit_compile_sources_rules(n, vars)
 
-  _append_out_lib_deps(out_lib_deps,
-                       _generate_out_libs(n, vars, copied_headers))
+  out_libs = _generate_out_libs(n, vars, copied_headers)
+  _append_out_lib_deps(out_lib_deps, out_libs)
 
   if vars.is_canned():
     filename = '%s.so' % vars.get_module_name()
@@ -1679,14 +1750,20 @@ def _generate_package_ninja(vars, out_lib_deps, out_intermediates):
   module_name = vars.get_module_name()
   path = vars.get_path()
   manifest = vars.get_aapt_manifest()
+  aapt_flags = vars.get_aapt_flags()
+  implicit = []
+
+  for i, flag in enumerate(aapt_flags[:-1]):
+    if flag == '-I':
+      implicit.append(aapt_flags[i + 1])
 
   intermediates = vars.get_exported_intermediates()
   extra_args = vars.get_generator_args()
 
   n = AaptNinjaGenerator(module_name, path, manifest, intermediates,
-                         **extra_args)
+                         implicit=implicit, **extra_args)
 
-  for flag in vars.get_aapt_flags():
+  for flag in aapt_flags:
     n.add_aapt_flag(flag)
 
   # This is present in android/frameworks/webview/chromium/chromium.mk to
@@ -1931,6 +2008,8 @@ def _adjust_flags(vars):
                             if not x.startswith('-Werror')]
   vars.get_cflags()[:] = [x for x in vars.get_cflags()
                           if not x.startswith('-Werror')]
+  vars.get_conlyflags()[:] = [x for x in vars.get_conlyflags()
+                              if not x.startswith('-Werror')]
   # Show warnings when --show-warnings=all or yes is specified.
   vars.get_cflags().extend(OPTIONS.get_warning_suppression_cflags())
 
@@ -1938,12 +2017,6 @@ def _adjust_flags(vars):
   vars.remove_c_or_cxxflag('-D_FORTIFY_SOURCE=1')
   vars.remove_c_or_cxxflag('-D_FORTIFY_SOURCE=2')
   vars.remove_c_or_cxxflag('-D_FORTIFY_SOURCE=3')
-
-  # Keep the original cflags to make sure cflags is not modified
-  # before vars.enable_clang() is called.
-  # TODO(crbug.com/415511): Let make_to_ninja detect clang ready
-  # modules automatically and remove this.
-  vars._orig_cflags = list(vars._cflags)
 
 
 def _clean_c_library_vars(vars):
@@ -1964,6 +2037,22 @@ def _clean_c_library_vars(vars):
       # Android appears to declare arm files, but compile the original.
       file = os.path.splitext(file)[0]
     sources[i] = file
+
+  # Save flags that may be restored by disable_clang().
+  vars._gcc_cflags = list(vars._cflags)
+  vars._gcc_conlyflags = list(vars._conlyflags)
+  vars._gcc_cxxflags = list(vars._cxxflags)
+  vars._gcc_ldflags = list(vars._ldflags)
+
+  if vars.is_clang_enabled():
+    vars._update_flags_for_clang()
+
+  # Keep the original cflags to make sure cflags is not modified
+  # before vars.disable_clang() is called.
+  vars._orig_cflags = list(vars._cflags)
+  vars._orig_conlyflags = list(vars._conlyflags)
+  vars._orig_cxxflags = list(vars._cxxflags)
+  vars._orig_ldflags = list(vars._ldflags)
 
 
 def _clean_package_vars(vars):

@@ -455,6 +455,14 @@ class ChromeFlakinessHandler(object):
   """
   _LAUNCH_CHROME_MINIMUM_LINES = 16
   _LAUNCH_CHROME_TIMEOUT = 30  # In seconds.
+  # In some situation, following message is repeatedly output, so that
+  # the output line easily exceeds the limit above. To detect error
+  # a little bit more stably, exclude such messages.
+  _EXCLUDE_MESSAGE_LIST = [
+      'GTK theme error: Unable to locate theme engine in module_path: "murrine"'
+  ]
+  _EXCLUDE_MESSAGE_PATTERN = re.compile('|'.join(
+      re.escape(message) for message in _EXCLUDE_MESSAGE_LIST))
 
   def __init__(self, output_handler, chrome_process):
     self._output_handler = output_handler
@@ -486,6 +494,9 @@ class ChromeFlakinessHandler(object):
   def _handle_line(self, line):
     if not self._timer:
       # The termination timer is already cancelled. Do nothing.
+      return
+
+    if ChromeFlakinessHandler._EXCLUDE_MESSAGE_PATTERN.search(line):
       return
 
     self._line_count += 1

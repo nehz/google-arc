@@ -24,6 +24,6 @@
 #define IRT_WRAPPER(name, ...)                              \
   extern int (*__nacl_irt_ ## name)(__VA_ARGS__);           \
   static int (*__nacl_irt_ ## name ## _real)(__VA_ARGS__);  \
-  int (__nacl_irt_ ## name ## _wrap)(__VA_ARGS__)
+  static int (__nacl_irt_ ## name ## _wrap)(__VA_ARGS__)
 
 #endif  // COMMON_IRT_WRAPPER_UTIL_H_
