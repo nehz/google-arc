@@ -8,14 +8,13 @@
 
 import sys
 
-import warning_filter
 from util import concurrent_subprocess
 
 _AMBIGUOUS_CLASS = 'I/libdvm.*: DexOpt: not resolving ambiguous class \'L%s;\''
 
 
 def main():
-  my_filter = warning_filter.WarningFilter(
+  handler = concurrent_subprocess.RedirectOutputHandler(
       r'.*method Landroid/test/InstrumentationTestRunner\$StringResultPrinter;'
       r'\.print incorrectly overrides package-private method with same name in '
       r'Ljunit/textui/ResultPrinter;',
@@ -27,7 +26,7 @@ def main():
       _AMBIGUOUS_CLASS % 'java/lang/Object',
       _AMBIGUOUS_CLASS % 'java/lang/reflect/AccessibleObject')
   p = concurrent_subprocess.Popen(sys.argv[1:])
-  return p.handle_output(my_filter)
+  return p.handle_output(handler)
 
 
 if __name__ == '__main__':

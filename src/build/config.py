@@ -286,6 +286,14 @@ def _generate_expected_driver_times_test():
                 build_common.get_all_unittest_info_path()])
 
 
+def _generate_run_integration_tests_test():
+  ninja_generator.generate_python_test_ninja(
+      'src/build',
+      python_test='src/build/run_integration_tests_test.py',
+      implicit=[build_common.get_all_integration_test_lists_path(),
+                build_common.get_all_unittest_info_path()])
+
+
 def generate_ninjas():
   ninja_generator_runner.request_run_in_parallel(
       _generate_breakpad_ninja,
@@ -298,12 +306,15 @@ def generate_ninjas():
 
 def generate_test_ninjas():
   if not open_source.is_open_source_repo():
-    # expected_driver_times_test.py has extra implicit dependencies, so
-    # generate the ninja for it separately.
+    # expected_driver_times_test.py and run_integration_tests_test.py have extra
+    # implicit dependencies, so generate the ninja for them separately.
     ninja_generator_runner.request_run_in_parallel(
         _generate_expected_driver_times_test)
+    ninja_generator_runner.request_run_in_parallel(
+        _generate_run_integration_tests_test)
     ninja_generator.generate_python_test_ninjas_for_path(
         'src/build',
-        exclude=['cts/expected_driver_times_test.py'])
+        exclude=['cts/expected_driver_times_test.py',
+                 'run_integration_tests_test.py'])
   ninja_generator_runner.request_run_in_parallel(
       _generate_lint_test_ninjas)

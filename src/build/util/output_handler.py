@@ -9,10 +9,12 @@ import re
 import subprocess
 import threading
 import time
+import signal
 import sys
 
 import crash_analyzer
 from build_options import OPTIONS
+from util import concurrent_subprocess
 from util import platform_util
 from util.test import atf_instrumentation_result_parser as result_parser
 
@@ -111,44 +113,7 @@ def _get_nacl_arc_process_memory(chrome_pid):
   return (res, virt)
 
 
-class OutputDumper(object):
-  def __init__(self, parsed_args):
-    self.parsed_args = parsed_args
-    # List of lines for stdout/stderr Chrome output to suppress.
-    self.LINE_SUPPRESS = [
-        # Problems with gPrecise ALSA give PCM 'underrun occurred' messages
-        # even when stopped in the debugger sometimes.
-        'underrun occurred',
-        # When debugging with gdb, NaCl is emitting many of these messages.
-        'NaClAppThreadSetSuspendedRegisters: Registers not modified']
-
-  def handle_timeout(self):
-    pass
-
-  def handle_stdout(self, line):
-    if self.suppress_output(line):
-      return
-    sys.stdout.write(line)
-
-  def handle_stderr(self, line):
-    if self.suppress_output(line):
-      return
-    sys.stderr.write(line)
-
-  def get_error_level(self, child_level):
-    return child_level
-
-  def is_done(self):
-    return False
-
-  def suppress_output(self, line):
-    for suppress in self.LINE_SUPPRESS:
-      if suppress in line:
-        return True
-    return False
-
-
-class AtfTestHandler(object):
+class AtfTestHandler(concurrent_subprocess.OutputHandler):
   # TODO(crbug.com/254164): Remove this awful compat test pattern
   # once NDK tests no longer use it.
   # Note that there are a few variations in what prints based on what JUnit
@@ -157,6 +122,7 @@ class AtfTestHandler(object):
   _COMPAT_FAILURES_PATTERN = re.compile(r'FAILURES!!!')
 
   def __init__(self):
+    super(AtfTestHandler, self).__init__()
     self._reached_done = False
     self._instrumentation_result_parser = (
         result_parser.AtfInstrumentationResultParser())
@@ -200,10 +166,10 @@ class AtfTestHandler(object):
       print '[  TIMEOUT  ]'
       sys.exit(1)
 
-  def get_error_level(self, child_level):
+  def handle_terminate(self, returncode):
     self._dump_test_method_results()
-    if child_level == 0 and (self._get_test_methods_passed() ==
-                             self._get_test_methods_total()):
+    if returncode == 0 and (self._get_test_methods_passed() ==
+                            self._get_test_methods_total()):
       print '[  PASSED  ]'
       return 0
     else:
@@ -259,8 +225,9 @@ _START_MESSAGE_PATTERN = re.compile(
     r'Activity onResume .*')
 
 
-class PerfTestHandler(object):
+class PerfTestHandler(concurrent_subprocess.OutputHandler):
   def __init__(self, parsed_args, stats, chrome_process, cache_warming=False):
+    super(PerfTestHandler, self).__init__()
     self.parsed_args = parsed_args
     self.in_exception = False
     self.last_line = ''
@@ -376,25 +343,16 @@ class PerfTestHandler(object):
   def is_done(self):
     return self.reached_done
 
-  def get_error_level(self, child_level):
-    if self.any_errors:
-      return 1
-    else:
-      return 0
+  def handle_terminate(self, returncode):
+    return 1 if self.any_errors else 0
 
 
-class ArcStraceFilter(object):
-  def __init__(self, output_handler, output_filename):
+class ArcStraceFilter(concurrent_subprocess.DelegateOutputHandlerBase):
+  def __init__(self, base_handler, output_filename):
+    super(ArcStraceFilter, self).__init__(base_handler)
     self._strace_output = open(output_filename, 'w', buffering=0)
-    self._output_handler = output_handler
     self._arc_strace_pattern = re.compile(r'\[\[arc_strace\]\]: ')
     self._line_buffer = []
-
-  def is_done(self):
-    return self._output_handler.is_done()
-
-  def handle_stdout(self, line):
-    self._output_handler.handle_stdout(line)
 
   def handle_stderr(self, line):
     matched = self._arc_strace_pattern.search(line)
@@ -415,43 +373,30 @@ class ArcStraceFilter(object):
         self._line_buffer = []
       self._output_handler.handle_stderr(line)
 
-  def handle_timeout(self):
-    self._output_handler.handle_timeout()
 
-  def get_error_level(self, child_level):
-    return self._output_handler.get_error_level(child_level)
-
-
-class CrashAddressFilter(object):
-  def __init__(self, output_handler):
-    self._output_handler = output_handler
+class CrashAddressFilter(concurrent_subprocess.DelegateOutputHandlerBase):
+  def __init__(self, base_handler):
+    super(CrashAddressFilter, self).__init__(base_handler)
     self._crash_analyzer = crash_analyzer.CrashAnalyzer()
 
-  def is_done(self):
-    return self._output_handler.is_done()
-
-  def handle_stdout(self, line):
-    self._output_handler.handle_stdout(line)
-
   def handle_stderr(self, line):
-    self._output_handler.handle_stderr(line)
+    super(CrashAddressFilter, self).handle_stderr(line)
     if self._crash_analyzer.handle_line(line):
-      self._output_handler.handle_stderr(
+      super(CrashAddressFilter, self).handle_stderr(
           self._crash_analyzer.get_crash_report())
 
-  def handle_timeout(self):
-    self._output_handler.handle_timeout()
 
-  def get_error_level(self, child_level):
-    return self._output_handler.get_error_level(child_level)
+class ChromeFlakinessError(Exception):
+  """Raised when Chrome is terminated due to its flakiness."""
 
 
-class ChromeFlakinessHandler(object):
+class ChromeFlakinessHandler(concurrent_subprocess.DelegateOutputHandlerBase):
   """Output Handler to take care of Chrome flakiness stuck.
 
   On Chrome launching, sometimes it stuck with output just a few lines.
   This handler detects such a case. When such a case is found, this tries
-  to terminate the Chrome process, and returns None via get_error_level().
+  to terminate the Chrome process, and raises ChromeFlakinessError on its
+  termination.
   """
   _LAUNCH_CHROME_MINIMUM_LINES = 16
   _LAUNCH_CHROME_TIMEOUT = 30  # In seconds.
@@ -464,8 +409,8 @@ class ChromeFlakinessHandler(object):
   _EXCLUDE_MESSAGE_PATTERN = re.compile('|'.join(
       re.escape(message) for message in _EXCLUDE_MESSAGE_LIST))
 
-  def __init__(self, output_handler, chrome_process):
-    self._output_handler = output_handler
+  def __init__(self, base_handler, chrome_process):
+    super(ChromeFlakinessHandler, self).__init__(base_handler)
     self._chrome_process = chrome_process
     self._line_count = 0
     self._timedout = threading.Event()
@@ -478,18 +423,12 @@ class ChromeFlakinessHandler(object):
     self._timer.start()
 
   def handle_stdout(self, line):
-    self._output_handler.handle_stdout(line)
+    super(ChromeFlakinessHandler, self).handle_stdout(line)
     self._handle_line(line)
 
   def handle_stderr(self, line):
-    self._output_handler.handle_stderr(line)
+    super(ChromeFlakinessHandler, self).handle_stderr(line)
     self._handle_line(line)
-
-  def is_done(self):
-    return self._output_handler.is_done()
-
-  def handle_timeout(self):
-    self._output_handler.handle_timeout()
 
   def _handle_line(self, line):
     if not self._timer:
@@ -511,8 +450,31 @@ class ChromeFlakinessHandler(object):
     self._timedout.set()
     self._chrome_process.terminate()
 
-  def get_error_level(self, child_level):
+  def handle_terminate(self, returncode):
     if self._timedout.is_set():
-      # On timeout, return None.
-      return None
-    return self._output_handler.get_error_level(child_level)
+      # On timeout, raise ChromeFlakinessError.
+      raise ChromeFlakinessError()
+    return super(ChromeFlakinessHandler, self).handle_terminate(returncode)
+
+
+class ChromeStatusCodeHandler(concurrent_subprocess.DelegateOutputHandlerBase):
+  """Output handler to tweak the status code of Chrome.
+
+  In some cases, the status code from Chrome is something unexpected.
+
+  1) Chrome exits with -signal.SIGTERM (-15) on Mac and Cygwin when it
+    receives SIGTERM, so -signal.SIGTERM (-15) is an expected exit code.
+    Although Chrome on Linux handles SIGTERM and exits with 0, we treat it
+    in the same way as other platforms for consistency.
+
+  2) Sometimes Chrome is not terminated by SIGTERM.
+    In such a case, we send SIGKILL to kill the process, so -signal.SIGKILL
+    (-9) is also expected exit code.
+  """
+  def handle_terminate(self, returncode):
+    # First of all, before tweaking, log the original status code.
+    if returncode:
+      logging.error('Chrome is terminated with status code: %d', returncode)
+    if returncode in (-signal.SIGTERM, -signal.SIGKILL):
+      returncode = 0
+    return super(ChromeStatusCodeHandler, self).handle_terminate(returncode)

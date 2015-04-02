@@ -78,12 +78,13 @@ def _construct_command(test_info, gtest_filter, gtest_list_tests):
     # Change runner to use the binaries under the directory mounted with exec
     # option.
     # Also do not use qemu_arm when running on ARM Chromebook.
-    arc_root_with_exec = toolchain.get_chromeos_arc_root_with_exec()
+    arc_root_without_noexec = \
+        build_common.get_chromeos_arc_root_without_noexec()
     if build_options.OPTIONS.is_arm():
       variables['qemu_arm'] = ''
       variables['runner'] = ' '.join(
           toolchain.get_bare_metal_runner(use_qemu_arm=False,
-                                          bin_dir=arc_root_with_exec))
+                                          bin_dir=arc_root_without_noexec))
       # Update --gtest_filter to re-enable the tests disabled only on qemu.
       if variables.get('qemu_disabled_tests'):
         variables['gtest_options'] = unittest_util.build_gtest_options(
@@ -92,16 +93,11 @@ def _construct_command(test_info, gtest_filter, gtest_list_tests):
       variables['runner'] = ' '.join(
           toolchain.get_nacl_runner(
               build_options.OPTIONS.get_target_bitsize(),
-              bin_dir=arc_root_with_exec))
+              bin_dir=arc_root_without_noexec))
     build_dir = build_common.get_build_dir()
-    # Use test binary in the directory mounted with exec.
+    # Use test binary in the directory mounted without noexec.
     variables['in'] = variables['in'].replace(
-        build_dir, os.path.join(arc_root_with_exec, build_dir))
-    # plugin_load_test specifies shared objects under buid_dir, which is
-    # mounted with noexec option, so argv needs to be modified to point to
-    # paths of filesystem mounted with exec.
-    variables['argv'] = variables['argv'].replace(
-        build_dir, os.path.join(arc_root_with_exec, build_dir))
+        build_dir, os.path.join(arc_root_without_noexec, build_dir))
   else:
     if build_options.OPTIONS.is_arm():
       # Pass environment variables by -E flag for qemu-arm instead of

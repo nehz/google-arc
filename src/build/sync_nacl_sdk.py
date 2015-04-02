@@ -14,6 +14,7 @@ import urllib
 import build_common
 from util import logging_util
 from util import download_package_util
+from util import download_package_util_flags
 
 
 _DEPS_FILE_PATH = 'src/build/DEPS.naclsdk'
@@ -44,6 +45,17 @@ class NaClSDKFiles(download_package_util.BasicCachedPackage):
         '--force', 'pepper_canary'], cwd=self.unpacked_linked_cache_path)
 
 
+def check_and_perform_updates(cache_base_path, cache_history_size):
+  NaClSDKFiles(
+      _DEPS_FILE_PATH,
+      'third_party/nacl_sdk',
+      url=_NACL_SDK_ZIP_URL,
+      link_subdir='nacl_sdk',
+      cache_base_path=cache_base_path,
+      cache_history_size=cache_history_size
+  ).check_and_perform_update()
+
+
 def main(args):
   parser = argparse.ArgumentParser()
   parser.add_argument('-v', '--verbose', action='store_true', help='Emit '
@@ -51,17 +63,13 @@ def main(args):
   parser.add_argument('-r', '--roll-forward', dest='roll', action='store_true',
                       help='Update pinned NaCl SDK manifest version to the '
                       'latest..')
+  download_package_util_flags.add_extra_flags(parser)
   args = parser.parse_args(args)
   logging_util.setup(verbose=args.verbose)
   if args.roll:
     roll_pinned_manifest_forward()
 
-  NaClSDKFiles(
-      _DEPS_FILE_PATH,
-      'third_party/nacl_sdk',
-      url=_NACL_SDK_ZIP_URL,
-      link_subdir='nacl_sdk'
-  ).check_and_perform_update()
+  check_and_perform_updates(args.download_cache_path, args.download_cache_size)
 
 
 if __name__ == '__main__':

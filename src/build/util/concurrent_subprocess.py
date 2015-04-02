@@ -4,9 +4,11 @@
 
 import io
 import logging
+import re
 import select
 import signal
 import subprocess
+import sys
 import threading
 import time
 
@@ -309,4 +311,117 @@ class Popen(object):
       logging.info('Process %d was timed out', self._process.pid)
       output_handler.handle_timeout()
 
+    return output_handler.handle_terminate(returncode)
+
+
+class OutputHandler(object):
+  """Default (stub) definition for the handler Popen.handle_output() requires.
+
+  This handler does almost nothing.
+  """
+
+  def handle_stdout(self, line):
+    """Called when a line is output via subprocess's stdout.
+
+    Args:
+      line: A line. Note that the line has trailing LF.
+    """
+    pass
+
+  def handle_stderr(self, line):
+    """Called when a line is output via subprocess's stderr.
+
+    Args:
+      line: A line. Note that the line has trailing LF.
+    """
+    pass
+
+  def is_done(self):
+    """Returns whether we should terminate the subprocess.
+
+    This method is called after handle_stdout() and handle_stderr().
+    If returns True, the subprocess will be terminated soon, and
+    this method will never be called.
+    Note that, even if no line is output from subprocess, this method is
+    periodically called.
+    """
+    # Do not terminate the subprocess, by default.
+    return False
+
+  def handle_timeout(self):
+    """Called when the subprocess is timed out, after process termination.
+
+    If |timeout| parameter is passed to Popen, the subprocess will be
+    terminated at the time. In such a case, after the process is
+    terminated, this method is called.
+    """
+    pass
+
+  def handle_terminate(self, returncode):
+    """Called at the very end of Popen.handle_output().
+
+    This method is called at the very end of the Popen.handle_output(),
+    so that it can override returncode based on the observed stdout and stderr.
+
+    This must return the status code, which will be returned from the
+    Popen.handle_output().
+    """
+    # Do not override the returncode, by default.
     return returncode
+
+
+# Common OutputHandler implementations.
+class DelegateOutputHandlerBase(OutputHandler):
+  """Delegate every handler invocation to the given output handler.
+
+  One of the common patterns of OutputHandler is doing something for
+  interesting events (like stdout line, stderr line etc.), and delegating
+  anything else to other OutputHandler.
+  This is the base class for such purposes.
+  """
+  def __init__(self, base_handler):
+    super(DelegateOutputHandlerBase, self).__init__()
+    assert base_handler is not None
+    self._base_handler = base_handler
+
+  def handle_stdout(self, line):
+    self._base_handler.handle_stdout(line)
+
+  def handle_stderr(self, line):
+    self._base_handler.handle_stderr(line)
+
+  def is_done(self):
+    return self._base_handler.is_done()
+
+  def handle_timeout(self):
+    self._base_handler.handle_timeout()
+
+  def handle_terminate(self, returncode):
+    return self._base_handler.handle_terminate(returncode)
+
+
+class RedirectOutputHandler(OutputHandler):
+  """Output handler to redirect stdout and stderr to sys.stdout and stderr."""
+
+  def __init__(self, *suppress_patterns):
+    """Initializes the redirect output handler.
+
+    Args:
+      *suppress_patterns: string regex of suppressing lines. If an output line
+        (regardless stdout or stderr) matches one of them, the line will not
+        be redirected to the stdout or stderr (respectively).
+    """
+    super(RedirectOutputHandler, self).__init__()
+    self._suppress_pattern = (
+        re.compile('|'.join(suppress_patterns)) if suppress_patterns else None)
+
+  def handle_stdout(self, line):
+    if not self._is_suppress_target(line):
+      sys.stdout.write(line)
+
+  def handle_stderr(self, line):
+    if not self._is_suppress_target(line):
+      sys.stderr.write(line)
+
+  def _is_suppress_target(self, line):
+    return self._suppress_pattern and self._suppress_pattern.match(line)

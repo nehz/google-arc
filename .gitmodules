@@ -406,3 +406,6 @@
 [submodule "third_party/tools/mccabe"]
 	path = third_party/tools/mccabe
 	url = https://chromium.googlesource.com/external/github.com/flintwork/mccabe
+[submodule "third_party/android/prebuilts/clang/linux-x86/host/3.6"]
+	path = third_party/android/prebuilts/clang/linux-x86/host/3.6
+	url = https://android.googlesource.com/platform/prebuilts/clang/linux-x86/host/3.6

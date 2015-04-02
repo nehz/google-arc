@@ -12,12 +12,11 @@
 
 import sys
 
-import warning_filter
 from util import concurrent_subprocess
 
 
 def main():
-  my_filter = warning_filter.WarningFilter(
+  handler = concurrent_subprocess.RedirectOutputHandler(
       r'Note: Some input files use or override a deprecated API\.',
       r'Note: .* uses or overrides a deprecated API\.',
       r'Note: Recompile with -Xlint:deprecation for details\.',
@@ -25,7 +24,7 @@ def main():
       r'Note: .* uses unchecked or unsafe operations\.',
       r'Note: Recompile with -Xlint:unchecked for details\.')
   p = concurrent_subprocess.Popen(sys.argv[1:])
-  return p.handle_output(my_filter)
+  return p.handle_output(handler)
 
 
 if __name__ == '__main__':

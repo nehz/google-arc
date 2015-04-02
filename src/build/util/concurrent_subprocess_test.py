@@ -14,14 +14,16 @@ import unittest
 from util import concurrent_subprocess
 
 
-class SimpleOutputHandler(object):
+class SimpleOutputHandler(concurrent_subprocess.OutputHandler):
   """Simple output handler to store stdout, stderr and timeout."""
 
   def __init__(self):
+    super(SimpleOutputHandler, self).__init__()
     self.done = False
     self.stdout = ''
     self.stderr = ''
     self.timeout = False
+    self.returncode = None
 
   def is_done(self):
     return self.done
@@ -34,6 +36,11 @@ class SimpleOutputHandler(object):
 
   def handle_timeout(self):
     self.timeout = True
+
+  def handle_terminate(self, returncode):
+    if self.returncode is not None:
+      return self.returncode
+    return returncode
 
 
 class FakeTimer(object):
@@ -213,6 +220,23 @@ class FakePopenTest(unittest.TestCase):
         concurrent_subprocess.Popen._SHUTDOWN_WAIT_SECONDS, popen.kill)
     kill_timer.cancelled = True
     self.assertEquals([timeout_timer, kill_timer], popen.created_timer_list)
+
+  def test_terminate(self):
+    with FakePopen() as p:
+      popen = TestPopen(p, ['cmd'])
+
+      p.close_child_stdout()
+      p.close_child_stderr()
+      p.returncode = 0
+
+      output_handler = SimpleOutputHandler()
+      output_handler.returncode = 100
+      returncode = popen.handle_output(output_handler)
+    self.assertEquals('', output_handler.stdout)
+    self.assertEquals('', output_handler.stderr)
+    self.assertFalse(output_handler.timeout)
+    # |returncode| should be overriden.
+    self.assertEquals(100, returncode)
 
   def test_async_terminate(self):
     with FakePopen() as p:

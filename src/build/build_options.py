@@ -11,6 +11,8 @@ import subprocess
 import sys
 import time
 
+from util import download_package_util_flags
+
 # --target=
 _TARGET_NACL_I686 = 'nacl_i686'
 _TARGET_NACL_X86_64 = 'nacl_x86_64'
@@ -92,6 +94,8 @@ _ALLOWED_WARNING_LEVEL = ['all',
                           'yes',  # all except -Wunused-*.
                           'no']
 
+_DEFAULT_ARGUMENT_FILE = '.configure'
+
 
 class _Options(object):
 
@@ -101,7 +105,7 @@ class _Options(object):
     self._goma_dir = None
     self._system_packages = []
     self._values = {}
-    self.parse([])
+    self.parse([], read_defaults_from_file=False)
 
   def __getattr__(self, name):
     """Provides getters for values originated from the command line options.
@@ -277,7 +281,7 @@ class _Options(object):
       args.regen_build_prop = True
     return args
 
-  def parse(self, args):
+  def parse(self, args, read_defaults_from_file=True):
     parser = argparse.ArgumentParser(
         usage=os.path.basename(sys.argv[0]) + ' <options>',
         epilog=_Options._help_epilog(),
@@ -403,11 +407,22 @@ class _Options(object):
                         help='Automatically sets configuration values used by '
                         'the weird builder.')
 
-    args = parser.parse_args(args)
-    args = self._apply_args(args)
-    self._values = vars(args)
+    download_package_util_flags.add_extra_flags(parser)
 
-    for name in args.logging:
+    parsed_args = None
+    # If a _DEFAULT_ARGUMENT_FILE file exists, assume it contains default
+    # options to use, and read them from it.
+    if read_defaults_from_file and os.path.exists(_DEFAULT_ARGUMENT_FILE):
+      print 'Reading default options from ./.configure'
+      with open(_DEFAULT_ARGUMENT_FILE) as defaults:
+        parsed_args = parser.parse_args(defaults.read().splitlines())
+    # Note we override any options in the .configure file with options passed on
+    # the command line.
+    parsed_args = parser.parse_args(args, parsed_args)
+    parsed_args = self._apply_args(parsed_args)
+    self._values = vars(parsed_args)
+
+    for name in parsed_args.logging:
       if name in _ALLOWED_LOGGING:
         self._loggers[name] = True
       else:
@@ -415,16 +430,16 @@ class _Options(object):
         parser.print_help()
         return -1
 
-    if args.show_warnings:
-      if args.show_warnings in _ALLOWED_WARNING_LEVEL:
-        self._show_warnings = args.show_warnings
+    if parsed_args.show_warnings:
+      if parsed_args.show_warnings in _ALLOWED_WARNING_LEVEL:
+        self._show_warnings = parsed_args.show_warnings
       else:
-        print 'Unknown warning level:', args.show_warnings
+        print 'Unknown warning level:', parsed_args.show_warnings
         parser.print_help()
         return -1
 
-    if args.system_packages:
-      self._system_packages = args.system_packages.split(',')
+    if parsed_args.system_packages:
+      self._system_packages = parsed_args.system_packages.split(',')
 
     # ARM Chrome OS does not have a lot of storage and it takes a lot
     # of time to transfer binaries. Note that you still have debug
@@ -432,7 +447,7 @@ class _Options(object):
     if self.is_arm():
       self._values['strip_runtime_binaries'] = True
 
-    error = self._check_args(args)
+    error = self._check_args(parsed_args)
     if error:
       parser.print_help()
       print '\n', error

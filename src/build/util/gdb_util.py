@@ -17,6 +17,7 @@ import time
 import build_common
 import toolchain
 from build_options import OPTIONS
+from util import concurrent_subprocess
 from util import file_util
 from util import platform_util
 
@@ -369,23 +370,17 @@ def get_args_for_stlport_pretty_printers():
   return gdb_args
 
 
-class GdbHandlerAdapter(object):
+class GdbHandlerAdapter(concurrent_subprocess.DelegateOutputHandlerBase):
   _START_DIALOG_PATTERN = re.compile(r'(Gpu|Renderer) \((\d+)\) paused')
 
   def __init__(self, base_handler, target_list, gdb_type):
+    super(GdbHandlerAdapter, self).__init__(base_handler)
     assert target_list, 'No GDB target is specified.'
-    self._base_handler = base_handler
     self._target_list = target_list
     self._gdb_type = gdb_type
 
-  def handle_timeout(self):
-    self._base_handler.handle_timeout()
-
-  def handle_stdout(self, line):
-    self._base_handler.handle_stdout(line)
-
   def handle_stderr(self, line):
-    self._base_handler.handle_stderr(line)
+    super(GdbHandlerAdapter, self).handle_stderr(line)
 
     match = GdbHandlerAdapter._START_DIALOG_PATTERN.search(line)
     if not match:
@@ -400,30 +395,18 @@ class GdbHandlerAdapter(object):
     logging.info('Found %s process (%s)' % (process_type, pid))
     _launch_gdb(process_type, pid, self._gdb_type)
 
-  def get_error_level(self, child_level):
-    return self._base_handler.get_error_level(child_level)
 
-  def is_done(self):
-    return self._base_handler.is_done()
-
-
-class NaClGdbHandlerAdapter(object):
+class NaClGdbHandlerAdapter(concurrent_subprocess.DelegateOutputHandlerBase):
   _START_DEBUG_STUB_PATTERN = re.compile(r'debug stub on port (\d+)')
 
   def __init__(self, base_handler, nacl_irt_path, gdb_type, host=None):
-    self._base_handler = base_handler
+    super(NaClGdbHandlerAdapter, self).__init__(base_handler)
     self._nacl_irt_path = nacl_irt_path
     self._gdb_type = gdb_type
     self._host = host
 
-  def handle_timeout(self):
-    self._base_handler.handle_timeout()
-
-  def handle_stdout(self, line):
-    self._base_handler.handle_stdout(line)
-
   def handle_stderr(self, line):
-    self._base_handler.handle_stderr(line)
+    super(NaClGdbHandlerAdapter, self).handle_stderr(line)
 
     match = NaClGdbHandlerAdapter._START_DEBUG_STUB_PATTERN.search(line)
     if not match:
@@ -438,35 +421,24 @@ class NaClGdbHandlerAdapter(object):
       logging.info('Found debug stub on port (%d)' % port)
       _launch_nacl_gdb(self._gdb_type, self._nacl_irt_path, self._host, port)
 
-  def get_error_level(self, child_level):
-    return self._base_handler.get_error_level(child_level)
 
-  def is_done(self):
-    return self._base_handler.is_done()
-
-
-class BareMetalGdbHandlerAdapter(object):
+class BareMetalGdbHandlerAdapter(
+    concurrent_subprocess.DelegateOutputHandlerBase):
   # This pattern must be in sync with the message in
   # mods/android/bionic/linker/linker.cpp.
   _WAITING_GDB_PATTERN = re.compile(r'linker: waiting for gdb \((\d+)\)')
 
   def __init__(self, base_handler, nacl_helper_path, gdb_type, host=None,
                ssh_options=None):
-    self._base_handler = base_handler
+    super(BareMetalGdbHandlerAdapter, self).__init__(base_handler)
     self._nacl_helper_path = nacl_helper_path
     self._gdb_type = gdb_type
     self._host = host
     self._ssh_options = ssh_options
     self._next_is_child_plugin = False
 
-  def handle_timeout(self):
-    self._base_handler.handle_timeout()
-
-  def handle_stdout(self, line):
-    self._base_handler.handle_stdout(line)
-
   def handle_stderr(self, line):
-    self._base_handler.handle_stderr(line)
+    super(BareMetalGdbHandlerAdapter, self).handle_stderr(line)
 
     match = BareMetalGdbHandlerAdapter._WAITING_GDB_PATTERN.search(line)
     if not match:
@@ -489,9 +461,3 @@ class BareMetalGdbHandlerAdapter(object):
           self._gdb_type)
 
     self._next_is_child_plugin = True
-
-  def get_error_level(self, child_level):
-    return self._base_handler.get_error_level(child_level)
-
-  def is_done(self):
-    return self._base_handler.is_done()

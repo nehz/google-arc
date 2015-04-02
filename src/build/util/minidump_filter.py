@@ -9,31 +9,23 @@ import os
 import re
 import subprocess
 
+from util import concurrent_subprocess
 
-class MinidumpFilter(object):
+
+class MinidumpFilter(concurrent_subprocess.DelegateOutputHandlerBase):
   # The format of the output must match what is output from
   # crash_reporter.js printMiniDump_
   _MINIDUMP_RE = re.compile(r'@@@Minidump generated@@@(.+)@@@(.+)@@@')
 
-  def __init__(self, output_handler):
-    self._output_handler = output_handler
-
-  def is_done(self):
-    return self._output_handler.is_done()
-
   def handle_stdout(self, line):
-    if not self.handle_common_line(line):
-      self._output_handler.handle_stdout(line)
+    if self.handle_common_line(line):
+      return
+    super(MinidumpFilter, self).handle_stdout(line)
 
   def handle_stderr(self, line):
-    if not self.handle_common_line(line):
-      self._output_handler.handle_stderr(line)
-
-  def handle_timeout(self):
-    self._output_handler.handle_timeout()
-
-  def get_error_level(self, child_level):
-    return self._output_handler.get_error_level(child_level)
+    if self.handle_common_line(line):
+      return
+    super(MinidumpFilter, self).handle_stderr(line)
 
   def handle_common_line(self, line):
     # Use search instead of match to extract only minidump data from the line.
@@ -51,7 +43,7 @@ class MinidumpFilter(object):
     # Extract new line characters. Note that '\r\n' are used when launching
     # chrome remotely via SSH.
     newline = '\r\n' if line.endswith('\r\n') else '\n'
-    self._output_handler.handle_stderr(
+    super(MinidumpFilter, self).handle_stderr(
         'Minidump generated: %s%s' % (output_path, newline))
     # Do not output the line with dump data.
     return True

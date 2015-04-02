@@ -10,7 +10,7 @@ import subprocess
 import sys
 
 import eclipse_connector
-
+from util import concurrent_subprocess
 
 # The list of Java source file root paths.
 # TODO(crbug.com/470798): Find proper paths.
@@ -29,20 +29,23 @@ def maybe_launch_jdb(jdb_port, jdb_type):
         sys.exit(1)
 
 
-class JdbHandlerAdapter(object):
+class JdbHandlerAdapter(concurrent_subprocess.DelegateOutputHandlerBase):
   _WAITING_JDB_CONNECTION_PATTERN = re.compile(
       r'Hello ARC, start jdb please at port (\d+)')
 
   def __init__(self, base_handler, jdb_port, jdb_type):
-    self._base_handler = base_handler
+    super(JdbHandlerAdapter, self).__init__(base_handler)
     self._jdb_port = jdb_port
     self._jdb_type = jdb_type
 
-  def handle_timeout(self):
-    self._base_handler.handle_timeout()
+  def handle_stderr(self, line):
+    super(JdbHandlerAdapter, self).handle_stderr(line)
 
-  def handle_stdout(self, line):
-    self._base_handler.handle_stdout(line)
+    if not JdbHandlerAdapter._WAITING_JDB_CONNECTION_PATTERN.search(line):
+      return
+
+    if self._jdb_type == 'emacsclient':
+      self._start_emacsclient_jdb()
 
   def _start_emacsclient_jdb(self):
     source_paths = []
@@ -59,19 +62,3 @@ class JdbHandlerAdapter(object):
         '(jdb "jdb -attach localhost:%d -sourcepath%s")' %
         (self._jdb_port, ':'.join(source_paths))]
     subprocess.Popen(command)
-
-  def handle_stderr(self, line):
-    self._base_handler.handle_stderr(line)
-
-    match = JdbHandlerAdapter._WAITING_JDB_CONNECTION_PATTERN.search(line)
-    if not match:
-      return
-
-    if self._jdb_type == 'emacsclient':
-      self._start_emacsclient_jdb()
-
-  def get_error_level(self, child_level):
-    return self._base_handler.get_error_level(child_level)
-
-  def is_done(self):
-    return self._base_handler.is_done()

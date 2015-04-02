@@ -9,8 +9,6 @@ import hashlib
 import json
 import logging
 import os
-import platform
-import re
 import shutil
 import stat
 import subprocess
@@ -22,20 +20,7 @@ import build_common
 import file_util
 
 
-# TODO(lpique): Remove this code. The buildbot should be detected by a command
-# line flag so that we do not have to update the regular expression below as our
-# build infrastructure changes.
-def _is_running_on_bulidbot():
-  return bool(re.match('(build[0-9]+-a75.*)|'
-                       '(slave[0-9]+-c[0-9]+.*)', platform.node()))
-
-
-# TODO(lpique): Remove this code. The path should be passed in by a command line
-# argument.
-_DEFAULT_CACHE_BASE_PATH = (
-    os.path.join(build_common.get_arc_root(), 'cache')
-    if not _is_running_on_bulidbot() else
-    '/b/build/slave/cache_dir/arc_downloads')
+_DEFAULT_CACHE_BASE_PATH = os.path.join(build_common.get_arc_root(), 'cache')
 _DEFAULT_CACHE_HISTORY_SIZE = 3
 
 
@@ -197,6 +182,9 @@ class BasicCachedPackage(object):
     |cache_history_size| allows a derived class to choose the cache history
     size, but it is really only meant for the unittest.
     """
+    if cache_base_path:
+      cache_base_path = os.path.abspath(cache_base_path)
+
     self._name = os.path.basename(unpacked_final_path)
     self._cache_base_path = cache_base_path or _DEFAULT_CACHE_BASE_PATH
     self._cache_history_size = cache_history_size or _DEFAULT_CACHE_HISTORY_SIZE
@@ -300,7 +288,7 @@ class BasicCachedPackage(object):
           os.path.join(self.unpacked_linked_cache_path, child),
           overwrite=True)
 
-  # TODO(2015-03-20): This is here for backwards compatibility with previous
+  # TODO(2015-04-20): This is here for backwards compatibility with previous
   # code which unpacked directly to the FINAL_DIR (no cache), and should be
   # able to be removed after this timestamp.  Worst case the download has to
   # be re-downloaded into the cache directory when it is removed.

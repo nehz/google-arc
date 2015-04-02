@@ -34,7 +34,7 @@ def _get_symbol_marker(path):
   return os.path.join(_SYMBOL_OUT_DIR, 'hash', sha1.hexdigest())
 
 
-class _DumpSymsFilter(object):
+class _DumpSymsFilter(concurrent_subprocess.OutputHandler):
   _WARNING_RE = re.compile('|'.join([
       # TODO(crbug.com/468597): Figure out if these are benign.
       # From src/common/dwarf_cu_to_module.cc
@@ -68,6 +68,7 @@ class _DumpSymsFilter(object):
     """Generate a filter that will filter warnings and also allow stdout
     result to be obtained as |stdout_result|.
     """
+    super(_DumpSymsFilter, self).__init__()
     self.stdout_result = []
 
   def _has_warning(self, line):
@@ -79,12 +80,6 @@ class _DumpSymsFilter(object):
   def handle_stderr(self, line):
     if not self._has_warning(line):
       sys.stderr.write(line)
-
-  def is_done(self):
-    return False
-
-  def handle_timeout(self):
-    pass
 
 
 def _extract_symbols_from_one_binary(binary):

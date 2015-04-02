@@ -23,10 +23,9 @@ _PNACL_BIN_PATH = os.path.join(_NACL_SDK_PATH, 'toolchain/linux_pnacl/bin')
 # TODO(crbug.com/247242): support --naclsdktype={debug,release}
 _NACL_SDK_RELEASE = 'Release'  # alternative: Debug
 _QEMU_ARM_LD_PATH = '/usr/arm-linux-gnueabihf'
-_CHROMEOS_USR_LOCAL_DIR = '/usr/local'
-_CLANG_DIR = 'third_party/android/prebuilts/clang/linux-x86/host/3.5'
+_CLANG_DIR = 'third_party/android/prebuilts/clang/linux-x86/host/3.6'
 _CLANG_BIN_DIR = os.path.join(_CLANG_DIR, 'bin')
-_CLANG_INCLUDE_DIR = os.path.join(_CLANG_DIR, 'lib', 'clang', '3.5', 'include')
+_CLANG_INCLUDE_DIR = os.path.join(_CLANG_DIR, 'lib', 'clang', '3.6', 'include')
 
 # Used in get_gcc_raw_version().
 _GCC_RAW_VERSION_CACHE = {}
@@ -59,31 +58,22 @@ def get_clang_include_dir():
   return _CLANG_INCLUDE_DIR
 
 
-def get_chromeos_arc_root_with_exec(*subdirs):
-  """Returns a directory whose filesystem is mounted without noexec.
-
-  Chrome OS mounts most filesystems with noexec mount option, which prevents
-  executable files from being executed directly. In order to run executable
-  files for testing, we need to copy the files to a directory whose filesystem
-  is mounted without noexec. This function returns /usr/local/arc as one of
-  such directories. |subdirs| is joined to this path.
-  """
-  return os.path.join(_CHROMEOS_USR_LOCAL_DIR, 'arc', *subdirs)
-
-
-def get_adb_path_for_chromeos():
+def get_adb_path_for_chromeos(relative=True):
   """Returns the directory that contains the adb executable for Chrome OS."""
 
   if platform_util.is_running_on_chromeos():
     # The adb binary is copied to a directory whose filesystem is mounted
     # without noexec mount options on Chrome OS.
-    root = get_chromeos_arc_root_with_exec()
+    root = build_common.get_chromeos_arc_root_without_noexec()
   else:
     root = build_common.get_arc_root()
 
   # Chrome OS based on linux-i686 is not supported.
   target = 'linux-arm' if OPTIONS.is_arm() else 'linux-x86_64'
-  return os.path.join(root, 'out/adb', target, 'adb')
+  path = os.path.join('out/adb', target, 'adb')
+  if relative:
+    return path
+  return os.path.join(root, path)
 
 
 def _get_adb_path_for_localhost():
@@ -93,7 +83,7 @@ def _get_adb_path_for_localhost():
   elif platform_util.is_running_on_cygwin():
     return os.path.join(root, 'win-x86_64/adb.exe')
   elif platform_util.is_running_on_chromeos():
-    return get_adb_path_for_chromeos()
+    return get_adb_path_for_chromeos(relative=False)
   else:
     # For Linux desktop.
     return 'third_party/android-sdk/platform-tools/adb'
@@ -153,8 +143,6 @@ def get_nacl_runner(bitsize, bin_dir=None,
     irt_core = os.path.join(bin_dir, irt_core)
   args.extend([sel_ldr, '-a', '-B', irt_core])
   library_path = build_common.get_load_library_path()
-  if bin_dir:
-    library_path = os.path.join(bin_dir, library_path)
   args.extend(['-E', 'LD_LIBRARY_PATH=' +
                ':'.join([library_path] + extra_library_paths)])
   for key, value in extra_envs.iteritems():
@@ -180,12 +168,11 @@ def get_bare_metal_runner(nacl_arch=None, use_qemu_arm=False, bin_dir=None,
   if use_qemu_arm:
     args.extend(get_qemu_arm_args())
   loader = get_nonsfi_loader(nacl_arch)
-  load_library_path = build_common.get_load_library_path()
   if bin_dir:
-    load_library_path = os.path.join(bin_dir, load_library_path)
     loader = os.path.join(bin_dir, loader)
   args.append(loader)
-  args.append(os.path.join(load_library_path, 'runnable-ld.so'))
+  args.append(os.path.join(build_common.get_load_library_path(),
+                           'runnable-ld.so'))
   return args
 
 

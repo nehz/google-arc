@@ -1081,6 +1081,10 @@ class MakeVars:
       self._clang_incompatible_flags.extend([
           '-no-canonical-prefixes', '-march=i686'])
 
+    # clang-3.5 silently ignores -finline-functions, and clang-3.6 emits a
+    # warning for it.
+    self._clang_incompatible_flags.append('-finline-functions')
+
     if self._cflags.count('-D_USING_LIBCXX'):
       self._is_stlport_enabled = False
       # TODO(crbug.com/406226): Remove following workaround that provide missing

@@ -157,10 +157,11 @@ def load_configure_options(arc_root):
     return f.read().strip()
 
 
-class _InteractivePerfTestOutputHandler(object):
+class _InteractivePerfTestOutputHandler(concurrent_subprocess.OutputHandler):
   """Output handler for InteractivePerfTestRunner."""
 
   def __init__(self, iteration_ready_event, vrawperf_queue):
+    super(_InteractivePerfTestOutputHandler, self).__init__()
     self._iteration_ready_event = iteration_ready_event
     self._vrawperf_queue = vrawperf_queue
 
@@ -184,12 +185,6 @@ class _InteractivePerfTestOutputHandler(object):
     m = re.search(r'waiting for next iteration', line)
     if m:
       self._iteration_ready_event.set()
-
-  def handle_timeout(self):
-    pass
-
-  def is_done(self):
-    return False
 
 
 class _InteractivePerfTestLaunchChromeThread(threading.Thread):
@@ -315,7 +310,9 @@ class InteractivePerfTestRunner(object):
         '--iterations=99999999',
         '--noninja',
         '--use-temporary-data-dirs',
-        '--chrome-flakiness-retry=5',
+        # Note: the number of retries is as same as run_integration_tests'.
+        # cf) suite_runner.py.
+        '--chrome-flakiness-retry=2',
         '--iteration-lock-file=%s' % self._iteration_lock_file]
     if self._remote:
       args.extend([

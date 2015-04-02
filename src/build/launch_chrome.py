@@ -7,6 +7,7 @@
 import atexit
 import logging
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -20,6 +21,7 @@ import prep_launch_chrome
 import toolchain
 from build_options import OPTIONS
 from util import chrome_process
+from util import concurrent_subprocess
 from util import file_util
 from util import gdb_util
 from util import jdb_util
@@ -43,6 +45,15 @@ _CHROME_PID_PATH = None
 _PERF_TOOL = 'perf'
 
 _USER_DATA_DIR = None  # Will be set after we parse the commandline flags.
+
+# List of lines for stdout/stderr Chrome output to suppress.
+_SUPRESS_LIST = [
+    # Problems with gPrecise ALSA give PCM 'underrun occurred' messages
+    # even when stopped in the debugger sometimes.
+    'underrun occurred',
+    # When debugging with gdb, NaCl is emitting many of these messages.
+    'NaClAppThreadSetSuspendedRegisters: Registers not modified'
+]
 
 
 # Caution: The feature to kill the running chrome has race condition, that this
@@ -266,24 +277,6 @@ def main():
     _run_chrome_iterations(parsed_args)
 
   return 0
-
-
-def _get_status_code(chrome_returncode, handler):
-  if chrome_returncode == -signal.SIGTERM:
-    # Chrome exits with -signal.SIGTERM (-15) on Mac and Cygwin when it
-    # receives SIGTERM, so -signal.SIGTERM (-15) is an expected exit code.
-    # Although Chrome on Linux handles SIGTERM and exits with 0, we treat it
-    # in the same way as other platforms for consistency.
-    error_level = 0
-  elif chrome_returncode == -signal.SIGKILL:
-    # Sometimes Chrome is not terminated by SIGTERM.
-    # In such a case, we send SIGKILL to kill the process, so -signal.SIGKILL
-    # (-9) is also expected exit code.
-    error_level = 0
-  else:
-    # Otherwise, use the Chrome's returncode as is.
-    error_level = chrome_returncode
-  return handler.get_error_level(error_level)
 
 
 def _compute_chrome_plugin_params(parsed_args):
@@ -546,7 +539,8 @@ def _select_output_handler(parsed_args, stats, chrome_process, **kwargs):
     handler = output_handler.PerfTestHandler(
         parsed_args, stats, chrome_process, **kwargs)
   else:
-    handler = output_handler.OutputDumper(parsed_args)
+    handler = concurrent_subprocess.RedirectOutputHandler(
+        *[re.escape(suppress) for suppress in _SUPRESS_LIST])
 
   if 'gpu' in parsed_args.gdb or 'renderer' in parsed_args.gdb:
     handler = gdb_util.GdbHandlerAdapter(
@@ -577,7 +571,7 @@ def _select_output_handler(parsed_args, stats, chrome_process, **kwargs):
   if parsed_args.chrome_flakiness_retry:
     handler = output_handler.ChromeFlakinessHandler(handler, chrome_process)
 
-  return handler
+  return output_handler.ChromeStatusCodeHandler(handler)
 
 
 def _terminate_chrome(chrome):
@@ -627,19 +621,14 @@ def _run_chrome(parsed_args, **kwargs):
     handler = _select_output_handler(parsed_args, stats, p, **kwargs)
 
     # Wait for the process to finish or us to be interrupted.
-    chrome_returncode = p.handle_output(handler)
-
-    if chrome_returncode:
-      logging.error('Chrome is terminated with status code: %d',
-                    chrome_returncode)
-
-    status_code = _get_status_code(chrome_returncode, handler)
-    if status_code is None:
-      # Status code None means Chrome is terminated due to its flakiness.
+    try:
+      returncode = p.handle_output(handler)
+    except output_handler.ChromeFlakinessError:
+      # Chrome is terminated due to its flakiness. Retry.
       continue
 
-    if status_code:
-      sys.exit(status_code)
+    if returncode:
+      sys.exit(returncode)
     return stats
 
   # Here, the Chrome flakiness failure has continued too many times.

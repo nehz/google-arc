@@ -139,19 +139,13 @@ def _gclient_sync_third_party():
 
 
 def _ensure_downloads_up_to_date():
-  # Always sync NaCl SDK.
-  verbosity_option = ['-v'] if OPTIONS.verbose() else []
-  if sync_nacl_sdk.main(verbosity_option):
-    sys.exit(1)
+  cache_path = OPTIONS.download_cache_path()
+  cache_size = OPTIONS.download_cache_size()
 
-  if download_sdk_and_ndk.check_and_perform_updates():
-    sys.exit(1)
-
-  if download_cts_files.check_and_perform_updates():
-    sys.exit(1)
-
-  if download_naclports_files.check_and_perform_updates():
-    sys.exit(1)
+  sync_nacl_sdk.check_and_perform_updates(cache_path, cache_size)
+  download_sdk_and_ndk.check_and_perform_updates(cache_path, cache_size)
+  download_cts_files.check_and_perform_updates(cache_path, cache_size)
+  download_naclports_files.check_and_perform_updates(cache_path, cache_size)
 
   if sync_gdb_multiarch.main():
     sys.exit(1)
@@ -160,13 +154,11 @@ def _ensure_downloads_up_to_date():
   if (not open_source.is_open_source_repo() and
       OPTIONS.internal_apks_source() == 'prebuilt'):
     import download_internal_apks
-    if download_internal_apks.check_and_perform_updates():
-      sys.exit(1)
+    download_internal_apks.check_and_perform_updates(cache_path, cache_size)
 
   if not open_source.is_open_source_repo():
     import download_third_party_apks
-    if download_third_party_apks.check_and_perform_updates():
-      sys.exit(1)
+    download_third_party_apks.check_and_perform_updates(cache_path, cache_size)
 
 
 def _configure_build_options():

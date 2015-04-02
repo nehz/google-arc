@@ -200,7 +200,7 @@ class PerfDriverWithPlayServices(PerfDriver):
     super(PerfDriverWithPlayServices, self).__init__(args, True)
 
 
-class _AccumulateOutputHandler(object):
+class _AccumulateOutputHandler(concurrent_subprocess.OutputHandler):
   """Output handler to accumulate the outputs from the subprocess.
 
   This accumulates all output from both subprocess's stdout and stderr into

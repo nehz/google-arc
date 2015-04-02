@@ -12,6 +12,7 @@ import sys
 
 import toolchain
 from util import download_package_util
+from util import download_package_util_flags
 from util import nonblocking_io
 
 
@@ -133,17 +134,21 @@ class AndroidSDKFiles(download_package_util.BasicCachedPackage):
     self._update_component_by_id(update_component_ids)
 
 
-def check_and_perform_updates(include_media=False):
+def check_and_perform_updates(cache_base_path, cache_history_size):
   download_package_util.BasicCachedPackage(
       'src/build/DEPS.ndk',
       'third_party/ndk',
-      unpack_method=download_package_util.unpack_tar_archive('pbzip2')
+      unpack_method=download_package_util.unpack_tar_archive('pbzip2'),
+      cache_base_path=cache_base_path,
+      cache_history_size=cache_history_size
   ).check_and_perform_update()
 
   sdk = AndroidSDKFiles(
       'src/build/DEPS.android-sdk',
       'third_party/android-sdk',
-      unpack_method=download_package_util.unpack_tar_archive('pigz')
+      unpack_method=download_package_util.unpack_tar_archive('pigz'),
+      cache_base_path=cache_base_path,
+      cache_history_size=cache_history_size
   )
   sdk.check_and_perform_update()
   sdk.check_and_perform_component_updates()
@@ -152,10 +157,11 @@ def check_and_perform_updates(include_media=False):
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument('--verbose', '-v', action='store_true')
+  download_package_util_flags.add_extra_flags(parser)
   args = parser.parse_args(sys.argv[1:])
   if args.verbose:
     logging.getLogger().setLevel(logging.INFO)
-  check_and_perform_updates()
+  check_and_perform_updates(args.download_cache_path, args.download_cache_size)
 
 
 if __name__ == '__main__':

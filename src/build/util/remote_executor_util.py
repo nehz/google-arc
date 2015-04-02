@@ -13,10 +13,10 @@ import os
 import pipes
 import shutil
 import subprocess
-import sys
 import tempfile
 
 import build_common
+import toolchain
 from build_options import OPTIONS
 from util import concurrent_subprocess
 from util import file_util
@@ -81,9 +81,13 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     'third_party/android/cts/tools/vm-tests-tf/src/dot/junit/verify/*/*.java',
     'third_party/examples/apk/*/*.apk',
     'third_party/ndk/sources/cxx-stl/stlport/libs/armeabi-v7a/libstlport_shared.so']  # NOQA
-_UNIT_TEST_FILE_PATTERNS = ['out/target/%(target)s/lib',
-                            'out/target/%(target)s/posix_translation_fs_images',
-                            'out/target/%(target)s/unittest_info']
+_UNIT_TEST_FILE_PATTERNS = [
+    # These two files are used by stlport_unittest
+    'out/target/%(target)s/intermediates/stlport_unittest/test_file.txt',  # NOQA
+    'out/target/%(target)s/intermediates/stlport_unittest/win32_file_format.tmp',  # NOQA
+    'out/target/%(target)s/lib',
+    'out/target/%(target)s/posix_translation_fs_images',
+    'out/target/%(target)s/unittest_info']
 
 # Flags to launch Chrome on remote host.
 _REMOTE_FLAGS = ['--nacl-helper-binary', '--remote', '--ssh-key']
@@ -129,28 +133,6 @@ def get_remote_binaries_dir():
   path = os.path.join(_get_temp_dir(), _TEMP_REMOTE_BINARIES_DIR)
   file_util.makedirs_safely(path)
   return path
-
-
-class RemoteOutputHandler(object):
-  """An output handler for the output from the remote host.
-
-  This handler keeps the output from the remote host intact and prints it as-is.
-  """
-
-  def handle_timeout(self):
-    pass
-
-  def handle_stdout(self, line):
-    sys.stdout.write(line)
-
-  def handle_stderr(self, line):
-    sys.stderr.write(line)
-
-  def get_error_level(self, child_level):
-    return child_level
-
-  def is_done(self):
-    return False
 
 
 class RemoteExecutor(object):
@@ -276,19 +258,19 @@ class RemoteExecutor(object):
       cwd = self.get_remote_arc_root()
     cmd = 'cd %s && %s' % (cwd, cmd)
 
-    output_handler = MinidumpFilter(RemoteOutputHandler())
+    handler = MinidumpFilter(concurrent_subprocess.RedirectOutputHandler())
     if self._attach_nacl_gdb_type:
       if OPTIONS.is_nacl_build():
-        output_handler = gdb_util.NaClGdbHandlerAdapter(
-            output_handler, None, self._attach_nacl_gdb_type, host=self._remote)
+        handler = gdb_util.NaClGdbHandlerAdapter(
+            handler, None, self._attach_nacl_gdb_type, host=self._remote)
       elif OPTIONS.is_bare_metal_build():
-        output_handler = gdb_util.BareMetalGdbHandlerAdapter(
-            output_handler, self._nacl_helper_binary,
+        handler = gdb_util.BareMetalGdbHandlerAdapter(
+            handler, self._nacl_helper_binary,
             self._attach_nacl_gdb_type, host=self._remote,
             ssh_options=self.get_ssh_options())
 
     return run_command_with_filter(self._build_ssh_command(cmd),
-                                   output_handler=output_handler)
+                                   output_handler=handler)
 
   def run_command_for_output(self, cmd):
     """Runs the command on remote host and returns stdout as a string."""
@@ -391,7 +373,7 @@ def get_launch_chrome_files_and_directories(parsed_args):
   patterns = (_COMMON_FILE_PATTERNS +
               _LAUNCH_CHROME_FILE_PATTERNS +
               [parsed_args.arc_data_dir])
-  return _expand_target_and_glob(patterns)
+  return expand_target_and_glob(patterns)
 
 
 def get_integration_test_files_and_directories():
@@ -402,8 +384,9 @@ def get_integration_test_files_and_directories():
               _INTEGRATION_TEST_FILE_PATTERNS +
               _UNIT_TEST_FILE_PATTERNS +
               unittest_util.get_nacl_tools() +
-              all_unittest_executables)
-  return _expand_target_and_glob(patterns)
+              all_unittest_executables +
+              [toolchain.get_adb_path_for_chromeos()])
+  return expand_target_and_glob(patterns)
 
 
 def get_unit_test_files_and_directories(parsed_args):
@@ -411,10 +394,10 @@ def get_unit_test_files_and_directories(parsed_args):
               _UNIT_TEST_FILE_PATTERNS +
               unittest_util.get_nacl_tools() +
               unittest_util.get_test_executables(parsed_args.tests))
-  return _expand_target_and_glob(patterns)
+  return expand_target_and_glob(patterns)
 
 
-def _expand_target_and_glob(file_patterns):
+def expand_target_and_glob(file_patterns):
   """Expands %(target)s and glob pattern in |file_patterns|.
 
   NOTE: This function just expands %(target)s and glob pattern and does NOT

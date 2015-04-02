@@ -49,6 +49,8 @@ _TEST_OUTPUT_HANDLER = (' > $out.tmp 2>&1 && mv $out.tmp $out ' +
 
 _ANDROID_SDK_METADATA_FILE = os.path.join(_SCRIPT_DIR, 'DEPS.android-sdk')
 
+_CHROMEOS_USR_LOCAL_DIR = '/usr/local'
+
 
 class SimpleTimer:
   def __init__(self):
@@ -427,6 +429,18 @@ def get_chrome_prebuilt_stamp_file():
 
 def get_chrome_ppapi_root_path():
   return os.path.join('third_party', 'chromium-ppapi')
+
+
+def get_chromeos_arc_root_without_noexec(*subdirs):
+  """Returns a directory whose filesystem is mounted without noexec.
+
+  Chrome OS mounts most filesystems with noexec mount option, which prevents
+  executable files from being executed directly. In order to run executable
+  files for testing, we need to copy the files to a directory whose filesystem
+  is mounted without noexec. This function returns /usr/local/arc as one of
+  such directories. |subdirs| is joined to this path.
+  """
+  return os.path.join(_CHROMEOS_USR_LOCAL_DIR, 'arc', *subdirs)
 
 
 def get_extract_google_test_list_path():
