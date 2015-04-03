@@ -175,7 +175,6 @@ class DalvikVMTestRunner(suite_runner.SuiteRunnerBase):
     prep_launch_chrome.prepare_crx_with_raw_args(args)
 
   def run(self, test_methods_to_run):
-    results = {}
     raw_output = []
     for test_name in test_methods_to_run:
       dalvik_args = self._test_arg_map[test_name]
@@ -227,6 +226,5 @@ class DalvikVMTestRunner(suite_runner.SuiteRunnerBase):
           result = test_method_result.TestMethodResult.FAIL
         result = test_method_result.TestMethodResult(test_name, test_status)
         self.get_scoreboard().update([result])
-        results[test_name] = result
       raw_output.append(arc.get_log())
-    return '\n'.join(raw_output), results
+    return '\n'.join(raw_output)

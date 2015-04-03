@@ -124,7 +124,7 @@ class AtfSuiteRunnerBase(suite_runner.SuiteRunnerBase):
       raw_output = self.run_subprocess(args, env=env)
     except subprocess.CalledProcessError as e:
       raw_output = e.output or ''
-    return raw_output, self._result_parser.test_method_results
+    return raw_output
 
   def finalize(self, test_methods_to_run):
     # Use the args as those of prepare to run remove_crx_at_exit_if_needed in

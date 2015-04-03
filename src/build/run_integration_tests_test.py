@@ -238,31 +238,11 @@ def _stub_expectation_loader_get(*args):
   return suite_runner_config.default_run_configuration()
 
 
-# These patch decorators replace the named function with a stub/fake/mock for
-# each test in the suite.
-# Any call to create a general subprocess object will be caught as unexpected.
-@patch('util.concurrent_subprocess.Popen', _stub_unexpected_popen)
-@patch('subprocess.Popen', _stub_unexpected_popen)
-# Any call to subprocess.check_call will just return None.
-@patch('subprocess.check_call', _stub_return_none)
-# Any call to subprocess.check_output will just return an empty string.
-@patch('subprocess.check_output', _stub_return_empty_string)
-# We patch sys.stdout.write to hide all output.
-@patch('sys.stdout', _FakeStream())
-# We make dashboard_submit.queue_data no-op to avoid sending test data to the
-# real dashboard server.
-@patch('dashboard_submit.queue_data', _stub_return_none)
-# We stub out build_crx and update_shell_command to do nothing.
-# TODO(lpique): Look into making them work without stubbing them out.
-@patch('apk_to_crx.build_crx', _stub_return_none)
-@patch('prep_launch_chrome.update_shell_command', _stub_return_none)
-@patch('build_options.OPTIONS.parse_configure_file', _stub_parse_configure_file)
-# The unittest files may not be created yet.
-@patch('util.test.unittest_util.get_all_tests', lambda: [])
-@patch('util.test.suite_runner_util.read_test_list', _stub_read_test_list)
-@patch('util.test.suite_runner_config.SuiteExpectationsLoader.get',
-       _stub_expectation_loader_get)
-class RunIntegrationTestsTest(unittest.TestCase):
+def _stub_read_cts_test_plan_packages():
+  return [_RunIntegrationTestsTestBase.EXAMPLE_SUITE_NAME.split('.', 1)[1]]
+
+
+class _RunIntegrationTestsTestBase(unittest.TestCase):
   # A chosen real test suite, and a test in it. The test should normally pass.
   EXAMPLE_SUITE_NAME = 'cts.android.core.tests.libcore.package.libcore'
   EXAMPLE_TEST_NAME = 'libcore.java.util.TimeZoneTest#testDisplayNames'
@@ -355,7 +335,7 @@ class RunIntegrationTestsTest(unittest.TestCase):
   def assertOutputDoesNotContainBuildbotWarningAnnotaion(self):
     self.assertTrue(BUILDBOT_STEP_WARNINGS_ANNOTATION not in self._last_output)
 
-  def assertOutputContainsBuildbotWarningAnnotaion(self):
+  def assertOutputContainsBuildbotWarningAnnotation(self):
     self.assertTrue(BUILDBOT_STEP_WARNINGS_ANNOTATION in self._last_output)
 
   def assertSingleTestSuccess(self):
@@ -385,6 +365,98 @@ class RunIntegrationTestsTest(unittest.TestCase):
     self.assertOutputSummaryIndicatesIncomplete()
     self.assertOutputContainsBuildbotFailureAnnotaion()
 
+
+# Only a minimal set of functions is stubbed out for these tests. This means
+# the full set of tests and their configurations is considered.
+# These patch decorators replace the named function with a stub/fake/mock for
+# each test in the suite.
+# Any call to create a general subprocess object will be caught as unexpected.
+@patch('util.concurrent_subprocess.Popen', _stub_unexpected_popen)
+@patch('subprocess.Popen', _stub_unexpected_popen)
+# Any call to subprocess.check_call will just return None.
+@patch('subprocess.check_call', _stub_return_none)
+# Any call to subprocess.check_output will just return an empty string.
+@patch('subprocess.check_output', _stub_return_empty_string)
+# We patch sys.stdout.write to hide all output.
+@patch('sys.stdout', _FakeStream())
+# We make dashboard_submit.queue_data no-op to avoid sending test data to the
+# real dashboard server.
+@patch('dashboard_submit.queue_data', _stub_return_none)
+# We stub out build_crx and update_shell_command to do nothing.
+# TODO(lpique): Look into making them work without stubbing them out.
+@patch('apk_to_crx.build_crx', _stub_return_none)
+@patch('prep_launch_chrome.update_shell_command', _stub_return_none)
+@patch('build_options.OPTIONS.parse_configure_file', _stub_parse_configure_file)
+# The unittest files may not be created yet.
+@patch('util.test.unittest_util.get_all_tests', lambda: [])
+class RunIntegrationTestsSlowTest(_RunIntegrationTestsTestBase):
+  def test_plan_report_can_be_printed_for_all_suites(self):
+    """Check that the --plan-report option appears to work.
+
+    This test also has the side-effect of validating all the test
+    configuration, since all tests are considered.
+    """
+    self._run_integration_tests(['-t', '*', '--plan-report'])
+    self.assertExitCodeIndicatedSuccess()
+
+    # This is just a representative sample. There is no good way to get the full
+    # set of names without duplicating code.
+    expected_tests_names = [
+        'arc.activity',
+        'arc.atf_default',
+        'cts.CtsAccelerationTestCases',
+        'cts.CtsAccessibilityServiceTestCases',
+        'cts.android.core.tests.libcore.package.com',
+        'cts.android.core.tests.libcore.package.conscrypt',
+        'cts.bionic-unit-tests-cts',
+        'cts.vmhosttest.JUnit_Test_a1',
+        'cts.vmhosttest.JUnit_Test_a3',
+        'cts.vmhosttest.JUnit_Test_a5',
+        'file_system_manager.tests',
+        'jstests.accessibility',
+        'jstests.runtime',
+        'posix_translation.ndk.tests',
+        'posix_translation.tests',
+        'uiautomator.glowhockey',
+        'uiautomator.imdb',
+        'uiautomator.realcalc',
+    ]
+
+    for name in expected_tests_names:
+      self.assertTrue(
+          any(line.endswith(name) for line in self._last_output),
+          'Did not find a line ending with "%s" in:\n%s' % (
+              name, '\n'.join(self._last_output)))
+
+
+# These patch decorators replace the named function with a stub/fake/mock for
+# each test in the suite.
+# Any call to create a general subprocess object will be caught as unexpected.
+@patch('util.concurrent_subprocess.Popen', _stub_unexpected_popen)
+@patch('subprocess.Popen', _stub_unexpected_popen)
+# Any call to subprocess.check_call will just return None.
+@patch('subprocess.check_call', _stub_return_none)
+# Any call to subprocess.check_output will just return an empty string.
+@patch('subprocess.check_output', _stub_return_empty_string)
+# We patch sys.stdout.write to hide all output.
+@patch('sys.stdout', _FakeStream())
+# We make dashboard_submit.queue_data no-op to avoid sending test data to the
+# real dashboard server.
+@patch('dashboard_submit.queue_data', _stub_return_none)
+# We stub out build_crx and update_shell_command to do nothing.
+# TODO(lpique): Look into making them work without stubbing them out.
+@patch('apk_to_crx.build_crx', _stub_return_none)
+@patch('prep_launch_chrome.update_shell_command', _stub_return_none)
+@patch('build_options.OPTIONS.parse_configure_file', _stub_parse_configure_file)
+# The unittest files may not be created yet.
+@patch('util.test.unittest_util.get_all_tests', lambda: [])
+# These tests run faster by limiting the number of tests constructed at startup
+@patch('util.test.suite_runner_util.read_test_list', _stub_read_test_list)
+@patch('util.test.suite_runner_config.SuiteExpectationsLoader.get',
+       _stub_expectation_loader_get)
+@patch('cts.cts_runner_util.read_cts_test_plan_packages',
+       _stub_read_cts_test_plan_packages)
+class RunIntegrationTestsFastTest(_RunIntegrationTestsTestBase):
   def test_single_test_passing(self):
     """A single test that cleanly passes should output as success."""
     self._run_single_atf_integration_test([ATF_CODE_PASSED])
@@ -484,17 +556,7 @@ class RunIntegrationTestsTest(unittest.TestCase):
     # A failure on the CTS bot should not fail the build.
     self.assertExitCodeIndicatedSuccess()
     self.assertOutputDoesNotContainBuildbotFailureAnnotaion()
-    self.assertOutputContainsBuildbotWarningAnnotaion()
-
-  def test_plan_report_can_be_printed_for_all_suites(self):
-    """Check that the --plan-report option appears to work."""
-    self._run_integration_tests(['-t', '*', '--plan-report'])
-    self.assertExitCodeIndicatedSuccess()
-    self.assertTrue(
-        any(line.endswith(self.EXAMPLE_SUITE_NAME)
-            for line in self._last_output),
-        'Did not find a line ending with "%s" in %s' % (
-            self.EXAMPLE_SUITE_NAME, self._last_output))
+    self.assertOutputContainsBuildbotWarningAnnotation()
 
   def test_list_can_be_generated_for_all_suites(self):
     """Check that --list can be used to list all tests."""

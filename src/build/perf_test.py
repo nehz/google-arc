@@ -334,7 +334,7 @@ class VMPerfDriver(BaseDriver):
       runner.setup_work_root()
       runner.prepare_to_run([benchmark], args)
 
-    output, _ = runner.run_with_setup([benchmark], args)
+    output = runner.run_with_setup([benchmark], args)
     for line in output.splitlines():
       # Result line format is 'Benchmark <name>: <result> ms'.
       match = _BENCHMARK_RESULT_RE.match(line)

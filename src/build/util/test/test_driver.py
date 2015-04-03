@@ -133,8 +133,7 @@ class TestDriver(object):
     self.scoreboard.register_tests(self._tests_to_run)
 
     while not self.done and not self._suite_runner.terminated:
-      output, results = self._suite_runner.run_with_setup(self._tests_to_run,
-                                                          args)
+      output = self._suite_runner.run_with_setup(self._tests_to_run, args)
       if not self._first_raw_output:
         self._first_raw_output = output
 

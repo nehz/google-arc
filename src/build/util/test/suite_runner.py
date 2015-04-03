@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import threading
+import traceback
 
 import build_common
 from util import concurrent_subprocess
@@ -217,16 +218,8 @@ class SuiteRunnerBase(object):
     The names in test_methods_to_run will be some subset of the names returned
     by the suite_test_expectations property.
 
-    This function should return a pair:
-
-      (raw_test_output, test_method_results)
-
-    raw_test_output should be a string containing the full output of running the
-    suite, or something equivalent.
-
-    test_method_results should be a dictionary mapping test method names to
-    instances of test_method_results.TestMethodResult, which describes whether
-    each test passed or failed, and any test specific output or error messages.
+    This function should return a string containing the full output of running
+    the suite, or something equivalent.
 
     Note that a special test method name of ALL_TESTS_DUMMY_NAME is used if the
     test runner implementation does not seem to provide any
@@ -238,7 +231,7 @@ class SuiteRunnerBase(object):
     run_integration_tests, so the tools that are not available on Chrome OS
     should not be used in this function (e.g. ninja, javac, dx etc.).
     """
-    return "", {}
+    raise NotImplementedError('SuiteRunnerBase.run must be overridden.')
 
   def finalize(self, test_methods_to_run):
     """Overridden in actual implementations to do final cleanup.
@@ -259,11 +252,14 @@ class SuiteRunnerBase(object):
   def run_with_setup(self, test_methods_to_run, args):
     self._args = args
     try:
-      self._scoreboard.start(test_methods_to_run)
-      self.setUp(test_methods_to_run)
-      return self.run(test_methods_to_run)
-    finally:
-      self.tearDown(test_methods_to_run)
+      try:
+        self._scoreboard.start(test_methods_to_run)
+        self.setUp(test_methods_to_run)
+        return self.run(test_methods_to_run)
+      finally:
+        self.tearDown(test_methods_to_run)
+    except Exception:
+      return traceback.format_exc()
 
   def restart(self, test_methods_to_run, args):
     self._scoreboard.restart()
@@ -438,4 +434,4 @@ class SuiteRunnerBase(object):
       status = test_method_result.TestMethodResult.FAIL
     result = test_method_result.TestMethodResult(test_name, status)
     self._scoreboard.update([result])
-    return raw_output, {test_name: result}
+    return raw_output

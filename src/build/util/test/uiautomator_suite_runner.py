@@ -128,4 +128,4 @@ class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
                        self._out.getvalue() + '\n\n' +
                        arc.get_log())
 
-    return combined_output, self._result_parser.test_method_results
+    return combined_output

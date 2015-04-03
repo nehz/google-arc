@@ -73,4 +73,4 @@ class JavaScriptTestRunner(suite_runner.SuiteRunnerBase):
       raw_output = self.run_subprocess(args)
     except subprocess.CalledProcessError as e:
       raw_output = e.output or ''
-    return raw_output, self._result_parser.test_method_results
+    return raw_output
