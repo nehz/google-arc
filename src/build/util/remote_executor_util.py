@@ -86,7 +86,9 @@ _UNIT_TEST_FILE_PATTERNS = [
     'out/target/%(target)s/intermediates/stlport_unittest/test_file.txt',  # NOQA
     'out/target/%(target)s/intermediates/stlport_unittest/win32_file_format.tmp',  # NOQA
     'out/target/%(target)s/lib',
-    'out/target/%(target)s/posix_translation_fs_images',
+    'out/target/%(target)s/posix_translation_fs_images/test_readonly_fs_image.img',  # NOQA
+    # Used by posix_translation_test
+    'out/target/%(target)s/runtime/_platform_specific/*/readonly_fs_image.img',  # NOQA
     'out/target/%(target)s/unittest_info']
 
 # Flags to launch Chrome on remote host.

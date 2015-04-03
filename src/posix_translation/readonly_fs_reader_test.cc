@@ -29,10 +29,9 @@ class ReadonlyFsReaderTest : public FileSystemTestCommon {
   virtual void SetUp() OVERRIDE {
     FileSystemTestCommon::SetUp();
 
-    std::string image_directory =
-        ARC_TARGET_PATH "/posix_translation_fs_images";
-    std::string prod_filename = image_directory + "/readonly_fs_image.img";
-    std::string test_filename = image_directory + "/test_readonly_fs_image.img";
+    std::string prod_filename = PROD_READONLY_FS_IMAGE;
+    std::string test_filename = ARC_TARGET_PATH
+        "/posix_translation_fs_images/test_readonly_fs_image.img";
 
     ASSERT_TRUE(prod_image_.Init(prod_filename));
     ASSERT_TRUE(test_image_.Init(test_filename));

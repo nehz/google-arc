@@ -9,6 +9,7 @@ import os
 import build_common
 import ninja_generator
 import ninja_generator_runner
+import open_source
 from build_options import OPTIONS
 from ninja_generator import ArchiveNinjaGenerator
 from ninja_generator import SharedObjectNinjaGenerator
@@ -162,7 +163,18 @@ def generate_test_ninjas():
                      'libchromium_base.a',
                      'libcommon.a',
                      'libgccdemangle.a')
-  n.run(n.link(), implicit=[gen_test_image, gen_prod_image])
+  implicit = [gen_test_image]
+  if open_source.is_open_source_repo():
+    implicit.append(gen_prod_image)
+    n.add_defines('PROD_READONLY_FS_IMAGE="%s"' % gen_prod_image)
+  else:
+    # Add runtime to implicit dependencies because ReadonlyFsReaderTest uses
+    # the readonly FS image in runtime.
+    implicit.append(build_common.get_runtime_build_stamp())
+    n.add_defines('PROD_READONLY_FS_IMAGE="%s"' % os.path.join(
+                  build_common.get_build_dir(), 'runtime/_platform_specific/',
+                  OPTIONS.target(), 'readonly_fs_image.img'))
+    n.run(n.link(), implicit=implicit)
 
   # To be able to refer mock implementation from outside of posix_translation.
   # Setting instance count is zero because usage count verifier doesn't check

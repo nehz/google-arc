@@ -263,16 +263,16 @@ class Popen(object):
     stdout = _maybe_create_line_reader(self._process.stdout)
     stderr = _maybe_create_line_reader(self._process.stderr)
 
-    # Note: it exits from the loop, whenever kill() is invoked.
+    # Note: Exit from the loop, whenever kill() is invoked.
     # In most cases, when kill() is called, all the descendant processes should
     # be terminated immediately, and then the write-end of stdout and stderr
     # are closed, which triggers graceful shutdown of this method.
     # However, there seems some process which keeps the write-end opened,
     # so that it causes TIMEOUT flakiness in some cases.
     # To avoid such a situation, even if either stdout or stderr is still
-    # available, it exits from the loop. It should be ok to ignore the
-    # remaining stdout and stderr, because nothing valuable should be able to
-    # be done in such cases.
+    # available, exit from the loop. It should be ok to ignore the
+    # remaining stdout and stderr, because nothing valuable should be output
+    # in such cases.
     # Note that it is *not* necessary to exit from select() immediately,
     # because it is timed out on every 5 seconds, and it is ok to rely on
     # that fact, as this is last-resort.

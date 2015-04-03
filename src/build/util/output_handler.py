@@ -391,12 +391,15 @@ class ChromeFlakinessError(Exception):
 
 
 class ChromeFlakinessHandler(concurrent_subprocess.DelegateOutputHandlerBase):
-  """Output Handler to take care of Chrome flakiness stuck.
+  """Output Handler to detect Chrome flakiness on startup.
 
   On Chrome launching, sometimes it stuck with output just a few lines.
   This handler detects such a case. When such a case is found, this tries
   to terminate the Chrome process, and raises ChromeFlakinessError on its
   termination.
+
+  Note that this handler wraps any handler, and passes through all
+  stdout and stderr output to it.
   """
   _LAUNCH_CHROME_MINIMUM_LINES = 16
   _LAUNCH_CHROME_TIMEOUT = 30  # In seconds.
