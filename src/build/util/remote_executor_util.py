@@ -30,10 +30,14 @@ SYNC_ADB = 'src/build/sync_adb.py'
 SYNC_CHROME = 'src/build/sync_chrome.py'
 SYNC_ANDROID_SDK_BUILD_TOOLS = 'src/build/sync_android_sdk_build_tools.py'
 
+_TEST_SSH_KEY = ('third_party/tools/crosutils/mod_for_test_scripts/ssh_keys/'
+                 'testing_rsa')
+
 # Following lists contain files or directories to be copied to the remote host.
 _COMMON_FILE_PATTERNS = ['out/configure.options',
                          'src/build',
-                         'third_party/tools/ninja/misc']
+                         'third_party/tools/ninja/misc',
+                         _TEST_SSH_KEY]
 _LAUNCH_CHROME_FILE_PATTERNS = ['launch_chrome',
                                 'out/target/%(target)s/runtime',
                                 build_common.get_arc_welder_unpacked_dir(),
@@ -95,8 +99,6 @@ _UNIT_TEST_FILE_PATTERNS = [
 _REMOTE_FLAGS = ['--nacl-helper-binary', '--remote', '--ssh-key']
 
 
-_TEST_SSH_KEY = ('third_party/tools/crosutils/mod_for_test_scripts/ssh_keys/'
-                 'testing_rsa')
 _TEMP_DIR = None
 _TEMP_KEY = 'temp_arc_key'
 _TEMP_KNOWN_HOSTS = 'temp_arc_known_hosts'

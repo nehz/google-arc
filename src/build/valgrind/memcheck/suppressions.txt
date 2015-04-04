@@ -180,6 +180,7 @@
    nonsfi_loader_thread_create
    Memcheck:Param
    clone(tlsinfo)
+   fun:linux_clone_wrapper
    fun:nacl_irt_thread_create
    fun:pthread_create
    fun:thread_create
@@ -194,6 +195,16 @@
    Memcheck:Leak
    fun:malloc
    fun:nc_allocate_memory_block_mu
+   fun:pthread_create
+   fun:thread_create
+   ...
+}
+{
+   # TODO(hamaji): Check if this failure is OK. If not, file an
+   # appropriate NaCl bug.
+   nonsfi_loader_thread_leak
+   Memcheck:Leak
+   fun:malloc
    fun:pthread_create
    fun:thread_create
    ...

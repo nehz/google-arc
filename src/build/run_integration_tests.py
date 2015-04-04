@@ -167,7 +167,7 @@ def _run_driver(driver, args, prepare_only):
   try:
     # TODO(mazda): Move preparation into its own parallel pass.  It's confusing
     # running during something called "run_single_suite".
-    if not args.noprepare:
+    if args.prepare:
       driver.prepare(args)
 
     # Run the suite locally when not being invoked for remote execution.
@@ -318,10 +318,9 @@ def parse_args(args):
                       metavar='T', default=0, type=int,
                       help=('Minimum deadline for browser tests. The test '
                             'configuration deadlines are used by default.'))
-  parser.add_argument('--noninja', action='store_false',
-                      default=True, dest='run_ninja',
+  parser.add_argument('--noninja', action='store_false', dest='run_ninja',
                       help='Do not run ninja before running any tests.')
-  parser.add_argument('--noprepare', action='store_true',
+  parser.add_argument('--noprepare', action='store_false', dest='prepare',
                       help='Do not run the suite prepare step - useful for '
                            'running integration tests from an archived test '
                            'bundle.')
@@ -393,9 +392,11 @@ def _run_suites_and_output_results_remote(args, raw_args):
 
   Returns the status code of the program. Specifically, 0 on success.
   """
-  if not prepare_suites(args):
-    return 1
-  raw_args.append('--noprepare')
+  if args.prepare:
+    if not prepare_suites(args):
+      return 1
+    # Do not prepare suites in the remote host.
+    raw_args.append('--noprepare')
   run_result = remote_executor.run_remote_integration_tests(
       args, raw_args, get_dependencies_for_integration_tests())
 
