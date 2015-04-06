@@ -3,4 +3,6 @@
 # python distribution should be fine for this purpose, we do not compile
 # anything else against it so it just needs to function hermetically with our
 # apk_to_crx.py script.
+# Note: If the python distribution changes versions (currently 2.7.7),
+#       arc_welder/NOTICE needs to be updated to match.
 http://gsdview.appspot.com/naclports/builds/pepper_40/trunk-154-geacd680/publish/python/newlib/python.zip
