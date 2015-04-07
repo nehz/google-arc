@@ -19,6 +19,7 @@ Example to run supported tests:
 """
 
 import argparse
+import contextlib
 import os
 import logging
 import re
@@ -30,7 +31,6 @@ import run_integration_tests
 from build_options import OPTIONS
 from ninja_generator import ApkFromSdkNinjaGenerator
 from util import concurrent_subprocess
-from util import file_util
 from util import launch_chrome_util
 from util import logging_util
 from util import remote_executor
@@ -326,6 +326,12 @@ class VMPerfDriver(BaseDriver):
         '401-perf', config={'flags': flags.PASS})
     args = _prepare_integration_tests_args(100)
 
+    # We reuse scripts for integration tests in vm tests, and they expect
+    # that out/integration_tests exists. It is true if integration tests ran
+    # before calling perf_test.py, but not true for perf builders.
+    # Let's create it if it does not exist.
+    run_integration_tests.setup_output_directory(args.output_dir)
+
     # Call setup_work_root() and prepare_to_run() iff source files
     # to build tests exist. Perf builders do not have them, and can skip it.
     # The builders have downloaded pre-built files.
@@ -334,13 +340,18 @@ class VMPerfDriver(BaseDriver):
       runner.setup_work_root()
       runner.prepare_to_run([benchmark], args)
 
-    output = runner.run_with_setup([benchmark], args)
-    for line in output.splitlines():
-      # Result line format is 'Benchmark <name>: <result> ms'.
-      match = _BENCHMARK_RESULT_RE.match(line)
-      if not match or match.group(1) != benchmark:
-        continue
-      return match.group(2)
+    with contextlib.closing(suite_runner.SuiteRunnerLogger(
+        runner.name,
+        os.path.join(args.output_dir, runner.name),
+        False)) as logger:
+      runner.run_with_setup([benchmark], args, logger)
+    with open(logger.path) as f:
+      for line in f:
+        # Result line format is 'Benchmark <name>: <result> ms'.
+        match = _BENCHMARK_RESULT_RE.match(line)
+        if not match or match.group(1) != benchmark:
+          continue
+        return match.group(2)
     raise InvalidResultError(benchmark)
 
   def main(self):
@@ -409,13 +420,6 @@ def create_test_class(name):
 
 
 def main():
-  # We reuse scripts for integration tests in vm tests, and they expect
-  # that out/integration_tests exists. It is true if integration tests ran
-  # before calling perf_test.py, but not true for perf builders.
-  # Let's create it if it does not exist.
-  file_util.makedirs_safely(
-      suite_runner.SuiteRunnerBase.get_output_directory())
-
   OPTIONS.parse_configure_file()
   parser = argparse.ArgumentParser(
       description=__doc__,

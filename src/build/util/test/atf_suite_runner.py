@@ -121,10 +121,9 @@ class AtfSuiteRunnerBase(suite_runner.SuiteRunnerBase):
       if self._extra_env:
         env = os.environ.copy()
         env.update(self._extra_env)
-      raw_output = self.run_subprocess(args, env=env)
-    except subprocess.CalledProcessError as e:
-      raw_output = e.output or ''
-    return raw_output
+      self.run_subprocess(args, env=env)
+    except subprocess.CalledProcessError:
+      pass
 
   def finalize(self, test_methods_to_run):
     # Use the args as those of prepare to run remove_crx_at_exit_if_needed in

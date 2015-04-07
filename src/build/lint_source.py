@@ -7,6 +7,7 @@
 import argparse
 import cPickle
 import collections
+import glob
 import itertools
 import json
 import logging
@@ -383,6 +384,34 @@ class LicenseLinter(Linter):
     return True
 
 
+class OpenSourceLinter(Linter):
+  """Linter to check OPEN_SOURCE files."""
+
+  def __init__(self):
+    super(OpenSourceLinter, self).__init__('opensourcelint')
+
+  def should_run(self, path):
+    # Accept only OPEN_SOURCE file.
+    return (os.path.basename(path) == 'OPEN_SOURCE' and
+            # tests/open_source/ contains bad OPEN_SOURCE files for
+            # testing open_source.py itself. Skip them.
+            not path.startswith('src/build/tests/open_source/'))
+
+  def run(self, path):
+    dirname = os.path.dirname(path)
+    for line in file_util.read_metadata_file(path):
+      # Checks that each line matches at least one file in the directory.
+      if line.startswith('!'):
+        pattern = os.path.join(dirname, line[1:])
+      else:
+        pattern = os.path.join(dirname, line)
+      if not glob.glob(pattern):
+        logging.error('\'%s\' in %s does not match any file in %s/.' % (
+            line, path, dirname))
+        return False
+    return True
+
+
 class DiffLinter(CommandLineLinterBase):
   """Linter to apply analyze_diffs.py."""
 
@@ -474,7 +503,7 @@ def _run_lint(target_file_list, ignore_rule, output_dir):
   runner = LinterRunner(
       [CppLinter(), JsLinter(), PyLinter(), TestConfigLinter(),
        CopyrightLinter(), UpstreamLinter(), LicenseLinter(),
-       DiffLinter(output_dir)],
+       OpenSourceLinter(), DiffLinter(output_dir)],
       ignore_rule)
   result = True
   for path in target_file_list:

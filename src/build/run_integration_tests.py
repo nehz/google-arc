@@ -207,7 +207,7 @@ def _shutdown_unfinished_drivers_gracefully(not_done, test_driver_list):
 
 def _run_suites(test_driver_list, args, prepare_only=False):
   """Runs the indicated suites."""
-  _prepare_output_directory(args)
+  setup_output_directory(args.output_dir)
 
   util.test.suite_results.initialize(test_driver_list, args, prepare_only)
 
@@ -325,6 +325,7 @@ def parse_args(args):
                            'running integration tests from an archived test '
                            'bundle.')
   parser.add_argument('-o', '--output-dir', metavar='DIR',
+                      default='out/integration_tests',
                       help='Specify the directory to store test ouput files.')
   parser.add_argument('--plan-report', action='store_true',
                       help=('Generate a report of all tests based on their '
@@ -375,13 +376,11 @@ def set_test_global_state(args):
   test_driver.TestDriver.set_global_retry_timeout_run_count(retry_count)
 
 
-def _prepare_output_directory(args):
-  if args.output_dir:
-    suite_runner.SuiteRunnerBase.set_output_directory(args.output_dir)
-  if os.path.exists(suite_runner.SuiteRunnerBase.get_output_directory()):
-    file_util.rmtree(suite_runner.SuiteRunnerBase.get_output_directory())
-  file_util.makedirs_safely(
-      suite_runner.SuiteRunnerBase.get_output_directory())
+def setup_output_directory(output_dir):
+  """Creates a directory to put all test log files."""
+  if os.path.exists(output_dir):
+    file_util.rmtree(output_dir)
+  file_util.makedirs_safely(output_dir)
 
 
 def _run_suites_and_output_results_remote(args, raw_args):
@@ -406,7 +405,8 @@ def _run_suites_and_output_results_remote(args, raw_args):
 def _run_suites_and_output_results_local(test_driver_list, args):
   """Runs integration tests locally and returns the status code on exit."""
   run_result = _run_suites(test_driver_list, args)
-  test_failed, passed, total = util.test.suite_results.summarize()
+  test_failed, passed, total = (
+      util.test.suite_results.summarize(args.output_dir))
 
   if args.cts_bot:
     if total > 0:

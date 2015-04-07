@@ -175,7 +175,6 @@ class DalvikVMTestRunner(suite_runner.SuiteRunnerBase):
     prep_launch_chrome.prepare_crx_with_raw_args(args)
 
   def run(self, test_methods_to_run):
-    raw_output = []
     for test_name in test_methods_to_run:
       dalvik_args = self._test_arg_map[test_name]
       with system_mode.SystemMode(self) as arc:
@@ -195,10 +194,8 @@ class DalvikVMTestRunner(suite_runner.SuiteRunnerBase):
           elapsed_time = time.time() - begin_time
 
           if self._is_benchmark:
-            output = 'Benchmark %s: %d ms' % (test_name, elapsed_time * 1000)
-            if self._args.output == 'verbose':
-              print output
-            raw_output.append(output)
+            self._logger.write(
+                'Benchmark %s: %d ms\n' % (test_name, elapsed_time * 1000))
           else:
             output_file_path = os.path.join(self._test_dir, 'output.txt')
             with open(output_file_path, 'w') as output_file:
@@ -211,20 +208,11 @@ class DalvikVMTestRunner(suite_runner.SuiteRunnerBase):
             output = self.run_subprocess(
                 ['diff', '-b', output_file_path, expected_file_path],
                 omit_xvfb=True)
-            raw_output.append(output)
           test_status = test_method_result.TestMethodResult.PASS
-        except subprocess.CalledProcessError as e:
-          if hasattr(e, 'output') and e.output:
-            raw_output.append(e.output)
-          result = test_method_result.TestMethodResult.FAIL
-        except system_mode.SystemModeError:
-          raw_output.append(arc.get_log())
+        except subprocess.CalledProcessError:
           result = test_method_result.TestMethodResult.FAIL
         except Exception:
-          raw_output.append(traceback.format_exc())
-          raw_output.append(self._get_subprocess_output())
+          self._logger.write(traceback.format_exc())
           result = test_method_result.TestMethodResult.FAIL
         result = test_method_result.TestMethodResult(test_name, test_status)
         self.get_scoreboard().update([result])
-      raw_output.append(arc.get_log())
-    return '\n'.join(raw_output)

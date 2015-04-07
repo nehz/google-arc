@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import collections
+import os
 import sys
 import time
 
@@ -292,11 +293,11 @@ class SuiteResultsBase(object):
       self._important_warnings += 1
     self.write(warntype, message)
 
-  def summarize(self):
+  def summarize(self, output_dir):
     for suite in self._remaining_suites:
       self.end(suite.scoreboard)
     self._remaining_suites = []
-    self.report_summary()
+    self.report_summary(output_dir)
     return [self.overall_failure, self.pass_count, self.total_count]
 
   def report_start(self, suite):
@@ -314,7 +315,7 @@ class SuiteResultsBase(object):
   def report_end(self, test_driver, scoreboard):
     pass
 
-  def report_summary(self):
+  def report_summary(self, output_dir):
     pass
 
   def report_expected_results(self, scoreboards):
@@ -398,13 +399,15 @@ class SuiteResultsBase(object):
         self._write_status(self._writer, sb.overall_status, sb.duration)
         self._writer.write(_NORMAL, '\n')
 
-  def _write_raw_output(self):
+  def _write_raw_output(self, output_dir):
     for suite in self._test_driver_list:
       if (suite.scoreboard.unexpected_failed or
           suite.scoreboard.expected_failed or
           suite.scoreboard.incompleted):
         self._writer.header(_NORMAL, 'Raw Output: %s' % (suite.name))
-        self._writer.write(_NORMAL, suite.raw_output)
+        with open(os.path.join(output_dir, suite.name)) as f:
+          raw_output = f.read()
+        self._writer.write(_NORMAL, raw_output)
         self._writer.write(_NORMAL, '\n')
 
   def _write_errors(self):
@@ -521,9 +524,9 @@ class SuiteResultsBuildBot(SuiteResultsBase):
     if sb.overall_status not in _ACCEPTABLE_STATUS:
       self._emit_step_text_annotation('Failure: %s' % sb.name)
 
-  def report_summary(self):
+  def report_summary(self, output_dir):
     self.write(_NORMAL, '\n')
-    self._write_raw_output()
+    self._write_raw_output(output_dir)
     self._write_results()
     self._write_errors()
     self._write_summary()
@@ -576,9 +579,9 @@ class SuiteResultsAnsi(SuiteResultsBase):
   def report_results(self, suite_name, is_completed=True):
     self._update_progress()
 
-  def report_summary(self):
+  def report_summary(self, output_dir):
     self.write(_NORMAL, '\n')
-    self._write_raw_output()
+    self._write_raw_output(output_dir)
     self._write_results()
     self._write_errors()
     self._write_summary(terse=True)
@@ -611,9 +614,9 @@ def initialize(test_driver_list, args, prepare_only):
     SuiteResults = Synchronized(SuiteResultsBuildBot(test_driver_list, args))
 
 
-def summarize():
+def summarize(output_dir):
   if SuiteResults:
-    return SuiteResults.summarize()
+    return SuiteResults.summarize(output_dir)
   else:
     pass_count = 0
     total_count = 0

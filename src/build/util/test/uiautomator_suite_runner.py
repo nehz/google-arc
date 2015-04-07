@@ -10,7 +10,6 @@ device and then the jar file is pushed onto the device and executed using the
 uiautomator shell command.
 """
 
-from cStringIO import StringIO
 import os
 import tempfile
 
@@ -40,11 +39,6 @@ class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
     self._result_parser = None
     self._scoreboard_updater = None
 
-    self._out = StringIO()
-
-  def _print(self, string):
-    self._out.write(string + '\n')
-
   def _get_uiautomator_args(self, test_methods_to_run):
     jar_name = os.path.basename(self._jar_path)
     args = ['uiautomator', 'runtest', jar_name]
@@ -62,24 +56,21 @@ class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
     self._scoreboard_updater.update(self._result_parser)
 
   def setUp(self, test_methods_to_run):
-    self._print('Setting up %d uiAutomator tests of suite %s' %
-                (len(test_methods_to_run), self._name))
     self._result_parser = result_parser.AtfInstrumentationResultParser()
     self._scoreboard_updater = (
         scoreboard_updater.AtfInstrumentationScoreboardUpdater(
             self.get_scoreboard()))
 
   def prepare(self, test_methods_to_run):
-    self._print('Preparing %d uiAutomator tests of suite %s' %
-                (len(test_methods_to_run), self._name))
     args = self.get_system_mode_launch_chrome_command(
         self._name,
         additional_args=self._additional_launch_chrome_opts)
     prep_launch_chrome.prepare_crx_with_raw_args(args)
 
   def _push_file_using_adb(self, arc, file_path, directory=_DEVICE_TMP_PATH):
-    self._print('Pushing host file "' + file_path +
-                '" to device directory "' + directory + '".')
+    self._logger.write(
+        'Pushing host file "%s" to device directory "%s".' % (
+            file_path, directory))
     arc.run_adb(['push', file_path, directory])
     return os.path.join(directory, os.path.basename(file_path))
 
@@ -103,8 +94,8 @@ class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
     return arc.run_adb(args)
 
   def run(self, test_methods_to_run):
-    self._print('Running %d uiAutomator tests of suite %s' %
-                (len(test_methods_to_run), self._name))
+    self._logger.write('Running %d uiAutomator tests of suite %s\n' %
+                       (len(test_methods_to_run), self._name))
 
     with system_mode.SystemMode(
         self,
@@ -121,11 +112,6 @@ class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
       self._run_shell_file_using_adb(arc, file_name)
 
     if arc.has_error():
-      self._print('An error occurred in system mode.' +
-                  '  Please see system mode output below for details.')
-
-    combined_output = ('#### Test Framework Output ####\n\n' +
-                       self._out.getvalue() + '\n\n' +
-                       arc.get_log())
-
-    return combined_output
+      self._logger.write(
+          'An error occurred in system mode. '
+          'Please see system mode output below for details.\n')

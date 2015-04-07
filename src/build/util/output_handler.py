@@ -369,9 +369,13 @@ class ArcStraceFilter(concurrent_subprocess.DelegateOutputHandlerBase):
         self._line_buffer.append(line[:start])
     else:
       if self._line_buffer:
-        line = ''.join(self._line_buffer) + line
+        # Note: all |_line_buffer|'s element should not contain '\n' here.
+        # Also, |line| should have one at the end exactly.
+        # Prepend all the elements in |_line_buffer| to |line|.
+        self._line_buffer.append(line)
+        line = ''.join(self._line_buffer)
         self._line_buffer = []
-      self._output_handler.handle_stderr(line)
+      super(ArcStraceFilter, self).handle_stderr(line)
 
 
 class CrashAddressFilter(concurrent_subprocess.DelegateOutputHandlerBase):

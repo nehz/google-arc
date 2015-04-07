@@ -2,9 +2,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import contextlib
+import os
 import subprocess
 import sys
 import threading
+
+from util.test import suite_runner
 
 TEST_SUITE_MAX_RETRY_COUNT = 5
 
@@ -36,7 +40,6 @@ class TestDriver(object):
     self._tests_to_run = suite_runner.apply_test_ordering(tests_to_run)
     self._run_remaining_count = try_count if tests_to_run else 0
     self._stop_on_unexpected_failures = stop_on_unexpected_failures
-    self._first_raw_output = ''
 
     # Mark planned tests INCOMPLETE to distinguish them from skipped tests.
     self.scoreboard.reset_results(self._tests_to_run)
@@ -68,10 +71,6 @@ class TestDriver(object):
   def scoreboard(self):
     return self._suite_runner.get_scoreboard()
 
-  @property
-  def raw_output(self):
-    return self._first_raw_output
-
   def terminate(self):
     self._suite_runner.terminate()
 
@@ -87,8 +86,7 @@ class TestDriver(object):
       self._suite_runner.prepare_to_run(self._tests_to_run, args)
     except subprocess.CalledProcessError as e:
       print "Error preparing to run test %s (%s)\nOutput was:\n%s" % (
-          self._suite_runner.name, e,
-          self._suite_runner._get_subprocess_output())
+          self._suite_runner.name, e, e.output)
       self._run_remaining_count = 0
 
   def _update_run_count(self):
@@ -132,27 +130,35 @@ class TestDriver(object):
     tests_remaining_history = [sys.maxint] * TEST_SUITE_MAX_RETRY_COUNT
     self.scoreboard.register_tests(self._tests_to_run)
 
-    while not self.done and not self._suite_runner.terminated:
-      output = self._suite_runner.run_with_setup(self._tests_to_run, args)
-      if not self._first_raw_output:
-        self._first_raw_output = output
+    with contextlib.closing(suite_runner.SuiteRunnerLogger(
+        self._suite_runner.name,
+        os.path.join(args.output_dir, self._suite_runner.name),
+        args.output == 'verbose')) as logger:
+      trial = 0
+      while not self.done and not self._suite_runner.terminated:
+        if trial:
+          logger.write(
+              '==================== Retry: %d ====================\n' % trial)
+        trial += 1
+        self._suite_runner.run_with_setup(self._tests_to_run, args, logger)
 
-      self._update_run_count()
+        self._update_run_count()
 
-      if not self.done:
-        # Ensure that we will not get stuck retrying the same tests over and
-        # over. The number of tests left must decrease after a certain number of
-        # runs.
-        current_count = len(self._tests_to_run)
-        tests_remaining_history.append(current_count)
+        if not self.done:
+          # Ensure that we will not get stuck retrying the same tests over and
+          # over. The number of tests left must decrease after a certain number
+          # of runs.
+          current_count = len(self._tests_to_run)
+          tests_remaining_history.append(current_count)
 
-        if self._suite_runner.terminated:
-          break
-        if current_count < tests_remaining_history.pop(0):
-          self._suite_runner.restart(self._tests_to_run, args)
-        else:
-          self._suite_runner.abort(self._tests_to_run, args)
-          break
+          if self._suite_runner.terminated:
+            break
+          if current_count < tests_remaining_history.pop(0):
+            self._suite_runner.restart(self._tests_to_run, args)
+          else:
+            self._suite_runner.abort(self._tests_to_run, args)
+            break
+
 
   def finalize(self, args):
     with self._finalized_lock:

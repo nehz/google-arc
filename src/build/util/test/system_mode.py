@@ -6,9 +6,7 @@
 # It contains helper routines for running dalvikvm in system mode.
 #
 
-import os
 import re
-import subprocess
 import threading
 import traceback
 
@@ -25,62 +23,57 @@ class SystemModeError(Exception):
   """SystemMode class raised in this module."""
 
 
-class SystemModeLogs:
-  def __init__(self):
-    self._adb_logs = []
-    self._chrome_logs = []
-
-  def add_to_chrome_log(self, message):
-    self._chrome_logs.append(str(message))
-
-  def add_to_adb_log(self, message):
-    self._adb_logs.append(str(message))
-
-  def get_log(self):
-    def separator(title):
-      return '\n' + '=' * 30 + ' ' + title + ' ' + '=' * 30 + '\n'
-    return (separator('adb command logs') + ''.join(self._adb_logs) +
-            separator('Chrome logs') + ''.join(self._chrome_logs))
-
-
 def _is_crash_line(line):
   return (output_handler.is_crash_line(line) or
           output_handler.is_abnormal_exit_line(line))
 
 
 class _SystemModeThread(threading.Thread, concurrent_subprocess.OutputHandler):
-  def __init__(self, logs, suite_runner, additional_launch_chrome_opts):
+  def __init__(self, suite_runner, additional_launch_chrome_opts):
     super(_SystemModeThread, self).__init__()
     self._suite_runner = suite_runner
     self._name = suite_runner.name
     self._additional_launch_chrome_opts = additional_launch_chrome_opts
 
-    self._adb_service_initialized = False
     self._android_serial = None
     self._adb_wait_event = threading.Event()
+
     self._chrome_lock = threading.Lock()
     self._terminated = False
     self._chrome = None
-    self._logs = logs
+    self._xvfb_output_filepath = None
+    self._chrome_output_filepath = None
+    self._chrome_output_file = None
+
     self._has_error = False
 
   def run(self):
-    args = self._suite_runner.get_system_mode_launch_chrome_command(
-        self._name, additional_args=self._additional_launch_chrome_opts)
-    if self._suite_runner.get_use_xvfb():
-      output_directory = suite_runner.SuiteRunnerBase.get_output_directory()
-      xvfb_output_filename = os.path.abspath(
-          os.path.join(output_directory, self._name + '-system-mode-xvfb.log'))
-      args = suite_runner.SuiteRunnerBase.get_xvfb_args(
-          xvfb_output_filename) + args
+    try:
+      args = self._suite_runner.get_system_mode_launch_chrome_command(
+          self._name, additional_args=self._additional_launch_chrome_opts)
+      logfile_path = self._suite_runner.logger.path
+      if self._suite_runner.use_xvfb:
+        # This may override older log. However, it should be ok, because
+        # older log should be already copied into logger.
+        self._xvfb_output_filepath = logfile_path + '-system-mode-xvfb.log'
+        args = suite_runner.SuiteRunnerBase.get_xvfb_args(
+            self._xvfb_output_filename) + args
 
-    with self._chrome_lock:
-      if not self._terminated:
-        self._chrome = concurrent_subprocess.Popen(args)
-    if self._chrome:
-      self._chrome.handle_output(self)
-
-    self._adb_wait_event.set()
+      with self._chrome_lock:
+        if not self._terminated:
+          self._chrome = concurrent_subprocess.Popen(args)
+      if self._chrome:
+        # This may override older log. However, it should be ok, because
+        # older log should be already copied into logger.
+        self._chrome_output_filepath = logfile_path + '-system-mode-chrome.log'
+        with open(self._chrome_output_filepath, 'w') as chrome_output_file:
+          try:
+            self._chrome_output_file = chrome_output_file
+            self._chrome.handle_output(self)
+          finally:
+            self._chrome_output_file = None
+    finally:
+      self._adb_wait_event.set()
 
   # Output handler implementation.
   def handle_stdout(self, line):
@@ -93,17 +86,17 @@ class _SystemModeThread(threading.Thread, concurrent_subprocess.OutputHandler):
     self._handle_line(line)
 
   def _handle_line(self, line):
-    self._logs.add_to_chrome_log(line)
+    self._chrome_output_file.write(line)
 
     if _is_crash_line(line):
       # An error is found.
-      self._logs.add_to_adb_log(
-          'chrome unexpectedly exited with line: %s' % line)
+      self._suite_runner.logger.write(
+          'chrome unexpectedly exited with line: %s\n' % line)
       self._has_error = True
       self._adb_wait_event.set()
       return
 
-    if self._adb_service_initialized:
+    if self._adb_wait_event.is_set():
       return
 
     # Look for a device serial name (such as "emulator-5554").
@@ -113,13 +106,12 @@ class _SystemModeThread(threading.Thread, concurrent_subprocess.OutputHandler):
 
     self._android_serial = match.group(1)  # Note: None on failure.
     if self._android_serial:
-      self._logs.add_to_adb_log('ARC adb service serial number is %s\n' %
-                                self._android_serial)
+      self._suite_runner.logger.write(
+          'ARC adb service serial number is %s\n' % self._android_serial)
     else:
+      self._suite_runner.logger.write('ARC adb service failed to start.\n')
       self._has_error = True
-      self._logs.add_to_adb_log('ARC adb service failed to start.\n')
 
-    self._adb_service_initialized = True
     self._adb_wait_event.set()
 
   def handle_timeout(self):
@@ -145,14 +137,39 @@ class _SystemModeThread(threading.Thread, concurrent_subprocess.OutputHandler):
   def has_error(self):
     return self._has_error
 
-  def terminate(self):
+  def shutdown(self):
+    # First, terminate the chrome process.
     with self._chrome_lock:
       self._terminated = True
       if self._chrome:
         self._chrome.terminate()
 
+    # Then, the thread will be terminated. Join it.
+    self.join()
 
-class SystemMode:
+    # Finally, copy the log if necessary.
+    if self._chrome_output_filepath:
+      args = self._suite_runner.get_system_mode_launch_chrome_command(
+          self._name, additional_args=self._additional_launch_chrome_opts)
+
+      self._suite_runner.logger.writelines([
+          '--------------------\n',
+          ' '.join(args),
+          '\n--------------------\n'])
+      with open(self._chrome_output_filepath) as f:
+        self._suite_runner.logger.writelines(f.read())
+      self._suite_runner.logger.write('--------------------\n')
+
+      # Output XVFB's log, if necessary.
+      if self._xvfb_output_filepath:
+        self._suite_runner.logger.write('---------- XVFB output ----------\n')
+        with open(self._xvfb_output_filepath) as f:
+          self._suite_runner.logger.write(f.read())
+        self._suite_runner.logger.write('---------------------------------\n')
+      self._suite_runner.logger.flush()
+
+
+class SystemMode(object):
   """A class to manage ARC system mode for integration tests.
 
   Example:
@@ -183,7 +200,6 @@ class SystemMode:
 
     self._adb = toolchain.get_tool('host', 'adb')
     self._has_error = False
-    self._logs = SystemModeLogs()
     self._thread = None
 
   def __enter__(self):
@@ -191,30 +207,28 @@ class SystemMode:
 
     # Start the Chrome, and wait its serial to connect via adb command.
     self._thread = _SystemModeThread(
-        self._logs, self._suite_runner, self._additional_launch_chrome_opts)
+        self._suite_runner, self._additional_launch_chrome_opts)
     self._thread.start()
     self._thread.wait_for_adb()
     if not self._thread.is_ready:
-      self._logs.add_to_adb_log('timeout waiting to get adb serial number.\n')
-      self._thread.terminate()
-      self._thread.join()
+      self._suite_runner.logger.write(
+          'Timeout waiting to get adb serial number.\n')
+      self._thread.shutdown()
       raise suite_runner.TimeoutError()
 
     try:
-      self._logs.add_to_adb_log(self._suite_runner.run_subprocess(
-          [self._adb, 'devices'], omit_xvfb=True))
+      self._suite_runner.run_subprocess(
+          [self._adb, 'devices'], omit_xvfb=True)
       self.run_adb(['wait-for-device'])
     except Exception as e:
       # On failure, we need to terminate the Chrome.
       try:
-        self._thread.terminate()
-        self._thread.join()
+        self._thread.shutdown()
       except Exception:
         # Ignore any exception here, because we re-raise the original
         # exception.
-        self._logs.add_to_adb_log(
+        self._suite_runner.logger.write(
             'Failed to terminate the Chrome: ' + traceback.format_exc())
-        pass
       raise e
 
     # All set up is successfully passed.
@@ -222,21 +236,7 @@ class SystemMode:
 
   def __exit__(self, exc_type, exc_value, exc_traceback):
     # Terminate the Chrome.
-    self._thread.terminate()
-    self._thread.join()
-
-    # The log file is originally written by SuiteRunnerBase when
-    # run_subprocess() is called. It is overwritten by following calls, and
-    # only the last process can leave the log file.
-    # SystemMode also runs Chrome inside the class, and unifying Chrome log
-    # and subprocess logs in SuiteRunnerBase is not easy.
-    # For now, we overwrite the default log file here.
-    # TODO(crbug.com/356566): Stop overwriting the log here for simplifying.
-    output_directory = suite_runner.SuiteRunnerBase.get_output_directory()
-    output_filename = os.path.abspath(
-        os.path.join(output_directory, self._name))
-    with open(output_filename, 'w') as f:
-      f.write(self.get_log())
+    self._thread.shutdown()
 
   def run_adb(self, commands, **kwargs):
     """Runs an adb command and returns output.
@@ -248,22 +248,9 @@ class SystemMode:
     if self._thread is None or not self._thread.is_ready:
       raise SystemModeError('adb is not currently serving.')
 
-    kwargs.setdefault('omit_xvfb', True)
-
     args = [self._adb, '-s', self._thread.android_serial] + commands
-    self._logs.add_to_adb_log('SystemMode.run_adb: %s\n' % ' '.join(args))
-    try:
-      result = self._suite_runner.run_subprocess(args, **kwargs)
-      self._logs.add_to_adb_log(result + '\n')
-      return result
-    except subprocess.CalledProcessError as e:
-      self._logs.add_to_adb_log(
-          'run_subprocess failed: ' + traceback.format_exc())
-      self._logs.add_to_adb_log(e.output)
-      raise
-
-  def get_log(self):
-    return self._logs.get_log()
+    kwargs.setdefault('omit_xvfb', True)
+    return self._suite_runner.run_subprocess(args, **kwargs)
 
   def has_error(self):
     return self._has_error or self._thread.has_error
