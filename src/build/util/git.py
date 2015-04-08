@@ -4,8 +4,23 @@
 
 # Some basic git functionality.
 
+import logging
 import subprocess
 import os
+
+
+# TODO(lpique) This and util.rebase.quiet_subprocess_call are the same thing.
+# Move them to a common utility module. Also rewrite more of the subprocess
+# calls here in terms of this function (rather than using subprocess directly).
+def _subprocess_check_output(cmd, cwd=None):
+  """Equivalent of subprocess.check_output, but logs output on error."""
+  try:
+    return subprocess.check_output(cmd, cwd=cwd, stderr=subprocess.STDOUT)
+  except subprocess.CalledProcessError as e:
+    logging.error('While running %s%s', cmd, (' in ' + cwd) if cwd else '')
+    if e.output:
+      logging.error(e.output)
+    raise
 
 
 class Submodule(object):
@@ -32,7 +47,7 @@ def get_submodules(base_path, use_gitmodules):
   """Read out all the submodules paths and HEAD revisions.
 
   Submodules are stored in two places.  .gitmodules is a repository resident
-  file that is used for transfering submodule info between different users/
+  file that is used for transferring submodule info between different users/
   repositories.  When git submodule sync is called though, its values are
   stored into the repository-local configuration. So use_gitmodules lets us
   switch between these."""
@@ -232,12 +247,12 @@ def reset_to_revision(revision, cwd=None):
 
 
 def force_checkout_revision(revision, cwd=None):
-  subprocess.check_call(['git', 'fetch'], cwd=cwd)
-  subprocess.check_call(['git', 'checkout', '-f', revision], cwd=cwd)
+  _subprocess_check_output(['git', 'fetch'], cwd=cwd)
+  _subprocess_check_output(['git', 'checkout', '-f', revision], cwd=cwd)
 
 
 def get_head_revision(cwd=None):
-  return subprocess.check_output(['git', 'rev-parse', 'HEAD'])
+  return _subprocess_check_output(['git', 'rev-parse', 'HEAD'], cwd=cwd).strip()
 
 
 def add_submodule(url, path):

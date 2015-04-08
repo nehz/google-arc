@@ -454,6 +454,16 @@ class _Options(object):
       return -1
     return 0
 
+  def _check_args(self, args):
+    if args.enable_valgrind and not self.is_bare_metal_i686():
+      return '--enable-valgrind works only on Bare Metal i686 target.'
+
+    # TODO(crbug.com/340573): Enable ART for other targets.
+    if args.enable_art and not self.is_bare_metal_i686():
+      return '--enable-art works only on Bare Metal i686 target.'
+
+    return self._check_enable_dalvik_jit_args(args)
+
   def _check_enable_dalvik_jit_args(self, args):
     if args.enable_dalvik_jit and self.is_nacl_build():
       return 'Dalvik JIT mode is not supported on NaCl targets.'
@@ -463,16 +473,6 @@ class _Options(object):
               'the same time')
 
     return None
-
-  def _check_args(self, args):
-    # TODO(crbug.com/340573): Enable ART for other targets.
-    if args.enable_art and not self.is_bare_metal_i686():
-      return '--enable-art works only on Bare Metal i686 target.'
-
-    if args.enable_valgrind and not self.is_bare_metal_i686():
-      return '--enable-valgrind works only on Bare Metal i686 target.'
-
-    return self._check_enable_dalvik_jit_args(args)
 
   @staticmethod
   def _is_goma_path(dirname):

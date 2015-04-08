@@ -349,8 +349,8 @@ Native Client Debugging
   parser.add_argument('--chrome-flakiness-retry', default=0, type=int,
                       help='The max number of retry when Chrome looks flaky. '
                       'This is applied for each iteration. This flag cannot '
-                      'be used with --jdb_port or --gdb flags at a same time. '
-                      'Note that this number does not contain the first '
+                      'be used with --jdb, --jdb_port or --gdb flags at a same '
+                      'time. Note that this number does not contain the first '
                       'run, i.e., --chrome-flakiness-retry=2 means that '
                       'the subprocess would be launched at most 3 times '
                       '(first run + 2 retries (in worst case)).')

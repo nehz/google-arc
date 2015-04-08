@@ -2,5 +2,3 @@
 # toolchain.py to the new version, that can be found at
 # third_party/android-sdk/build-tools/x.y.z, where x.y.z is the new version.
 https://dl.google.com/android/android-sdk_r22.6.2-linux.tgz
-# Next line is the API level:
-API 19

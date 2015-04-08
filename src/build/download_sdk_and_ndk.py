@@ -110,8 +110,7 @@ class AndroidSDKFiles(download_package_util.BasicCachedPackage):
 
   def _check_sdk_platform_update(self, update_component_ids):
     """Checks and performs update for the sdk platform."""
-    pinned_version = toolchain.get_android_sdk_build_tools_pinned_version()
-    pinned_id = 'android-' + pinned_version.split('.')[0]
+    pinned_id = 'android-%d' % toolchain.get_android_api_level()
     pinned_dir = os.path.join(
         self.unpacked_linked_cache_path, 'platforms', pinned_id)
     if not os.path.exists(pinned_dir):

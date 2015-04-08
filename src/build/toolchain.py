@@ -41,7 +41,16 @@ def _get_android_build_tools_dir():
 
 def get_android_api_level():
   """Returns the pinned version of the Android API."""
-  return _ANDROID_SDK_BUILD_TOOLS_PINNED_VERSION.split('.')[0]
+  return int(_ANDROID_SDK_BUILD_TOOLS_PINNED_VERSION.split('.')[0])
+
+
+def get_framework_aidl():
+  """Finds framework.aidl."""
+  api_level = get_android_api_level()
+  out = os.path.join(build_common.get_android_sdk_path(), 'platforms',
+                     'android-%d' % api_level, 'framework.aidl')
+  assert os.path.isfile(out), 'framework.aidl not found at: ' + out
+  return out
 
 
 def get_android_sdk_build_tools_pinned_version():
@@ -395,10 +404,11 @@ def _get_tool_map():
 
 
 def get_tool(target, tool, with_cc_wrapper=True):
-  if tool == 'asm' or tool == 'asm_with_preprocessing':
-    tool = 'cc'
-  if tool == 'ld_system_library':
-    tool = 'ld'
+  tool = {
+      'asm': 'cc',
+      'asm_with_preprocessing': 'cc',
+      'ld_system_library': 'ld',
+  }.get(tool, tool)
   command = _get_tool_map()[target][tool]
   if (tool in ['cc', 'cxx', 'clang', 'clangxx'] and
       OPTIONS.cc_wrapper() and with_cc_wrapper):

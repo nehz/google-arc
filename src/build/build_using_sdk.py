@@ -12,6 +12,7 @@ import sys
 import shutil
 
 import build_common
+import toolchain
 from util import file_util
 
 
@@ -44,8 +45,8 @@ def _build_apk(source_path, use_ndk, build_path, install_apk, debug, verbose):
   subprocess.check_call([
       os.path.join(_SDK_PATH, 'tools', 'android'),
       'update', 'project',
-      '--target', 'android-%d' % build_common.get_api_level(), '--path', '.',
-      '--name', 'test_app'], cwd=work_path)
+      '--target', 'android-%d' % toolchain.get_android_api_level(),
+      '--path', '.', '--name', 'test_app'], cwd=work_path)
   if use_ndk:
     if not os.path.isdir(_NDK_PATH):
       raise Exception('Missing NDK path: ' + str(_NDK_PATH))

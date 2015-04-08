@@ -6,6 +6,7 @@
 
 import ast
 import distutils.spawn
+import errno
 import os
 import pipes
 import shutil
@@ -68,8 +69,8 @@ def _check_javac_version():
   javac_version = subprocess.check_output(
       [javac_path, '-version'], stderr=subprocess.STDOUT)
   if want_version not in javac_version:
-    print('\nWARNING: You are not using the supported Java SE 1.6.: ' +
-          javac_version.strip())
+    print '\nWARNING: You are not using Java 6.',
+    print 'Installed version:', javac_version.strip()
     print 'See docs/getting-java.md.\n'
   else:
     stamp_file.update()
@@ -86,6 +87,18 @@ def _cleanup_orphaned_pyc_files():
           print ('\nWARNING: %s appears to be a compiled python file without '
                  'any associated python code. It has been removed.') % fullpath
           os.unlink(fullpath)
+
+
+def _cleanup_stripped_dir():
+  # Remove binaries in the stripped directory when they are unnecessary to
+  # prevent stale binaries from being used for remote execution.
+  if not OPTIONS.is_debug_info_enabled():
+    file_util.rmtree(build_common.get_stripped_dir(), ignore_errors=True)
+  elif OPTIONS.strip_runtime_binaries:
+    file_util.rmtree(
+        build_common.get_runtime_platform_specific_path(
+            build_common.get_runtime_out_dir(), OPTIONS.target()),
+        ignore_errors=True)
 
 
 def _cleanup_unittest_info():
@@ -235,8 +248,9 @@ def _set_up_chromium_org_submodules():
       directory = os.path.join(dirpath, name)
       if os.path.islink(directory):
         os.unlink(directory)
+
   for s in submodules:
-    symlink = os.path.join(CHROMIUM_ORG_ROOT, s)
+    target = os.path.join(CHROMIUM_ORG_ROOT, s)
     # As an example, this maps 'sdch/open-vcdiff' to
     # 'android/external/chromium_org__sdch_open-vcdiff', which is the true
     # location of the submodule checkout.
@@ -245,11 +259,37 @@ def _set_up_chromium_org_submodules():
       print 'ERROR: path "%s" does not exist.' % source
       print 'ERROR: Did you forget to run git submodules update --init?'
       sys.exit(1)
-    # If a real directory exists, remove it explicitly. |overwrite| flag does
-    # not care for real directories and files, but old symlinks.
-    if not os.path.islink(symlink) and os.path.isdir(symlink):
-      file_util.rmtree(symlink)
-    file_util.create_link(symlink, source, overwrite=True)
+
+    # Remove existing symlink for transition from previous version.
+    # The previous configuration script creates symlinks to the top of
+    # chromium.org submodules, and now it tries to symlink them one-level
+    # deeper.
+    #
+    # TODO(tzik): Remove this clean up code after the transition is no longer
+    # needed.
+    if os.path.islink(target):
+      os.remove(target)
+
+    target_contents = set()
+    try:
+      target_contents = set(os.listdir(target))
+    except OSError as e:
+      if e.errno != errno.ENOENT:
+        raise
+
+    source_contents = set(os.listdir(source))
+    for content in source_contents:
+      link_source = os.path.join(source, content)
+      link_target = os.path.join(target, content)
+      # If a real directory exists, remove it explicitly. |overwrite|
+      # flag does not care for real directories and files, but old symlinks.
+      if os.path.exists(link_target) and not os.path.islink(link_target):
+        file_util.rmtree(link_target)
+
+      file_util.create_link(link_target, link_source, overwrite=True)
+
+    for removed_item in target_contents.difference(source_contents):
+      os.unlink(os.path.join(target, removed_item))
 
 
 def _update_arc_version_file():
@@ -286,6 +326,7 @@ def main():
   _gclient_sync_third_party()
   _check_javac_version()
   _cleanup_orphaned_pyc_files()
+  _cleanup_stripped_dir()
   _cleanup_unittest_info()
 
   _set_up_git_hooks()

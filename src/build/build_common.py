@@ -21,7 +21,6 @@ import urllib2
 
 import dependency_inspection
 from build_options import OPTIONS
-from util import file_util
 from util import platform_util
 
 OUT_DIR = 'out'
@@ -46,8 +45,6 @@ CHROME_USER_DATA_DIR_PREFIX = 'arc-test-profile'
 # have the output when the test failed.
 _TEST_OUTPUT_HANDLER = (' > $out.tmp 2>&1 && mv $out.tmp $out ' +
                         '|| (cat $out.tmp;%s exit 1)')
-
-_ANDROID_SDK_METADATA_FILE = os.path.join(_SCRIPT_DIR, 'DEPS.android-sdk')
 
 _CHROMEOS_USR_LOCAL_DIR = '/usr/local'
 
@@ -132,6 +129,18 @@ def get_android_sdk_path():
 
 def get_staging_root():
   return os.path.join(OUT_DIR, 'staging')
+
+
+def get_stripped_dir():
+  return os.path.join(get_build_dir(), 'stripped')
+
+
+def get_stripped_path(path):
+  """Returns the path in stripped dir corresponding to |path|."""
+  if not path.startswith(get_build_dir() + '/'):
+    return None
+  return os.path.join(get_stripped_dir(),
+                      os.path.relpath(path, get_build_dir()))
 
 
 def get_android_config_header(is_host):
@@ -487,6 +496,10 @@ def get_runtime_file_list_cc():
   return os.path.join(get_build_dir(), 'runtime_file_list.cc')
 
 
+def get_runtime_platform_specific_path(runtime_out_dir, target):
+  return os.path.join(runtime_out_dir, '_platform_specific', target)
+
+
 def get_runtime_out_dir():
   return os.path.join(get_build_dir(), 'runtime')
 
@@ -788,29 +801,6 @@ def find_python_dependencies(package_root_path, module_path):
 
   dependency_inspection.add_files(module_path, *result)
   return result
-
-
-def get_api_level():
-  """Reads the API level from DEPS.android-sdk."""
-  lines = file_util.read_metadata_file(_ANDROID_SDK_METADATA_FILE)
-  if len(lines) != 2:
-    raise Exception('Malformed SDK metadata file at %s.' %
-                    _ANDROID_SDK_METADATA_FILE)
-  api_tokens = lines[1].split(' ')
-  if len(api_tokens) != 2 or api_tokens[0] != 'API':
-    raise Exception('API level not recognized: ' + lines[1])
-  # No need to wrap ValueError if API level is not an integer as expected.
-  return int(api_tokens[1])
-
-
-def get_framework_aidl():
-  """Finds framework.aidl."""
-  api_level = get_api_level()
-  out = os.path.join(get_android_sdk_path(), 'platforms',
-                     'android-%d' % api_level, 'framework.aidl')
-  if not os.path.isfile(out):
-    raise Exception('framework.aidl not found in Android SDK at %s.' % out)
-  return out
 
 
 def get_gsutil_executable():

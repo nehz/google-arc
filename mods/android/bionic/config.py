@@ -631,6 +631,8 @@ class BionicFundamentalTest(object):
            description=rule_name + ' $in')
     n.build(self._output, rule_name, self._inputs,
             implicit=build_common.get_bionic_objects(need_stlport=False))
+    if OPTIONS.is_debug_info_enabled():
+      n.build_stripped(self._output)
 
 
 def _generate_bionic_fundamental_test_runners(n):
@@ -852,8 +854,10 @@ def _generate_crt_bionic_ninja():
     ]
   for crt_src, crt_o in crts:
     source = staging.as_staging(crt_src)
-    n.build(os.path.join(build_common.get_load_library_path(), crt_o),
-            rule_name, source)
+    crt_o_path = os.path.join(build_common.get_load_library_path(), crt_o)
+    n.build(crt_o_path, rule_name, source)
+    if OPTIONS.is_debug_info_enabled():
+      n.build_stripped(crt_o_path)
 
 
 def _generate_linker_script_for_runnable_ld():

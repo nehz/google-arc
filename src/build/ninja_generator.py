@@ -356,6 +356,10 @@ class NinjaGenerator(ninja_syntax.Writer):
     n.rule('install',
            'rm -f $out; cp $in $out',
            description='install $out')
+    n.rule('strip',
+           ('mkdir -p $$(dirname out) && %s $in -o $out' %
+            toolchain.get_tool(OPTIONS.target(), 'strip')),
+           description='strip $out')
     n.rule('mkdir_empty',
            'mkdir -p $out && touch $out',
            description='make empty $out')
@@ -549,6 +553,10 @@ class NinjaGenerator(ninja_syntax.Writer):
   def install_to_build_dir(self, output, inputs):
     out_path = self._rebase_to_build_dir(output)
     self.build(out_path, 'install', inputs)
+    # Generate stripped binaries as well for remote execution.
+    if OPTIONS.is_debug_info_enabled():
+      if os.path.splitext(out_path)[1] in ['.nexe', '.so']:
+        self.build_stripped(out_path)
     self._build_dir_install_targets.append('/system/' + output.lstrip(os.sep))
 
   def is_installed(self):
@@ -629,6 +637,12 @@ class NinjaGenerator(ninja_syntax.Writer):
                                              inputs=updated_inputs,
                                              variables=variables,
                                              **kwargs)
+
+  def build_stripped(self, obj):
+    """Create stripped version of |obj| used for remote execution."""
+    stripped_path = build_common.get_stripped_path(obj)
+    assert stripped_path, 'build_stripped takes path under out/target/<target>'
+    self.build(stripped_path, 'strip', inputs=obj)
 
   @staticmethod
   def _get_generated_ninja_path(ninja_base, is_host):
@@ -2018,15 +2032,17 @@ class ExecNinjaGenerator(CNinjaGenerator):
       if OPTIONS.is_debug_code_enabled() and not self._is_system_library:
         implicit.append(build_common.get_bionic_libc_malloc_debug_leak_so())
     variables = self._add_lib_vars(as_dict(variables))
+    bin_path = os.path.join(self._intermediates_dir, self._module_name)
     intermediate_bin = self.build(
-        os.path.join(self._intermediates_dir,
-                     self._module_name),
+        bin_path,
         self._get_rule_name(
             'ld_system_library' if self._is_system_library else 'ld'),
         self._consume_objects(),
         implicit=implicit,
         variables=variables,
         **kwargs)
+    if OPTIONS.is_debug_info_enabled() and not self._is_host:
+      self.build_stripped(bin_path)
     if OPTIONS.is_nacl_build() and not self._is_host:
       self.ncval_test(intermediate_bin)
     if self._install_path is not None:
@@ -2449,7 +2465,7 @@ class JavaNinjaGenerator(NinjaGenerator):
     # Information for the aidl tool.
     self._preprocessed_aidl_files = []
     if link_framework_aidl:
-      self._preprocessed_aidl_files = [build_common.get_framework_aidl()]
+      self._preprocessed_aidl_files = [toolchain.get_framework_aidl()]
 
     # Specific information for the javac compiler.
     self._javac_source_files = []

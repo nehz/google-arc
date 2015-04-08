@@ -24,8 +24,8 @@ class Rewriter(naclize_base.RewriterBase):
     naclize_base.RewriterBase.__init__(self, file_name)
 
   def __replace_ret(self, line):
-    """Replaces ret with nacl_ret."""
-    m = re.match(r'(?P<indent>\s*)ret\s*$', line)
+    """Replaces ret and retl with nacl_ret."""
+    m = re.match(r'(?P<indent>\s*)retl?.*$', line)
     if m:
       self._result.append('%(indent)snaclret' % m.groupdict())
       return True

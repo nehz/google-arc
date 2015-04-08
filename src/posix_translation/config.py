@@ -172,8 +172,9 @@ def generate_test_ninjas():
     # the readonly FS image in runtime.
     implicit.append(build_common.get_runtime_build_stamp())
     n.add_defines('PROD_READONLY_FS_IMAGE="%s"' % os.path.join(
-                  build_common.get_build_dir(), 'runtime/_platform_specific/',
-                  OPTIONS.target(), 'readonly_fs_image.img'))
+                  build_common.get_runtime_platform_specific_path(
+                      build_common.get_runtime_out_dir(), OPTIONS.target()),
+                  os.path.basename(gen_prod_image)))
     n.run(n.link(), implicit=implicit)
 
   # To be able to refer mock implementation from outside of posix_translation.

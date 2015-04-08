@@ -25,7 +25,7 @@ from ninja_generator import ArchiveNinjaGenerator
 from ninja_generator import NinjaGenerator
 
 
-_ANDROID_SYSTEM_IMAGE_DIR = ('ndk/platforms/android-' +
+_ANDROID_SYSTEM_IMAGE_DIR = ('ndk/platforms/android-%d' %
                              toolchain.get_android_api_level())
 
 

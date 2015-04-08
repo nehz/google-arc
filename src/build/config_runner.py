@@ -116,8 +116,8 @@ class CacheDependency(object):
                   for path, entry in self.files.iteritems()],
         'listings': [listing.to_dict() for listing in self.listings]}
 
-  def save_to_file(self):
-    _save_dict_to_file(self.to_dict(), _get_global_deps_file_path())
+  def save_to_file(self, cache_path):
+    _save_dict_to_file(self.to_dict(), cache_path)
 
 
 class ConfigCache(object):
@@ -188,10 +188,9 @@ def _save_dict_to_file(dict, path):
   file_util.generate_file_atomically(path, lambda f: marshal.dump(dict, f))
 
 
-def _load_global_deps_from_file():
+def _load_global_deps_from_file(cache_path):
   """Load a set of dependency that is depended by all config.py."""
-  path = _get_global_deps_file_path()
-  data = _load_dict_from_file(path)
+  data = _load_dict_from_file(cache_path)
   if data is None or data['version'] != _CONFIG_CACHE_VERSION:
     return None
 
@@ -423,20 +422,25 @@ def _set_up_generate_ninja():
   depended_listings = dependency_inspection.get_listings()
   dependency_inspection.stop_inspection()
 
-  needs_clobbering = False
-  global_deps = _load_global_deps_from_file()
-  if global_deps is None:
-    needs_clobbering = True
-    global_deps = CacheDependency()
-  else:
-    if not global_deps.check_freshness():
+  cache_to_save = []
+  needs_clobbering = True
+  if OPTIONS.enable_config_cache():
+    needs_clobbering = False
+    cache_path = _get_global_deps_file_path()
+    global_deps = _load_global_deps_from_file(cache_path)
+    if global_deps is None:
       needs_clobbering = True
-  global_deps.refresh(depended_files, depended_listings)
-  global_deps.save_to_file()
+      global_deps = CacheDependency()
+    else:
+      if not global_deps.check_freshness():
+        needs_clobbering = True
+    global_deps.refresh(depended_files, depended_listings)
+
+    cache_to_save.append((global_deps, cache_path))
 
   _config_loader.load_from_default_path()
 
-  return needs_clobbering
+  return needs_clobbering, cache_to_save
 
 
 def _generate_independent_ninjas(needs_clobbering):
@@ -490,6 +494,7 @@ def _generate_independent_ninjas(needs_clobbering):
   for cached_result in cached_result_list:
     ninja_list.extend(cached_result.generated_ninjas)
 
+  cache_to_save = []
   if OPTIONS.enable_config_cache():
     for cache_path, config_result in aggregated_result.iteritems():
       config_cache = cache_miss[cache_path]
@@ -498,11 +503,11 @@ def _generate_independent_ninjas(needs_clobbering):
       else:
         config_cache.refresh_with_config_result(config_result)
 
-      config_cache.save_to_file(cache_path)
+      cache_to_save.append((config_cache, cache_path))
 
   ninja_list.sort(key=lambda ninja: ninja.get_module_name())
   timer.done()
-  return ninja_list
+  return ninja_list, cache_to_save
 
 
 def _generate_shared_lib_depending_ninjas(ninja_list):
@@ -624,9 +629,10 @@ def _verify_ninja_generator_list(ninja_list):
 
 
 def generate_ninjas():
-  needs_clobbering = _set_up_generate_ninja()
-  ninja_list = []
-  ninja_list.extend(_generate_independent_ninjas(needs_clobbering))
+  needs_clobbering, cache_to_save = _set_up_generate_ninja()
+  ninja_list, independent_ninja_cache = _generate_independent_ninjas(
+      needs_clobbering)
+  cache_to_save.extend(independent_ninja_cache)
   ninja_list.extend(
       _generate_shared_lib_depending_ninjas(ninja_list))
   ninja_list.extend(_generate_dependent_ninjas(ninja_list))
@@ -641,3 +647,7 @@ def generate_ninjas():
   for ninja in ninja_list:
     ninja.emit()
   timer.done()
+
+  if OPTIONS.enable_config_cache():
+    for cache_object, cache_path in cache_to_save:
+      cache_object.save_to_file(cache_path)

@@ -45,6 +45,10 @@ IGNORE_SUBDIRECORIES = (FORK_BASE_PATH,
 
 
 def show_error(stats, error):
+  if not stats['display_errors']:
+    stats['errors'] = True
+    return
+
   if not stats['errors']:
     sys.stderr.write('Errors found in file ' + stats['our_path'] + ':\n\n')
     if stats['tracking_path'] is not None:
@@ -59,14 +63,15 @@ def _read_all_lines(path):
     return f.readlines()
 
 
-def construct_stats(new):
+def construct_stats(our_path, tracking_path=None, display_errors=True):
   return {
       'added_lines': 0,
       'current_region': None,
+      'display_errors': display_errors,
       'errors': False,
       'lineno': 0,
-      'our_path': new,
-      'tracking_path': None,
+      'our_path': our_path,
+      'tracking_path': tracking_path,
       'removed_lines': 0}
 
 
@@ -156,11 +161,10 @@ def get_file_mod_stats_for_upstream_refs(file_name, mod_stats_map):
 
 
 class _AnalyzeDiffState(object):
-  def __init__(self, stats, our_path, tracking_path, allow_identical):
+  def __init__(self, stats, our_path, tracking_path):
     self._stats = stats
     self._our_path = our_path
     self._tracking_path = tracking_path
-    self._allow_identical = allow_identical
     self._current_tag_specifier = None
 
     # It is bad to have '+' lines inserted outside of an ARC
@@ -247,14 +251,14 @@ class _AnalyzeDiffState(object):
     self._stats['current_region'] = None
 
   def _verify_mod_description_file(self, desc_file, msg):
-    if (_args.under_test and
+    if (_args and _args.under_test and
         self._our_path.startswith(staging.TESTS_MODS_PATH)):
       desc_file = os.path.join(staging.TESTS_BASE_PATH, desc_file)
 
     if not os.path.isfile(desc_file):
       # In open source repo we have no upstream files (except when running
       # tests) but if in internal repo, we verify the file exists.
-      if _args.under_test or not open_source.is_open_source_repo():
+      if (_args and _args.under_test) or not open_source.is_open_source_repo():
         show_error(self._stats, msg + desc_file)
     return True
 
@@ -359,16 +363,17 @@ class _AnalyzeDiffState(object):
         show_error(self._stats, 'Unmatched end tag starting on line %d\n' %
                    self._stats['current_region']['start_lineno'])
 
-      if (not self._allow_identical and self._stats['added_lines'] == 0 and
+      if (self._stats['added_lines'] == 0 and
           self._stats['removed_lines'] == 0):
         show_error(self._stats, 'No lines were changed, remove this file\n\n')
 
 
-def analyze_diff(stats, our_path, tracking_path, allow_identical):
-  _AnalyzeDiffState(stats, our_path, tracking_path, allow_identical).run()
+def analyze_diff(stats, our_path, tracking_path):
+  _AnalyzeDiffState(stats, our_path, tracking_path).run()
 
 
-def compute_tracking_path(stats, our_path, our_lines, do_lint_check=False):
+def compute_tracking_path(stats, our_path, our_lines, do_lint_check=False,
+                          check_exist=True, check_uses_tags=False):
   """Find the tracking file for the given file.
 
   Returns the last path mentioned in the file via a tracking tag or
@@ -376,10 +381,19 @@ def compute_tracking_path(stats, our_path, our_lines, do_lint_check=False):
   no file in the default path and no files mentioned within the file
   exist, returns None.
 
+  Normally the third-party path must exist. Passing |check_exist|=False will
+  bypass this check when it is not desired.
+
+  An additional check is enabled by passing |check_uses_tag|=True. In this case
+  the given file MUST use either a file track tag or another modification tag,
+  before a tracking_path is returned.
+
   stats is a variable for keeping track of the status of the analyzer,
   which can be None."""
   tracking_path = staging.get_default_tracking_path(our_path)
   base_matcher = re.compile(re.escape(FILE_TRACK_TAG) + r' "([^\"]+)"')
+  tag_matcher = re.compile(re.escape(REGION_START_TAG))
+  uses_any_tags = False
   next_lineno = 1
   for line in our_lines:
     if stats:
@@ -392,19 +406,36 @@ def compute_tracking_path(stats, our_path, our_lines, do_lint_check=False):
       if next_lineno > MAX_ARC_TRACK_SEARCH_LINES:
         show_error(stats, 'Tracking not allowed on line > %d' %
                    MAX_ARC_TRACK_SEARCH_LINES)
+      uses_any_tags = True
       break
+    elif not uses_any_tags and tag_matcher.search(line):
+      uses_any_tags = True
     next_lineno += 1
-    if not do_lint_check and next_lineno > MAX_ARC_TRACK_SEARCH_LINES:
+    if (not do_lint_check and (uses_any_tags or not check_uses_tags) and
+        next_lineno > MAX_ARC_TRACK_SEARCH_LINES):
       break
-  if tracking_path and os.path.exists(tracking_path):
-    return tracking_path
-  return None
+
+  if not tracking_path:
+    return None
+
+  if check_uses_tags and not uses_any_tags:
+    return None
+
+  if check_exist and not os.path.exists(tracking_path):
+    return None
+
+  return tracking_path
+
+
+def get_tracking_path(path, check_exist=True, check_uses_tags=False):
+  with open(path) as source_file:
+    return compute_tracking_path(
+        None, path, source_file, check_exist=check_exist,
+        check_uses_tags=check_uses_tags)
 
 
 def is_tracking_an_upstream_file(path):
-  with open(path) as source_file:
-    tracking_path = compute_tracking_path(None, path, source_file)
-    return tracking_path is not None
+  return get_tracking_path(path) is not None
 
 
 def _check_any_license(stats, our_path, tracking_path, default_tracking):
@@ -522,15 +553,7 @@ def analyze_file(raw_our_path, output_file):
     analyze_new_file(stats, our_lines)
   else:
     stats['tracking_path'] = tracking_path
-    allow_identical = False
-    # Allow identical files in bionic and in build directories because they are
-    # used just for analyzing diffs.
-    # TODO(crbug.com/231263): Support per directory configuration file and
-    # remove the special treatment for bionic.
-    if (tracking_path.startswith('third_party/android/bionic') or
-        tracking_path.startswith('third_party/android/build')):
-      allow_identical = True
-    analyze_diff(stats, our_path, tracking_path, allow_identical)
+    analyze_diff(stats, our_path, tracking_path)
   if stats['errors']:
     return 1
 

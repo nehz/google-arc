@@ -383,8 +383,9 @@ class SuiteRunnerBase(object):
     if self._args.max_deadline:
       deadline = min(deadline, self._args.max_deadline)
     args.append('--timeout=' + str(deadline))
-    args.append(
-        '--chrome-flakiness-retry=%d' % LAUNCH_CHROME_FLAKE_RETRY_COUNT)
+    if not set(['--gdb', '--jdb', '--jdb-port']).intersection(args):
+      args.append(
+          '--chrome-flakiness-retry=%d' % LAUNCH_CHROME_FLAKE_RETRY_COUNT)
 
     return args + additional_args
 

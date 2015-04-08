@@ -132,6 +132,13 @@ def _get_ssh_control_path():
   return os.path.join(_get_temp_dir(), _TEMP_SSH_CONTROL_PATH)
 
 
+def _create_file_list(files):
+  file_list = file_util.create_tempfile_deleted_at_exit()
+  with open(file_list.name, 'w') as f:
+    f.write('\n'.join(files))
+  return file_list
+
+
 def get_remote_binaries_dir():
   """Gets a directory for storing remote binaries like nacl_helper."""
   path = os.path.join(_get_temp_dir(), _TEMP_REMOTE_BINARIES_DIR)
@@ -214,8 +221,6 @@ class RemoteExecutor(object):
 
   def rsync(self, local_src, remote_dst):
     """Runs rsync command to copy files to remote host."""
-    rsh = ' '.join(['ssh'] + self._build_shared_ssh_command_options())
-
     # For rsync, the order of pattern is important.
     # First, add exclude patterns to ignore common editor temporary files, and
     # .pyc files.
@@ -229,6 +234,8 @@ class RemoteExecutor(object):
       pattern_list.extend(['--include', path])
     pattern_list.extend(['--exclude', '*'])
 
+    rsh = ' '.join(['ssh'] + self._build_shared_ssh_command_options())
+    rsync = ['rsync', '-e', rsh]
     rsync_options = [
         # The remote files need to be writable and executable by chronos. This
         # option sets read, write, and execute permissions to all users.
@@ -241,9 +248,42 @@ class RemoteExecutor(object):
         '--progress',
         '--recursive',
         '--times']
-    cmd = (['rsync', '-e', rsh] + pattern_list +
-           ['.', '%s@%s:%s' % (self._user, self._remote, remote_dst)] +
-           rsync_options)
+    dest = '%s@%s:%s' % (self._user, self._remote, remote_dst)
+    # Checks both whether to enable debug info and the existence of the stripped
+    # directory because build bots using test bundle may use the configure
+    # option with debug info enabled but binaries are not available in the
+    # stripped directory. The binaries in test bundle are already stripped by
+    # archive_test_bundle.py.
+    # TODO(crbug.com/444202): Make archive_test_bundle.py use the binaries in
+    # the stripped directory.
+    if (not OPTIONS.is_debug_info_enabled() or
+        not os.path.exists(build_common.get_stripped_dir())):
+      cmd = rsync + pattern_list + ['.', dest] + rsync_options
+      run_command(cmd)
+      return
+
+    # When debug info is enabled, copy the corresponding stripped binaries if
+    # available to save the disk space on ChromeOS.
+    cmd = rsync + pattern_list + ['.', dest] + rsync_options + ['--list-only']
+    list_output = subprocess.check_output(cmd).splitlines()
+    paths = [line.rsplit(' ', 1)[-1] for line in list_output[1:]]
+
+    stripped_binaries, others = self._split_stripped_binaries(paths)
+
+    # Write the files list into a file because the list is too large to pass as
+    # the command line arguments.
+    other_list = _create_file_list(others)
+    cmd = rsync + ['--files-from=' + other_list.name, '.', dest] + rsync_options
+    run_command(cmd)
+
+    dest_stripped = os.path.join(dest, build_common.get_build_dir())
+    # rsync results in error if the parent directory of the destination
+    # directory does not exist, so ensure it exists.
+    self.run('mkdir -p ' + dest_stripped.rsplit(':', 1)[-1])
+    stripped_bynary_list = _create_file_list(stripped_binaries)
+    cmd = rsync + ['--files-from=' + stripped_bynary_list.name,
+                   build_common.get_stripped_dir(),
+                   dest_stripped] + rsync_options
     run_command(cmd)
 
   def run(self, cmd, ignore_failure=False, cwd=None):
@@ -327,6 +367,29 @@ class RemoteExecutor(object):
         path = os.path.dirname(path)
 
     return sorted(pattern_set)
+
+  def _split_stripped_binaries(self, paths):
+    """Separates the paths for which stripped binaries are available.
+
+    Returns a tuple (stripped, others).
+    |stripped| includes the paths for which stripped binaries exist in the
+    stripped directory. The path is converted to the relative path from the
+    build directory for later use.
+    |others| includes the remaining paths and paths are not converted.
+    """
+    all_stripped_binaries = set(build_common.find_all_files(
+        build_common.get_stripped_dir(), relative=True, use_staging=False))
+    stripped_binaries = []
+    others = []
+    for path in paths:
+      if os.path.isdir(path):
+        continue
+      relpath = os.path.relpath(path, build_common.get_build_dir())
+      if relpath in all_stripped_binaries:
+        stripped_binaries.append(relpath)
+      else:
+        others.append(path)
+    return stripped_binaries, others
 
 
 def run_command(cmd, ignore_failure=False):

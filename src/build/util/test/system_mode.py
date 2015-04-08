@@ -57,7 +57,7 @@ class _SystemModeThread(threading.Thread, concurrent_subprocess.OutputHandler):
         # older log should be already copied into logger.
         self._xvfb_output_filepath = logfile_path + '-system-mode-xvfb.log'
         args = suite_runner.SuiteRunnerBase.get_xvfb_args(
-            self._xvfb_output_filename) + args
+            self._xvfb_output_filepath) + args
 
       with self._chrome_lock:
         if not self._terminated:
