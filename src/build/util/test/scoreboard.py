@@ -68,6 +68,28 @@ class Scoreboard:
       if test != self.ALL_TESTS_DUMMY_NAME:
         self._results[test] = INCOMPLETE
 
+  @staticmethod
+  def map_expectation_flag_to_result(ex):
+    return Scoreboard._MAP_EXPECTATIONS_TO_RESULT[
+        Scoreboard.map_expectation_flag_to_scoreboard_expectation(ex)]
+
+  @staticmethod
+  def map_expectation_flag_to_scoreboard_expectation(ex):
+    if NOT_SUPPORTED in ex:
+      return Scoreboard._SHOULD_SKIP
+    elif FLAKY in ex:
+      return Scoreboard._MAYBE_FLAKY
+    elif FAIL in ex:
+      return Scoreboard._SHOULD_FAIL
+    # Tests marked as TIMEOUT will be skipped, unless --include-timeouts is
+    # specified.  Unfortunately, we have no way of knowing, so we just assume
+    # they will be skipped.  If it turns out that this test is actually run,
+    # then it will get treated as though it was expected to PASS.  We assume
+    # the TIMEOUT is not specified with FAIL or FLAKY as well.
+    elif TIMEOUT in ex:
+      return Scoreboard._SHOULD_SKIP
+    return Scoreboard._SHOULD_PASS
+
   def set_expectations(self, expectations):
     """
     Specify test suite expectations.
@@ -79,21 +101,7 @@ class Scoreboard:
     if not expectations:
       return
     for name, ex in expectations.iteritems():
-      if NOT_SUPPORTED in ex:
-        expectation = self._SHOULD_SKIP
-      elif FLAKY in ex:
-        expectation = self._MAYBE_FLAKY
-      elif FAIL in ex:
-        expectation = self._SHOULD_FAIL
-      # Tests marked as TIMEOUT will be skipped, unless --include-timeouts is
-      # specified.  Unfortunately, we have no way of knowing, so we just assume
-      # they will be skipped.  If it turns out that this test is actually run,
-      # then it will get treated as though it was expected to PASS.  We assume
-      # the TIMEOUT is not specified with FAIL or FLAKY as well.
-      elif TIMEOUT in ex:
-        expectation = self._SHOULD_SKIP
-      else:
-        expectation = self._SHOULD_PASS
+      expectation = self.map_expectation_flag_to_scoreboard_expectation(ex)
       if name == self.ALL_TESTS_DUMMY_NAME:
         self._default_expectation = expectation
       else:

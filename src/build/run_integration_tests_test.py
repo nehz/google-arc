@@ -245,7 +245,8 @@ def _stub_read_cts_test_plan_packages():
 class _RunIntegrationTestsTestBase(unittest.TestCase):
   # A chosen real test suite, and a test in it. The test should normally pass.
   EXAMPLE_SUITE_NAME = 'cts.android.core.tests.libcore.package.libcore'
-  EXAMPLE_TEST_NAME = 'libcore.java.util.TimeZoneTest#testDisplayNames'
+  EXAMPLE_TEST_NAME = 'libcore.java.lang.StringTest#testIsEmpty'
+  EXAMPLE_TEST_NAME2 = 'libcore.java.lang.StringTest#test_replaceAll'
 
   def _run_integration_tests(self, args):
     with patch('sys.stdout', _FakeStream()) as stdout:
@@ -562,7 +563,8 @@ class RunIntegrationTestsFastTest(_RunIntegrationTestsTestBase):
     """Check that --list can be used to list all tests."""
     self._run_integration_tests(['-t', '*', '--list'])
     self.assertExitCodeIndicatedSuccess()
-    self.assertIn(self.EXAMPLE_SUITE_NAME + ':' + self.EXAMPLE_TEST_NAME,
+    self.assertIn('[RUN  PASS] %s:%s' %
+                  (self.EXAMPLE_SUITE_NAME, self.EXAMPLE_TEST_NAME),
                   self._last_output)
 
   def test_list_is_blank_if_no_tests_selected(self):
@@ -575,7 +577,11 @@ class RunIntegrationTestsFastTest(_RunIntegrationTestsTestBase):
     """Check that --list works when selecting all tests in a suite."""
     self._run_integration_tests(['-t', self.EXAMPLE_SUITE_NAME, '--list'])
     self.assertExitCodeIndicatedSuccess()
-    self.assertIn(self.EXAMPLE_SUITE_NAME + ':' + self.EXAMPLE_TEST_NAME,
+    self.assertIn('[RUN  PASS] %s:%s' %
+                  (self.EXAMPLE_SUITE_NAME, self.EXAMPLE_TEST_NAME),
+                  self._last_output)
+    self.assertIn('[RUN  PASS] %s:%s' %
+                  (self.EXAMPLE_SUITE_NAME, self.EXAMPLE_TEST_NAME2),
                   self._last_output)
 
   def test_simple_select_of_one_test_in_suite(self):
@@ -584,8 +590,12 @@ class RunIntegrationTestsFastTest(_RunIntegrationTestsTestBase):
         '-t', self.EXAMPLE_SUITE_NAME + ':' + self.EXAMPLE_TEST_NAME,
         '--list'])
     self.assertExitCodeIndicatedSuccess()
-    self.assertIn(self.EXAMPLE_SUITE_NAME + ':' + self.EXAMPLE_TEST_NAME,
+    self.assertIn('[RUN  PASS] %s:%s' %
+                  (self.EXAMPLE_SUITE_NAME, self.EXAMPLE_TEST_NAME),
                   self._last_output)
+    self.assertNotIn('[RUN  PASS] %s:%s' %
+                     (self.EXAMPLE_SUITE_NAME, self.EXAMPLE_TEST_NAME2),
+                     self._last_output)
 
 if __name__ == '__main__':
   unittest.main()

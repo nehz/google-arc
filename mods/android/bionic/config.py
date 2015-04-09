@@ -567,7 +567,8 @@ class BionicFundamentalTest(object):
     asmflags = ninja_generator.CNinjaGenerator.get_archasmflags()
     if OPTIONS.is_bare_metal_build():
       asmflags += ' -DBARE_METAL_BIONIC '
-    cflags = ninja_generator.CNinjaGenerator.get_archcflags()
+    cflags = (ninja_generator.CNinjaGenerator.get_gcc_includes() +
+              ninja_generator.CNinjaGenerator.get_archcflags())
     cxxflags = ninja_generator.CNinjaGenerator.get_cxxflags()
     cflags = asmflags + cflags + ' $commonflags -g -fPIC -Wall -W -Werror '
     cxxflags = cflags + cxxflags
@@ -630,7 +631,7 @@ class BionicFundamentalTest(object):
     n.rule(rule_name, command=' && '.join(commands),
            description=rule_name + ' $in')
     n.build(self._output, rule_name, self._inputs,
-            implicit=build_common.get_bionic_objects(need_stlport=False))
+            implicit=build_common.get_bionic_objects())
     if OPTIONS.is_debug_info_enabled():
       n.build_stripped(self._output)
 
@@ -825,7 +826,7 @@ def _generate_crt_bionic_ninja():
          deps='gcc',
          depfile='$out.d',
          command=(toolchain.get_tool(OPTIONS.target(), 'cc') +
-                  ' $cflags -W -Werror '
+                  ' $gccsystemincludes $cflags -W -Werror '
                   ' -I' + staging.as_staging('android/bionic/libc/private') +
                   ' -fPIC -g -O -MD -MF $out.d -c $in -o'
                   ' $out'),

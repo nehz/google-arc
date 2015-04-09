@@ -36,6 +36,7 @@ from util import file_util
 from util import logging_util
 from util import platform_util
 from util import remote_executor
+from util.test import scoreboard
 from util.test import scoreboard_constants
 from util.test import suite_results
 from util.test import suite_runner
@@ -256,17 +257,38 @@ def prepare_suites(args):
   return _run_suites(test_driver_list, args, prepare_only=True)
 
 
-def list_fully_qualified_test_names(scoreboards, args):
-  output = []
-  for scoreboard in scoreboards:
-    suite_name = scoreboard.name
-    for test_name, expectation in scoreboard.get_expectations().iteritems():
-      output.append(('%s:%s' % (suite_name, test_name), expectation))
-  output.sort()
-  for qualified_test_name, expectation in output:
-    color.write_ansi_escape(
-        sys.stdout, _REPORT_COLOR_FOR_SUITE_EXPECTATION[expectation],
-        qualified_test_name + '\n')
+def pretty_print_tests(args):
+  all_suite_runners = get_all_suite_runners(args.buildbot, not args.use_xvfb)
+  test_list_filter = test_filter.TestListFilter(
+      include_pattern_list=args.include_patterns,
+      exclude_pattern_list=args.exclude_patterns)
+  test_run_filter = test_filter.TestRunFilter(
+      include_fail=args.include_failing,
+      include_large=args.include_large,
+      include_timeout=args.include_timeouts)
+
+  run_list = []
+  skip_list = []
+  flag_width = 0
+  for runner in all_suite_runners:
+    for test_name, flag in runner.expectation_map.iteritems():
+      qualified_name = '%s:%s' % (runner.name, test_name)
+      if not test_list_filter.should_include(qualified_name):
+        continue
+      out = run_list if test_run_filter.should_run(flag) else skip_list
+      out.append((qualified_name, flag))
+      flag_width = max(flag_width, len(str(flag)))
+
+  def print_test_list(tag, test_list):
+    for qualified_name, flag in sorted(test_list):
+      line_color = _REPORT_COLOR_FOR_SUITE_EXPECTATION[
+        scoreboard.Scoreboard.map_expectation_flag_to_result(flag)]
+      color.write_ansi_escape(
+          sys.stdout, line_color,
+          '[%-4s %-*s] %s\n' % (tag, flag_width, flag, qualified_name))
+
+  print_test_list('RUN', run_list)
+  print_test_list('SKIP', skip_list)
 
 
 def print_chrome_version():
@@ -308,8 +330,9 @@ def parse_args(args):
                       help=('An Option to pass on to launch_chrome. Repeat as '
                             'needed for any options to pass on.'))
   parser.add_argument('--list', action='store_true',
-                      help=('List the fully qualified names of tests. '
-                            'Can be used with -t and --include-* flags.'))
+                      help=('List the fully qualified names of tests and '
+                            'expectations. Can be used with -t and '
+                            '--include-* flags.'))
   parser.add_argument('--max-deadline', '--max-timeout',
                       metavar='T', default=0, type=int,
                       help=('Maximum deadline for browser tests. The test '
@@ -476,8 +499,7 @@ def main(raw_args):
                                                key=lambda driver: driver.name))
     return 0
   elif args.list:
-    list_fully_qualified_test_names(
-        (driver.scoreboard for driver in test_driver_list), args)
+    pretty_print_tests(args)
     return 0
   elif args.remote:
     return _run_suites_and_output_results_remote(args, raw_args)

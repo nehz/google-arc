@@ -224,39 +224,39 @@ def get_bionic_libc_malloc_debug_leak_so():
   return os.path.join(get_load_library_path(), 'libc_malloc_debug_leak.so')
 
 
-def get_bionic_objects(need_stlport=True):
-  return [
-      get_bionic_crtbegin_o(),
-      get_bionic_crtbegin_so_o(),
-      get_bionic_crtend_o(),
-      get_bionic_crtend_so_o(),
-      get_bionic_runnable_ld_so()] + get_bionic_shared_objects(need_stlport)
+def get_bionic_objects():
+  return ([get_bionic_crtbegin_o(),
+           get_bionic_crtbegin_so_o(),
+           get_bionic_crtend_o(),
+           get_bionic_crtend_so_o(),
+           get_bionic_runnable_ld_so()] +
+          get_bionic_shared_objects(use_stlport=False))
 
 
 def get_bionic_runnable_ld_so():
   return os.path.join(get_load_library_path(), 'runnable-ld.so')
 
 
-def get_bionic_shared_objects(need_stlport=True):
+def get_bionic_shared_objects(use_stlport):
   objects = [get_bionic_libc_so(),
              get_bionic_libdl_so(),
              get_bionic_libm_so()]
-  if need_stlport:
+  if use_stlport:
     objects.append(get_bionic_libstlport_so())
   return objects
 
 
 def get_bionic_arch_name():
-  """Returns Bionic's architecture sub directory name.
+  """Returns Bionic's architecture name as used in sub directories.
 
   The architecture name is used in sub directories like
   android/bionic/libc/kernel/arch-arm.
+  android/bionic/libc/arch-arm.
   """
-
   if OPTIONS.is_arm():
-    return 'arch-arm'
+    return 'arm'
   else:
-    return 'arch-x86'
+    return 'x86'
 
 
 def filter_params_for_harfbuzz(vars):

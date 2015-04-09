@@ -20,6 +20,9 @@ _NACL_DEPS_PATH = os.path.join(_SCRIPT_DIR, 'DEPS.naclsdk')
 _NACL_SDK_PATH = os.path.join('third_party', 'nacl_sdk', _PEPPER_VERSION)
 _NACL_TOOLS_PATH = os.path.join(_NACL_SDK_PATH, 'tools')
 _PNACL_BIN_PATH = os.path.join(_NACL_SDK_PATH, 'toolchain/linux_pnacl/bin')
+# Don't calculate _PNACL_INCLUDE_DIR here (since it needs filesystem access),
+# do that in get_pnacl_include_dir() instead.
+_PNACL_INCLUDE_DIR = None
 # TODO(crbug.com/247242): support --naclsdktype={debug,release}
 _NACL_SDK_RELEASE = 'Release'  # alternative: Debug
 _QEMU_ARM_LD_PATH = '/usr/arm-linux-gnueabihf'
@@ -120,6 +123,25 @@ def get_nacl_tool(tool):
 
 def get_nacl_irt_core(bitsize):
   return get_nacl_tool('irt_core_x86_%d.nexe' % bitsize)
+
+
+def get_pnacl_include_dir():
+  global _PNACL_INCLUDE_DIR
+  # Recalculate _PNACL_INCLUDE_DIR if needed
+  if _PNACL_INCLUDE_DIR is None:
+    # In theory there should only ever be one correct directory, but sometimes
+    # there are two (e.g. pepper_41 contains both worksing "3.5.0" directory and
+    # empty and non-working "3.4" directory) so we'll just go from newest to
+    # latest.
+    _PNACL_INCLUDE_DIR = os.path.join(  # PPAPI SDK 43+
+        _NACL_SDK_PATH, 'toolchain/linux_pnacl/lib/clang/3.6.0/include')
+    if not os.path.isdir(_PNACL_INCLUDE_DIR):
+      _PNACL_INCLUDE_DIR = os.path.join(  # PPAPI SDK 41-42
+          _NACL_SDK_PATH, 'toolchain/linux_pnacl/lib/clang/3.5.0/include')
+      if not os.path.isdir(_PNACL_INCLUDE_DIR):
+        _PNACL_INCLUDE_DIR = os.path.join(  # PPAPI SDK 40-
+            _NACL_SDK_PATH, 'toolchain/linux_pnacl/lib/clang/3.4/include')
+  return _PNACL_INCLUDE_DIR
 
 
 def _get_runner_env_vars(extra_library_paths=None, extra_envs=None):

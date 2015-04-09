@@ -656,7 +656,8 @@ class NinjaGenerator(ninja_syntax.Writer):
             toolchain.get_tool(target, rule_prefix))
 
   def emit_compiler_rule(self, rule_prefix, target, flag_name,
-                         supports_deps=True, extra_flags=None):
+                         supports_deps=True, extra_flags=None,
+                         compiler_includes=None):
     extra_flags = build_common.as_list(extra_flags)
     rule_name, driver_name = NinjaGenerator._get_name_and_driver(rule_prefix,
                                                                  target)
@@ -677,17 +678,20 @@ class NinjaGenerator(ninja_syntax.Writer):
       # So we disable this warning for now.
       extra_flags.append('-Wno-unused-local-typedefs')
 
+    flags = '$' + flag_name + ' ' + ' '.join(extra_flags)
+    if compiler_includes is not None:
+      flags = '$' + compiler_includes + ' ' + flags
+
     if supports_deps:
       self.rule(rule_name,
                 deps='gcc',
                 depfile='$out.d',
-                command=(driver_name + ' -MD -MF $out.d $' + flag_name +
-                         ' ' + ' '.join(extra_flags) + ' -c $in -o $out'),
+                command='%s -MD -MF $out.d %s -c $in -o $out' %
+                        (driver_name, flags),
                 description=rule_name + ' $in_real_path')
     else:
       self.rule(rule_name,
-                command=(driver_name + ' $' + flag_name +
-                         ' ' + ' '.join(extra_flags) + ' -c $in -o $out'),
+                command='%s %s -c $in -o $out' % (driver_name, flags),
                 description=rule_name + ' $in_real_path')
 
   def emit_linker_rule(self, rule_prefix, target, flag_name):
@@ -1144,6 +1148,43 @@ class CNinjaGenerator(NinjaGenerator):
     assert False, 'Unsupported CPU architecture: ' + OPTIONS.target()
 
   @staticmethod
+  def get_clang_includes():
+    if OPTIONS.is_nacl_build():
+      clang_include = ' -isystem ' + toolchain.get_pnacl_include_dir()
+    else:
+      clang_include = ' -isystem ' + toolchain.get_clang_include_dir()
+
+    # We need to specify bionic includes right after clang includes, otherwise
+    # include_next tricks used by headers like <limits.h> don't work.
+    return (clang_include +
+            ' -isystem ' + staging.as_staging('android/bionic/libc/include'))
+
+  @staticmethod
+  def get_gcc_includes():
+    gcc_raw_version = toolchain.get_gcc_raw_version(OPTIONS.target())
+
+    if OPTIONS.is_nacl_build():
+      gcc_include = os.path.join(
+          toolchain.get_nacl_toolchain_root(),
+          'lib/gcc/x86_64-nacl/%s/include' % gcc_raw_version)
+    else:
+      if OPTIONS.is_arm():
+        # Ubuntu 14.04 has this diriectory for cross-compile headers.
+        if os.path.exists('/usr/lib/gcc-cross'):
+          gcc_include = (
+              '/usr/lib/gcc-cross/arm-linux-gnueabihf/%s/include' %
+              gcc_raw_version)
+        else:
+          gcc_include = ('/usr/lib/gcc/arm-linux-gnueabihf/%s/include' %
+                         gcc_raw_version)
+      else:
+        gcc_include = ('/usr/lib/gcc/x86_64-linux-gnu/%s/include' %
+                       gcc_raw_version)
+    return (
+        ' -isystem ' + gcc_include +
+        ' -isystem ' + '%s-fixed' % gcc_include)
+
+  @staticmethod
   def get_archcflags():
     archcflags = ''
     # If the build target uses linux x86 ABIs, stack needs to be aligned at
@@ -1159,29 +1200,7 @@ class CNinjaGenerator(NinjaGenerator):
     if OPTIONS.is_bare_metal_build():
       archcflags += ' -fstack-protector'
 
-    gcc_raw_version = toolchain.get_gcc_raw_version(OPTIONS.target())
-
-    if OPTIONS.is_nacl_build():
-      compiler_include = os.path.join(
-          toolchain.get_nacl_toolchain_root(),
-          'lib/gcc/x86_64-nacl/%s/include' % gcc_raw_version)
-    else:
-      if OPTIONS.is_arm():
-        # Ubuntu 14.04 has this diriectory for cross-compile headers.
-        if os.path.exists('/usr/lib/gcc-cross'):
-          compiler_include = (
-              '/usr/lib/gcc-cross/arm-linux-gnueabihf/%s/include' %
-              gcc_raw_version)
-        else:
-          compiler_include = ('/usr/lib/gcc/arm-linux-gnueabihf/%s/include' %
-                              gcc_raw_version)
-      else:
-        compiler_include = ('/usr/lib/gcc/x86_64-linux-gnu/%s/include' %
-                            gcc_raw_version)
     archcflags += (
-        # Pick compiler specific include paths (e.g., stdargs.h) first.
-        ' -isystem ' + compiler_include +
-        ' -isystem ' + '%s-fixed' % compiler_include +
         # TODO(crbug.com/243244): It might be probably a bad idea to
         # include files in libc/kernel from non libc code.
         # Check if they are really necessary once we can compile
@@ -1189,10 +1208,10 @@ class CNinjaGenerator(NinjaGenerator):
         ' -isystem ' + staging.as_staging(
             'android/bionic/libc/kernel/common') +
         ' -isystem ' + staging.as_staging(
-            'android/bionic/libc/kernel/%s' %
+            'android/bionic/libc/kernel/arch-%s' %
             build_common.get_bionic_arch_name()) +
         ' -isystem ' + staging.as_staging(
-            'android/bionic/libc/%s/include' %
+            'android/bionic/libc/arch-%s/include' %
             build_common.get_bionic_arch_name()) +
         ' -isystem ' + staging.as_staging('android/bionic/libc/include') +
         ' -isystem ' + staging.as_staging('android/bionic/libm/include') +
@@ -1458,14 +1477,18 @@ class CNinjaGenerator(NinjaGenerator):
     if OPTIONS.is_nacl_build():
       extra_flags = ['$naclflags']
     n.emit_compiler_rule('cxx', target, flag_name='cxxflags',
-                         extra_flags=extra_flags + ['$gxxflags'])
+                         extra_flags=extra_flags + ['$gxxflags'],
+                         compiler_includes='gccsystemincludes')
     n.emit_compiler_rule('cc', target, flag_name='cflags',
-                         extra_flags=extra_flags + ['$gccflags'])
+                         extra_flags=extra_flags + ['$gccflags'],
+                         compiler_includes='gccsystemincludes')
     if toolchain.has_clang(target):
       n.emit_compiler_rule('clangxx', target, flag_name='cxxflags',
-                           extra_flags=extra_flags + ['$clangxxflags'])
+                           extra_flags=extra_flags + ['$clangxxflags'],
+                           compiler_includes='clangsystemincludes')
       n.emit_compiler_rule('clang', target, flag_name='cflags',
-                           extra_flags=extra_flags + ['$clangflags'])
+                           extra_flags=extra_flags + ['$clangflags'],
+                           compiler_includes='clangsystemincludes')
     n.emit_compiler_rule('asm_with_preprocessing', target, flag_name='asmflags',
                          extra_flags=extra_flags + ['$gccflags'])
     n.emit_compiler_rule('asm', target, flag_name='asmflags',
@@ -1515,6 +1538,8 @@ class CNinjaGenerator(NinjaGenerator):
   @staticmethod
   def emit_common_rules(n):
     n.variable('asmflags', CNinjaGenerator.get_asmflags())
+    n.variable('gccsystemincludes', CNinjaGenerator.get_gcc_includes())
+    n.variable('clangsystemincludes', CNinjaGenerator.get_clang_includes())
     n.variable('cflags', CNinjaGenerator.get_cflags())
     n.variable('cxxflags', CNinjaGenerator.get_cxxflags())
     n.variable('hostcflags', CNinjaGenerator.get_hostcflags())
@@ -1900,7 +1925,7 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
     # For libc.so, we must not set syscall wrappers.
     if not is_system_library and not self._is_host:
       self._shared_deps.extend(
-          build_common.get_bionic_shared_objects(link_stlport))
+          build_common.get_bionic_shared_objects(use_stlport=link_stlport))
       self._shared_deps.append(
           os.path.join(build_common.get_load_library_path(),
                        'libposix_translation.so'))
@@ -2017,7 +2042,8 @@ class ExecNinjaGenerator(CNinjaGenerator):
         self._whole_archive_deps.extend(get_libgcc_for_bionic())
       else:
         self._static_deps.extend(get_libgcc_for_bionic())
-      self._shared_deps.extend(build_common.get_bionic_shared_objects())
+      self._shared_deps.extend(
+          build_common.get_bionic_shared_objects(use_stlport=True))
 
   def link(self, variables=None, implicit=None, **kwargs):
     implicit = as_list(implicit) + self._static_deps + self._whole_archive_deps
