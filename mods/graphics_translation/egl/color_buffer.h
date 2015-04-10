@@ -51,8 +51,8 @@ class ColorBuffer {
 
   // Bind the colorbuffer to a host OpenGL context (pp::Graphics3D). It will be
   // used to render the content of this ColorBuffer.
-  void BindHostContext(void* host_context);
-  void* GetHostContext() const { return host_context_; }
+  void BindContext(EGLContext context);
+  void* GetHostContext() const;
   GLuint GetTexture() const { return texture_; }
   GLuint GetGlobalTexture() const { return global_texture_; }
   EglImagePtr GetImage() const { return image_; }
@@ -75,7 +75,7 @@ class ColorBuffer {
   GLuint global_texture_;
   EglImagePtr image_;
   void* locked_mem_;
-  void* host_context_;
+  EGLContext egl_context_;
 
   // TODO(crbug.com/441910): Figure out if this reference count can be merged
   // with the SmartPtr refcount, or if we even need the SmartPtr at all.

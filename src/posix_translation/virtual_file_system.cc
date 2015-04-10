@@ -395,10 +395,27 @@ void* VirtualFileSystem::mmap(void* addr, size_t length, int prot, int flags,
   base::AutoLock lock(mutex_);
   ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
 
-  if (!util::IsPageAligned(addr) || !length) {
+  if (!length) {
     errno = EINVAL;
     return MAP_FAILED;
   }
+
+  if (!util::IsPageAligned(addr)) {
+    // Do the same as Linux which accepts an unaligned |addr| unless MAP_FIXED
+    // is specified. Check MAP_FIXED early in VFS to provide a consistent errno
+    // (EINVAL) regardless of the stream the |fd| is bound to.
+    if (flags & MAP_FIXED) {
+      errno = EINVAL;
+      return MAP_FAILED;
+    }
+    const uintptr_t aligned_addr =
+        reinterpret_cast<uintptr_t>(addr) & ~(util::GetPageSize() - 1);
+    ARC_STRACE_REPORT("Rewriting an unaligned |addr| %p to 0x%08x",
+                      addr, aligned_addr);
+    // Not to confuse stream implementations, re-align the bad hint in VFS.
+    addr = reinterpret_cast<void*>(aligned_addr);
+  }
+
   if (util::RoundToPageSize(offset) != static_cast<size_t>(offset)) {
     // |offset| is not a multiple of the page size.
     errno = EINVAL;
@@ -790,17 +807,19 @@ int VirtualFileSystem::dup2(int fd, int newfd) {
 int VirtualFileSystem::DupLocked(int fd, int newfd) {
   mutex_.AssertAcquired();
 
+  scoped_refptr<FileStream> stream = fd_to_stream_->GetStream(fd);
+  if (!stream) {
+    errno = EBADF;
+    return -1;
+  }
+
   if (newfd < 0)
     newfd = GetFirstUnusedDescriptorLocked();
   if (newfd < 0) {
     errno = EMFILE;
     return -1;
   }
-  scoped_refptr<FileStream> stream = fd_to_stream_->GetStream(fd);
-  if (!stream) {
-    errno = EBADF;
-    return -1;
-  }
+
   ARC_STRACE_DUP_FD(fd, newfd);
   if (fd == newfd)
     return newfd;  // NB: Do not reuse this code for dup3().

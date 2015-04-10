@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include <algorithm>
+#include <set>
 
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
@@ -150,6 +151,8 @@ const char kTestPath[] = "/test.file";
 class FileSystemTest : public FileSystemBackgroundTestCommon<FileSystemTest> {
  public:
   // These tests all are fairly unique and there is no real common setup.
+  DECLARE_BACKGROUND_TEST(TestDup);
+  DECLARE_BACKGROUND_TEST(TestDupInvalid);
   DECLARE_BACKGROUND_TEST(TestEPollBasic);
   DECLARE_BACKGROUND_TEST(TestEPollClose);
   DECLARE_BACKGROUND_TEST(TestEPollErrorHandling);
@@ -373,6 +376,49 @@ TEST_F(FileSystemTest, TestGetNormalizedPath) {
   EXPECT_EQ("/a", GetNormalizedPath("/../a", kOption));
   EXPECT_EQ("/a", GetNormalizedPath("/../a/", kOption));
   EXPECT_EQ("/", GetNormalizedPath("/../..", kOption));
+}
+
+TEST_BACKGROUND_F(FileSystemTest, TestDup) {
+  std::set<int> fds_used;
+  int fd = GetFirstUnusedDescriptor();
+  EXPECT_GE(fd, 0);
+  fds_used.insert(fd);
+
+  scoped_refptr<TestFileStream> stream = new TestFileStream;
+  AddFileStream(fd, stream);
+
+  // Must be able to use every file descriptor in pool.
+  static const size_t kNum = kMaxFdForTesting - kMinFdForTesting;
+  for (size_t i = 0; i < kNum; ++i) {
+    errno = 0;
+    int fd_dup = file_system_->dup(fd);
+    EXPECT_EQ(errno, 0) << i;
+    EXPECT_GE(fd_dup, 0) << i;
+    // Validate that we generated unique id.
+    EXPECT_EQ(fds_used.count(fd_dup), 0) << i;
+    EXPECT_TRUE(fds_used.insert(fd_dup).second) << i;
+    // Validate that duplicate points to the same stream.
+    scoped_refptr<TestFileStream> test_stream =
+        static_cast<TestFileStream*>(GetStream(fd_dup).get());
+    EXPECT_EQ(stream, test_stream) << i;
+  }
+  // No more file descriptor in pool. Error is returned.
+  errno = 0;
+  int fd_dup = file_system_->dup(fd);
+  EXPECT_EQ(errno, EMFILE);
+  EXPECT_EQ(fd_dup, -1);
+}
+
+TEST_BACKGROUND_F(FileSystemTest, TestDupInvalid) {
+  // Duplicating invalid file descriptor returns -1 and sets EBADF error. Must
+  // be able to process more calls than file descriptor pool size.
+  static const size_t kNum = kMaxFdForTesting - kMinFdForTesting + 2;
+  for (size_t i = 0; i < kNum; ++i) {
+    errno = 0;
+    int fd_dup = file_system_->dup(-1);
+    EXPECT_EQ(errno, EBADF) << i;
+    EXPECT_EQ(fd_dup, -1) << i;
+  }
 }
 
 TEST_BACKGROUND_F(FileSystemTest, TestEPollBasic) {

@@ -114,9 +114,8 @@ void EglSurfaceImpl::UpdateColorBufferHostContext() {
     return;
   }
   if (bound_context_) {
-    GlesContext* gles = bound_context_->GetGlesContext();
-    color_buffer_->BindHostContext(gles->Impl());
+    color_buffer_->BindContext(bound_context_->GetKey());
   } else {
-    color_buffer_->BindHostContext(NULL);
+    color_buffer_->BindContext(NULL);
   }
 }

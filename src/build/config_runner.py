@@ -624,7 +624,7 @@ def _verify_ninja_generator_list(ninja_list):
   # count is same.  The open source repository builds a subset of binaries so
   # we do not check its numbers.
   if not open_source.is_open_source_repo():
-    ninja_generator.ArchiveNinjaGenerator.verify_usage_counts(
+    ninja_generator.ArchiveNinjaGenerator.verify_usage(
         archive_ninja_list, shared_ninja_list, exec_ninja_list)
 
 

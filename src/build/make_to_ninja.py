@@ -1724,7 +1724,7 @@ def _generate_java_ninja(vars):
   n = JarNinjaGenerator(vars.get_module_name(), base_path=base_path,
                         install_path='/system/framework',
                         resource_subdirectories=vars._local_resource_dirs,
-                        aapt_flags=vars._aapt_flags,
+                        aapt_flags=shlex.split(vars._aapt_flags),
                         include_aidl_files=aidl_sources,
                         dex_preopt=not vars.is_static_java_library(),
                         java_resource_dirs=vars._java_resource_dirs,

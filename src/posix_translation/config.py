@@ -179,8 +179,7 @@ def generate_test_ninjas():
 
   # To be able to refer mock implementation from outside of posix_translation.
   # Setting instance count is zero because usage count verifier doesn't check
-  # the reference from test executable. See verify_usage_counts in
-  # ninja_generator.py
+  # the reference from test executable. See verify_usage in ninja_generator.py.
   n = ArchiveNinjaGenerator('mock_posix_translation', instances=0)
   n.add_libchromium_base_compile_flags()
   n.add_compiler_flags('-Werror')

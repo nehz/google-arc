@@ -10,7 +10,6 @@ import argparse
 import logging
 import os
 import re
-import subprocess
 import sys
 import zipfile
 
@@ -20,12 +19,7 @@ import build_common
 import run_integration_tests
 import toolchain
 from build_options import OPTIONS
-from util import file_util
 from util import remote_executor_util
-
-
-def _get_stripped_dir():
-  return os.path.join(build_common.get_build_dir(), 'test_bundle_stripped')
 
 
 def _collect_descendants(paths):
@@ -59,10 +53,13 @@ def _zip_files(filename, paths):
   with zipfile.ZipFile(filename, 'w', compression=zipfile.ZIP_DEFLATED,
                        allowZip64=True) as f:
     for path in set(paths):
-      if path.startswith(_get_stripped_dir()):
+      if path.startswith(build_common.get_stripped_dir()):
         # When archiving a stripped file, use the path of the corresponding
         # unstripped file as archive name
-        f.write(path, arcname=os.path.relpath(path, _get_stripped_dir()))
+        arcname = os.path.join(
+            build_common.get_build_dir(),
+            os.path.relpath(path, build_common.get_stripped_dir()))
+        f.write(path, arcname=arcname)
       else:
         f.write(path)
 
@@ -79,24 +76,16 @@ def _get_integration_tests_args(jobs):
   return args
 
 
-def _should_strip(path):
-  """Returns true if the file at |path| should be stripped."""
-  return (path.startswith(build_common.get_build_dir()) and
-          path.endswith(('.nexe', '.so')))
-
-
-def _strip_binaries(paths):
-  """Strips the files in |paths| and returns the paths of stripped files."""
-  stripped_paths = []
+def _convert_to_stripped_paths(paths):
+  """Converts |paths| to a list that includes corresponding stripped paths."""
+  new_paths = []
   for path in paths:
-    if _should_strip(path):
-      stripped_path = os.path.join(_get_stripped_dir(), path)
-      file_util.makedirs_safely(os.path.dirname(stripped_path))
-      subprocess.check_call(['strip', path, '-o', stripped_path])
-      stripped_paths.append(stripped_path)
+    stripped_path = build_common.get_stripped_path(path)
+    if stripped_path and os.path.exists(stripped_path):
+      new_paths.append(stripped_path)
     else:
-      stripped_paths.append(path)
-  return stripped_paths
+      new_paths.append(path)
+  return new_paths
 
 
 def _parse_args():
@@ -133,7 +122,7 @@ if __name__ == '__main__':
   # Archive all the files needed to run integration tests into a zip file.
   paths = _get_archived_file_paths()
   if OPTIONS.is_debug_info_enabled():
-    paths = _strip_binaries(paths)
+    paths = _convert_to_stripped_paths(paths)
   print 'Creating %s' % parsed_args.output
   _zip_files(parsed_args.output, paths)
   print 'Done'

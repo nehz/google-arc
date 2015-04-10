@@ -61,22 +61,13 @@ def _get_libgcc_for_bionic_realpath():
     # symbols with __attribute__((visibility("hidden"))) so we cannot
     # expose these symbols from libc.so. We cannot also use libgcc.so for
     # glibc as it has a DT_NEEDED entry to glibc's libc.so.
-    if OPTIONS.is_arm():
-      return [os.path.join(
-          toolchain.get_nacl_sdk_path(),
-          'toolchain/linux_arm_newlib/lib/gcc/arm-nacl/4.8.3/libgcc.a')]
-    else:
-      bits_subdir = '' if OPTIONS.is_x86_64() else '32/'
-      return [os.path.join(
-          toolchain.get_nacl_sdk_path(),
-          'toolchain/linux_x86_newlib/lib/gcc/x86_64-nacl/4.4.3/%slibgcc.a' %
-          bits_subdir)]
+    bits_subdir = '' if OPTIONS.is_x86_64() else '32/'
+    return [os.path.join(
+        toolchain.get_nacl_sdk_path(),
+        'toolchain/linux_x86_newlib/lib/gcc/x86_64-nacl/4.4.3/%slibgcc.a' %
+        bits_subdir)]
   elif OPTIONS.is_bare_metal_build():
-    if OPTIONS.is_i686():
-      return [get_libgcc_for_bare_metal()]
-    elif OPTIONS.is_arm():
-      libgcc = [get_libgcc_for_bare_metal()]
-      return libgcc
+    return [get_libgcc_for_bare_metal()]
   raise Exception('Bionic is not supported yet for ' + OPTIONS.target())
 
 
@@ -212,6 +203,14 @@ class _BootclasspathComputer(object):
   _installed_jars = []
 
   @staticmethod
+  def _compute_jar_list_from_core_base_definition(definition_name):
+    name_list = _extract_pattern_from_file(
+        'third_party/android/build/target/product/core_base.mk',
+        definition_name + r' := (.*)')
+    return ['/system/framework/%s.jar' % name.strip()
+            for name in name_list.split(':') if name.strip()]
+
+  @staticmethod
   def _compute():
     """Compute the system's bootclasspath.
 
@@ -220,13 +219,17 @@ class _BootclasspathComputer(object):
     This function determines that bootclasspath.
     """
     if _BootclasspathComputer._string is None:
-      upstream = _extract_pattern_from_file(
-          'third_party/android/build/target/product/core_base.mk',
-          'PRODUCT_BOOT_JARS := (.*)')
-      upstream_installed = ['/system/framework/%s.jar' % n
-                            for n in upstream.split(':')]
+      upstream_installed = (
+          _BootclasspathComputer._compute_jar_list_from_core_base_definition(
+              'PRODUCT_BOOT_JARS'))
+
       # We do not have mms-common.jar yet.
-      upstream_installed.remove('/system/framework/mms-common.jar')
+      try:
+        upstream_installed.remove('/system/framework/mms-common.jar')
+      except:
+        logging.error('Could not remove from: %s' % upstream_installed)
+        raise
+
       # Insert arc-services-framework.jar before services.jar which depends
       # on it.
       upstream_installed.insert(
@@ -468,9 +471,12 @@ class NinjaGenerator(ninja_syntax.Writer):
     else:
       CNinjaGenerator._add_bionic_stdlibs(flags, is_so, is_system_library)
 
-  def get_ldflags(self):
-    return '$commonflags -Wl,-z,noexecstack -pthread%s -nostdlib' % (
+  def get_ldflags(self, is_host=False):
+    ldflags = '$commonflags -Wl,-z,noexecstack -pthread%s' % (
         self._get_debug_ldflags())
+    if not is_host:
+      ldflags += ' -nostdlib'
+    return ldflags
 
   def _get_debug_ldflags(self):
     if OPTIONS.is_debug_info_enabled():
@@ -915,7 +921,7 @@ class CNinjaGenerator(NinjaGenerator):
     super(CNinjaGenerator, self).__init__(module_name, ninja_name, **kwargs)
     # This is set here instead of TopLevelNinjaGenerator because the ldflags
     # depend on module name.
-    self.variable('ldflags', self.get_ldflags())
+    self.variable('ldflags', self.get_ldflags(is_host=self._is_host))
     self._intermediates_dir = os.path.join(
         build_common.get_build_dir(is_host=self._is_host),
         'intermediates', self._ninja_name)
@@ -1199,6 +1205,10 @@ class CNinjaGenerator(NinjaGenerator):
 
     if OPTIONS.is_bare_metal_build():
       archcflags += ' -fstack-protector'
+    if OPTIONS.is_nacl_x86_64():
+      # clang 3.4 or nacl-gcc doesn't define __ILP32__ but clang 3.5 defines it.
+      # Make it consistent.
+      archcflags += ' -D__ILP32__=1'
 
     archcflags += (
         # TODO(crbug.com/243244): It might be probably a bad idea to
@@ -1335,8 +1345,6 @@ class CNinjaGenerator(NinjaGenerator):
     # standard include paths for clang. '-nostdinc++' works to remove the paths
     # for both gcc and clang.
     cxx_flags = ' -nostdinc++'
-    cxx_flags += (' -isystem ' + staging.as_staging(
-        'android/external/stlport/stlport'))
     # This is necessary because STLport includes headers like
     # libstdc++/include/new.
     cxx_flags += (' -isystem ' + staging.as_staging('android/bionic'))
@@ -1348,7 +1356,13 @@ class CNinjaGenerator(NinjaGenerator):
       # STLport to use new/delete instead of the custom allocator.
       # See http://stlport.sourceforge.net/FAQ.shtml#leaks
       cxx_flags += ' -D_STLP_USE_NEWALLOC'
-
+    # Add STLport headers into the system search path by default to be
+    # compatible with Android toolchains.
+    # On modules that use libc++ via enable_libcxx=True, libc++ headers are
+    # added into the normal search path so that libc++ headers are used
+    # preferentially.
+    cxx_flags += (' -isystem ' +
+                  staging.as_staging('android/external/stlport/stlport'))
     # ARC, Android, PPAPI libraries, and the third_party libraries (except
     # ICU) do not use RTTI at all. Note that only g++ supports the flags.
     # gcc does not.
@@ -1357,11 +1371,32 @@ class CNinjaGenerator(NinjaGenerator):
     return cxx_flags + ' $cflags -fno-rtti'
 
   @staticmethod
+  def get_targetflags():
+    targetflags = ''
+    if OPTIONS.is_nacl_build():
+      targetflags += '-DTARGET_ARC_NATIVE_CLIENT '
+    elif OPTIONS.is_bare_metal_build():
+      targetflags += '-DTARGET_ARC_BARE_METAL '
+
+    if OPTIONS.is_bare_metal_i686():
+      targetflags += '-DTARGET_ARC_BARE_METAL_X86 '
+    elif OPTIONS.is_bare_metal_arm():
+      targetflags += '-DTARGET_ARC_BARE_METAL_ARM '
+    elif OPTIONS.is_nacl_x86_64():
+      targetflags += '-DTARGET_ARC_NATIVE_CLIENT_X86_64 '
+    return targetflags
+
+  @staticmethod
+  def get_hostasmflags():
+    return '-DHAVE_ARC_HOST ' + CNinjaGenerator.get_targetflags()
+
+  @staticmethod
   def get_hostcflags():
     # The host C flags are kept minimal as relevant flags, such as -Wall, are
     # provided from MakefileNinjaTranslator, and most of the host binaries
     # are built via MakefileNinjaTranslator.
     hostcflags = (CNinjaGenerator._get_debug_cflags() +
+                  ' $hostasmflags' +
                   ' -I' + staging.as_staging('src') +
                   ' -I' + staging.as_staging('android_libcommon') +
                   ' -I' + staging.as_staging('android') +
@@ -1392,7 +1427,7 @@ class CNinjaGenerator(NinjaGenerator):
       flags.extend(['-mthumb-interwork', '-mfpu=neon-vfpv4', '-Wno-psabi',
                     '-Wa,-mimplicit-it=thumb'])
     if OPTIONS.is_nacl_i686():
-      # For historical reasons by default x86-32 NaCl produces code for quote
+      # For historical reasons by default x86-32 NaCl produces code for quite
       # exotic CPU: 80386 with SSE instructions (but without SSE2!).
       # Let's use something more realistic.
       flags.extend(['-march=pentium4', '-mtune=core2'])
@@ -1413,7 +1448,7 @@ class CNinjaGenerator(NinjaGenerator):
     if OPTIONS.is_arm():
       flags.extend(['-target', 'arm-linux-gnueabi'])
     if OPTIONS.is_nacl_i686():
-      # PNaCl clang ensures the stack pointer is aligned to 16 byte
+      # NaCl clang ensures the stack pointer is aligned to 16 byte
       # boundaries and assumes other objects do the same. Dalvik for
       # i686 violates this assumption so we need to re-align the stack
       # at the beginning of all functions built by PNaCl clang.
@@ -1430,7 +1465,7 @@ class CNinjaGenerator(NinjaGenerator):
     if not OPTIONS.is_debug_code_enabled():
       # Add NDEBUG to get rid of all *LOGV, *LOG_FATAL_IF, and *LOG_ASSERT calls
       # from our build.
-      debug_flags += '-DNDEBUG '
+      debug_flags += '-DNDEBUG -UDEBUG '
     if OPTIONS.is_debug_info_enabled():
       debug_flags += '-g '
     return debug_flags
@@ -1542,6 +1577,7 @@ class CNinjaGenerator(NinjaGenerator):
     n.variable('clangsystemincludes', CNinjaGenerator.get_clang_includes())
     n.variable('cflags', CNinjaGenerator.get_cflags())
     n.variable('cxxflags', CNinjaGenerator.get_cxxflags())
+    n.variable('hostasmflags', CNinjaGenerator.get_hostasmflags())
     n.variable('hostcflags', CNinjaGenerator.get_hostcflags())
     n.variable('hostcxxflags', CNinjaGenerator.get_hostcxxflags())
 
@@ -1720,6 +1756,7 @@ class RegenDependencyComputer(object):
                                  filenames='config.py',
                                  use_staging=False,
                                  include_tests=True)
+
     self._input += get_configuration_dependencies()
 
     self._output = [OPTIONS.get_configure_options_file()]
@@ -1814,6 +1851,7 @@ class TopLevelNinjaGenerator(NinjaGenerator):
     CNinjaGenerator.emit_common_rules(self)
     JarNinjaGenerator.emit_common_rules(self)
     JavaNinjaGenerator.emit_common_rules(self)
+    NaClizeNinjaGenerator.emit_common_rules(self)
     NinjaGenerator.emit_common_rules(self)
     NoticeNinjaGenerator.emit_common_rules(self)
     PythonTestNinjaGenerator.emit_common_rules(self)
@@ -1845,8 +1883,7 @@ class TopLevelNinjaGenerator(NinjaGenerator):
 class ArchiveNinjaGenerator(CNinjaGenerator):
   """Simple archive (static library) generator."""
 
-  def __init__(self, module_name, instances=1,
-               disallowed_symbol_files=None,
+  def __init__(self, module_name, instances=1, disallowed_symbol_files=None,
                **kwargs):
     super(ArchiveNinjaGenerator, self).__init__(
         module_name, ninja_name=module_name + '_a', **kwargs)
@@ -1870,8 +1907,7 @@ class ArchiveNinjaGenerator(CNinjaGenerator):
                       inputs=self._consume_objects(), **kwargs)
 
   @staticmethod
-  def verify_usage_counts(archive_ninja_list,
-                          shared_ninja_list, exec_ninja_list):
+  def verify_usage(archive_ninja_list, shared_ninja_list, exec_ninja_list):
     usage_dict = collections.defaultdict(list)
     for ninja in shared_ninja_list + exec_ninja_list:
       for module_name in ninja.get_included_module_names():
@@ -1880,7 +1916,7 @@ class ArchiveNinjaGenerator(CNinjaGenerator):
         key = (module_name, ninja.is_host())
         usage_dict[key].append(ninja._module_name)
 
-    error_list = []
+    count_error_list = []
     for ninja in archive_ninja_list:
       usage_list = usage_dict[(ninja._module_name, ninja.is_host())]
       if ninja.is_host():
@@ -1888,16 +1924,17 @@ class ArchiveNinjaGenerator(CNinjaGenerator):
         # important. We only check if an archive is used at least once.
         if usage_list:
           continue
-        error_list.append('%s for host is not used' % ninja._module_name)
+        count_error_list.append('%s for host is not used' % ninja._module_name)
       else:
         if len(usage_list) == ninja._instances:
           continue
-        error_list.append(
+        count_error_list.append(
             '%s for target (allowed: %d, actual: %s)' % (
                 ninja._module_name, ninja._instances, usage_list))
-    if error_list:
+    if count_error_list:
       raise Exception(
-          'Archives used unexpected number of times: ' + ', '.join(error_list))
+          'Archives used unexpected number of times:\n  ' +
+          '\n  '.join(count_error_list))
 
 
 class SharedObjectNinjaGenerator(CNinjaGenerator):
@@ -1906,7 +1943,7 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
   # Whether linking of new shared objects is enabled
   _ENABLED = True
 
-  def __init__(self, module_name, install_path='/lib',
+  def __init__(self, module_name, install_path='/lib', dt_soname=None,
                disallowed_symbol_files=None,
                is_system_library=False, link_crtbegin=True, link_stlport=True,
                is_for_test=False, **kwargs):
@@ -1914,6 +1951,7 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
         module_name, ninja_name=module_name + '_so', **kwargs)
     # No need to install the shared library for the host.
     self._install_path = None if self._is_host else install_path
+    self._dt_soname = dt_soname
     if disallowed_symbol_files:
       self._disallowed_symbol_files = disallowed_symbol_files
     else:
@@ -1947,7 +1985,7 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
     if not self._link_crtbegin:
       variables['crtbegin_for_so'] = ''
     implicit = as_list(implicit) + self._static_deps + self._whole_archive_deps
-    if self._notices_only:
+    if self._notices_only or self._is_host:
       implicit += self._shared_deps
     else:
       implicit += map(self._get_toc_file_for_so, self._shared_deps)
@@ -1959,27 +1997,29 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
         implicit.append(build_common.get_bionic_libc_malloc_debug_leak_so())
     if not allow_undefined:
       CNinjaGenerator.add_to_variable(variables, flag_variable, '-Wl,-z,defs')
-    soname = self._get_soname()
+    # Here, dt_soname is not file basename, but internal library name that is
+    # specified against linker.
+    dt_soname = self._dt_soname if self._dt_soname else self._get_soname()
     # For the host, do not add -soname. If soname is added, LD_LIBRARY_PATH
     # needs to be set for runnning host executables, which is inconvenient.
     if not self._is_host:
       CNinjaGenerator.add_to_variable(variables, flag_variable,
-                                      '-Wl,-soname=' + soname)
-    rule_prefix = (
-        'linkso_system_library' if self._is_system_library else 'linkso')
-    return self.build(output, self._get_rule_name(rule_prefix), inputs,
-                      variables=variables,
-                      implicit=implicit, **kwargs)
+                                      '-Wl,-soname=' + dt_soname)
+    suffix = ('_system_library'
+              if self._is_system_library and not self.is_host() else '')
+    return self.build(output,
+                      self._get_rule_name('linkso%s' % suffix),
+                      inputs, variables=variables, implicit=implicit, **kwargs)
 
   def _get_soname(self):
-    return os.path.basename(self._module_name + '.so')
+    return self._module_name + '.so'
 
   def link(self, allow_undefined=True, **kwargs):
     # TODO(kmixter): Once we have everything in shared objects we
     # can make the default to complain if undefined references exist
     # in them.  Until then we silently assume they are all found
     # at run-time against the main plugin.
-    basename_so = self._module_name + '.so'
+    basename_so = self._get_soname()
     intermediate_so = self._link_shared_object(
         self.get_build_path(basename_so),
         self._consume_objects(),
@@ -1990,6 +2030,9 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
     # install, and symbol checking).
     # TODO(crbug.com/364344): Once Renderscript is built from source, remove.
     if self._notices_only:
+      return intermediate_so
+    if self._is_host and OPTIONS.is_arm():
+      # nm for ARM can't dump host binary, ignore building a TOC file then.
       return intermediate_so
     if OPTIONS.is_nacl_build() and not self._is_host:
       self.ncval_test(intermediate_so)
@@ -2047,7 +2090,7 @@ class ExecNinjaGenerator(CNinjaGenerator):
 
   def link(self, variables=None, implicit=None, **kwargs):
     implicit = as_list(implicit) + self._static_deps + self._whole_archive_deps
-    if self._notices_only:
+    if self._notices_only or self._is_host:
       implicit += self._shared_deps
     else:
       implicit += map(self._get_toc_file_for_so, self._shared_deps)
@@ -2237,17 +2280,20 @@ class NoticeNinjaGenerator(NinjaGenerator):
 class TestNinjaGenerator(ExecNinjaGenerator):
   """Create a googletest/googlemock executable ninja file."""
 
-  def __init__(self, module_name, is_system_library=False, **kwargs):
+  def __init__(self, module_name, is_system_library=False,
+               use_default_main=True, **kwargs):
     super(TestNinjaGenerator, self).__init__(
         module_name, is_system_library=is_system_library, **kwargs)
     if OPTIONS.is_bare_metal_build() and is_system_library:
-      self.add_library_deps('libgtest_glibc.a', 'libgmock_glibc.a')
+      self.add_library_deps('libgmock_glibc.a', 'libgtest_glibc.a')
     else:
-      self.add_library_deps('libgtest.a', 'libgmock.a',
-                            'libcommon_test_main.a')
       self.add_library_deps('libchromium_base.a',
                             'libcommon.a',
                             'libpluginhandle.a')
+      if use_default_main:
+        self.add_library_deps('libcommon_test_main.a',
+                              'libgmock.a',
+                              'libgtest.a')
     self.add_library_deps('libcommon_real_syscall_aliases.a')
     self.add_include_paths(staging.as_staging('testing/gmock/include'))
     self._run_counter = 0
@@ -2531,11 +2577,11 @@ class JavaNinjaGenerator(NinjaGenerator):
       self._extra_packages = extra_packages
       flags = []
       if aapt_flags:
-        flags.append[aapt_flags]
+        flags.extend(aapt_flags)
       flags.append('--auto-add-overlay')
-      flags.extend(
-          '--extra-packages %s' % package for package in extra_packages)
-      aapt_flags = ' '.join(flags)
+      if extra_packages:
+        flags.extend(['--extra-packages', ':'.join(extra_packages)])
+      aapt_flags = flags
 
     self._aapt_flags = aapt_flags
 
@@ -2549,8 +2595,8 @@ class JavaNinjaGenerator(NinjaGenerator):
                toolchain.get_tool('java', 'java-event-log-tags'))
     n.variable('javac', ('src/build/filter_java_warnings.py ' +
                          toolchain.get_tool('java', 'javac')))
-    n.variable('jflags', ('-J-Xmx512M -target 1.5 -Xmaxerrs 9999999 '
-                          '-encoding UTF-8 -g'))
+    n.variable('jflags', ('-J-Xmx512M -target 1.5 '
+                          '-Xmaxerrs 9999999 -encoding UTF-8 -g'))
     n.variable('aidlflags', '-b')
     n.variable('aaptflags', '-x -m')
 
@@ -2767,7 +2813,8 @@ class JavaNinjaGenerator(NinjaGenerator):
       outputs.append(output_apk)
 
     if self._aapt_flags:
-      aaptflags.append_flag(self._aapt_flags)
+      for flag in self._aapt_flags:
+        aaptflags.append_flag(pipes.quote(flag))
 
     implicit += [self._manifest_path]
     implicit += as_list(self._resource_includes)
@@ -2776,7 +2823,7 @@ class JavaNinjaGenerator(NinjaGenerator):
         aaptflags=aaptflags,
         input_path=input_path or '',
         manifest=self._manifest_path,
-        tmpfile=self._get_build_path(subpath='aapt_errors'))
+        tmpfile=self._get_package_build_path(subpath='aapt_errors'))
 
     return self.build(outputs=outputs, rule='aapt_package', inputs=inputs,
                       implicit=implicit, variables=variables)
@@ -2848,7 +2895,8 @@ class JavaNinjaGenerator(NinjaGenerator):
     resource_files = [staging.as_staging(path) for path in resource_files]
     self.add_notice_sources(resource_files)
 
-    out_resource_path = self._get_build_path(subpath='R')
+    out_resource_path = build_common.get_build_path_for_apk(
+        self._module_name, subpath='R')
 
     # Attempt to quickly extract the value of the package name attribute from
     # the manifest, without resorting to an actual XML parser.
@@ -2957,6 +3005,10 @@ class JavaNinjaGenerator(NinjaGenerator):
   def _get_stamp_file(self, jar_file):
     return self._get_build_path(subpath=(self._get_source_files_hashcode() +
                                          '.' + jar_file + '.unzip.stamp'))
+
+  def _get_package_build_path(self, subpath=None, is_target=False):
+    return build_common.get_build_path_for_apk(
+        self._module_name, subpath=subpath, is_target=is_target)
 
   def _extract_jar_contents(self):
     stamp_files = []
@@ -3129,6 +3181,22 @@ class JavaNinjaGenerator(NinjaGenerator):
                implicit=staging.third_party_to_staging(
                    toolchain.get_tool('java', 'aapt')))
 
+  def _install_odex_to_android_root(self, odex_path, archive_in_fs):
+    """Installs the odex to the related path of corresponding jar or apk.
+
+    If the apk (or jar) is installed to /dir/to/name.apk or /dir/to/name.jar,
+    the corresponding odex file must be installed to /dir/to/name.odex
+
+    Args:
+      odex_src_path: odex file to be installed.
+      archive_in_fs: Android filesystem path of the apk or jar.
+    """
+    filename, extension = os.path.splitext(archive_in_fs)
+    assert extension in ['.apk', '.jar']
+    super(JavaNinjaGenerator, self).install_to_root_dir(
+        filename + '.odex',
+        odex_path)
+
   def _build_test_list_for_apk(self, final_package_path):
     self._build_test_list(final_package_path,
                           rule='extract_test_list',
@@ -3149,8 +3217,9 @@ class JavaNinjaGenerator(NinjaGenerator):
 class JarNinjaGenerator(JavaNinjaGenerator):
   def __init__(self, module_name, install_path=None, dex_preopt=True,
                canned_jar_dir=None, core_library=False, java_resource_dirs=None,
-               static_library=False, jar_packages=None, jarjar_rules=None,
-               dx_flags=None, built_from_android_mk=False, **kwargs):
+               java_resource_files=None, static_library=False,
+               jar_packages=None, jarjar_rules=None, dx_flags=None,
+               built_from_android_mk=False, **kwargs):
     # TODO(crbug.com/393099): Once all rules are generated via make_to_ninja,
     # |core_library| can be removed because |dx_flags| translated from
     # LOCAL_DX_FLAGS in Android.mk is automatically set to the right flag.
@@ -3171,15 +3240,20 @@ class JarNinjaGenerator(JavaNinjaGenerator):
     self._output_javalib_noresources_jar = self._get_build_path(
         subpath='javalib_noresources.jar')
     if dex_preopt:
+      assert install_path, 'Dex-preopt only makes sense for installed jar'
+      self._dex_preopt = True
       self._output_odex_file = self._get_build_path(
           is_target=True,
           subpath='javalib.odex')
     else:
+      self._dex_preopt = False
       self._output_odex_file = None
 
     self._is_core_library = core_library
     self._java_resource_dirs = [os.path.join(self._base_path, path)
                                 for path in as_list(java_resource_dirs)]
+    self._java_resource_files = [os.path.join(self._base_path, path)
+                                 for path in as_list(java_resource_files)]
     self._is_static_library = static_library
 
     self._jar_packages = jar_packages
@@ -3189,7 +3263,7 @@ class JarNinjaGenerator(JavaNinjaGenerator):
     # specific, but upstream Android build system puts it under target,
     # so we follow their example.
     self._output_jar = self._get_build_path(
-        is_target=dex_preopt,
+        is_target=self._dex_preopt,
         subpath='javalib.jar')
 
     self._install_jar = None
@@ -3260,8 +3334,11 @@ class JarNinjaGenerator(JavaNinjaGenerator):
       # Returns only core's classes.jar as the real Android build does.
       # This is calculated in android/build/core/base_rules.mk.
       core = _BootclasspathComputer.get_classes()[0]
-      assert build_common.get_build_path_for_jar(
-          'core', subpath='classes.jar') == core
+      assert core == build_common.get_build_path_for_jar(
+          'core', subpath='classes.jar'), (
+              'Expected core at the front of the bootclass path, but '
+              'found "%s" instead.' % core)
+
       # On building core, it should not depend on core itself.
       return _truncate_list_at([core], self._output_classes_jar)
 
@@ -3308,7 +3385,7 @@ class JarNinjaGenerator(JavaNinjaGenerator):
       variables['dxflags'] = '$dxflags --core-library'
     if self._dx_flags:
       variables['dxflags'] = '$dxflags ' + self._dx_flags
-    if self._java_resource_dirs:
+    if self._java_resource_dirs or self._java_resource_files:
       dx_out = [self._output_javalib_noresources_jar]
     else:
       dx_out = [self._output_javalib_jar]
@@ -3317,7 +3394,7 @@ class JarNinjaGenerator(JavaNinjaGenerator):
                         implicit=[self._output_classes_jar],
                         variables=variables)
 
-    if self._java_resource_dirs:
+    if self._java_resource_dirs or self._java_resource_files:
       jar_command = ''
       # See android/build/core/base_rules.mk, LOCAL_JAVA_RESOURCE_DIRS.
       excludes = ['.svn', '.java', 'package.html', 'overview.html', '.swp',
@@ -3333,6 +3410,9 @@ class JarNinjaGenerator(JavaNinjaGenerator):
         for r in resources:
           rel_path = os.path.relpath(r, d)
           jar_command += ' -C %s %s' % (staging.as_staging(d), rel_path)
+      for f in self._java_resource_files:
+        path, filename = os.path.split(f)
+        jar_command += ' -C %s %s' % (staging.as_staging(path), filename)
       assert jar_command
       output = self.build([self._output_javalib_jar], 'jar_update',
                           dx_out,
@@ -3359,7 +3439,7 @@ class JarNinjaGenerator(JavaNinjaGenerator):
     """Builds JAR, dex code, and optional odex and classes jar."""
     classes = self._build_classes_jar()
     self._build_javalib_jar()
-    if self._output_odex_file:
+    if self._dex_preopt:
       self._build_odex_and_stripped_javalib(self._output_odex_file,
                                             self._output_jar,
                                             self._output_javalib_jar,
@@ -3370,11 +3450,9 @@ class JarNinjaGenerator(JavaNinjaGenerator):
     """Installs the archive/output jar to its install location."""
     super(JarNinjaGenerator, self).install_to_root_dir(self._install_jar,
                                                        self._output_jar)
-    if self._output_odex_file:
-      super(JarNinjaGenerator, self).install_to_root_dir(
-          JavaNinjaGenerator._change_extension(self._install_jar, '.odex',
-                                               '.jar'),
-          self._output_odex_file)
+    if self._dex_preopt:
+      self._install_odex_to_android_root(self._output_odex_file,
+                                         self._install_jar)
     return self
 
   def build_test_list(self):
@@ -3512,6 +3590,12 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
     self._aapt_input_path = self._get_build_path(subpath='apk')
     self._output_classes_dex = os.path.join(self._aapt_input_path,
                                             'classes.dex')
+    if self._install_path:
+      self._apk_install_path = os.path.join(self._install_path,
+                                            self._module_name + '.apk')
+    else:
+      self._apk_install_path = None
+
     self._dex_preopt = install_path is not None
     if self._dex_preopt:
       self._output_odex_file = self._get_build_path(
@@ -3527,8 +3611,7 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
            description='zipalign $out')
 
   def _get_build_path(self, subpath=None, is_target=False):
-    return build_common.get_build_path_for_apk(
-        self._module_name, subpath=subpath, is_target=is_target)
+    return self._get_package_build_path(subpath, is_target)
 
   @staticmethod
   def get_final_package_for_apk(module_name, dex_preopt=False):
@@ -3554,22 +3637,22 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
                       implicit=self._javac_stamp_files + stamp_files,
                       variables=variables)
 
-  def add_apk_deps(self, *deps, **kwargs):
-    """Indicate that the generated APK depends on the given APKs.
+  def add_apk_dep(self, n):
+    """Indicate that the generated APK depends on the given APK.
 
     This is primarily for use in building Test APKs.  Calling this
-    makes every class in every APK in |deps| accessible to every class
-    in the APK we are generating.  We implement this by augmenting the
+    makes every class in the APK in |n| accessible to every class in the
+    APK we are generating.  We implement this by augmenting the
     generated APK's classpath and creating implicit dependencies on
     all the dependent APKs.
     """
-    dex_preopt = kwargs.get('dex_preopt', False)
-    self._javac_classpath_dirs.extend(
-        [JavaNinjaGenerator.get_compiled_class_path_for_module(m)
-         for m in deps])
-    self._implicit.extend(
-        [ApkNinjaGenerator.get_final_package_for_apk(m, dex_preopt=dex_preopt)
-         for m in deps])
+    assert isinstance(n, ApkNinjaGenerator)
+    module_name = n._module_name
+    self._javac_classpath_dirs.append(
+        JavaNinjaGenerator.get_compiled_class_path_for_module(module_name))
+    self._implicit.append(
+        ApkNinjaGenerator.get_final_package_for_apk(
+            module_name, dex_preopt=n._dex_preopt))
 
   def _get_minimal_bootclasspath(self):
     """Provides a minimal bootclasspath for building these java files.
@@ -3620,6 +3703,7 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
   # uprev to L.
   def package(self, secondary_dex_files=None, multidex_output_dir=None):
     original_apk = self._get_build_path(subpath='package.apk.original')
+    # Unaligned APK.  In case of pre-dexopt, it ends up with no .dex, too.
     unaligned_apk = self._get_build_path(subpath='package.apk.unaligned')
 
     # Build the apk, or use the canned one.
@@ -3645,13 +3729,11 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
     return self.get_final_package()
 
   def install(self):
-    install_to = os.path.join(self._install_path, self._module_name + '.apk')
-    super(ApkNinjaGenerator, self).install_to_root_dir(install_to,
+    super(ApkNinjaGenerator, self).install_to_root_dir(self._apk_install_path,
                                                        self.get_final_package())
     if self._dex_preopt:
-      super(ApkNinjaGenerator, self).install_to_root_dir(
-          JavaNinjaGenerator._change_extension(install_to, '.odex', '.apk'),
-          self._output_odex_file)
+      self._install_odex_to_android_root(self._output_odex_file,
+                                         self._apk_install_path)
 
     if self._install_lazily:
       # To retrieve intent-filter and provider in bootstrap, copy
@@ -3796,6 +3878,54 @@ class PythonTestNinjaGenerator(NinjaGenerator):
                       implicit=implicit_dependencies,
                       variables=dict(test_path=test_path, test_name=test_name,
                                      top_path=top_path))
+
+
+class NaClizeNinjaGenerator(NinjaGenerator):
+  """NaClize *.S files and write them as <module_name>_gen_sources/*.S"""
+
+  _SCRIPT_PATH = staging.as_staging('src/build/naclize_i686.py')
+
+  def __init__(self, base_name, **kwargs):
+    # TODO(crbug.com/414569): L-rebase: Revisit here to think how to handle
+    # x86_64 NaClizing.
+    assert OPTIONS.is_nacl_i686()
+    super(NaClizeNinjaGenerator, self).__init__(
+        base_name + '_gen_i686_asm_sources', **kwargs)
+    self._base_name = base_name
+
+  def generate(self, asm_files):
+    source_dir = NaClizeNinjaGenerator.get_gen_source_dir(self._base_name)
+    generated_file_list = []
+    for f in asm_files:
+      output = os.path.join(source_dir, os.path.basename(f))
+      self.build([output], 'naclize_i686', staging.as_staging(f),
+                 implicit=[NaClizeNinjaGenerator._SCRIPT_PATH])
+      generated_file_list.append(output)
+
+    self.build(NaClizeNinjaGenerator.get_gen_source_stamp(self._base_name),
+               'touch', implicit=generated_file_list)
+    return generated_file_list
+
+  @staticmethod
+  def get_gen_source_dir(base_name):
+    return os.path.join(build_common.get_build_dir(),
+                        base_name + '_gen_sources')
+
+  @staticmethod
+  def get_gen_source_stamp(base_name):
+    # We create this file after all assembly files are generated. We can save
+    # the size of a ninja file by depending on this stamp file instead of all
+    # generated assembly files. Without this proxy file, the ninja file will be
+    # increased. In case of libc_common.a, it is about 3 times bigger.
+    return os.path.join(
+        NaClizeNinjaGenerator.get_gen_source_dir(base_name), 'STAMP')
+
+  @staticmethod
+  def emit_common_rules(n):
+    n.rule('naclize_i686',
+           command=(
+               'python %s $in > $out' % NaClizeNinjaGenerator._SCRIPT_PATH),
+           description='naclize_i686 $out')
 
 
 def generate_python_test_ninja(top_path, python_test, implicit=None):

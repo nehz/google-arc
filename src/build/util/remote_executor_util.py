@@ -252,10 +252,7 @@ class RemoteExecutor(object):
     # Checks both whether to enable debug info and the existence of the stripped
     # directory because build bots using test bundle may use the configure
     # option with debug info enabled but binaries are not available in the
-    # stripped directory. The binaries in test bundle are already stripped by
-    # archive_test_bundle.py.
-    # TODO(crbug.com/444202): Make archive_test_bundle.py use the binaries in
-    # the stripped directory.
+    # stripped directory.
     if (not OPTIONS.is_debug_info_enabled() or
         not os.path.exists(build_common.get_stripped_dir())):
       cmd = rsync + pattern_list + ['.', dest] + rsync_options

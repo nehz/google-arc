@@ -45,15 +45,11 @@ def _add_bare_metal_flags_to_ninja_generator(n):
 
 
 def _get_gen_source_dir():
-  return os.path.join(build_common.get_build_dir(), 'bionic_gen_sources')
+  return ninja_generator.NaClizeNinjaGenerator.get_gen_source_dir('bionic')
 
 
 def _get_gen_source_stamp():
-  # We create this file after all assembly files are generated. We can
-  # save the size of a ninja file by depending on this stamp file
-  # instead of all generated assembly files. Without this proxy file,
-  # the ninja file for libc_common.a will be about 3 times bigger.
-  return os.path.join(_get_gen_source_dir(), 'STAMP')
+  return ninja_generator.NaClizeNinjaGenerator.get_gen_source_stamp('bionic')
 
 
 def _get_asm_source(f):
@@ -69,32 +65,11 @@ def _remove_assembly_source(sources):
     sources.remove(asm)
 
 
-def _generate_naclized_asm_ninja(ninja_name, rule_name,
-                                 script_path, asm_files):
-  n = ninja_generator.NinjaGenerator(ninja_name)
-  # NaClize *.S files and write them as bionic_gen_sources/*.S.
-  script_path = staging.as_staging(script_path)
-  n.rule(rule_name,
-         command=('python %s $in > $out' % script_path),
-         description=rule_name + ' $out')
-  all_generated_files = []
-  for f in asm_files:
-    outputs = [os.path.join(_get_gen_source_dir(), os.path.basename(f))]
-    n.build(outputs, rule_name, staging.as_staging(f), implicit=script_path)
-    all_generated_files += outputs
-
-  rule_name += '_stamp'
-  n.rule(rule_name, command='touch $out', description=rule_name + ' $out')
-  n.build(_get_gen_source_stamp(), rule_name, all_generated_files)
-
-
 def _generate_naclized_i686_asm_ninja():
   if not OPTIONS.is_nacl_i686():
     return
-  _generate_naclized_asm_ninja('bionic_gen_i686_asm_sources',
-                               'gen_naclized_i686_file_bionic',
-                               'src/build/naclize_i686.py',
-                               _I686_ASM_FILES)
+  n = ninja_generator.NaClizeNinjaGenerator('bionic')
+  n.generate(_I686_ASM_FILES)
 
 
 def _filter_libc_common_for_arm(vars, sources):
@@ -104,6 +79,8 @@ def _filter_libc_common_for_arm(vars, sources):
     # For direct syscalls used internally.
     sources.append('android/bionic/libc/arch-arm/bionic/syscall.S')
   else:
+    # Generated assembly files are included from other assembly file.
+    # So, we need to make additional dependency by using a stamp file.
     # Order-only dependency should be sufficient for this case
     # because all dependencies should be handled properly once .d
     # files are generated. However, we have a strict check for
@@ -167,6 +144,7 @@ def _remove_unnecessary_defines(vars):
 def _filter_libc_common(vars):
   sources = vars.get_sources()
   _remove_assembly_source(sources)
+
   # libc_common is used from both the loader and libc.so. Functions
   # which are necessary for the bionic loader must be in this list.
   sources.extend([

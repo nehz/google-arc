@@ -108,7 +108,7 @@ ColorBuffer::ColorBuffer(EGLDisplay dpy, GLuint width, GLuint height,
     global_texture_(0),
     image_(0),
     locked_mem_(NULL),
-    host_context_(NULL),
+    egl_context_(NULL),
     refcount_(1) {
   EglDisplayImpl* d = EglDisplayImpl::GetDisplay(dpy);
   key_ = d->GetColorBuffers().GenerateKey();
@@ -220,12 +220,27 @@ void ColorBuffer::Commit() {
   }
 }
 
-void ColorBuffer::BindHostContext(void* host_context) {
+void ColorBuffer::BindContext(EGLContext egl_context) {
   LOG_ALWAYS_FATAL_IF(sw_write_, "Bind a context to a SW write color buffer.");
 
-  if (host_context) {
-    host_context_ = host_context;
+  if (egl_context) {
+    // We record the last bound EGLContext which will be used by HWC HAL for
+    // compositing.
+    egl_context_ = egl_context;
   }
+}
+
+void* ColorBuffer::GetHostContext() const {
+  if (!egl_context_) {
+    return NULL;
+  }
+
+  EglDisplayImpl* d = EglDisplayImpl::GetDisplay(display_);
+  ContextPtr ctx = d->GetContexts().Get(egl_context_);
+  if (ctx && ctx->GetGlesContext()) {
+    return ctx->GetGlesContext()->Impl();
+  }
+  return NULL;
 }
 
 void ColorBuffer::ReadPixels(void* dst) {
