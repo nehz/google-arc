@@ -23,8 +23,13 @@
 static pthread_once_t tls_once_init = PTHREAD_ONCE_INIT;
 static pthread_key_t tls_info;
 
+static void thread_info_destructor(void* p) {
+  EglThreadInfo* ptr = reinterpret_cast<EglThreadInfo*>(p);
+  delete ptr;
+}
+
 static void tls_init() {
-  pthread_key_create(&tls_info, 0);
+  pthread_key_create(&tls_info, thread_info_destructor);
 }
 
 EglThreadInfo::EglThreadInfo()
