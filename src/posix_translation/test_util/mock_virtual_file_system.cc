@@ -46,14 +46,6 @@ bool MockVirtualFileSystem::RegisterFileStream(
   return true;
 }
 
-bool MockVirtualFileSystem::IsWriteMapped(ino_t inode) {
-  return false;
-}
-
-bool MockVirtualFileSystem::IsCurrentlyMapped(ino_t inode) {
-  return false;
-}
-
 FileSystemHandler* MockVirtualFileSystem::GetFileSystemHandler(
     const std::string& path) {
   return NULL;

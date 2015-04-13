@@ -257,16 +257,6 @@ void VirtualFileSystem::ReassignInodeLocked(const std::string& oldpath,
   }
 }
 
-bool VirtualFileSystem::IsWriteMapped(ino_t inode) {
-  mutex_.AssertAcquired();
-  return memory_region_->IsWriteMapped(inode);
-}
-
-bool VirtualFileSystem::IsCurrentlyMapped(ino_t inode) {
-  mutex_.AssertAcquired();
-  return memory_region_->IsCurrentlyMapped(inode);
-}
-
 std::string VirtualFileSystem::GetMemoryMapAsString() {
   base::AutoLock lock(mutex_);
   return GetMemoryMapAsStringLocked();

@@ -207,8 +207,6 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
                                   scoped_refptr<FileStream> stream) OVERRIDE;
   virtual FileSystemHandler* GetFileSystemHandler(
       const std::string& path) OVERRIDE;
-  virtual bool IsWriteMapped(ino_t inode) OVERRIDE;
-  virtual bool IsCurrentlyMapped(ino_t inode) OVERRIDE;
   virtual std::string GetMemoryMapAsString() OVERRIDE;
   virtual std::string GetIPCStatsAsString() OVERRIDE;
   virtual int StatForTesting(

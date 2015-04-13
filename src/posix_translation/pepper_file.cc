@@ -38,82 +38,6 @@ namespace {
 const size_t kMaxFSCacheEntries = 1024;
 const blksize_t kBlockSize = 4096;
 
-#if !defined(NDEBUG)
-// TODO(crbug.com/358440): Fix the issue and remove the very ARC specific
-// hack from posix_translation/.
-bool IsWhitelistedFile(const std::string& name) {
-  // dexZipGetEntryInfo in dalvik/libdex/ZipArchive.cpp reads mmaped
-  // (with PROT_WRITE) region so we need to allow all .jar files.
-  if (EndsWith(name, ".jar", true))
-    return true;
-
-  // This allows the App's APK to be read/mmap'd as well as APKs passed to
-  // aapt and during testing.
-  if (EndsWith(name, ".apk", true)) {
-    return true;
-  }
-
-  if (EndsWith(name, ".dex", true)) {
-    return StartsWithASCII(name, "/data/dalvik-cache/", true) ||
-      StartsWithASCII(name, "/data/data/", true);
-  }
-
-  // Secondary dex files are loaded by the same code as .jar from mmaped region.
-  if (EndsWith(name, ".zip", true)) {
-    return StartsWithASCII(name, "/data/data/", true);
-  }
-
-  return false;
-}
-#endif
-
-// Returns true if it is allowed to read/write |pathname| with |inode|. This
-// function may return false if the file associated with the |inode| was/is
-// mmapped. Note that "mmap(PROT_READ), munmap, then read/write" is allowed,
-// but other ways of mixing mmap and read are not allowed. For production
-// (when NDEBUG is defined), this function does nothing and always returns
-// true.
-bool IsReadWriteAllowed(const std::string& pathname, ino_t inode,
-                        const std::string& operation_str) {
-#if !defined(NDEBUG)
-  VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
-
-  const bool is_write_mapped = sys->IsWriteMapped(inode);
-  const bool is_currently_mapped =
-    // Do not call IsCurrentlyMapped() when |is_write_mapped| is true
-    // for (slightly) better performance.
-    is_write_mapped ? false : sys->IsCurrentlyMapped(inode);
-  if (!is_write_mapped && !is_currently_mapped)
-    return true;
-
-  static const char kWarnWriteMapped[] = "was/is mmapped with PROT_WRITE";
-  static const char kWarnMapped[] = "is currently mmapped";
-  const std::string log_str = base::StringPrintf(
-      "%s(\"%s\") might not be safe on non-Linux environment since the file %s",
-      operation_str.c_str(), pathname.c_str(),
-      (is_write_mapped ? kWarnWriteMapped : kWarnMapped));
-  ALOGI("%s", log_str.c_str());
-
-  // TODO(crbug.com/358440): Stop calling IsWhitelistedFile().
-  if (IsWhitelistedFile(pathname))
-    return true;
-
-  sys->mutex().AssertAcquired();  // touching |s_show_mmap_warning| is safe.
-  static bool s_show_mmap_warning = true;
-  if (s_show_mmap_warning) {
-    // Show a big warning with ALOGE only once to notify developers that the
-    // current APK is not 100% compatible with non-Linux environment.
-    s_show_mmap_warning = false;
-    ALOGE("********* MMAP COMPATIBILITY ERROR (crbug.com/357780) *********");
-    ALOGE("********* %s *********", log_str.c_str());
-  }
-  return false;
-#else
-  // For production, do not check anything for performance (crbug.com/373645).
-  return true;
-#endif
-}
-
 void CloseHandle(PP_FileHandle native_handle) {
   ALOG_ASSERT(native_handle >= 0);
   const int result = real_close(native_handle);
@@ -1002,13 +926,6 @@ int PepperFile::munmap(void* addr, size_t length) {
 }
 
 ssize_t PepperFile::read(void* buf, size_t count) {
-  // Detect non-portable read attempts like mmap(W)-munmap-read and
-  // mmap(W)-read. For more details, see crbug.com/357780.
-  if (!IsReadWriteAllowed(pathname(), inode(), "read")) {
-    errno = EFAULT;
-    return -1;
-  }
-
   const ssize_t result = real_read(file_->native_handle(), buf, count);
 #if defined(DEBUG_POSIX_TRANSLATION)
   if (result > 0)
@@ -1041,13 +958,6 @@ ssize_t PepperFile::read(void* buf, size_t count) {
 //   of a descriptor.
 
 ssize_t PepperFile::write(const void* buf, size_t count) {
-  // Detect non-portable write attempts like mmap(W)-write and
-  // mmap(W)-munmap-write. For more details, see crbug.com/357780.
-  if (!IsReadWriteAllowed(pathname(), inode(), "write")) {
-    errno = EFAULT;
-    return -1;
-  }
-
   cache_->Invalidate(pathname());
   const ssize_t result = real_write(file_->native_handle(), buf, count);
 #if defined(DEBUG_POSIX_TRANSLATION)

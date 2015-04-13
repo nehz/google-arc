@@ -64,10 +64,12 @@ class MemoryRegion {
 
   // Returns true if the file associated with |inode| is or was mmapped with
   // PROT_WRITE. Note that posix_translation never reuses inode numbers.
+  // TODO(crbug.com/472211): Remove this.
   bool IsWriteMapped(ino_t inode) const;
 
   // Returns true if the file associated with |inode| is currently mmapped
   // regardless of the protection mode.
+  // TODO(crbug.com/472211): Remove this.
   bool IsCurrentlyMapped(ino_t inode) const;
 
   // Get a list of mapped files in a human readable format.

@@ -66,13 +66,6 @@ class VirtualFileSystemInterface {
   // is registered for the |path|.
   virtual FileSystemHandler* GetFileSystemHandler(const std::string& path) = 0;
 
-  // Returns true if the file associated with |inode| is or was mmapped with
-  // PROT_WRITE.
-  virtual bool IsWriteMapped(ino_t inode) = 0;
-  // Returns true if the file associated with |inode| is currently mmapped
-  // regardless of the protection mode.
-  virtual bool IsCurrentlyMapped(ino_t inode) = 0;
-
   // Gets a /proc/self/maps like memory map for debugging in a human readable
   // format.
   virtual std::string GetMemoryMapAsString() = 0;
