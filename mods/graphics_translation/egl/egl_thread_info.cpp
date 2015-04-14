@@ -34,7 +34,8 @@ static void tls_init() {
 
 EglThreadInfo::EglThreadInfo()
   : error_(EGL_SUCCESS),
-    reported_no_context_error_(false) {
+    reported_no_context_error_(false),
+    destroying_gles_context_(NULL) {
 }
 
 EglThreadInfo& EglThreadInfo::GetInstance() {
@@ -70,11 +71,19 @@ void EglThreadInfo::SaveCurrentContext() {
 
 void EglThreadInfo::RestorePreviousContext() {
   curr_ctx_ = prev_ctx_;
-  prev_ctx_.Reset();
+  prev_ctx_ = NULL;
 }
 
 bool EglThreadInfo::SetReportedNoContextError() {
   const bool prev = reported_no_context_error_;
   reported_no_context_error_ = true;
   return prev;
+}
+
+void EglThreadInfo::SetDestroyingGlesContext(GlesContext* context) {
+  destroying_gles_context_ = context;
+}
+
+GlesContext* EglThreadInfo::GetDestroyingGlesContext() {
+  return destroying_gles_context_;
 }

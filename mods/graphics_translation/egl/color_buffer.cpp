@@ -66,7 +66,7 @@ EglImagePtr GetEglImageFromNativeBuffer(GLeglImageOES img) {
 
   EglDisplayImpl* display = EglDisplayImpl::GetDefaultDisplay();
   ColorBufferPtr cb = display->GetColorBuffers().Get(gb->GetHostHandle());
-  if (!cb) {
+  if (cb == NULL) {
     return EglImagePtr();
   }
   return cb->GetImage();
@@ -106,9 +106,7 @@ ColorBuffer::ColorBuffer(EGLDisplay dpy, GLuint width, GLuint height,
     sw_write_(sw_write),
     texture_(0),
     global_texture_(0),
-    image_(0),
     locked_mem_(NULL),
-    egl_context_(NULL),
     refcount_(1) {
   EglDisplayImpl* d = EglDisplayImpl::GetDisplay(dpy);
   key_ = d->GetColorBuffers().GenerateKey();
@@ -125,7 +123,7 @@ ColorBuffer::ColorBuffer(EGLDisplay dpy, GLuint width, GLuint height,
   GlesContext* c = GetCurrentGlesContext();
   global_texture_ = c->GetShareGroup()->GetTextureGlobalName(texture_);
   image_ = EglImage::Create(GL_TEXTURE_2D, texture_);
-  LOG_ALWAYS_FATAL_IF(!image_, "Could not create draw Image.");
+  LOG_ALWAYS_FATAL_IF(image_ == NULL, "Could not create draw Image.");
 }
 
 ColorBuffer::~ColorBuffer() {
@@ -204,7 +202,7 @@ void ColorBuffer::Render() {
 
 void ColorBuffer::BindToTexture() {
   ContextPtr c = EglThreadInfo::GetInstance().GetCurrentContext();
-  if (c) {
+  if (c != NULL) {
     c->BindImageToTexture(image_);
   }
 }
@@ -220,27 +218,22 @@ void ColorBuffer::Commit() {
   }
 }
 
-void ColorBuffer::BindContext(EGLContext egl_context) {
+void ColorBuffer::BindContext(const ContextPtr& context) {
   LOG_ALWAYS_FATAL_IF(sw_write_, "Bind a context to a SW write color buffer.");
 
-  if (egl_context) {
+  if (context != NULL) {
     // We record the last bound EGLContext which will be used by HWC HAL for
     // compositing.
-    egl_context_ = egl_context;
+    context_ = context;
   }
 }
 
 void* ColorBuffer::GetHostContext() const {
-  if (!egl_context_) {
+  if (context_ != NULL && context_->GetGlesContext()) {
+    return context_->GetGlesContext()->Impl();
+  } else {
     return NULL;
   }
-
-  EglDisplayImpl* d = EglDisplayImpl::GetDisplay(display_);
-  ContextPtr ctx = d->GetContexts().Get(egl_context_);
-  if (ctx && ctx->GetGlesContext()) {
-    return ctx->GetGlesContext()->Impl();
-  }
-  return NULL;
 }
 
 void ColorBuffer::ReadPixels(void* dst) {

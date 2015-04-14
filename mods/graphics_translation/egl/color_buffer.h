@@ -19,22 +19,23 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES/gl.h>
+#include <utils/RefBase.h>
 
 #include "graphics_translation/gles/egl_image.h"
-#include "graphics_translation/gles/smartptr.h"
 
 class ColorBuffer;
-typedef SmartPtr<ColorBuffer> ColorBufferPtr;
+typedef android::sp<ColorBuffer> ColorBufferPtr;
 typedef void* ColorBufferHandle;
+class EglContextImpl;
+typedef android::sp<EglContextImpl> ContextPtr;
 
 struct ANativeWindowBuffer;
 bool IsValidNativeWindowBuffer(const ANativeWindowBuffer* native_buffer);
 
-class ColorBuffer {
+class ColorBuffer : public android::RefBase {
  public:
   static ColorBufferHandle Create(EGLDisplay dpy, GLuint width, GLuint height,
                                   GLenum format, GLenum type, bool sw_write);
-  ~ColorBuffer();
 
   GLuint GetWidth() const { return width_; }
   GLuint GetHeight() const { return height_; }
@@ -51,7 +52,7 @@ class ColorBuffer {
 
   // Bind the colorbuffer to a host OpenGL context (pp::Graphics3D). It will be
   // used to render the content of this ColorBuffer.
-  void BindContext(EGLContext context);
+  void BindContext(const ContextPtr& context);
   void* GetHostContext() const;
   GLuint GetTexture() const { return texture_; }
   GLuint GetGlobalTexture() const { return global_texture_; }
@@ -59,6 +60,10 @@ class ColorBuffer {
   void BindToTexture();
 
   void ReadPixels(void* dst);
+
+ protected:
+  ~ColorBuffer();
+
  private:
   ColorBuffer(EGLDisplay dpy, GLuint width, GLuint height, GLenum format,
               GLenum type, bool sw_write);
@@ -75,10 +80,10 @@ class ColorBuffer {
   GLuint global_texture_;
   EglImagePtr image_;
   void* locked_mem_;
-  EGLContext egl_context_;
+  ContextPtr context_;
 
   // TODO(crbug.com/441910): Figure out if this reference count can be merged
-  // with the SmartPtr refcount, or if we even need the SmartPtr at all.
+  // with the android::RefBase refcount.
   uint32_t refcount_;
 
   ColorBuffer(const ColorBuffer&);

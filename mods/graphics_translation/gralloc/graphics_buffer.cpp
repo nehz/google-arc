@@ -132,7 +132,7 @@ GraphicsBuffer::~GraphicsBuffer() {
 int GraphicsBuffer::Acquire() {
   if (hw_handle_) {
     ColorBufferPtr cb = GetColorBuffer(hw_handle_);
-    if (cb) {
+    if (cb != NULL) {
       cb->Acquire();
     } else {
       return -EINVAL;
@@ -144,7 +144,7 @@ int GraphicsBuffer::Acquire() {
 int GraphicsBuffer::Release() {
   if (hw_handle_) {
     ColorBufferPtr cb = GetColorBuffer(hw_handle_);
-    if (cb) {
+    if (cb != NULL) {
       cb->Release();
     } else {
       return -EINVAL;
@@ -189,7 +189,7 @@ int GraphicsBuffer::Lock(int usage, int left, int top, int width, int height,
       hw_handle_ && request_write && !sw_read_allowed) {
     // Only use cb->Lock() for write only graphics buffers.
     ColorBufferPtr cb = GetColorBuffer(hw_handle_);
-    if (!cb) {
+    if (cb == NULL) {
       return -EACCES;
     }
     locked_addr_ = static_cast<char*>(cb->Lock(0, 0, width_, height_,
@@ -208,7 +208,7 @@ int GraphicsBuffer::Lock(int usage, int left, int top, int width, int height,
     // introduce additional performance regression.
     if (hw_handle_ && (usage & GRALLOC_USAGE_SW_READ_MASK) == usage) {
       ColorBufferPtr cb = GetColorBuffer(hw_handle_);
-      if (!cb) {
+      if (cb == NULL) {
         return -EACCES;
       }
       cb->ReadPixels(sw_buffer_);
@@ -237,7 +237,7 @@ int GraphicsBuffer::Unlock() {
   // If buffer was locked for s/w write, then we need to update it.
   if (locked_width_ > 0 && locked_height_ > 0 && hw_handle_) {
     ColorBufferPtr cb = GetColorBuffer(hw_handle_);
-    if (cb) {
+    if (cb != NULL) {
       if (locked_addr_ == sw_buffer_) {
         if (locked_width_ && locked_height_) {
           const int bpp = GetBytesPerPixel(gl_format_, gl_type_);
@@ -277,7 +277,7 @@ void GraphicsBuffer::SetSystemTexture(int target, int name) {
   system_texture_ = name;
 
   ColorBufferPtr cb = GetColorBuffer(hw_handle_);
-  if (cb) {
+  if (cb != NULL) {
     EglImagePtr image = cb->GetImage();
     image->global_texture_target = target;
     image->global_texture_name = name;
@@ -311,7 +311,7 @@ int GraphicsBuffer::GetHostTexture() const {
     return system_texture_;
   } else {
     ColorBufferPtr cb = GetColorBuffer(hw_handle_);
-    if (cb) {
+    if (cb != NULL) {
       return cb->GetGlobalTexture();
     } else {
       return 0;
@@ -324,7 +324,7 @@ void* GraphicsBuffer::GetHostContext() const {
     return NULL;
   } else {
     ColorBufferPtr cb = GetColorBuffer(hw_handle_);
-    if (cb) {
+    if (cb != NULL) {
       return cb->GetHostContext();
     } else {
       return NULL;
@@ -342,7 +342,7 @@ int GraphicsBuffer::Post() {
   }
 
   ColorBufferPtr cb = GetColorBuffer(hw_handle_);
-  if (cb) {
+  if (cb != NULL) {
     cb->Render();
   }
   glFlush();

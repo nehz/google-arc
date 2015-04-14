@@ -19,13 +19,13 @@
 #include <GLES/gl.h>
 #include <map>
 #include <string>
+#include <utils/RefBase.h>
 #include <vector>
 
 #include "graphics_translation/gles/dirtiable.h"
 #include "graphics_translation/gles/mutex.h"
 #include "graphics_translation/gles/object_data.h"
 #include "graphics_translation/gles/shader_variant.h"
-#include "graphics_translation/gles/smartptr.h"
 
 class GlesContext;
 
@@ -35,10 +35,9 @@ class GlesContext;
 // Functions (including destructor) may pass calls to the underlying GL
 // implementation, and so must be called with an active context.
 // A linked ProgramVariant instance cannot be re-linked.
-class ProgramVariant {
+class ProgramVariant : public android::RefBase {
  public:
   ProgramVariant();
-  ~ProgramVariant();
 
   bool IsLinked() const { return is_linked_; }
   bool IsLinkAttempted() const { return is_link_attempted_; }
@@ -120,6 +119,9 @@ class ProgramVariant {
       const std::string& name, int* array_index) const;
   GLint GetUniformLocation(const std::string& name);
 
+ protected:
+  virtual ~ProgramVariant();
+
  private:
   typedef std::map<std::string, GLint> NameLocationMap;
 
@@ -146,6 +148,6 @@ class ProgramVariant {
   ProgramVariant& operator=(const ProgramVariant&);
 };
 
-typedef SmartPtr<ProgramVariant> ProgramVariantPtr;
+typedef android::sp<ProgramVariant> ProgramVariantPtr;
 
 #endif  // GRAPHICS_TRANSLATION_GLES_PROGRAM_VARIANT_H_

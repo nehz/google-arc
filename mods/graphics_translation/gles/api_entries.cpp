@@ -345,7 +345,7 @@ GLES_APIENTRY(void, BindBuffer, GLenum target, GLuint buffer) {
   ShareGroupPtr sg = c->GetShareGroup();
 
   BufferDataPtr obj = sg->GetBufferData(buffer);
-  if (!obj && buffer != 0) {
+  if (obj == NULL && buffer != 0) {
     sg->CreateBufferData(buffer);
   }
 
@@ -372,7 +372,7 @@ GLES_APIENTRY(void, BindFramebuffer, GLenum target, GLuint framebuffer) {
   ShareGroupPtr sg = c->GetShareGroup();
 
   FramebufferDataPtr obj = sg->GetFramebufferData(framebuffer);
-  if (!obj && framebuffer != 0) {
+  if (obj == NULL && framebuffer != 0) {
     sg->CreateFramebufferData(framebuffer);
   }
   c->BindFramebuffer(framebuffer);
@@ -397,7 +397,7 @@ GLES_APIENTRY(void, BindRenderbuffer, GLenum target, GLuint renderbuffer) {
   ShareGroupPtr sg = c->GetShareGroup();
 
   RenderbufferDataPtr obj = sg->GetRenderbufferData(renderbuffer);
-  if (!obj && renderbuffer != 0) {
+  if (obj == NULL && renderbuffer != 0) {
     sg->CreateRenderbufferData(renderbuffer);
   }
 
@@ -435,12 +435,12 @@ GLES_APIENTRY(void, BindTexture, GLenum target, GLuint texture) {
     tex = c->texture_context_.GetDefaultTextureData(target);
   } else {
     tex = sg->GetTextureData(texture);
-    if (!tex) {
+    if (tex == NULL) {
       tex = sg->CreateTextureData(texture);
       first_use = true;
     }
   }
-  LOG_ALWAYS_FATAL_IF(!tex);
+  LOG_ALWAYS_FATAL_IF(tex == NULL);
   if (!c->texture_context_.BindTextureToTarget(tex, target)) {
     GLES_ERROR(GL_INVALID_OPERATION, "Texture cannot be bound to target: %s",
                GetEnumString(target));
@@ -614,7 +614,7 @@ GLES_APIENTRY(void, BufferData, GLenum target, GLsizeiptr size,
     return;
   }
   BufferDataPtr vbo = c->GetBoundTargetBufferData(target);
-  if (!vbo) {
+  if (vbo == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Buffer not bound.");
     return;
   }
@@ -643,7 +643,7 @@ GLES_APIENTRY(void, BufferSubData, GLenum target, GLintptr offset,
     return;
   }
   BufferDataPtr vbo = c->GetBoundTargetBufferData(target);
-  if (!vbo) {
+  if (vbo == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Buffer not bound.");
     return;
   }
@@ -906,7 +906,7 @@ GLES_APIENTRY(void, CompileShader, GLuint shader) {
 
   ShareGroupPtr sg = c->GetShareGroup();
   ShaderDataPtr shader_data = sg->GetShaderData(shader);
-  if (!shader_data) {
+  if (shader_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Not a valid shader %d", shader);
     return;
   }
@@ -928,7 +928,7 @@ void HandleETC1CompressedTexImage2D(
   }
 
   const TextureDataPtr tex = c->GetBoundTextureData(target);
-  if (!tex) {
+  if (tex == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "No texture bound.");
     return;
   }
@@ -980,7 +980,7 @@ void HandlePalettedCompressedTexImage2D(
   }
 
   const TextureDataPtr tex = c->GetBoundTextureData(target);
-  if (!tex) {
+  if (tex == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "No texture bound.");
     return;
   }
@@ -1164,7 +1164,7 @@ GLES_APIENTRY(void, CopyTexImage2D, GLenum target, GLint level,
   }
 
   TextureDataPtr tex = c->GetBoundTextureData(target);
-  if (!tex) {
+  if (tex == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "No texture bound.");
     return;
   }
@@ -1318,7 +1318,7 @@ GLES_APIENTRY(void, DeleteProgram, GLuint program) {
 
   ShareGroupPtr sg = c->GetShareGroup();
   ProgramDataPtr program_data = sg->GetProgramData(program);
-  if (!program_data) {
+  if (program_data == NULL) {
     return;
   }
 
@@ -1345,7 +1345,7 @@ GLES_APIENTRY(void, DeleteRenderbuffers, GLsizei n,
 
   FramebufferDataPtr fb = c->GetBoundFramebufferData();
   for (int i = 0; i < n; ++i) {
-    if (fb) {
+    if (fb != NULL) {
       fb->ClearAttachment(renderbuffers[i], false);
     }
     if (c->renderbuffer_binding_ == renderbuffers[i]) {
@@ -1388,12 +1388,12 @@ GLES_APIENTRY(void, DeleteTextures, GLsizei n, const GLuint* textures) {
   ShareGroupPtr sg = c->GetShareGroup();
   FramebufferDataPtr fb = c->GetBoundFramebufferData();
   for (int i = 0; i < n; ++i) {
-    if (fb) {
+    if (fb != NULL) {
       fb->ClearAttachment(textures[i], true);
     }
     // Do not delete texture if it is a target of EGLImage.
     TextureDataPtr tex = sg->GetTextureData(textures[i]);
-    if (tex && tex->IsEglImageAttached()) {
+    if (tex != NULL && tex->IsEglImageAttached()) {
       sg->SetTextureGlobalName(tex->GetLocalName(), 0);
     }
     c->texture_context_.DeleteTexture(textures[i]);
@@ -1638,7 +1638,7 @@ GLES_APIENTRY(void, EGLImageTargetRenderbufferStorageOES, GLenum target,
   }
 
   EglImagePtr image = GetEglImageFromNativeBuffer(buffer);
-  if (!image) {
+  if (image == NULL) {
     GLES_ERROR_INVALID_VALUE_UINT((GLuint)buffer);
     return;
   }
@@ -1661,7 +1661,7 @@ GLES_APIENTRY(void, EGLImageTargetTexture2DOES, GLenum target,
   }
 
   EglImagePtr image = GetEglImageFromNativeBuffer(buffer);
-  if (!image) {
+  if (image == NULL) {
     GLES_ERROR_INVALID_VALUE_UINT((GLuint)buffer);
     return;
   }
@@ -1875,7 +1875,7 @@ GLES_APIENTRY(void, FramebufferRenderbuffer, GLenum target, GLenum attachment,
 
   FramebufferDataPtr fb = c->GetBoundFramebufferData();
   if (renderbuffer == 0) {
-    if (fb) {
+    if (fb != NULL) {
       fb->ClearAttachment(attachment);
     }
     PASS_THROUGH(c, FramebufferRenderbuffer, target, attachment,
@@ -1883,12 +1883,12 @@ GLES_APIENTRY(void, FramebufferRenderbuffer, GLenum target, GLenum attachment,
   } else {
     ShareGroupPtr sg = c->GetShareGroup();
     RenderbufferDataPtr rb = sg->GetRenderbufferData(renderbuffer);
-    if (!rb) {
+    if (rb == NULL) {
       GLES_ERROR(GL_INVALID_OPERATION, "Invalid renderbuffer.");
       return;
     }
 
-    if (fb) {
+    if (fb != NULL) {
       fb->SetAttachment(attachment, renderbuffertarget, renderbuffer, rb);
     }
 
@@ -1942,7 +1942,7 @@ GLES_APIENTRY(void, FramebufferTexture2D, GLenum target, GLenum attachment,
 
   // Update the framebuffer attachment.
   FramebufferDataPtr fb = c->GetBoundFramebufferData();
-  if (fb) {
+  if (fb != NULL) {
     fb->SetAttachment(attachment, textarget, texture, RenderbufferDataPtr());
   }
 
@@ -2096,7 +2096,7 @@ GLES_APIENTRY(void, GetActiveAttrib, GLuint program, GLuint index,
 
   ShareGroupPtr sg = c->GetShareGroup();
   ProgramDataPtr program_data = sg->GetProgramData(program);
-  if (!program_data) {
+  if (program_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Invalid program %d", program);
     return;
   }
@@ -2115,7 +2115,7 @@ GLES_APIENTRY(void, GetActiveUniform, GLuint program, GLuint index,
 
   ShareGroupPtr sg = c->GetShareGroup();
   ProgramDataPtr program_data = sg->GetProgramData(program);
-  if (!program_data) {
+  if (program_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Invalid program %d", program);
     return;
   }
@@ -2133,7 +2133,7 @@ GLES_APIENTRY(void, GetAttachedShaders, GLuint program, GLsizei maxcount,
 
   ShareGroupPtr sg = c->GetShareGroup();
   ProgramDataPtr program_data = sg->GetProgramData(program);
-  if (!program_data) {
+  if (program_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Invalid program %d", program);
     return;
   }
@@ -2150,7 +2150,7 @@ GLES_APIENTRY(GLint, GetAttribLocation, GLuint program, const GLchar* name) {
 
   ShareGroupPtr sg = c->GetShareGroup();
   ProgramDataPtr program_data = sg->GetProgramData(program);
-  if (!program_data) {
+  if (program_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Invalid program %d", program);
     return -1;
   }
@@ -2186,7 +2186,7 @@ GLES_APIENTRY(void, GetBufferParameteriv, GLenum target, GLenum pname,
   }
 
   BufferDataPtr vbo = c->GetBoundTargetBufferData(target);
-  if (!vbo) {
+  if (vbo == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Target buffer not bound.");
     return;
   }
@@ -2310,7 +2310,7 @@ GLES_APIENTRY(void, GetFramebufferAttachmentParameteriv, GLenum target,
 
   // Take the attachment attribute from our state - if available
   FramebufferDataPtr fb = c->GetBoundFramebufferData();
-  if (!fb) {
+  if (fb == NULL) {
     return;
   }
 
@@ -2511,7 +2511,7 @@ GLES_APIENTRY(void, GetProgramInfoLog, GLuint program, GLsizei bufsize,
 
   ShareGroupPtr sg = c->GetShareGroup();
   ProgramDataPtr program_data = sg->GetProgramData(program);
-  if (!program_data) {
+  if (program_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Invalid program %d", program);
     return;
   }
@@ -2528,7 +2528,7 @@ GLES_APIENTRY(void, GetProgramiv, GLuint program, GLenum pname, GLint* params) {
 
   ShareGroupPtr sg = c->GetShareGroup();
   ProgramDataPtr program_data = sg->GetProgramData(program);
-  if (!program_data) {
+  if (program_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Invalid program %d", program);
     return;
   }
@@ -2554,7 +2554,7 @@ GLES_APIENTRY(void, GetRenderbufferParameteriv, GLenum target, GLenum pname,
   }
 
   RenderbufferDataPtr rb = c->GetBoundRenderbufferData();
-  if (rb) {
+  if (rb != NULL) {
     switch (pname) {
       case GL_RENDERBUFFER_WIDTH:
         *params = rb->GetWidth();
@@ -2590,7 +2590,7 @@ GLES_APIENTRY(void, GetShaderInfoLog, GLuint shader, GLsizei bufsize,
 
   ShareGroupPtr sg = c->GetShareGroup();
   ShaderDataPtr shader_data = sg->GetShaderData(shader);
-  if (!shader_data) {
+  if (shader_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Not a valid shader %d", shader);
     return;
   }
@@ -2620,7 +2620,7 @@ GLES_APIENTRY(void, GetShaderSource, GLuint shader, GLsizei bufsize,
 
   ShareGroupPtr sg = c->GetShareGroup();
   ShaderDataPtr shader_data = sg->GetShaderData(shader);
-  if (!shader_data) {
+  if (shader_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Not a valid shader %d", shader);
     return;
   }
@@ -2637,7 +2637,7 @@ GLES_APIENTRY(void, GetShaderiv, GLuint shader, GLenum pname, GLint* params) {
 
   ShareGroupPtr sg = c->GetShareGroup();
   ShaderDataPtr shader_data = sg->GetShaderData(shader);
-  if (!shader_data) {
+  if (shader_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Not a valid shader %d", shader);
     return;
   }
@@ -2777,7 +2777,7 @@ GLES_APIENTRY(void, GetTexParameteriv, GLenum target, GLenum pname,
 
   if (pname == GL_TEXTURE_CROP_RECT_OES) {
     TextureDataPtr tex = c->GetBoundTextureData(target);
-    if (tex) {
+    if (tex != NULL) {
       memcpy(params, tex->GetCropRect(), 4 * sizeof(GLint));
     }
     return;
@@ -2810,7 +2810,7 @@ GLES_APIENTRY(void, GetUniformfv, GLuint program, GLint location,
 
   ShareGroupPtr sg = c->GetShareGroup();
   ProgramDataPtr program_data = sg->GetProgramData(program);
-  if (!program_data) {
+  if (program_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Invalid program %d", program);
     return;
   }
@@ -2827,7 +2827,7 @@ GLES_APIENTRY(void, GetUniformiv, GLuint program, GLint location,
 
   ShareGroupPtr sg = c->GetShareGroup();
   ProgramDataPtr program_data = sg->GetProgramData(program);
-  if (!program_data) {
+  if (program_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Invalid program %d", program);
     return;
   }
@@ -2844,7 +2844,7 @@ GLES_APIENTRY(GLint, GetUniformLocation, GLuint program, const GLchar* name) {
 
   ShareGroupPtr sg = c->GetShareGroup();
   ProgramDataPtr program_data = sg->GetProgramData(program);
-  if (!program_data) {
+  if (program_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Invalid program %d", program);
     return -1;
   }
@@ -3037,7 +3037,7 @@ GLES_APIENTRY(GLboolean, IsFramebuffer, GLuint framebuffer) {
 
   ShareGroupPtr sg = c->GetShareGroup();
   FramebufferDataPtr fb = sg->GetFramebufferData(framebuffer);
-  return fb ? GL_TRUE : GL_FALSE;
+  return fb != NULL ? GL_TRUE : GL_FALSE;
 }
 
 GLES_APIENTRY(GLboolean, IsFramebufferOES, GLuint framebuffer) {
@@ -3053,7 +3053,7 @@ GLES_APIENTRY(GLboolean, IsProgram, GLuint program) {
 
   ShareGroupPtr sg = c->GetShareGroup();
   ProgramDataPtr ptr = sg->GetProgramData(program);
-  return ptr ? GL_TRUE : GL_FALSE;
+  return ptr != NULL ? GL_TRUE : GL_FALSE;
 }
 
 // Returns true if the specified object is a renderbuffer.
@@ -3065,7 +3065,7 @@ GLES_APIENTRY(GLboolean, IsRenderbuffer, GLuint renderbuffer) {
 
   ShareGroupPtr sg = c->GetShareGroup();
   RenderbufferDataPtr rb = sg->GetRenderbufferData(renderbuffer);
-  return rb ? GL_TRUE : GL_FALSE;
+  return rb != NULL ? GL_TRUE : GL_FALSE;
 }
 
 GLES_APIENTRY(GLboolean, IsRenderbufferOES, GLuint renderbuffer) {
@@ -3081,7 +3081,7 @@ GLES_APIENTRY(GLboolean, IsShader, GLuint shader) {
 
   ShareGroupPtr sg = c->GetShareGroup();
   ShaderDataPtr ptr = sg->GetShaderData(shader);
-  return ptr ? GL_TRUE : GL_FALSE;
+  return ptr != NULL ? GL_TRUE : GL_FALSE;
 }
 
 // Returns true if the specified object is a texture.
@@ -3096,7 +3096,7 @@ GLES_APIENTRY(GLboolean, IsTexture, GLuint texture) {
   }
   ShareGroupPtr sg = c->GetShareGroup();
   TextureDataPtr tex = sg->GetTextureData(texture);
-  return tex ? GL_TRUE : GL_FALSE;
+  return tex != NULL ? GL_TRUE : GL_FALSE;
 }
 
 // Configure fixed function lighting state.
@@ -3309,7 +3309,7 @@ GLES_APIENTRY(void, LinkProgram, GLuint program) {
 
   ShareGroupPtr sg = c->GetShareGroup();
   ProgramDataPtr program_data = sg->GetProgramData(program);
-  if (!program_data) {
+  if (program_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Invalid program %d", program);
     return;
   }
@@ -3876,7 +3876,7 @@ GLES_APIENTRY(void, RenderbufferStorage, GLenum target, GLenum internalformat,
   }
 
   RenderbufferDataPtr obj = c->GetBoundRenderbufferData();
-  if (!obj) {
+  if (obj == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "No renderbuffer bound.");
     return;
   }
@@ -3985,7 +3985,7 @@ GLES_APIENTRY(void, ShaderSource, GLuint shader, GLsizei count,
 
   ShareGroupPtr sg = c->GetShareGroup();
   ShaderDataPtr shader_data = sg->GetShaderData(shader);
-  if (!shader_data) {
+  if (shader_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Not a valid shader %d", shader);
     return;
   }
@@ -4397,12 +4397,12 @@ GLES_APIENTRY(void, TexParameterfv, GLenum target, GLenum pname,
 
   if (pname == GL_TEXTURE_CROP_RECT_OES) {
     TextureDataPtr tex = c->GetBoundTextureData(target);
-    if (tex) {
+    if (tex != NULL) {
       tex->SetCropRect(reinterpret_cast<const GLint*>(params));
     }
   } else if (pname == GL_GENERATE_MIPMAP) {
     TextureDataPtr tex = c->GetBoundTextureData(target);
-    if (tex) {
+    if (tex != NULL) {
       tex->SetAutoMipmap(*params);
     }
   } else {
@@ -4434,12 +4434,12 @@ GLES_APIENTRY(void, TexParameteriv, GLenum target, GLenum pname,
 
   if (pname == GL_TEXTURE_CROP_RECT_OES) {
     TextureDataPtr tex = c->GetBoundTextureData(target);
-    if (tex) {
+    if (tex != NULL) {
       tex->SetCropRect(params);
     }
   } else if (pname == GL_GENERATE_MIPMAP) {
     TextureDataPtr tex = c->GetBoundTextureData(target);
-    if (tex) {
+    if (tex != NULL) {
       tex->SetAutoMipmap(*params);
     }
   } else {
@@ -4585,7 +4585,7 @@ GLES_APIENTRY(void, TexSubImage2D, GLenum target, GLint level, GLint xoffset,
 
   if (HandleTexSubImage2D(target, level, xoffset, yoffset, width, height,
                           format, type, pixels)) {
-    if (tex && tex->IsAutoMipmap() && level == 0) {
+    if (tex != NULL && tex->IsAutoMipmap() && level == 0) {
       // TODO(crbug.com/441913): Update information for all levels.
       PASS_THROUGH(c, GenerateMipmap, target);
     }
@@ -4621,7 +4621,7 @@ ProgramDataPtr GetCurrentProgramData() {
   }
 
   ProgramDataPtr program_data = c->GetCurrentUserProgram();
-  if (!program_data) {
+  if (program_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "No active program on this context");
   }
   return program_data;
@@ -4632,7 +4632,7 @@ ProgramDataPtr GetCurrentProgramData() {
 // Loads values into the active uniform state.
 GLES_APIENTRY(void, Uniform1f, GLint location, GLfloat x) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     program_data->Uniformfv(location, GL_FLOAT, 1, &x);
   }
 }
@@ -4640,14 +4640,14 @@ GLES_APIENTRY(void, Uniform1f, GLint location, GLfloat x) {
 GLES_APIENTRY(void, Uniform1fv, GLint location, GLsizei count,
               const GLfloat* v) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     program_data->Uniformfv(location, GL_FLOAT, count, v);
   }
 }
 
 GLES_APIENTRY(void, Uniform1i, GLint location, GLint x) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     program_data->Uniformiv(location, GL_INT, 1, &x);
   }
 }
@@ -4655,14 +4655,14 @@ GLES_APIENTRY(void, Uniform1i, GLint location, GLint x) {
 GLES_APIENTRY(void, Uniform1iv, GLint location, GLsizei count,
               const GLint* v) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     program_data->Uniformiv(location, GL_INT, count, v);
   }
 }
 
 GLES_APIENTRY(void, Uniform2f, GLint location, GLfloat x, GLfloat y) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     GLfloat params[] = {x, y};
     program_data->Uniformfv(location, GL_FLOAT_VEC2, 1, params);
   }
@@ -4671,14 +4671,14 @@ GLES_APIENTRY(void, Uniform2f, GLint location, GLfloat x, GLfloat y) {
 GLES_APIENTRY(void, Uniform2fv, GLint location, GLsizei count,
               const GLfloat* v) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     program_data->Uniformfv(location, GL_FLOAT_VEC2, count, v);
   }
 }
 
 GLES_APIENTRY(void, Uniform2i, GLint location, GLint x, GLint y) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     GLint params[] = {x, y};
     program_data->Uniformiv(location, GL_INT_VEC2, 1, params);
   }
@@ -4687,7 +4687,7 @@ GLES_APIENTRY(void, Uniform2i, GLint location, GLint x, GLint y) {
 GLES_APIENTRY(void, Uniform2iv, GLint location, GLsizei count,
               const GLint* v) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     program_data->Uniformiv(location, GL_INT_VEC2, count, v);
   }
 }
@@ -4695,7 +4695,7 @@ GLES_APIENTRY(void, Uniform2iv, GLint location, GLsizei count,
 GLES_APIENTRY(void, Uniform3f, GLint location, GLfloat x, GLfloat y,
               GLfloat z) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     GLfloat params[] = {x, y, z};
     program_data->Uniformfv(location, GL_FLOAT_VEC3, 1, params);
   }
@@ -4704,14 +4704,14 @@ GLES_APIENTRY(void, Uniform3f, GLint location, GLfloat x, GLfloat y,
 GLES_APIENTRY(void, Uniform3fv, GLint location, GLsizei count,
               const GLfloat* v) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     program_data->Uniformfv(location, GL_FLOAT_VEC3, count, v);
   }
 }
 
 GLES_APIENTRY(void, Uniform3i, GLint location, GLint x, GLint y, GLint z) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     GLint params[] = {x, y, z};
     program_data->Uniformiv(location, GL_INT_VEC3, 1, params);
   }
@@ -4720,7 +4720,7 @@ GLES_APIENTRY(void, Uniform3i, GLint location, GLint x, GLint y, GLint z) {
 GLES_APIENTRY(void, Uniform3iv, GLint location, GLsizei count,
               const GLint* v) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     program_data->Uniformiv(location, GL_INT_VEC3, count, v);
   }
 }
@@ -4728,7 +4728,7 @@ GLES_APIENTRY(void, Uniform3iv, GLint location, GLsizei count,
 GLES_APIENTRY(void, Uniform4f, GLint location, GLfloat x, GLfloat y, GLfloat z,
               GLfloat w) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     GLfloat params[] = {x, y, z, w};
     program_data->Uniformfv(location, GL_FLOAT_VEC4, 1, params);
   }
@@ -4737,7 +4737,7 @@ GLES_APIENTRY(void, Uniform4f, GLint location, GLfloat x, GLfloat y, GLfloat z,
 GLES_APIENTRY(void, Uniform4fv, GLint location, GLsizei count,
               const GLfloat* v) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     program_data->Uniformfv(location, GL_FLOAT_VEC4, count, v);
   }
 }
@@ -4745,7 +4745,7 @@ GLES_APIENTRY(void, Uniform4fv, GLint location, GLsizei count,
 GLES_APIENTRY(void, Uniform4i, GLint location, GLint x, GLint y, GLint z,
               GLint w) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     GLint params[] = {x, y, z, w};
     program_data->Uniformiv(location, GL_INT_VEC4, 1, params);
   }
@@ -4754,7 +4754,7 @@ GLES_APIENTRY(void, Uniform4i, GLint location, GLint x, GLint y, GLint z,
 GLES_APIENTRY(void, Uniform4iv, GLint location, GLsizei count,
               const GLint* v) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     program_data->Uniformiv(location, GL_INT_VEC4, count, v);
   }
 }
@@ -4762,7 +4762,7 @@ GLES_APIENTRY(void, Uniform4iv, GLint location, GLsizei count,
 GLES_APIENTRY(void, UniformMatrix2fv, GLint location, GLsizei count,
               GLboolean transpose, const GLfloat* value) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     program_data->UniformMatrixfv(
         location, GL_FLOAT_MAT2, count, transpose, value);
   }
@@ -4771,7 +4771,7 @@ GLES_APIENTRY(void, UniformMatrix2fv, GLint location, GLsizei count,
 GLES_APIENTRY(void, UniformMatrix3fv, GLint location, GLsizei count,
               GLboolean transpose, const GLfloat* value) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     program_data->UniformMatrixfv(
         location, GL_FLOAT_MAT3, count, transpose, value);
   }
@@ -4780,7 +4780,7 @@ GLES_APIENTRY(void, UniformMatrix3fv, GLint location, GLsizei count,
 GLES_APIENTRY(void, UniformMatrix4fv, GLint location, GLsizei count,
               GLboolean transpose, const GLfloat* value) {
   ProgramDataPtr program_data = GetCurrentProgramData();
-  if (program_data) {
+  if (program_data != NULL) {
     program_data->UniformMatrixfv(
         location, GL_FLOAT_MAT4, count, transpose, value);
   }
@@ -4804,7 +4804,7 @@ GLES_APIENTRY(void, UseProgram, GLuint program) {
 
   ShareGroupPtr sg = c->GetShareGroup();
   ProgramDataPtr program_ptr = sg->GetProgramData(program);
-  if (!program_ptr) {
+  if (program_ptr == NULL) {
     if (program) {
       GLES_ERROR(GL_INVALID_OPERATION, "Unknown program name %d", program);
     }
@@ -4823,7 +4823,7 @@ GLES_APIENTRY(void, ValidateProgram, GLuint program) {
 
   ShareGroupPtr sg = c->GetShareGroup();
   ProgramDataPtr program_data = sg->GetProgramData(program);
-  if (!program_data) {
+  if (program_data == NULL) {
     GLES_ERROR(GL_INVALID_OPERATION, "Invalid program %d", program);
     return;
   }

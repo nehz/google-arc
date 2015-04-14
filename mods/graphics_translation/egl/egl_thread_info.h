@@ -21,6 +21,8 @@
 #include "graphics_translation/egl/egl_context_impl.h"
 #include "graphics_translation/egl/egl_surface_impl.h"
 
+class GlesContext;
+
 // This class stores the thread-specific EGL context and error values.
 class EglThreadInfo {
  public:
@@ -41,11 +43,18 @@ class EglThreadInfo {
 
   bool SetReportedNoContextError();
 
+  // During destroying a GlesContext, a destroying GlesContext will be set.
+  // All PASS_THROUGH used by destructors should use this context instead of
+  // the default current context.
+  void SetDestroyingGlesContext(GlesContext* context);
+  GlesContext* GetDestroyingGlesContext();
+
  private:
   EGLint error_;
   ContextPtr curr_ctx_;
   ContextPtr prev_ctx_;
   bool reported_no_context_error_;
+  GlesContext *destroying_gles_context_;
 
   // Cannot instantiate this class directly.  Instead, users must call the
   // GetInstance() function.

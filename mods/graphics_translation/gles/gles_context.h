@@ -21,6 +21,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <utils/RefBase.h>
 #include <vector>
 
 #include "graphics_translation/gles/egl_image.h"
@@ -40,12 +41,13 @@ class GlesContext {
   };
 
   // Ensures that the bound surface has a buffer ready for drawing.
-  class SurfaceControlCallback {
+  class SurfaceControlCallback : public android::RefBase {
    public:
-    virtual ~SurfaceControlCallback() {}
     virtual void EnsureBufferReady() = 0;
+   protected:
+    virtual ~SurfaceControlCallback() {}
   };
-  typedef SmartPtr<SurfaceControlCallback> SurfaceControlCallbackPtr;
+  typedef android::sp<SurfaceControlCallback> SurfaceControlCallbackPtr;
 
   GlesContext(int32_t id, GlesVersion ver, GlesContext* share,
               void* underlying_context, const UnderlyingApis* underlying_apis);

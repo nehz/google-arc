@@ -278,7 +278,7 @@ void GlesContext::DeleteFramebufferOverride() {
 }
 
 ShareGroupPtr GlesContext::GetShareGroup() const {
-  LOG_ALWAYS_FATAL_IF(!share_group_);
+  LOG_ALWAYS_FATAL_IF(share_group_ == NULL);
   return share_group_;
 }
 
@@ -351,7 +351,7 @@ void GlesContext::Flush() {
 }
 
 void GlesContext::EnsureSurfaceReadyToDraw() const {
-  if (surface_callback_) {
+  if (surface_callback_ != NULL) {
     surface_callback_->EnsureBufferReady();
   }
 }
@@ -361,13 +361,13 @@ void GlesContext::SetCurrentUserProgram(const ProgramDataPtr& program) {
     return;
   }
 
-  if (program) {
+  if (program != NULL) {
     if (!program->Use(true)) {
       return;
     }
   }
 
-  if (current_user_program_) {
+  if (current_user_program_ != NULL) {
     current_user_program_->Use(false);
   }
 
@@ -442,7 +442,7 @@ void GlesContext::Draw(DrawType draw, GLenum mode, GLint first, GLsizei count,
 
 bool GlesContext::BindImageToTexture(GLenum target, EglImagePtr image) {
   TextureDataPtr texture = GetBoundTextureData(target);
-  if (!texture) {
+  if (texture == NULL) {
     return false;
   }
 
@@ -475,7 +475,7 @@ bool GlesContext::BindImageToTexture(GLenum target, EglImagePtr image) {
 
 bool GlesContext::BindImageToRenderbuffer(EglImagePtr image) {
   RenderbufferDataPtr rb = GetBoundRenderbufferData();
-  if (!rb) {
+  if (rb == NULL) {
     return false;
   }
 
@@ -567,7 +567,7 @@ void GlesContext::DrawTex(GLfloat x, GLfloat y, GLfloat z, GLfloat width,
     const GLint texture = texture_context_.GetTexture(GL_TEXTURE0 + i,
                                                       GL_TEXTURE_2D);
     const TextureDataPtr texture_data = share_group_->GetTextureData(texture);
-    if (!texture_data) {
+    if (texture_data == NULL) {
       continue;
     }
 
@@ -716,7 +716,7 @@ ShaderConfig GlesContext::ConfigureShader(GLenum mode) {
 
     const GLuint texture = texture_context_.GetTexture(id, target);
     TextureDataPtr obj = share_group_->GetTextureData(texture);
-    if (!obj && texture == 0) {
+    if (obj == NULL && texture == 0) {
       obj = texture_context_.GetDefaultTextureData(target);
     }
 
@@ -870,7 +870,7 @@ ProgramContext& GlesContext::BindProgramContext(GLenum mode) {
 
 void GlesContext::PrepareProgramObject(GLenum mode,
                                        bool* program_uses_external_as_2d) {
-  if (current_user_program_) {
+  if (current_user_program_ != NULL) {
     current_user_program_->PrepareForRendering(program_uses_external_as_2d);
     return;
   }
@@ -922,7 +922,7 @@ void GlesContext::PrepareProgramObject(GLenum mode,
 }
 
 void GlesContext::ClearProgramObject() {
-  if (current_user_program_) {
+  if (current_user_program_ != NULL) {
     current_user_program_->CleanupAfterRendering();
     return;
   }
@@ -1225,7 +1225,7 @@ bool GlesContext::GetValue(GLenum value, T* data) const {
       return true;
 
     case GL_CURRENT_PROGRAM:
-      if (current_user_program_) {
+      if (current_user_program_ != NULL) {
         Convert(data, static_cast<GLint>(
             current_user_program_->GetLocalName()));
       } else {

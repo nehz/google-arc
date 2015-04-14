@@ -18,6 +18,7 @@
 
 #include <map>
 #include <utility>
+#include <utils/RefBase.h>
 
 #include "graphics_translation/gles/buffer_data.h"
 #include "graphics_translation/gles/framebuffer_data.h"
@@ -40,7 +41,7 @@ class NamespaceImpl;
 // providing functions for a given type (ex. GenBufferName).  This is to
 // allow us to catch problematic usage at compile time rather than asserting
 // at runtime.
-class ShareGroup {
+class ShareGroup : public android::RefBase {
  public:
   explicit ShareGroup(GlesContext* context);
 
@@ -70,45 +71,45 @@ class ShareGroup {
 
   // Create an object of the specified type with the given local name.
   BufferDataPtr CreateBufferData(ObjectLocalName name) {
-    return GetObject(BUFFER, name, true).Cast<BufferData>();
+    return GetObjectAs<BufferData>(BUFFER, name, true);
   }
   FramebufferDataPtr CreateFramebufferData(ObjectLocalName name) {
-    return GetObject(FRAMEBUFFER, name, true).Cast<FramebufferData>();
+    return GetObjectAs<FramebufferData>(FRAMEBUFFER, name, true);
   }
   RenderbufferDataPtr CreateRenderbufferData(ObjectLocalName name) {
-    return GetObject(RENDERBUFFER, name, true).Cast<RenderbufferData>();
+    return GetObjectAs<RenderbufferData>(RENDERBUFFER, name, true);
   }
   TextureDataPtr CreateTextureData(ObjectLocalName name) {
-    return GetObject(TEXTURE, name, true).Cast<TextureData>();
+    return GetObjectAs<TextureData>(TEXTURE, name, true);
   }
   ProgramDataPtr CreateProgramData(ObjectLocalName name) {
-    return GetObject(PROGRAM, name, true).Cast<ProgramData>();
+    return GetObjectAs<ProgramData>(PROGRAM, name, true);
   }
   ShaderDataPtr CreateVertexShaderData(ObjectLocalName name) {
-    return GetObject(VERTEX_SHADER, name, true).Cast<ShaderData>();
+    return GetObjectAs<ShaderData>(VERTEX_SHADER, name, true);
   }
   ShaderDataPtr CreateFragmentShaderData(ObjectLocalName name) {
-    return GetObject(FRAGMENT_SHADER, name, true).Cast<ShaderData>();
+    return GetObjectAs<ShaderData>(FRAGMENT_SHADER, name, true);
   }
 
   // Retrieve the object of the specified type with the given local name.
   BufferDataPtr GetBufferData(ObjectLocalName name) {
-    return GetObject(BUFFER, name, false).Cast<BufferData>();
+    return GetObjectAs<BufferData>(BUFFER, name, false);
   }
   FramebufferDataPtr GetFramebufferData(ObjectLocalName name) {
-    return GetObject(FRAMEBUFFER, name, false).Cast<FramebufferData>();
+    return GetObjectAs<FramebufferData>(FRAMEBUFFER, name, false);
   }
   RenderbufferDataPtr GetRenderbufferData(ObjectLocalName name) {
-    return GetObject(RENDERBUFFER, name, false).Cast<RenderbufferData>();
+    return GetObjectAs<RenderbufferData>(RENDERBUFFER, name, false);
   }
   TextureDataPtr GetTextureData(ObjectLocalName name) {
-    return GetObject(TEXTURE, name, false).Cast<TextureData>();
+    return GetObjectAs<TextureData>(TEXTURE, name, false);
   }
   ProgramDataPtr GetProgramData(ObjectLocalName name) {
-    return GetObject(PROGRAM, name, false).Cast<ProgramData>();
+    return GetObjectAs<ProgramData>(PROGRAM, name, false);
   }
   ShaderDataPtr GetShaderData(ObjectLocalName name) {
-    return GetObject(SHADER, name, false).Cast<ShaderData>();
+    return GetObjectAs<ShaderData>(SHADER, name, false);
   }
 
   // Deletes the object of the specified type as well as unregistering its
@@ -155,14 +156,20 @@ class ShareGroup {
     SetGlobalName(TEXTURE, local_name, global_name);
   }
 
+ protected:
+  virtual ~ShareGroup();
+
  private:
   typedef std::pair<ObjectType, ObjectLocalName> ObjectID;
   typedef std::map<ObjectID, ObjectDataPtr> ObjectDataMap;
 
-  ~ShareGroup();
-
   ObjectDataPtr GetObject(ObjectType type, ObjectLocalName name,
                           bool create_if_needed);
+  template <typename T>
+  android::sp<T> GetObjectAs(ObjectType type, ObjectLocalName name,
+                             bool create_if_needed) {
+    return static_cast<T*>(GetObject(type, name, create_if_needed).get());
+  }
   void DeleteObjects(ObjectType type, int n, const ObjectLocalName* names);
 
   void GenNames(ObjectType type, int n, ObjectLocalName* names);
@@ -179,12 +186,10 @@ class ShareGroup {
   ObjectDataMap objects_;
   GlesContext* context_;
 
-  friend class SmartPtr<ShareGroup>;
-
   ShareGroup(const ShareGroup&);
   ShareGroup& operator=(const ShareGroup&);
 };
 
-typedef SmartPtr<ShareGroup> ShareGroupPtr;
+typedef android::sp<ShareGroup> ShareGroupPtr;
 
 #endif  // GRAPHICS_TRANSLATION_GLES_SHARE_GROUP_H_

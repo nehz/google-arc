@@ -71,7 +71,7 @@ bool EglSurfaceImpl::SetColorBuffer(ColorBufferHandle hnd) {
     return false;
   }
   ColorBufferPtr cb = d->GetColorBuffers().Get(hnd);
-  if (!cb) {
+  if (cb == NULL) {
     return false;
   }
   color_buffer_ = cb;
@@ -81,9 +81,9 @@ bool EglSurfaceImpl::SetColorBuffer(ColorBufferHandle hnd) {
   return true;
 }
 
-void EglSurfaceImpl::BindToContext(EglContextImpl* context) {
+void EglSurfaceImpl::BindToContext(const ContextPtr& context) {
   bound_context_ = context;
-  if (context) {
+  if (context != NULL) {
     GlesContext::SurfaceControlCallbackPtr cb(new SurfaceCallbackWrapper(this));
     context->GetGlesContext()->OnAttachSurface(cb, width_, height_);
   }
@@ -95,12 +95,12 @@ void EglSurfaceImpl::OnSurfaceChanged() {
 }
 
 void EglSurfaceImpl::UpdateFramebufferOverride() {
-  if (!bound_context_) {
+  if (bound_context_ == NULL) {
     return;
   }
 
   GLuint texture = 0;
-  if (color_buffer_) {
+  if (color_buffer_ != NULL) {
     texture = color_buffer_->GetGlobalTexture();
   }
 
@@ -110,12 +110,7 @@ void EglSurfaceImpl::UpdateFramebufferOverride() {
 }
 
 void EglSurfaceImpl::UpdateColorBufferHostContext() {
-  if (!color_buffer_) {
-    return;
-  }
-  if (bound_context_) {
-    color_buffer_->BindContext(bound_context_->GetKey());
-  } else {
-    color_buffer_->BindContext(NULL);
+  if (color_buffer_ != NULL) {
+    color_buffer_->BindContext(bound_context_);
   }
 }

@@ -24,9 +24,8 @@
 class RenderbufferData : public ObjectData {
  public:
   explicit RenderbufferData(ObjectLocalName name);
-  virtual ~RenderbufferData();
 
-  void SetEglImage(EglImagePtr image);
+  void SetEglImage(const EglImagePtr& image);
   void SetDataStore(GLenum target, GLenum format, GLint width, GLint height);
 
   GLuint GetWidth() const;
@@ -40,6 +39,9 @@ class RenderbufferData : public ObjectData {
   bool IsAttached() const { return attach_fbo_ != 0; }
   GLenum GetAttachment() const { return attach_point_; }
   GLuint GetAttachedFramebuffer() const { return attach_fbo_; }
+
+ protected:
+  virtual ~RenderbufferData();
 
  private:
   GLuint attach_fbo_;
@@ -55,6 +57,6 @@ class RenderbufferData : public ObjectData {
   RenderbufferData& operator=(const RenderbufferData&);
 };
 
-typedef SmartPtr<RenderbufferData> RenderbufferDataPtr;
+typedef android::sp<RenderbufferData> RenderbufferDataPtr;
 
 #endif  // GRAPHICS_TRANSLATION_GLES_RENDERBUFFER_DATA_H_

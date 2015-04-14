@@ -30,7 +30,7 @@ void FramebufferData::Attachment::Set(GLenum target,
 }
 
 void FramebufferData::Attachment::Detach() {
-  if (obj_ && target_ == GL_RENDERBUFFER) {
+  if (obj_ != NULL && target_ == GL_RENDERBUFFER) {
     obj_->DetachFramebuffer();
   }
   Set(0, 0, RenderbufferDataPtr());

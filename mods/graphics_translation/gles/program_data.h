@@ -30,7 +30,6 @@
 class ProgramData : public ObjectData {
  public:
   explicit ProgramData(ObjectLocalName name);
-  ~ProgramData();
 
   void AttachShader(const ShaderDataPtr& shader);
   void DetachShader(const ShaderDataPtr& shader);
@@ -73,6 +72,9 @@ class ProgramData : public ObjectData {
                        GLint* size, GLenum* type, GLchar* name) const;
   void BindAttribLocation(GLuint index, const GLchar* name);
   GLint GetAttribLocation(const GLchar* name);
+
+ protected:
+  virtual ~ProgramData();
 
  private:
   // Stores a cached uniform value.
@@ -176,6 +178,6 @@ class ProgramData : public ObjectData {
   ProgramData& operator=(const ProgramData&);
 };
 
-typedef SmartPtr<ProgramData> ProgramDataPtr;
+typedef android::sp<ProgramData> ProgramDataPtr;
 
 #endif  // GRAPHICS_TRANSLATION_GLES_PROGRAM_DATA_H_

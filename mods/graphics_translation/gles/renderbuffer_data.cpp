@@ -22,8 +22,7 @@ RenderbufferData::RenderbufferData(ObjectLocalName name)
     target_(0),
     format_(0),
     width_(0),
-    height_(0),
-    image_(0) {
+    height_(0) {
 }
 
 RenderbufferData::~RenderbufferData() {
@@ -40,22 +39,22 @@ void RenderbufferData::DetachFramebuffer() {
 }
 
 GLuint RenderbufferData::GetWidth() const {
-  return image_ ? image_->width : width_;
+  return image_ != NULL ? image_->width : width_;
 }
 
 GLuint RenderbufferData::GetHeight() const {
-  return image_ ? image_->height : height_;
+  return image_ != NULL ? image_->height : height_;
 }
 
 GLenum RenderbufferData::GetFormat() const {
-  return image_ ? image_->format : format_;
+  return image_ != NULL ? image_->format : format_;
 }
 
 GLint RenderbufferData::GetEglImageTexture() const {
-  return image_ ? image_->global_texture_name : 0;
+  return image_ != NULL ? image_->global_texture_name : 0;
 }
 
-void RenderbufferData::SetEglImage(EglImagePtr image) {
+void RenderbufferData::SetEglImage(const EglImagePtr& image) {
   image_ = image;
   target_ = 0;
   format_ = 0;
@@ -65,7 +64,7 @@ void RenderbufferData::SetEglImage(EglImagePtr image) {
 
 void RenderbufferData::SetDataStore(GLenum target, GLenum format, GLint width,
                                     GLint height) {
-  image_.Reset();
+  image_ = NULL;
   target_ = target;
   format_ = format;
   width_ = width;

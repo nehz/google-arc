@@ -18,11 +18,11 @@
 
 #include <GLES/gl.h>
 #include <string>
+#include <utils/RefBase.h>
 
 #include "graphics_translation/gles/dirtiable.h"
 #include "graphics_translation/gles/mutex.h"
 #include "graphics_translation/gles/object_data.h"
-#include "graphics_translation/gles/smartptr.h"
 
 class GlesContext;
 
@@ -33,10 +33,9 @@ class GlesContext;
 // Functions (including destructor) may pass calls to the underlying GL
 // implementation, and so must be called with an active context.
 // A compiled ShaderVariant instance cannot be re-compiled.
-class ShaderVariant {
+class ShaderVariant : public android::RefBase {
  public:
   explicit ShaderVariant(ObjectType object_type);
-  ~ShaderVariant();
 
   ObjectType GetObjectType() const { return object_type_; }
   bool IsCompileRequested() const {
@@ -64,6 +63,9 @@ class ShaderVariant {
   }
 
   void Compile();
+
+ protected:
+  virtual ~ShaderVariant();
 
  private:
   enum CompileStatus {
@@ -94,6 +96,6 @@ class ShaderVariant {
   ShaderVariant& operator=(const ShaderVariant&);
 };
 
-typedef SmartPtr<ShaderVariant> ShaderVariantPtr;
+typedef android::sp<ShaderVariant> ShaderVariantPtr;
 
 #endif  // GRAPHICS_TRANSLATION_GLES_SHADER_VARIANT_H_

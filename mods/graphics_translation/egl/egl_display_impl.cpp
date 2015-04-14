@@ -253,7 +253,7 @@ void EglDisplayImpl::BindLocked() {
   // Flush all operations of the current context before we switch to the
   // global context.
   ContextPtr curr_ctx = info.GetCurrentContext();
-  if (curr_ctx) {
+  if (curr_ctx != NULL) {
     curr_ctx->Flush();
   }
 
@@ -280,7 +280,7 @@ void EglDisplayImpl::SwapBuffersLocked() {
 
 EGLint EglDisplayImpl::SwapBuffers(EGLSurface egl_surface) {
   SurfacePtr sfc = surfaces_.Get(egl_surface);
-  if (!sfc) {
+  if (sfc == NULL) {
     return EGL_BAD_SURFACE;
   } else if (sfc->SwapBuffers()) {
     return EGL_SUCCESS;
@@ -299,32 +299,33 @@ EGLint EglDisplayImpl::MakeCurrent(EGLContext egl_ctx, EGLSurface egl_draw,
   ContextPtr ctx = contexts_.Get(egl_ctx);
   SurfacePtr sfc = surfaces_.Get(egl_draw);
 
-  bool release = !ctx && !sfc;
+  bool release = ctx == NULL && sfc == NULL;
   // If a context is being set, then a surface must be set.  Similarly, if a
   // context is being cleared, the surface must be cleared.  Any other
   // combination is an error.
-  const bool invalid_surface = ctx ? sfc == NULL : sfc != NULL;
+  const bool invalid_surface = ctx != NULL ? sfc == NULL : sfc != NULL;
   if (!release && invalid_surface) {
     return EGL_BAD_MATCH;
   }
 
   EglThreadInfo& info = EglThreadInfo::GetInstance();
   ContextPtr prev_ctx = info.GetCurrentContext();
-  SurfacePtr prev_sfc = prev_ctx ? prev_ctx->GetSurface() : SurfacePtr();
+  SurfacePtr prev_sfc =
+      prev_ctx != NULL ? prev_ctx->GetSurface() : SurfacePtr();
 
   if (release) {
-    if (prev_ctx) {
+    if (prev_ctx != NULL) {
       prev_ctx->Flush();
       info.SetCurrentContext(ContextPtr());
     }
   } else {
-    if (!ctx) {
+    if (ctx == NULL) {
       return EGL_BAD_CONTEXT;
     }
     if (ctx->config != sfc->config) {
       return EGL_BAD_MATCH;
     }
-    if (ctx && prev_ctx) {
+    if (ctx != NULL && prev_ctx != NULL) {
       if (ctx == prev_ctx) {
         if (sfc == prev_sfc) {
             // Reassigning the same context and surface.
@@ -336,7 +337,7 @@ EGLint EglDisplayImpl::MakeCurrent(EGLContext egl_ctx, EGLSurface egl_draw,
       }
     }
 
-    if (prev_ctx) {
+    if (prev_ctx != NULL) {
       prev_ctx->Flush();
     }
 
@@ -348,7 +349,7 @@ EGLint EglDisplayImpl::MakeCurrent(EGLContext egl_ctx, EGLSurface egl_draw,
     ctx->SetSurface(sfc);
   }
 
-  if (prev_ctx && release) {
+  if (prev_ctx != NULL && release) {
     prev_ctx->ClearCurrent();
     prev_ctx->ClearSurface();
   }

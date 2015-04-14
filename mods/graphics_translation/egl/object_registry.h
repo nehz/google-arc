@@ -21,10 +21,7 @@
 #include "graphics_translation/gles/mutex.h"
 
 // A simple class used to "own" objects whose lifetimes are managed by the
-// SmartPtr class.
-//
-// It is simply a thread-safe map of SmartPtr-owned objects where the Key is
-// actually the pointer to the underlying object itself.
+// android::sp class.
 template<typename Object>
 class ObjectRegistry {
  public:

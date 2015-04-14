@@ -18,28 +18,27 @@
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+#include <utils/RefBase.h>
 
 #include "graphics_translation/egl/egl_surface_impl.h"
 #include "graphics_translation/gles/gles_utils.h"
-#include "graphics_translation/gles/smartptr.h"
 
 class GlesContext;
 struct NativeContext;
 
 class EglContextImpl;
-typedef SmartPtr<EglContextImpl> ContextPtr;
+typedef android::sp<EglContextImpl> ContextPtr;
 
 // This class is the implementation behind the EGLContext opaque type.
 //
 // This class is responsible for creating and managing the GLES rendering
 // context object and the underlying NativeContext object.
-class EglContextImpl {
+class EglContextImpl : public android::RefBase {
  public:
   // Create and register a context with the display and return its handle.
   static EGLContext Create(EGLDisplay dpy, EGLConfig cfg,
                            EGLContext shared, EGLint version,
                            EGLint* out_error);
-  ~EglContextImpl();
 
   EGLContext GetKey() const { return key_; }
 
@@ -74,6 +73,8 @@ class EglContextImpl {
  protected:
   EglContextImpl(EGLDisplay dpy, EGLConfig cfg, EGLContext shared,
                  GlesVersion version);
+
+  ~EglContextImpl();
 
   EGLContext key_;
   NativeContext* native_context_;

@@ -25,7 +25,6 @@
 class ShaderData : public ObjectData {
  public:
   ShaderData(ObjectType type, ObjectLocalName name);
-  ~ShaderData();
 
   ShaderVariantPtr GetShaderVariant() const { return shader_variant_; }
 
@@ -38,6 +37,9 @@ class ShaderData : public ObjectData {
 
   void Compile();
 
+ protected:
+  virtual ~ShaderData();
+
  private:
   ShaderVariantPtr shader_variant_;
 
@@ -45,6 +47,6 @@ class ShaderData : public ObjectData {
   ShaderData& operator=(const ShaderData&);
 };
 
-typedef SmartPtr<ShaderData> ShaderDataPtr;
+typedef android::sp<ShaderData> ShaderDataPtr;
 
 #endif  // GRAPHICS_TRANSLATION_GLES_SHADER_DATA_H_

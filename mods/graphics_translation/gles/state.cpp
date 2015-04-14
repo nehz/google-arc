@@ -1183,7 +1183,7 @@ const GLvoid* PointerContext::PrepareBuffersForDrawElements(
   // There is no currently bound element array buffer, so copy the indices
   // into the PointerContext's element array buffer object and use that VBO
   // for the duration of this draw call.
-  if (!vbo) {
+  if (vbo == NULL) {
     const size_t size = GetTypeSize(type) * count;
     PASS_THROUGH(context_, BindBuffer, GL_ELEMENT_ARRAY_BUFFER,
                  element_array_buffer_);
@@ -1215,7 +1215,7 @@ const GLvoid* PointerContext::PrepareBuffersForDrawElements(
 
   if (has_client_vertex_attribs) {
     const GLvoid* data = indices;
-    if (vbo) {
+    if (vbo != NULL) {
       const unsigned char* buffer_data = vbo->GetData();
       LOG_ALWAYS_FATAL_IF(buffer_data == NULL,
                           "Element array buffers must have data!");
@@ -1230,7 +1230,7 @@ const GLvoid* PointerContext::PrepareBuffersForDrawElements(
   // If we have an element array VBO, then use the offset as specified.
   // Otherwise we have copied the client-data data into a VBO, so we
   // can use a zero (NULL) offset into the VBO instead.
-  return vbo ? indices : NULL;
+  return vbo != NULL ? indices : NULL;
 }
 
 void PointerContext::BindPointers(GLint first, GLint last) {

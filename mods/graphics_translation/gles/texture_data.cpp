@@ -57,14 +57,14 @@ void TextureData::AttachEglImage(EglImagePtr image) {
 }
 
 void TextureData::DetachEglImage() {
-  image_.Reset();
+  image_ = NULL;
   target_ = GL_TEXTURE_2D;
 }
 
 bool TextureData::IsEglImageAttached() const {
-  return image_ != 0;
+  return image_ != NULL;
 }
 
-EglImagePtr TextureData::GetAttachedEglImage() const {
+const EglImagePtr& TextureData::GetAttachedEglImage() const {
   return image_;
 }

@@ -23,7 +23,6 @@
 class BufferData : public ObjectData {
  public:
   explicit BufferData(ObjectLocalName name);
-  ~BufferData();
 
   void SetBufferData(GLenum target, GLuint size, const GLvoid* data,
                      GLuint usage);
@@ -34,6 +33,9 @@ class BufferData : public ObjectData {
   GLenum GetUsage() const { return usage_; }
   const unsigned char* GetData() const { return data_; }
 
+ protected:
+  ~BufferData();
+
  private:
   GLuint size_;
   GLenum usage_;
@@ -43,6 +45,6 @@ class BufferData : public ObjectData {
   BufferData& operator=(const BufferData&);
 };
 
-typedef SmartPtr<BufferData> BufferDataPtr;
+typedef android::sp<BufferData> BufferDataPtr;
 
 #endif  // GRAPHICS_TRANSLATION_GLES_BUFFER_DATA_H_

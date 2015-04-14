@@ -47,7 +47,7 @@ EGLSurface EglPbufferSurfaceImpl::Create(EGLDisplay dpy, EGLConfig cfg,
 
   SurfacePtr s(new EglPbufferSurfaceImpl(dpy, cfg, surface_type, w, h, format,
                                          target));
-  if (!s) {
+  if (s == NULL) {
     *out_error = EGL_BAD_ALLOC;
     return EGL_NO_SURFACE;
   }
@@ -76,13 +76,13 @@ EglPbufferSurfaceImpl::EglPbufferSurfaceImpl(EGLDisplay dpy, EGLConfig cfg,
 }
 
 EglPbufferSurfaceImpl::~EglPbufferSurfaceImpl() {
-  if (color_buffer_) {
+  if (color_buffer_ != NULL) {
     color_buffer_->Release();
   }
 }
 
 void EglPbufferSurfaceImpl::BindTexImage() {
-  if (color_buffer_) {
+  if (color_buffer_ != NULL) {
     color_buffer_->BindToTexture();
   }
 }

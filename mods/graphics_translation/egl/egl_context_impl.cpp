@@ -27,15 +27,21 @@
 
 GlesContext* GetCurrentGlesContext() {
   EglThreadInfo& info = EglThreadInfo::GetInstance();
-  ContextPtr ctx = info.GetCurrentContext();
-  if (!ctx) {
-    if (!info.SetReportedNoContextError()) {
-      ALOGE("There is no current context for the OpenGL ES API (reported once "
-            "per thread)");
+  // If a GlesContext is being destroyed in this thread, we should return this
+  // GlesContext as current GlesContext for PASS_THROUGH.
+  GlesContext* gles_context = info.GetDestroyingGlesContext();
+  if (gles_context == NULL) {
+    ContextPtr ctx = info.GetCurrentContext();
+    if (ctx == NULL) {
+      if (!info.SetReportedNoContextError()) {
+        ALOGE("There is no current context for the OpenGL ES API (reported once "
+              "per thread)");
+      }
+    } else {
+      gles_context = ctx->GetGlesContext();
     }
-    return NULL;
   }
-  return ctx->GetGlesContext();
+  return gles_context;
 }
 
 EGLContext EglContextImpl::Create(EGLDisplay dpy, EGLConfig cfg,
@@ -61,7 +67,7 @@ EGLContext EglContextImpl::Create(EGLDisplay dpy, EGLConfig cfg,
   }
 
   ContextPtr ctx(new EglContextImpl(dpy, cfg, shared, (GlesVersion)version));
-  if (!ctx) {
+  if (ctx == NULL) {
     *out_error = EGL_BAD_ALLOC;
     return EGL_NO_CONTEXT;
   }
@@ -85,7 +91,7 @@ EglContextImpl::EglContextImpl(EGLDisplay dpy, EGLConfig cfg,
 
   ContextPtr global = d->GetGlobalContext();
   NativeContext* global_native_context =
-      global ? global->native_context_ : NULL;
+      global != NULL ? global->native_context_ : NULL;
   native_context_ = Native::CreateContext(native_config, global_native_context);
   LOG_ALWAYS_FATAL_IF(!native_context_, "Could not create native context.");
 
@@ -102,19 +108,15 @@ EglContextImpl::EglContextImpl(EGLDisplay dpy, EGLConfig cfg,
 
 EglContextImpl::~EglContextImpl() {
   // Cleanup share group and GLES context while advertising this context
-  // as current. This is needed for some destructors that use pass through.
+  // as destroying gles context. This is needed for some destructors that use
+  // pass through.
   EglThreadInfo& info = EglThreadInfo::GetInstance();
-  ContextPtr prev_ctx = info.GetCurrentContext();
-  LOG_ALWAYS_FATAL_IF(prev_ctx.Ptr() == this);
-  ContextPtr this_ctx(this);
-  info.SetCurrentContext(this_ctx);
+  LOG_ALWAYS_FATAL_IF(info.GetDestroyingGlesContext() != NULL);
 
+  info.SetDestroyingGlesContext(gles_);
   delete gles_;
   gles_ = NULL;
-
-  // Prevent double-destruction, and restore the original context as current.
-  info.SetCurrentContext(prev_ctx);
-  this_ctx.Detach();
+  info.SetDestroyingGlesContext(NULL);
 
   Native::DestroyContext(native_context_);
   native_context_ = NULL;
@@ -126,11 +128,11 @@ void EglContextImpl::SetSurface(SurfacePtr s) {
     // Otherwise, GL function calls in the surface's destructor can result in
     // the wrong context being modified.
     SurfacePtr prev_surface = surface_;
-    if (surface_) {
+    if (surface_ != NULL) {
       surface_->BindToContext(NULL);
     }
     surface_ = s;
-    if (surface_) {
+    if (surface_ != NULL) {
       surface_->BindToContext(this);
     }
   }
@@ -138,10 +140,10 @@ void EglContextImpl::SetSurface(SurfacePtr s) {
 }
 
 void EglContextImpl::ClearSurface() {
-  if (surface_) {
+  if (surface_ != NULL) {
     surface_->BindToContext(NULL);
   }
-  surface_.Reset();
+  surface_ = NULL;
 }
 
 void EglContextImpl::Flush() {

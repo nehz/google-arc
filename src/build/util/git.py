@@ -128,7 +128,7 @@ def get_current_email(cwd=None):
 
 
 def get_current_branch_name(cwd=None):
-  return subprocess.check_output(['git', 'rev-parse', '--abbrev-ref',
+  return subprocess.check_output(['git', 'rev-parse', '--abbrev-ref=loose',
                                  'HEAD'], cwd=cwd).rstrip()
 
 

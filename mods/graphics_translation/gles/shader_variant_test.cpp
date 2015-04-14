@@ -23,11 +23,11 @@
 void CheckDataModifications(const char* original,
                             const char* expected,
                             GLenum global_texture_target) {
-  ShaderVariant shader(VERTEX_SHADER);
-  shader.SetGlobalTextureTarget(global_texture_target);
-  shader.SetSource(original);
-  EXPECT_STREQ(expected, shader.GetUpdatedSource().c_str());
-  EXPECT_STREQ(original, shader.GetOriginalSource().c_str());
+  ShaderVariantPtr shader(new ShaderVariant(VERTEX_SHADER));
+  shader->SetGlobalTextureTarget(global_texture_target);
+  shader->SetSource(original);
+  EXPECT_STREQ(expected, shader->GetUpdatedSource().c_str());
+  EXPECT_STREQ(original, shader->GetOriginalSource().c_str());
 }
 
 TEST(ShaderVariantTest, ExternalTexturesTranslatedFor2D) {

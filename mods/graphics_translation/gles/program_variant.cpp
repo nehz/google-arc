@@ -76,7 +76,7 @@ void ProgramVariant::DetachShader(ShaderVariantPtr shader) {
 }
 
 bool ProgramVariant::UsesExternalTextureAs2D() const {
-  return (fragment_shader_ ?
+  return (fragment_shader_ != NULL ?
       fragment_shader_->HasReplacedExternalTextureWith2D() : false);
 }
 
@@ -128,7 +128,7 @@ void ProgramVariant::Link() {
 
   is_link_attempted_ = true;
 
-  if (!vertex_shader_ || !fragment_shader_) {
+  if (vertex_shader_ == NULL || fragment_shader_ == NULL) {
     info_log_cache_.Mutate() = "Both shaders must be attached";
     info_log_cache_.Clean();
     return;

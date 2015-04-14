@@ -34,7 +34,7 @@ class TextureData : public ObjectData {
   void AttachEglImage(EglImagePtr image);
   void DetachEglImage();
   bool IsEglImageAttached() const;
-  EglImagePtr GetAttachedEglImage() const;
+  const EglImagePtr& GetAttachedEglImage() const;
 
   bool IsAutoMipmap() const { return auto_mip_map_; }
   void SetAutoMipmap(bool req) { auto_mip_map_ = req; }
@@ -74,6 +74,6 @@ class TextureData : public ObjectData {
   TextureData& operator=(TextureData&);
 };
 
-typedef SmartPtr<TextureData> TextureDataPtr;
+typedef android::sp<TextureData> TextureDataPtr;
 
 #endif  // GRAPHICS_TRANSLATION_GLES_TEXTURE_DATA_H_

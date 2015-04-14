@@ -17,15 +17,16 @@
 #define GRAPHICS_TRANSLATION_EGL_EGL_SURFACE_IMPL_H_
 
 #include <EGL/egl.h>
+#include <utils/RefBase.h>
 
 #include "graphics_translation/egl/color_buffer.h"
-#include "graphics_translation/gles/smartptr.h"
 
 struct NativeConfig;
 
 class EglContextImpl;
+typedef android::sp<EglContextImpl> ContextPtr;
 class EglSurfaceImpl;
-typedef SmartPtr<EglSurfaceImpl> SurfacePtr;
+typedef android::sp<EglSurfaceImpl> SurfacePtr;
 
 
 // This class is the implementation behind the EGLSurface opaque type.
@@ -38,10 +39,8 @@ typedef SmartPtr<EglSurfaceImpl> SurfacePtr;
 // Functions that are not implemented by a specific surface type are meant to
 // be no-ops.  (For example, calling eglSwapBuffers on a non-window surface is
 // not an error.)
-class EglSurfaceImpl {
+class EglSurfaceImpl : public android::RefBase {
  public:
-  virtual ~EglSurfaceImpl();
-
   virtual void BeginFrame() {}
   virtual void BindTexImage() {}
   virtual void EnsureBufferReady() {}
@@ -57,13 +56,14 @@ class EglSurfaceImpl {
   EGLint GetTextureFormat() const { return texture_format_; }
   EGLint GetTextureTarget() const { return texture_target_; }
 
-  void BindToContext(EglContextImpl* context);
+  void BindToContext(const ContextPtr& context);
 
   const EGLDisplay display;
   const EGLConfig config;
 
  protected:
   EglSurfaceImpl(EGLDisplay dpy, EGLConfig cfg, EGLint type, int w, int h);
+  virtual ~EglSurfaceImpl();
 
   bool SetColorBuffer(ColorBufferHandle hnd);
 
@@ -73,7 +73,7 @@ class EglSurfaceImpl {
 
   EGLSurface key_;
   ColorBufferPtr color_buffer_;
-  EglContextImpl* bound_context_;
+  ContextPtr bound_context_;
 
   EGLint width_;
   EGLint height_;

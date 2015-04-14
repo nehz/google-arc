@@ -24,7 +24,6 @@
 class FramebufferData : public ObjectData {
  public:
   explicit FramebufferData(ObjectLocalName name);
-  virtual ~FramebufferData();
 
   GLuint GetAttachment(GLenum attachment, GLenum* out_target) const;
 
@@ -33,6 +32,9 @@ class FramebufferData : public ObjectData {
 
   void ClearAttachment(GLenum attachment);
   void ClearAttachment(GLuint name, bool clear_texture);
+
+ protected:
+  virtual ~FramebufferData();
 
  private:
   enum AttachPoint {
@@ -59,6 +61,6 @@ class FramebufferData : public ObjectData {
   FramebufferData& operator=(const FramebufferData&);
 };
 
-typedef SmartPtr<FramebufferData> FramebufferDataPtr;
+typedef android::sp<FramebufferData> FramebufferDataPtr;
 
 #endif  // GRAPHICS_TRANSLATION_GLES_FRAMEBUFFER_DATA_H_

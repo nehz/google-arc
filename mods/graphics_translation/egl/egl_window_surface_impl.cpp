@@ -70,7 +70,7 @@ EGLSurface EglWindowSurfaceImpl::Create(EGLDisplay dpy, EGLConfig cfg,
 
   SurfacePtr s(new EglWindowSurfaceImpl(dpy, cfg, sfc_type, width, height,
                                         window));
-  if (!s) {
+  if (s == NULL) {
     native_window_set_buffers_format(window, 0);
     native_window_api_disconnect(window, NATIVE_WINDOW_API_EGL);
     *out_error = EGL_BAD_ALLOC;
@@ -114,7 +114,7 @@ EGLBoolean EglWindowSurfaceImpl::SwapBuffers() {
     return EGL_TRUE;
   }
 
-  if (color_buffer_) {
+  if (color_buffer_ != NULL) {
     color_buffer_->Commit();
   }
   android_window_->queueBuffer_DEPRECATED(android_window_, android_buffer_);

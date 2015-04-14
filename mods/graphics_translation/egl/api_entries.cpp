@@ -380,7 +380,7 @@ EGLBoolean eglDestroySurface(EGLDisplay dpy, EGLSurface surface) {
     return EGL_FALSE;
   }
   SurfacePtr s = display->GetSurfaces().Get(surface);
-  if (!s) {
+  if (s == NULL) {
     SetError(EGL_BAD_SURFACE);
     return EGL_FALSE;
   }
@@ -398,7 +398,7 @@ EGLBoolean eglQuerySurface(EGLDisplay dpy, EGLSurface surface, EGLint attribute,
     return EGL_FALSE;
   }
   SurfacePtr s = display->GetSurfaces().Get(surface);
-  if (!s) {
+  if (s == NULL) {
     SetError(EGL_BAD_SURFACE);
     return EGL_FALSE;
   }
@@ -445,7 +445,7 @@ EGLBoolean eglSurfaceAttrib(EGLDisplay dpy, EGLSurface surface,
     return EGL_FALSE;
   }
   SurfacePtr s = display->GetSurfaces().Get(surface);
-  if (!s) {
+  if (s == NULL) {
     SetError(EGL_BAD_SURFACE);
     return EGL_FALSE;
   }
@@ -485,7 +485,7 @@ EGLBoolean eglBindTexImage(EGLDisplay dpy, EGLSurface surface, EGLint buffer) {
     return EGL_FALSE;
   }
   SurfacePtr s = display->GetSurfaces().Get(surface);
-  if (!s) {
+  if (s == NULL) {
     SetError(EGL_BAD_SURFACE);
     return EGL_FALSE;
   }
@@ -562,7 +562,7 @@ EGLBoolean eglDestroyContext(EGLDisplay dpy, EGLContext ctx) {
     return EGL_FALSE;
   }
   ContextPtr context = display->GetContexts().Get(ctx);
-  if (!context) {
+  if (context == NULL) {
     return EGL_BAD_CONTEXT;
   }
 
@@ -611,7 +611,7 @@ EGLBoolean eglReleaseThread() {
 EGLContext eglGetCurrentContext() {
   EGL_API_ENTRY("");
   ContextPtr context = GetContext();
-  if (!context) {
+  if (context == NULL) {
     return EGL_NO_CONTEXT;
   }
   return context->GetKey();
@@ -621,7 +621,7 @@ EGLContext eglGetCurrentContext() {
 EGLDisplay eglGetCurrentDisplay() {
   EGL_API_ENTRY("");
   ContextPtr context = GetContext();
-  if (!context) {
+  if (context == NULL) {
     return EGL_NO_DISPLAY;
   }
   return context->display;
@@ -635,11 +635,11 @@ EGLSurface eglGetCurrentSurface(EGLint readdraw) {
     return EGL_NO_SURFACE;
   }
   ContextPtr context = GetContext();
-  if (!context) {
+  if (context == NULL) {
     return EGL_NO_SURFACE;
   }
   SurfacePtr surface = context->GetSurface();
-  if (!surface) {
+  if (surface == NULL) {
     return EGL_NO_SURFACE;
   }
   return surface->GetKey();
@@ -655,7 +655,7 @@ EGLBoolean eglQueryContext(EGLDisplay dpy, EGLContext ctx, EGLint attribute,
     return EGL_FALSE;
   }
   ContextPtr context = display->GetContexts().Get(ctx);
-  if (!context) {
+  if (context == NULL) {
     SetError(EGL_BAD_CONTEXT);
     return EGL_FALSE;
   }
@@ -670,7 +670,7 @@ EGLBoolean eglQueryContext(EGLDisplay dpy, EGLContext ctx, EGLint attribute,
       *value = context->GetVersion();
       return EGL_TRUE;
     case EGL_RENDER_BUFFER:
-      if (!context->GetSurface())
+      if (context->GetSurface() == NULL)
         *value = EGL_NONE;
       else
         *value = EGL_BACK_BUFFER;  // single buffer not supported
@@ -696,11 +696,11 @@ EGLBoolean eglSwapInterval(EGLDisplay dpy, EGLint interval) {
     return EGL_FALSE;
   }
   ContextPtr context = GetContext();
-  if (!context) {
+  if (context == NULL) {
     SetError(EGL_BAD_CONTEXT);
     return EGL_FALSE;
   }
-  if (!context->GetSurface()) {
+  if (context->GetSurface() == NULL) {
     SetError(EGL_BAD_SURFACE);
     return EGL_FALSE;
   }
@@ -843,7 +843,7 @@ EGLSyncKHR eglCreateSyncKHR(EGLDisplay dpy, EGLenum type,
   }
 
   ContextPtr context = GetContext();
-  if (!context) {
+  if (context == NULL) {
     SetError(EGL_BAD_MATCH);
     return EGL_NO_SYNC_KHR;
   }
@@ -914,7 +914,7 @@ void eglBeginFrame(EGLDisplay dpy, EGLSurface surface) {
     return;
   }
   SurfacePtr s = display->GetSurfaces().Get(surface);
-  if (!s) {
+  if (s == NULL) {
     SetError(EGL_BAD_SURFACE);
     return;
   }
@@ -931,7 +931,7 @@ EGLBoolean eglPresentationTimeANDROID(EGLDisplay dpy, EGLSurface surface,
     return EGL_FALSE;
   }
   SurfacePtr s = display->GetSurfaces().Get(surface);
-  if (!s) {
+  if (s == NULL) {
     SetError(EGL_BAD_SURFACE);
     return EGL_FALSE;
   }

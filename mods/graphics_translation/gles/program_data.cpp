@@ -141,7 +141,7 @@ void ProgramData::GetProgramiv(GLenum pname, GLint* params) const {
       break;
     case GL_ACTIVE_ATTRIBUTES: {
       ProgramVariantPtr program = GetProgramWithLinkAttemptLocked();
-      if (program) {
+      if (program != NULL) {
         *params = program->GetActiveAttribCount();
       } else {
         *params = 0;
@@ -150,7 +150,7 @@ void ProgramData::GetProgramiv(GLenum pname, GLint* params) const {
     }
     case GL_ACTIVE_ATTRIBUTE_MAX_LENGTH: {
       ProgramVariantPtr program = GetProgramWithLinkAttemptLocked();
-      if (program) {
+      if (program != NULL) {
         *params = program->GetActiveAttribMaxNameLengh() + 1;
       } else {
         *params = 0;
@@ -159,7 +159,7 @@ void ProgramData::GetProgramiv(GLenum pname, GLint* params) const {
     }
     case GL_ACTIVE_UNIFORMS: {
       ProgramVariantPtr program = GetProgramWithLinkAttemptLocked();
-      if (program) {
+      if (program != NULL) {
         *params = program->GetActiveUniformCount();
       } else {
         *params = 0;
@@ -168,7 +168,7 @@ void ProgramData::GetProgramiv(GLenum pname, GLint* params) const {
     }
     case GL_ACTIVE_UNIFORM_MAX_LENGTH: {
       ProgramVariantPtr program = GetProgramWithLinkAttemptLocked();
-      if (program) {
+      if (program != NULL) {
         *params = program->GetActiveUniformMaxNameLengh() + 1;
       } else {
         *params = 0;
@@ -223,7 +223,7 @@ void ProgramData::SetLinkedProgramLocked(ProgramVariantPtr program) {
   linked_programs_.clear();
   ClearUniformCacheLocked();
 
-  if (!program) {
+  if (program == NULL) {
     return;  // No linked program exists.
   }
 
@@ -391,7 +391,7 @@ void ProgramData::GetActiveUniform(GLuint index, GLsizei buf_size,
                                    GLsizei* length, GLint* size, GLenum* type,
                                    GLchar* name) const {
   ProgramVariantPtr program = GetProgramWithLinkAttemptLocked();
-  if (program) {
+  if (program != NULL) {
     program->GetActiveUniform(index, buf_size, length, size, type, name);
     return;
   }
@@ -589,7 +589,7 @@ void ProgramData::GetActiveAttrib(GLuint index, GLsizei buf_size,
                                   GLsizei* length, GLint* size,
                                   GLenum* type, GLchar* name) const {
   ProgramVariantPtr program = GetProgramWithLinkAttemptLocked();
-  if (program) {
+  if (program != NULL) {
     program->GetActiveAttrib(index, buf_size, length, size, type, name);
     return;
   }
@@ -642,7 +642,7 @@ void ProgramData::CachedUniform::SetOnProgram(GlesContext* ctx,
 
 ProgramData::LinkedProgram::LinkedProgram(ProgramVariantPtr program)
     : program_(program), uniform_revision_(0) {
-  LOG_ALWAYS_FATAL_IF(!program_);
+  LOG_ALWAYS_FATAL_IF(program_ == NULL);
   LOG_ALWAYS_FATAL_IF(!program_->IsLinked());
 }
 

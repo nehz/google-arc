@@ -40,7 +40,7 @@ EglImagePtr EglImage::Create(GLenum global_target, GLuint name) {
 
   ShareGroupPtr sg = c->GetShareGroup();
   TextureDataPtr tex = sg->GetTextureData(name);
-  if (!tex || tex->GetWidth() == 0 || tex->GetHeight() == 0) {
+  if (tex == NULL || tex->GetWidth() == 0 || tex->GetHeight() == 0) {
     LOG_ALWAYS_FATAL("No such texture: %d", name);
     return EglImagePtr();
   }
