@@ -1531,15 +1531,18 @@ class CNinjaGenerator(NinjaGenerator):
                          extra_flags=extra_flags + ['$gccflags'])
     n.emit_ar_rule('ar', target)
     for rule_suffix in ['', '_system_library']:
-      n.emit_linker_rule('ld' + rule_suffix, target, 'ldflags')
-      common_linkso_args = NinjaGenerator._get_target_ld_flags(
-          target, is_so=True, is_system_library=bool(rule_suffix))
-      n.rule('linkso%s.%s' % (rule_suffix, target),
-             '%s -o $out %s' % (toolchain.get_tool(target, 'ld'),
-                                common_linkso_args),
-             description='linkso.%s $out' % target,
-             rspfile='$out.files',
-             rspfile_content='$in_newline')
+      for compiler_prefix in ['', 'clang.']:
+        n.emit_linker_rule(compiler_prefix + 'ld' + rule_suffix, target,
+                           'ldflags')
+        common_linkso_args = NinjaGenerator._get_target_ld_flags(
+            target, is_so=True, is_system_library=bool(rule_suffix))
+        tool = compiler_prefix + 'ld'
+        n.rule('%slinkso%s.%s' % (compiler_prefix, rule_suffix, target),
+               '%s -o $out %s $extra_flags' % (toolchain.get_tool(target, tool),
+                                               common_linkso_args),
+               description='linkso.%s $out' % target,
+               rspfile='$out.files',
+               rspfile_content='$in_newline')
 
     n.rule('prioritize_ctors',
            ('cp $in $out && ' +
@@ -1555,6 +1558,8 @@ class CNinjaGenerator(NinjaGenerator):
   def emit_host_rules_(n):
     n.emit_compiler_rule('cxx', 'host', flag_name='hostcxxflags')
     n.emit_compiler_rule('cc', 'host', flag_name='hostcflags')
+    n.emit_compiler_rule('clangxx', 'host', flag_name='hostcxxflags')
+    n.emit_compiler_rule('clang', 'host', flag_name='hostcflags')
     n.emit_compiler_rule('asm_with_preprocessing', 'host',
                          flag_name='hostasmflags')
     n.emit_compiler_rule('asm', 'host', flag_name='hostasmflags',
@@ -1944,9 +1949,9 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
   _ENABLED = True
 
   def __init__(self, module_name, install_path='/lib', dt_soname=None,
-               disallowed_symbol_files=None,
-               is_system_library=False, link_crtbegin=True, link_stlport=True,
-               is_for_test=False, **kwargs):
+               disallowed_symbol_files=None, is_system_library=False,
+               link_crtbegin=True, use_clang_linker=False,
+               link_stlport=True, is_for_test=False, **kwargs):
     super(SharedObjectNinjaGenerator, self).__init__(
         module_name, ninja_name=module_name + '_so', **kwargs)
     # No need to install the shared library for the host.
@@ -1969,6 +1974,7 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
                        'libposix_translation.so'))
     self.production_shared_library_list = []
     self._link_crtbegin = link_crtbegin
+    self._is_clang_linker_enabled = use_clang_linker
     self._is_for_test = is_for_test
 
   @classmethod
@@ -2005,10 +2011,11 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
     if not self._is_host:
       CNinjaGenerator.add_to_variable(variables, flag_variable,
                                       '-Wl,-soname=' + dt_soname)
-    suffix = ('_system_library'
-              if self._is_system_library and not self.is_host() else '')
+    prefix = 'clang.' if self._is_clang_linker_enabled else ''
+    suffix = ('_system_library' if
+              self._is_system_library and not self.is_host() else '')
     return self.build(output,
-                      self._get_rule_name('linkso%s' % suffix),
+                      self._get_rule_name('%slinkso%s' % (prefix, suffix)),
                       inputs, variables=variables, implicit=implicit, **kwargs)
 
   def _get_soname(self):
@@ -3201,8 +3208,7 @@ class JavaNinjaGenerator(NinjaGenerator):
     self._build_test_list(final_package_path,
                           rule='extract_test_list',
                           test_list_name=self._module_name,
-                          implicit=[NinjaGenerator._EXTRACT_TEST_LIST_PATH,
-                                    toolchain.get_tool('java', 'dexdump')])
+                          implicit=[NinjaGenerator._EXTRACT_TEST_LIST_PATH])
 
   def get_included_module_names(self):
     module_names = []
@@ -3546,8 +3552,7 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
         ApkFromSdkNinjaGenerator.get_final_package_for_apk(self._module_name),
         rule='extract_test_list',
         test_list_name=self._module_name,
-        implicit=[NinjaGenerator._EXTRACT_TEST_LIST_PATH,
-                  toolchain.get_tool('java', 'dexdump')])
+        implicit=[NinjaGenerator._EXTRACT_TEST_LIST_PATH])
 
   @staticmethod
   def get_final_package_for_apk(apk_name):

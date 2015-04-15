@@ -1000,7 +1000,6 @@ class MakeVars:
   def _init_c_program(self, vars_helper):
     self._module_name = vars_helper.get_required('LOCAL_MODULE')
 
-    self._is_clang_enabled = False
     self._is_stlport_enabled = True
 
     self._cflags = self._get_build_flags(vars_helper, 'CFLAGS')
@@ -1084,6 +1083,10 @@ class MakeVars:
     # clang-3.5 silently ignores -finline-functions, and clang-3.6 emits a
     # warning for it.
     self._clang_incompatible_flags.append('-finline-functions')
+
+    self._is_clang_enabled = (
+        vars_helper.get_optional('LOCAL_CLANG') == 'true')
+    self._is_clang_linker_enabled = False
 
     if self._cflags.count('-D_USING_LIBCXX'):
       self._is_stlport_enabled = False
@@ -1664,6 +1667,7 @@ def _generate_c_ninja(vars, out_lib_deps):
   extra_args['notices_only'] = vars.is_notices()
 
   if vars.is_shared() or vars.is_target_executable():
+    extra_args['use_clang_linker'] = vars.is_clang_linker_enabled()
     extra_args['link_stlport'] = vars._is_stlport_enabled
     n = SharedObjectNinjaGenerator(vars.get_module_name(), host=vars.is_host(),
                                    **extra_args)

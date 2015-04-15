@@ -306,6 +306,8 @@ def _get_tool_map():
           'create_nmf': _get_create_nmf(),
           'deps': [],
           'adb': _get_adb_path_for_localhost(),
+          'clangxx': os.path.join(_CLANG_BIN_DIR, 'clang++'),
+          'clang': os.path.join(_CLANG_BIN_DIR, 'clang'),
       },
       'nacl_i686': {
           'cxx': (os.path.join(get_nacl_toolchain_path(), 'x86_64-nacl-g++') +
@@ -384,6 +386,7 @@ def _get_tool_map():
           'cc': os.getenv('TARGETCC', ' arm-linux-gnueabihf-gcc'),
           'clangxx': os.path.join(_CLANG_BIN_DIR, 'clang++'),
           'clang': os.path.join(_CLANG_BIN_DIR, 'clang'),
+          'clang.ld': os.path.join(_CLANG_BIN_DIR, 'clang'),
           'ld': os.getenv('TARGETLD', 'arm-linux-gnueabihf-g++'),
           'ar': os.getenv('TARGETAR', 'arm-linux-gnueabihf-ar'),
           'nm': os.getenv('TARGETNM', 'arm-linux-gnueabihf-nm'),
@@ -410,8 +413,7 @@ def _get_tool_map():
           'deps': [],
           'dexopt': build_common.get_build_path_for_executable(
               'dexopt', is_host=True),
-          'dexdump': build_common.get_build_path_for_executable(
-              'dexdump', is_host=True),
+          'dexdump': os.path.join(android_sdk_build_tools_dir, 'dexdump'),
           'java-event-log-tags': os.path.join(android_build_tools_dir,
                                               'java-event-log-tags.py'),
           'jar': _get_java_command('jar'),
@@ -429,6 +431,8 @@ def get_tool(target, tool, with_cc_wrapper=True):
   tool = {
       'asm': 'cc',
       'asm_with_preprocessing': 'cc',
+      'clang.ld': 'clang',
+      'clang.ld_system_library': 'clang',
       'ld_system_library': 'ld',
   }.get(tool, tool)
   command = _get_tool_map()[target][tool]
