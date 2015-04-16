@@ -1000,8 +1000,6 @@ class MakeVars:
   def _init_c_program(self, vars_helper):
     self._module_name = vars_helper.get_required('LOCAL_MODULE')
 
-    self._is_stlport_enabled = True
-
     self._cflags = self._get_build_flags(vars_helper, 'CFLAGS')
     # For consistency with NinjaGenerator, call it cxxflags rather than
     # cppflags.
@@ -1087,16 +1085,7 @@ class MakeVars:
     self._is_clang_enabled = (
         vars_helper.get_optional('LOCAL_CLANG') == 'true')
     self._is_clang_linker_enabled = False
-
-    if self._cflags.count('-D_USING_LIBCXX'):
-      self._is_stlport_enabled = False
-      # TODO(crbug.com/406226): Remove following workaround that provide missing
-      # features that are added in AOSP master and L, and needed to use libc++.
-      # '-D_USING_LIBCXX' flag is added by android/external/libcxx/libcxx.mk.
-      # This is the makefile that modules using libc++ include.
-      self._cflags.extend(['-include', 'external/libcxx/aosp_bionic_compat.h'])
-      self._clangflags.extend(
-          ['-include', 'external/libcxx/aosp_bionic_compat.h'])
+    self._is_libcxx_enabled = ('-D_USING_LIBCXX' in self._cflags)
 
     # TODO(igorc): Maybe support LOCAL_SYSTEM_SHARED_LIBRARIES
 
@@ -1665,10 +1654,10 @@ def _generate_c_ninja(vars, out_lib_deps):
   extra_args['extra_notices'] = vars.get_extra_notices()
   extra_args['enable_clang'] = vars.is_clang_enabled()
   extra_args['notices_only'] = vars.is_notices()
+  extra_args['enable_libcxx'] = vars._is_libcxx_enabled
 
   if vars.is_shared() or vars.is_target_executable():
     extra_args['use_clang_linker'] = vars.is_clang_linker_enabled()
-    extra_args['link_stlport'] = vars._is_stlport_enabled
     n = SharedObjectNinjaGenerator(vars.get_module_name(), host=vars.is_host(),
                                    **extra_args)
   elif vars.is_host_executable():

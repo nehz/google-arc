@@ -594,6 +594,7 @@ def _verify_ninja_generator_list(ninja_list):
   archive_ninja_list = []
   shared_ninja_list = []
   exec_ninja_list = []
+  test_ninja_list = []
   for ninja in ninja_list:
     # Use is_host() in the key as the accounting should be done separately
     # for the target and the host.
@@ -603,10 +604,11 @@ def _verify_ninja_generator_list(ninja_list):
       archive_ninja_list.append(ninja)
     if isinstance(ninja, ninja_generator.SharedObjectNinjaGenerator):
       shared_ninja_list.append(ninja)
-    if (isinstance(ninja, ninja_generator.ExecNinjaGenerator) and
-        # Do not check the used count of tests.
-        not isinstance(ninja, ninja_generator.TestNinjaGenerator)):
-      exec_ninja_list.append(ninja)
+    if isinstance(ninja, ninja_generator.ExecNinjaGenerator):
+      if isinstance(ninja, ninja_generator.TestNinjaGenerator):
+        test_ninja_list.append(ninja)
+      else:
+        exec_ninja_list.append(ninja)
 
   # Make sure there is no duplicated ninja modules.
   duplicated_module_list = [
@@ -625,7 +627,7 @@ def _verify_ninja_generator_list(ninja_list):
   # we do not check its numbers.
   if not open_source.is_open_source_repo():
     ninja_generator.ArchiveNinjaGenerator.verify_usage(
-        archive_ninja_list, shared_ninja_list, exec_ninja_list)
+        archive_ninja_list, shared_ninja_list, exec_ninja_list, test_ninja_list)
 
 
 def generate_ninjas():

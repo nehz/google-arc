@@ -208,6 +208,10 @@ def get_bionic_libc_so():
   return os.path.join(get_load_library_path(), 'libc.so')
 
 
+def get_bionic_libcxx_so():
+  return os.path.join(get_load_library_path(), 'libc++.so')
+
+
 def get_bionic_libdl_so():
   return os.path.join(get_load_library_path(), 'libdl.so')
 
@@ -230,19 +234,23 @@ def get_bionic_objects():
            get_bionic_crtend_o(),
            get_bionic_crtend_so_o(),
            get_bionic_runnable_ld_so()] +
-          get_bionic_shared_objects(use_stlport=False))
+          get_bionic_shared_objects(use_stlport=False, use_libcxx=False))
 
 
 def get_bionic_runnable_ld_so():
   return os.path.join(get_load_library_path(), 'runnable-ld.so')
 
 
-def get_bionic_shared_objects(use_stlport):
+def get_bionic_shared_objects(use_stlport, use_libcxx):
+  assert not (use_stlport and use_libcxx), (
+      'STLport and libc++ cannot be used together in one library.')
   objects = [get_bionic_libc_so(),
              get_bionic_libdl_so(),
              get_bionic_libm_so()]
   if use_stlport:
     objects.append(get_bionic_libstlport_so())
+  if use_libcxx:
+    objects.append(get_bionic_libcxx_so())
   return objects
 
 

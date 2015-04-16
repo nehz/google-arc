@@ -917,7 +917,8 @@ class CNinjaGenerator(NinjaGenerator):
   """Encapsulates ninja file generation for C and C++ files."""
 
   def __init__(self, module_name, ninja_name=None, enable_logtag_emission=True,
-               gl_flags=False, enable_clang=False, **kwargs):
+               gl_flags=False, enable_clang=False, enable_libcxx=False,
+               **kwargs):
     super(CNinjaGenerator, self).__init__(module_name, ninja_name, **kwargs)
     # This is set here instead of TopLevelNinjaGenerator because the ldflags
     # depend on module name.
@@ -945,6 +946,15 @@ class CNinjaGenerator(NinjaGenerator):
       if ('base_path' in kwargs and
           kwargs['base_path'].startswith('android/')):
         self.add_include_paths('android/bionic/libc/include')
+    self._enable_libcxx = enable_libcxx
+    if enable_libcxx:
+      # TODO(crbug.com/406226): Remove following workaround that provide missing
+      # features that are added in AOSP master and L, and needed to use libc++.
+      # '-D_USING_LIBCXX' flag is added by android/external/libcxx/libcxx.mk.
+      # This is the makefile that modules using libc++ include.
+      self.add_compiler_flags(
+          '-include', 'external/libcxx/aosp_bionic_compat.h')
+      self.add_compiler_flags('-D_USING_LIBCXX')
     if gl_flags:
       self.emit_gl_common_flags()
     self._enable_clang = (enable_clang and
@@ -1912,7 +1922,69 @@ class ArchiveNinjaGenerator(CNinjaGenerator):
                       inputs=self._consume_objects(), **kwargs)
 
   @staticmethod
-  def verify_usage(archive_ninja_list, shared_ninja_list, exec_ninja_list):
+  def verify_usage(archive_ninja_list, shared_ninja_list, exec_ninja_list,
+                   test_ninja_list):
+    stl_error_list = []
+
+    binary_ninja_list = shared_ninja_list + exec_ninja_list + test_ninja_list
+    for ninja in binary_ninja_list:
+      # Check if libc++ dependent modules link with libc++.so correctly.
+      needed_objects = [os.path.basename(x) for x in ninja._shared_deps]
+      host_or_target = 'host' if ninja.is_host() else 'target'
+      if ninja._enable_libcxx:
+        if 'libstlport.so' in needed_objects:
+          stl_error_list.append(
+              '%s for %s is built with libc++, but needs libstlport.so.' % (
+                  ninja._module_name, host_or_target))
+        if 'libc++.so' not in needed_objects:
+          stl_error_list.append(
+              '%s for %s is built with libc++, but does not need libc++.so.' % (
+                  ninja._module_name, host_or_target))
+      else:
+        # Do not check libstlport.so since it may not be used actually.
+        if 'libc++.so' in needed_objects:
+          stl_error_list.append(
+              '%s for %s is built with STLport, but needs libc++.so.' % (
+                  ninja._module_name, host_or_target))
+
+    all_ninja_list = archive_ninja_list + binary_ninja_list
+    libcxx_dependent_module_set = set([x._module_name for x in all_ninja_list if
+                                       x._enable_libcxx])
+    archive_module_set = set([x._module_name for x in archive_ninja_list])
+
+    # Following modules in the white list do not use libc++, but also do not
+    # use any ABI affecting features. So, using it with both STLport and libc++
+    # is believed to be safe.
+    # We can not create the white list automatically since STLport headers
+    # are visible by default without any additional search paths.
+    white_list = ['libcommon_real_syscall_aliases', 'libcompiler_rt',
+                  'libcutils', 'libppapi_mocks', 'libutils_static',
+                  'libz', 'libziparchive', 'libziparchive-host']
+
+    for ninja in all_ninja_list:
+      # Check if each module depends only on modules that use the same STL
+      # library.
+      ninja_use_libcxx = ninja._module_name in libcxx_dependent_module_set
+      for module_name in ninja.get_included_module_names():
+        if module_name in white_list or module_name not in archive_module_set:
+          continue
+        module_use_libcxx = module_name in libcxx_dependent_module_set
+        if ninja_use_libcxx != module_use_libcxx:
+          host_or_target = 'host' if ninja.is_host() else 'target'
+          ninja_libcxx_usage = 'uses' if ninja_use_libcxx else 'does not use'
+          module_libcxx_usage = 'uses' if module_use_libcxx else 'does not use'
+          stl_error_list.append(
+              '%s for %s %s libc++, but dependent %s %s libc++.' % (
+                  ninja._module_name, host_or_target, ninja_libcxx_usage,
+                  module_name, module_libcxx_usage))
+
+    if stl_error_list:
+      raise Exception(
+          'Dangerous mixed usages of STLport and libc++ found:\n  ' +
+          '\n  '.join(stl_error_list) +
+          '\n\n*** A module should not depend on a static library that may use '
+          'different STL library.***\n')
+
     usage_dict = collections.defaultdict(list)
     for ninja in shared_ninja_list + exec_ninja_list:
       for module_name in ninja.get_included_module_names():
@@ -1950,8 +2022,8 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
 
   def __init__(self, module_name, install_path='/lib', dt_soname=None,
                disallowed_symbol_files=None, is_system_library=False,
-               link_crtbegin=True, use_clang_linker=False,
-               link_stlport=True, is_for_test=False, **kwargs):
+               link_crtbegin=True, use_clang_linker=False, is_for_test=False,
+               **kwargs):
     super(SharedObjectNinjaGenerator, self).__init__(
         module_name, ninja_name=module_name + '_so', **kwargs)
     # No need to install the shared library for the host.
@@ -1968,7 +2040,10 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
     # For libc.so, we must not set syscall wrappers.
     if not is_system_library and not self._is_host:
       self._shared_deps.extend(
-          build_common.get_bionic_shared_objects(use_stlport=link_stlport))
+          # If |enable_libcxx| is set, use libc++.so, otherwise use stlport.
+          build_common.get_bionic_shared_objects(
+              use_stlport=not self._enable_libcxx,
+              use_libcxx=self._enable_libcxx))
       self._shared_deps.append(
           os.path.join(build_common.get_load_library_path(),
                        'libposix_translation.so'))
@@ -2093,7 +2168,10 @@ class ExecNinjaGenerator(CNinjaGenerator):
       else:
         self._static_deps.extend(get_libgcc_for_bionic())
       self._shared_deps.extend(
-          build_common.get_bionic_shared_objects(use_stlport=True))
+          # If |enable_libcxx| is set, use libc++.so, otherwise use stlport.
+          build_common.get_bionic_shared_objects(
+              use_stlport=not self._enable_libcxx,
+              use_libcxx=self._enable_libcxx))
 
   def link(self, variables=None, implicit=None, **kwargs):
     implicit = as_list(implicit) + self._static_deps + self._whole_archive_deps
@@ -2288,12 +2366,17 @@ class TestNinjaGenerator(ExecNinjaGenerator):
   """Create a googletest/googlemock executable ninja file."""
 
   def __init__(self, module_name, is_system_library=False,
+               enable_libcxx=False,
                use_default_main=True, **kwargs):
     super(TestNinjaGenerator, self).__init__(
-        module_name, is_system_library=is_system_library, **kwargs)
+        module_name, is_system_library=is_system_library,
+        enable_libcxx=enable_libcxx, **kwargs)
     if OPTIONS.is_bare_metal_build() and is_system_library:
       self.add_library_deps('libgmock_glibc.a', 'libgtest_glibc.a')
     else:
+      # Since there are no use cases, we do not build libc++ version of
+      # libcommon, libchromium_base, libpluginhandle and libcommon_test_main.a.
+      assert not enable_libcxx
       self.add_library_deps('libchromium_base.a',
                             'libcommon.a',
                             'libpluginhandle.a')
