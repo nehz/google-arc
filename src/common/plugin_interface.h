@@ -99,18 +99,8 @@ class CompositorInterface {
     std::vector<Layer> layers;
   };
 
-  struct Callbacks {
-    virtual ~Callbacks() {}
-    virtual void Invalidate() const = 0;
-    virtual void Vsync(int display, int64_t timestamp) const = 0;
-    virtual void Hotplug(int display, bool connected) const = 0;
-  };
-
   virtual ~CompositorInterface() {}
-
-  virtual void RegisterCallbacks(const Callbacks* callbacks) = 0;
   virtual int Set(Display* display) = 0;
-  virtual void EnableVsync(bool enabled) = 0;
 };
 
 // Opaque type of GPU context pointers.

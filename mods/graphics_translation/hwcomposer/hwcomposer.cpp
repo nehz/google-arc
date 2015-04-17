@@ -32,29 +32,8 @@ struct hwc_context_t {
   hwc_context_t();
   ~hwc_context_t();
 
-  void RegisterCallbacks(const hwc_procs_t* procs);
-
-  struct Callbacks : public CompositorInterface::Callbacks {
-    Callbacks(const hwc_procs_t* procs) : procs_(procs) {}
-
-    virtual void Invalidate() const {
-      procs_->invalidate(procs_);
-    }
-
-    virtual void Vsync(int disp, int64_t timestamp) const {
-      procs_->vsync(procs_, disp, timestamp);
-    }
-
-    virtual void Hotplug(int disp, bool connected) const {
-      procs_->hotplug(procs_, disp, connected ? 1 : 0);
-    }
-
-    const hwc_procs_t* procs_;
-  };
-
   hwc_composer_device_1_t device;
   CompositorInterface::Display display;
-  CompositorInterface::Callbacks* callbacks;
   CompositorInterface* compositor;
   const hwc_procs_t* procs;
 
@@ -97,7 +76,6 @@ hwc_context_t::hwc_context_t() :
     // TODO(crbug.com/365178): Remove the ifdef once C++11 is enabled for GCC.
     device({}),
 #endif
-    callbacks(NULL),
     compositor(NULL),
     procs(0),
     width(0),
@@ -111,15 +89,6 @@ hwc_context_t::hwc_context_t() :
 }
 
 hwc_context_t::~hwc_context_t() {
-  compositor->RegisterCallbacks(NULL);
-  delete callbacks;
-}
-
-void hwc_context_t::RegisterCallbacks(const hwc_procs_t* procs) {
-  Callbacks* cb = new Callbacks(procs);
-  compositor->RegisterCallbacks(cb);
-  delete callbacks;
-  callbacks = cb;
 }
 
 static const GraphicsBuffer* GetGraphicsBuffer(buffer_handle_t handle) {
@@ -309,19 +278,7 @@ static int hwc_set(hwc_composer_device_1_t* dev, size_t numDisplays,
 
 static int hwc_event_control(hwc_composer_device_1* dev, int disp,
                              int event, int enabled) {
-  if (event != HWC_EVENT_VSYNC) {
-    ALOGE("eventControl: Wrong event type: %d", event);
-    return -EINVAL;
-  }
-  if (enabled != 0 && enabled != 1) {
-    ALOGE("eventControl: Enabled should be 0 or 1");
-    return -EINVAL;
-  }
-  if (disp == 0) {
-    hwc_context_t* context = reinterpret_cast<hwc_context_t*>(dev);
-    context->compositor->EnableVsync(enabled);
-  }
-  return 0;
+  return -EFAULT;
 }
 
 static int hwc_get_display_configs(hwc_composer_device_1* dev, int disp,
@@ -376,8 +333,6 @@ static int hwc_get_display_attributes(hwc_composer_device_1* dev,
 
 static void hwc_register_procs(hwc_composer_device_1* dev,
                                hwc_procs_t const* procs) {
-  hwc_context_t* context = reinterpret_cast<hwc_context_t*>(dev);
-  context->RegisterCallbacks(procs);
 }
 
 static int hwc_blank(hwc_composer_device_1* dev, int disp, int blank) {
