@@ -7,6 +7,8 @@
 # __read_chk and variants should never appear because we don't use
 # -D_FORTIFY_SOURCE (crbug.com/226930).
 #
+# TODO(crbug.com/478000): __read_chk and variants might come from app ndk.
+#
 # TODO(crbug.com/230900): Check more symbols like __cxa_throw and
 # __cxa_guard_acquire.
 #

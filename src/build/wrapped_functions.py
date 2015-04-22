@@ -6,7 +6,8 @@
 
 
 def get_wrapped_functions():
-  wrapped_functions = ['abort',
+  wrapped_functions = ['__umask_chk',
+                       'abort',
                        'accept',
                        'access',
                        'bind',

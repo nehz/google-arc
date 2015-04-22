@@ -103,6 +103,7 @@ ARC_EXPORT int __wrap_statfs(const char* path, struct statfs* stat);
 ARC_EXPORT int __wrap_statvfs(const char* path, struct statvfs* stat);
 ARC_EXPORT int __wrap_symlink(const char* oldp, const char* newp);
 ARC_EXPORT mode_t __wrap_umask(mode_t mask);
+ARC_EXPORT mode_t __wrap___umask_chk(mode_t mask);
 ARC_EXPORT int __wrap_unlink(const char* pathname);
 ARC_EXPORT int __wrap_utime(const char* filename, const struct utimbuf* times);
 ARC_EXPORT int __wrap_utimes(
@@ -1039,6 +1040,11 @@ mode_t __wrap_umask(mode_t mask) {
   ARC_STRACE_ENTER("umask", "0%o", mask);
   mode_t return_umask = VirtualFileSystem::GetVirtualFileSystem()->umask(mask);
   ARC_STRACE_RETURN(return_umask);
+}
+
+mode_t __wrap___umask_chk(mode_t mask) {
+  // TODO(crbug.com/478000): Wrap __umask_chk accurately?
+  return __wrap_umask(mask);
 }
 
 // The following is an example call stach when close() is called:

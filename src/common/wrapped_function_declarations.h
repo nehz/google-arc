@@ -13,6 +13,9 @@
 #include <sys/types.h>
 
 extern "C" {
+// *_chk() are not in the source standard; they are only in the binary standard.
+mode_t __umask_chk(mode_t mask);
+
 // Bionic does not have forward declarations for them.
 int getdents(unsigned int fd, struct dirent* dirp, unsigned int count);
 int mkstemps(char* path, int slen);
