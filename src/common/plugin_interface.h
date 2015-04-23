@@ -170,8 +170,6 @@ class RendererInterface {
 
   virtual bool SwapBuffers(ContextGPU* context) = 0;
 
-  virtual void WaitForSwapBuffers() = 0;
-
   virtual void DestroyContext(ContextGPU* context) = 0;
 };
 
