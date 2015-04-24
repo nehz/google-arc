@@ -47,7 +47,9 @@ from util.test import test_filter
 
 _BOT_TEST_SUITE_MAX_RETRY_COUNT = 5
 _DEFINITIONS_ROOT = 'src/integration_tests/definitions'
+_DEFINITIONS_ROOT_INTERNAL = 'internal/integration_tests/definitions'
 _EXPECTATIONS_ROOT = 'src/integration_tests/expectations'
+_EXPECTATIONS_ROOT_INTERNAL = 'internal/integration_tests/expectations'
 _TEST_METHOD_MAX_RETRY_COUNT = 5
 
 _REPORT_COLOR_FOR_SUITE_EXPECTATION = {
@@ -63,6 +65,11 @@ def get_all_suite_runners(on_bot, use_gpu):
   sys.path.insert(0, 'src')
   result = suite_runner_config.load_from_suite_definitions(
       _DEFINITIONS_ROOT, _EXPECTATIONS_ROOT, on_bot, use_gpu)
+
+  if OPTIONS.internal_apks_source_is_internal():
+    result += suite_runner_config.load_from_suite_definitions(
+        _DEFINITIONS_ROOT_INTERNAL, _EXPECTATIONS_ROOT_INTERNAL, on_bot,
+        use_gpu)
 
   # Check name duplication.
   counter = collections.Counter(runner.name for runner in result)
