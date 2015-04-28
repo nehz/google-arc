@@ -366,6 +366,14 @@ Native Client Debugging
                       help='Disables automatic enabling/disabling of the '
                       'back button based on the Activity stack.')
 
+  parser.add_argument('--disable-compositor', action='store_false',
+                      dest='enable_compositor', default=None,
+                      help='Enable the pepper compositor.')
+
+  parser.add_argument('--disable-gl-fixed-attribs', action='store_true',
+                      default=None,
+                      help='Disable support for GL_FIXED attributes.')
+
   parser.add_argument('--disable-nacl-sandbox', action='store_true',
                       help='Disable NaCl sandbox.')
 
@@ -385,15 +393,8 @@ Native Client Debugging
                       help='Enable builtin strace-like tracer of ARC '
                       '(output to --arc-strace-output).')
 
-  parser.add_argument('--enable-compositor', action='store_true',
-                      default=None, help='Enable the pepper compositor.')
-
   parser.add_argument('--enable-fake-video-source', action='store_true',
                       help='Enable a fake video source for testing')
-
-  parser.add_argument('--disable-gl-fixed-attribs', action='store_true',
-                      default=None,
-                      help='Disable support for GL_FIXED attributes.')
 
   parser.add_argument('--enable-nacl-list-mappings', action='store_true',
                       help='Enable the nacl_list_mappings call.')

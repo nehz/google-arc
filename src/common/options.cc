@@ -69,7 +69,7 @@ void Options::Reset() {
   country.clear();
   enable_adb = false;
   enable_arc_strace = false;
-  enable_compositor = false;
+  enable_compositor = true;
   enable_gl_error_check = false;
   disable_gl_fixed_attribs = false;
   enable_mount_external_directory = false;
