@@ -76,11 +76,7 @@ os.environ['TARGET_CPU_ABI2'] = 'armeabi'
 # NetworkManagementService and MountService appear to be the only places
 # to check for "simulator". However NetworkManagementService would then skip
 # a part of its own initialization leaving important variables set to null.
-#
-# Also, it seems that some applications that perform device detection are not
-# prepared to deal with arbitrary strings. "generic" seems like a safe, standard
-# device name.
-os.environ['TARGET_DEVICE'] = 'generic'
+os.environ['TARGET_DEVICE'] = OPTIONS.target()
 os.environ['TARGET_PRODUCT'] = 'arc'
 
 os.environ.setdefault('USER', 'unknown')
