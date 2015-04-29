@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import json
-
 import build_common
 from ninja_generator import ApkFromSdkNinjaGenerator
 import prep_launch_chrome
@@ -35,9 +33,7 @@ class JavaScriptTestRunner(suite_runner.SuiteRunnerBase):
   def handle_output(self, line):
     self._result_parser.process_line(line)
 
-  def _get_js_test_options(self, test_methods_to_run):
-    if test_methods_to_run == [scoreboard.Scoreboard.ALL_TESTS_DUMMY_NAME]:
-      test_methods_to_run = None
+  def _get_js_test_options(self):
     args = ['atftest']
     args.extend(self._apks)
     args.extend(['--app-template',
@@ -45,20 +41,29 @@ class JavaScriptTestRunner(suite_runner.SuiteRunnerBase):
                 '--run-test-as-app'])
     if self._additional_launch_chrome_args:
       args.extend(self._additional_launch_chrome_args)
-    if test_methods_to_run:
-      js_full_test_list = sorted(
-          test_name.replace('#', '.') for test_name in self.expectation_map)
-      js_test_filter_list = sorted(
-          test_name.replace('#', '.') for test_name in test_methods_to_run)
-      args.extend(['--additional-metadata',
-                   json.dumps({
-                       'jsFullTestList': js_full_test_list,
-                       'jsTestFilter': ':'.join(js_test_filter_list)})])
+
     return args
+
+  def _get_additional_metadata(self, test_methods_to_run):
+    if test_methods_to_run == [scoreboard.Scoreboard.ALL_TESTS_DUMMY_NAME]:
+      test_methods_to_run = None
+    if not test_methods_to_run:
+      return None
+
+    js_full_test_list = sorted(
+        test_name.replace('#', '.') for test_name in self.expectation_map)
+    js_test_filter_list = sorted(
+        test_name.replace('#', '.') for test_name in test_methods_to_run)
+
+    return {
+        'jsFullTestList': js_full_test_list,
+        'jsTestFilter': ':'.join(js_test_filter_list)
+    }
 
   def prepare(self, test_methods_to_run):
     args = self.get_launch_chrome_command(
-        self._get_js_test_options(test_methods_to_run))
+        self._get_js_test_options(),
+        additional_metadata=self._get_additional_metadata(test_methods_to_run))
     prep_launch_chrome.prepare_crx_with_raw_args(args)
 
   def setUp(self, test_methods_to_run):
@@ -68,7 +73,8 @@ class JavaScriptTestRunner(suite_runner.SuiteRunnerBase):
 
   def run(self, test_methods_to_run):
     args = self.get_launch_chrome_command(
-        self._get_js_test_options(test_methods_to_run))
+        self._get_js_test_options(),
+        additional_metadata=self._get_additional_metadata(test_methods_to_run))
     try:
       self.run_subprocess(args)
     except subprocess.CalledProcessError:

@@ -354,7 +354,7 @@ class SuiteRunnerBase(object):
     return sorted(test_methods_to_run, key=key_fn)
 
   def get_launch_chrome_command(self, additional_args, mode=None,
-                                name_override=None):
+                                name_override=None, additional_metadata=None):
     """Returns the commandline for running suite runner with launch_chrome."""
     args = launch_chrome_util.get_launch_chrome_command()
     if mode:
@@ -372,8 +372,16 @@ class SuiteRunnerBase(object):
     if self._args.enable_osmesa or self._args.use_xvfb:
       args.append('--enable-osmesa')
 
-    if self._metadata:
-      args.append('--additional-metadata=' + json.dumps(self._metadata))
+    if self._metadata or additional_metadata:
+      suite_additional_metadata = self._metadata.copy() or {}
+      additional_metadata = additional_metadata or {}
+      assert all(key not in suite_additional_metadata
+                 for key in additional_metadata), (
+                     'Overlap between %s and %s' % (
+                         additional_metadata, suite_additional_metadata))
+      suite_additional_metadata.update(additional_metadata)
+      args.append('--additional-metadata=' +
+                  json.dumps(suite_additional_metadata))
 
     args.extend(self._args.launch_chrome_opts)
 
@@ -389,14 +397,16 @@ class SuiteRunnerBase(object):
 
     return args + additional_args
 
-  def get_system_mode_launch_chrome_command(self, name, additional_args=None):
+  def get_system_mode_launch_chrome_command(self, name, additional_args=None,
+                                            additional_metadata=None):
     additional_args = build_common.as_list(additional_args)
     return self.get_launch_chrome_command(
         # We need --stderr-log=I as we will use ALOGI output from
         # AdbService. See _ADB_SERVICE_PATTERN in system_mode.py.
         ['--stderr-log=I'] + additional_args,
         mode='system',
-        name_override=SYSTEM_MODE_PREFIX + name)
+        name_override=SYSTEM_MODE_PREFIX + name,
+        additional_metadata=additional_metadata)
 
   @property
   def use_xvfb(self):

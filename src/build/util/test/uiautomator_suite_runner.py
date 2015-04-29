@@ -27,7 +27,8 @@ _DEVICE_TMP_PATH = '/data/local/tmp'
 class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
   def __init__(self, name, apk_path, jar_path, main_activity,
                base_expectation_map,
-               additional_launch_chrome_opts=None, **kwargs):
+               additional_launch_chrome_opts=None, additional_metadata=None,
+               **kwargs):
     super(UiAutomatorSuiteRunner, self).__init__(
         name, base_expectation_map, **kwargs)
 
@@ -35,6 +36,7 @@ class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
     self._jar_path = jar_path
     self._main_activity = main_activity
     self._additional_launch_chrome_opts = additional_launch_chrome_opts
+    self._additional_metadata = additional_metadata
 
     self._result_parser = None
     self._scoreboard_updater = None
@@ -64,7 +66,8 @@ class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
   def prepare(self, test_methods_to_run):
     args = self.get_system_mode_launch_chrome_command(
         self._name,
-        additional_args=self._additional_launch_chrome_opts)
+        additional_args=self._additional_launch_chrome_opts,
+        additional_metadata=self._additional_metadata)
     prep_launch_chrome.prepare_crx_with_raw_args(args)
 
   def _push_file_using_adb(self, arc, file_path, directory=_DEVICE_TMP_PATH):
