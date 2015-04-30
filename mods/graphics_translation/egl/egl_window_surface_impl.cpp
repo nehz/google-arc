@@ -105,17 +105,16 @@ void EglWindowSurfaceImpl::SetSwapInterval(int interval) {
 }
 
 EGLBoolean EglWindowSurfaceImpl::SwapBuffers() {
-  LOG_ALWAYS_FATAL_IF(android_buffer_ == NULL, "No buffer to swap.");
   if (bound_context_ == NULL) {
     return EGL_FALSE;
   }
-
   if (color_buffer_) {
     color_buffer_->Commit();
   }
-  android_window_->queueBuffer_DEPRECATED(android_window_, android_buffer_);
-  android_buffer_ = NULL;
-
+  if (android_buffer_) {
+    android_window_->queueBuffer_DEPRECATED(android_window_, android_buffer_);
+    android_buffer_ = NULL;
+  }
   return PrepareWindow() ? EGL_TRUE : EGL_FALSE;
 }
 
