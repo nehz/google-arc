@@ -28,18 +28,16 @@ BufferData::~BufferData() {
 
 void BufferData::SetBufferData(GLenum target, GLuint size, const GLvoid* data,
                                GLuint usage) {
+  // TODO(crbug.com/482070): Only keep a copy of the data for element array
+  // buffers (ie. target == GL_ELEMENT_ARRAY_BUFFER).  This is because we may
+  // need to use this data during glDrawElements calls.  See
+  // PointerContext::PrepareElements for more information.
+  if (size > size_) {
+    delete[] data_;
+    data_ = new unsigned char[size];
+  }
   size_ = size;
   usage_ = usage;
-
-  // Only keep a copy of the data for element array buffers.  This is because
-  // we may need to use this data during glDrawElements calls.  See
-  // PointerContext::PrepareElements for more information.
-  if (target != GL_ELEMENT_ARRAY_BUFFER) {
-    return;
-  }
-
-  delete[] data_;
-  data_ = new unsigned char[size];
   if (data_ && data) {
     memcpy(data_, data, size);
   }
