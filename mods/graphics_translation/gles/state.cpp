@@ -1254,9 +1254,38 @@ void PointerContext::BindPointers(GLint first, GLint last) {
       const ObjectGlobalName global_name =
           context_->GetShareGroup()->GetBufferGlobalName(ptr.buffer_name);
       PASS_THROUGH(context_, BindBuffer, GL_ARRAY_BUFFER, global_name);
-      PASS_THROUGH(context_, VertexAttribPointer, index, ptr.size, ptr.type,
-                   ptr.normalize, ptr.stride, ptr.pointer);
 
+      // TODO(crbug.com/482070): Convert any elements in the buffer data that
+      // are of type GL_FIXED to GL_FLOAT and re-upload that data to the bound
+      // buffer.
+      if (ptr.type == GL_FIXED) {
+        // We should be able to safely assume that ptr.size is [1,4] as
+        // per the glVertexAttribPointer specs.  This allows us to just
+        // use a local array instead of having to allocate a dynamic
+        // array for doing the conversion.
+        LOG_ALWAYS_FATAL_IF(ptr.size > 4);
+        BufferDataPtr buffer =
+            context_->GetShareGroup()->GetBufferData(ptr.buffer_name);
+        const unsigned char* data = buffer->GetData();
+        const size_t size = buffer->GetSize();
+        const GLintptr stride =
+            ptr.stride ? ptr.stride : ptr.size * GetTypeSize(ptr.type);
+
+        for (size_t marker = reinterpret_cast<size_t>(ptr.pointer);
+             marker < size; marker += stride) {
+          GLfloat dst[4];
+          const GLfixed* src = reinterpret_cast<const GLfixed*>(&data[marker]);
+          for (int i = 0; i < ptr.size; ++i) {
+            dst[i] = X2F(src[i]);
+          }
+          PASS_THROUGH(context_, BufferSubData, GL_ARRAY_BUFFER, marker,
+                       ptr.size * sizeof(GLfloat), dst);
+        }
+      }
+
+      PASS_THROUGH(context_, VertexAttribPointer, index, ptr.size,
+                   ptr.type == GL_FIXED ? GL_FLOAT : ptr.type,
+                   ptr.normalize, ptr.stride, ptr.pointer);
       continue;
     }
 
@@ -1293,11 +1322,30 @@ void PointerContext::BindPointers(GLint first, GLint last) {
     const size_t offset_last = stride * last;
     const unsigned char* data =
       reinterpret_cast<const unsigned char*>(ptr.pointer);
+
+    // TODO(crbug.com/482070): Convert any elements in the buffer data that are
+    // of type GL_FIXED to GL_FLOAT before copying it to our buffer object.
+    if (ptr.type == GL_FIXED) {
+      unsigned char* tmp = new unsigned char[offset_last];
+      for (int marker = offset_first; marker < offset_last; marker += stride) {
+        GLfloat* dst = reinterpret_cast<GLfloat*>(&tmp[marker]);
+        const GLfixed* src = reinterpret_cast<const GLfixed*>(&data[marker]);
+        for (int i = 0; i < ptr.size; ++i) {
+          dst[i] = X2F(src[i]);
+        }
+      }
+      data = tmp;
+    }
+
     PASS_THROUGH(context_, BufferSubData, GL_ARRAY_BUFFER,
                  offset + offset_first, offset_last - offset_first,
                  data + offset_first);
-    PASS_THROUGH(context_, VertexAttribPointer, index, ptr.size, ptr.type,
+    PASS_THROUGH(context_, VertexAttribPointer, index, ptr.size,
+                 ptr.type == GL_FIXED ? GL_FLOAT : ptr.type,
                  ptr.normalize, ptr.stride, reinterpret_cast<void*>(offset));
+    if (ptr.type == GL_FIXED) {
+      delete[] data;
+    }
     offset += offset_last;
   }
 }

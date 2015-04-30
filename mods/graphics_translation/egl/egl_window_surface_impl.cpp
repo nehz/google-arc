@@ -127,7 +127,10 @@ void EglWindowSurfaceImpl::BeginFrame() {
 bool EglWindowSurfaceImpl::PrepareWindow() {
   const int res = android_window_->dequeueBuffer_DEPRECATED(android_window_,
                                                             &android_buffer_);
-  LOG_ALWAYS_FATAL_IF(res != android::NO_ERROR, "Unable to dequeue buffer.");
+  if (res != android::NO_ERROR) {
+    android_buffer_ = NULL;
+    return true;
+  }
   const GraphicsBuffer* gb =
       static_cast<const GraphicsBuffer*>(android_buffer_->handle);
   return SetColorBuffer(gb->GetHostHandle());
