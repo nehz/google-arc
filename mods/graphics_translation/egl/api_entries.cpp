@@ -51,6 +51,9 @@
     EGL_TRACE();              \
     EGL_API_LOG(__VA_ARGS__);
 
+#define EGL_API_UNIMPLEMENTED() \
+    LOG_ALWAYS_FATAL("Unimplemented: %s", __FUNCTION__)
+
 namespace {
 const int kMajorVersion = 1;
 const int kMinorVersion = 4;
@@ -367,7 +370,7 @@ EGLSurface eglCreatePbufferSurface(EGLDisplay dpy, EGLConfig config,
 EGLSurface eglCreatePixmapSurface(EGLDisplay dpy, EGLConfig config,
                                   EGLNativePixmapType pixmap,
                                   const EGLint* attrib_list) {
-  LOG_ALWAYS_FATAL("Unimplemented");
+  EGL_API_UNIMPLEMENTED();
   return EGL_NO_SURFACE;
 }
 
@@ -508,7 +511,7 @@ EGLBoolean eglBindTexImage(EGLDisplay dpy, EGLSurface surface, EGLint buffer) {
 // Unbind the texture from the surface buffer.
 EGLBoolean eglReleaseTexImage(EGLDisplay dpy, EGLSurface surface,
                               EGLint buffer) {
-  LOG_ALWAYS_FATAL("Unimplemented");
+  EGL_API_UNIMPLEMENTED();
   return 0;
 }
 
@@ -517,7 +520,7 @@ EGLSurface eglCreatePbufferFromClientBuffer(EGLDisplay dpy, EGLenum buftype,
                                             EGLClientBuffer buffer,
                                             EGLConfig config,
                                             const EGLint* attrib_list) {
-  LOG_ALWAYS_FATAL("Unimplemented");
+  EGL_API_UNIMPLEMENTED();
   return EGL_NO_SURFACE;
 }
 
@@ -796,34 +799,34 @@ EGLBoolean eglDestroyImageKHR(EGLDisplay dpy, EGLImageKHR img) {
 }
 
 EGLBoolean eglWaitClient() {
-  LOG_ALWAYS_FATAL("Unimplemented");
+  EGL_API_UNIMPLEMENTED();
   return EGL_TRUE;
 }
 
 EGLBoolean eglWaitGL() {
-  LOG_ALWAYS_FATAL("Unimplemented");
+  EGL_API_UNIMPLEMENTED();
   return EGL_TRUE;
 }
 
 EGLBoolean eglWaitNative(EGLint engine) {
-  LOG_ALWAYS_FATAL("Unimplemented");
+  EGL_API_UNIMPLEMENTED();
   return EGL_TRUE;
 }
 
 EGLBoolean eglCopyBuffers(EGLDisplay dpy, EGLSurface surface,
                           EGLNativePixmapType target) {
-  LOG_ALWAYS_FATAL("Unimplemented");
+  EGL_API_UNIMPLEMENTED();
   return 0;
 }
 
 EGLBoolean eglLockSurfaceKHR(EGLDisplay dpy, EGLSurface surface,
                              const EGLint* attrib_list) {
-  LOG_ALWAYS_FATAL("Unimplemented");
+  EGL_API_UNIMPLEMENTED();
   return 0;
 }
 
 EGLBoolean eglUnlockSurfaceKHR(EGLDisplay dpy, EGLSurface surface) {
-  LOG_ALWAYS_FATAL("Unimplemented");
+  EGL_API_UNIMPLEMENTED();
   return 0;
 }
 
@@ -863,7 +866,7 @@ EGLBoolean eglDestroySyncKHR(EGLDisplay dpy, EGLSyncKHR sync) {
 }
 
 EGLint eglWaitSyncKHR(EGLDisplay dpy, EGLSyncKHR sync, EGLint flags) {
-  LOG_ALWAYS_FATAL("Unimplemented");
+  EGL_API_UNIMPLEMENTED();
   return 0;
 }
 
@@ -950,7 +953,7 @@ EGLuint64NV eglGetSystemTimeFrequencyNV() {
 }
 
 EGLint eglDupNativeFenceFDANDROID(EGLDisplay dpy, EGLSyncKHR sync) {
-  LOG_ALWAYS_FATAL("Unimplemented");
+  EGL_API_UNIMPLEMENTED();
   return 0;
 }
 

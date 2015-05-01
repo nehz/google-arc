@@ -22,6 +22,9 @@ ALLOWED_TARGETS = [_TARGET_NACL_I686,
                    _TARGET_NACL_X86_64,
                    _TARGET_BARE_METAL_I686,
                    _TARGET_BARE_METAL_ARM]
+_CONSUMER_SUPPORTED_TARGETS = [_TARGET_NACL_X86_64,
+                               _TARGET_BARE_METAL_I686,
+                               _TARGET_BARE_METAL_ARM]
 _TARGET_MAPPING = {'ni': _TARGET_NACL_I686,
                    'n32': _TARGET_NACL_I686,
                    'nx': _TARGET_NACL_X86_64,
@@ -150,6 +153,9 @@ class _Options(object):
 
   def is_nacl_x86_64(self):
     return self.target() == _TARGET_NACL_X86_64
+
+  def is_consumer_supported_target(self):
+    return self.target() in _CONSUMER_SUPPORTED_TARGETS
 
   def is_debug_info_enabled(self):
     return not self.disable_debug_info()
