@@ -908,13 +908,34 @@ EGLBoolean eglGetSyncAttribKHR(EGLDisplay dpy, EGLSyncKHR sync,
 void eglBeginFrame(EGLDisplay dpy, EGLSurface surface) {
   EGL_API_ENTRY("%p, %p", dpy, surface);
   EglDisplayImpl* display = EglDisplayImpl::GetDisplay(dpy);
-  if (!display->IsInitialized()) {
+  if (display == NULL || display->IsInitialized() == false) {
+    SetError(EGL_BAD_DISPLAY);
     return;
   }
-  SurfacePtr sfc = display->GetSurfaces().Get(surface);
-  if (sfc) {
-    sfc->BeginFrame();
+  SurfacePtr s = display->GetSurfaces().Get(surface);
+  if (!s) {
+    SetError(EGL_BAD_SURFACE);
+    return;
   }
+  const int64_t timestamp = systemTime(SYSTEM_TIME_MONOTONIC);
+  s->SetTimestamp(timestamp);
+}
+
+EGLBoolean eglPresentationTimeANDROID(EGLDisplay dpy, EGLSurface surface,
+                                      EGLnsecsANDROID time) {
+  EGL_API_ENTRY("%p, %p, %lld", dpy, surface, time);
+  EglDisplayImpl* display = EglDisplayImpl::GetDisplay(dpy);
+  if (display == NULL || display->IsInitialized() == false) {
+    SetError(EGL_BAD_DISPLAY);
+    return EGL_FALSE;
+  }
+  SurfacePtr s = display->GetSurfaces().Get(surface);
+  if (!s) {
+    SetError(EGL_BAD_SURFACE);
+    return EGL_FALSE;
+  }
+  s->SetTimestamp(time);
+  return EGL_TRUE;
 }
 
 EGLuint64NV eglGetSystemTimeNV() {
@@ -925,12 +946,6 @@ EGLuint64NV eglGetSystemTimeNV() {
 EGLuint64NV eglGetSystemTimeFrequencyNV() {
   // Number of "ticks" per second.
   return seconds_to_nanoseconds(1);
-}
-
-EGLBoolean eglPresentationTimeANDROID(EGLDisplay dpy, EGLSurface surface,
-                                      EGLnsecsANDROID time) {
-  LOG_ALWAYS_FATAL("Unimplemented");
-  return EGL_FALSE;
 }
 
 EGLint eglDupNativeFenceFDANDROID(EGLDisplay dpy, EGLSyncKHR sync) {

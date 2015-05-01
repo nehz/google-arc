@@ -36,7 +36,7 @@ class EglWindowSurfaceImpl : public EglSurfaceImpl {
   virtual EGLBoolean SwapBuffers();
 
   // Add a timestamp to the underlying window buffer.
-  virtual void BeginFrame();
+  virtual void SetTimestamp(int64_t time);
 
   // Specify the swap interval for the underlying window buffer.
   virtual void SetSwapInterval(int interval);
