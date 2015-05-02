@@ -13,6 +13,7 @@
 
 import os
 import subprocess
+import sys
 
 import build_common
 import toolchain
@@ -20,6 +21,11 @@ from build_options import OPTIONS
 
 OPTIONS.parse_configure_file()
 
+
+# Provide an option to generate different build properties for running non-CWS
+# apps, such as sideloaded or via ARC Welder.  This allows WebView (Chromium) to
+# send different User-Agent.
+dev_mode = '--dev' in sys.argv
 
 # Environment variables below are sorted alphabetically.
 
@@ -58,6 +64,8 @@ os.environ['PRODUCT_DEFAULT_REGION'] = 'US'
 os.environ['PRODUCT_DEFAULT_WIFI_CHANNELS'] = ''
 os.environ['PRODUCT_MANUFACTURER'] = 'chromium'
 os.environ['PRODUCT_MODEL'] = 'App Runtime for Chrome'
+if dev_mode:
+  os.environ['PRODUCT_MODEL'] += ' Dev'
 os.environ['PRODUCT_NAME'] = 'arc'
 
 os.environ['TARGET_AAPT_CHARACTERISTICS'] = 'default'
