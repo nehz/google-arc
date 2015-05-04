@@ -365,6 +365,7 @@ class PluginUtilInterface {
   virtual void HistogramBoolean(const std::string& name, bool value) = 0;
   virtual void HistogramEnumeration(const std::string& name,
                                     int value, int bounds) = 0;
+  virtual bool IsAppInstalledFromWebStore() const = 0;
 
   // Start shut down of environment.
   virtual void ShutDown() = 0;
