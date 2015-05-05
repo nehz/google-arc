@@ -12,7 +12,8 @@ from util.test import scoreboard
 from util.test import suite_runner_util
 
 
-def _build_atf_launch_chrome_args(test_apk, test_list, test_methods_to_run):
+def _build_atf_launch_chrome_args(test_apk, test_list, test_methods_to_run,
+                                  extra_args):
   """Returns flags and arguments to run gtest based on ATF."""
   args = ['atftest', test_apk]
   if test_methods_to_run:
@@ -23,6 +24,8 @@ def _build_atf_launch_chrome_args(test_apk, test_list, test_methods_to_run):
         ':'.join(test.replace('#', '.') for test in test_list),
         '--atf-gtest-filter',
         ':'.join(test.replace('#', '.') for test in test_methods_to_run)])
+  if extra_args:
+    args.extend(extra_args)
   return args
 
 
@@ -47,7 +50,7 @@ class AtfGTestSuiteRunner(atf_suite_runner.AtfSuiteRunnerBase):
         _build_atf_launch_chrome_args(
             self._test_apk,
             sorted(self.expectation_map.keys()),
-            test_methods_to_run))
+            test_methods_to_run, self._extra_args))
 
   def setUp(self, test_methods_to_run):
     if not self._first_run or platform_util.is_running_on_remote_host():
