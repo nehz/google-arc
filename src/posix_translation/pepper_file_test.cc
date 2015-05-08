@@ -55,6 +55,7 @@ class PepperFileTest : public FileSystemBackgroundTestCommon<PepperFileTest> {
   DECLARE_BACKGROUND_TEST(TestRename);
   DECLARE_BACKGROUND_TEST(TestRenameInode);
   DECLARE_BACKGROUND_TEST(TestRenameInode2);
+  DECLARE_BACKGROUND_TEST(TestRenameDirectoryCached);
   DECLARE_BACKGROUND_TEST(TestRenameEnoentFail);
   DECLARE_BACKGROUND_TEST(TestRenameEisdirFail);
   DECLARE_BACKGROUND_TEST(TestRequestHandleFail);
@@ -108,6 +109,9 @@ class PepperFileTest : public FileSystemBackgroundTestCommon<PepperFileTest> {
   void SetUpUTimeExpectations(const char* path,
                               time_t time,
                               CompletionCallbackExecutor* callback_executor);
+  void SetUpNoFileRefExpectations(
+      CompletionCallbackExecutor* callback_executor,
+      const PP_FileInfo& file_info);
   scoped_refptr<FileStream> OpenFile(int oflag);
   scoped_refptr<FileStream> OpenFileWithExpectations(int flags);
   bool IsDirectory(scoped_refptr<FileStream> file);
@@ -131,6 +135,9 @@ class PepperFileTest : public FileSystemBackgroundTestCommon<PepperFileTest> {
 
   static const char kPepperPath[];
   static const char kAnotherPepperPath[];
+  static const char kPepperOldDir[];
+  static const char kPepperNewDir[];
+  static const char kPepperPathNewDir[];
   static const time_t kTime;
   CompletionCallbackExecutor default_executor_;
   NiceMock<PPB_FileIO_Mock>* ppb_file_io_;
@@ -144,8 +151,11 @@ class PepperFileTest : public FileSystemBackgroundTestCommon<PepperFileTest> {
   EXPECT_EQ(expected_error, errno);              \
   errno = 0;
 
-const char PepperFileTest::kPepperPath[] = "/pepperfs.file";
-const char PepperFileTest::kAnotherPepperPath[] = "/another.pepperfs.file";
+const char PepperFileTest::kPepperPath[] = "/old/pepperfs.file";
+const char PepperFileTest::kAnotherPepperPath[] = "/old/another.pepperfs.file";
+const char PepperFileTest::kPepperOldDir[] = "/old";
+const char PepperFileTest::kPepperNewDir[] = "/new";
+const char PepperFileTest::kPepperPathNewDir[] = "/new/pepperfs.file";
 const time_t PepperFileTest::kTime = 1355707320;
 
 void PepperFileTest::SetUp() {
@@ -276,6 +286,18 @@ void PepperFileTest::SetUpUTimeExpectations(
         Invoke(callback_executor,
                &CompletionCallbackExecutor::ExecuteOnMainThread))).
     RetiresOnSaturation();
+}
+
+void PepperFileTest::SetUpNoFileRefExpectations(
+    CompletionCallbackExecutor* callback_executor,
+    const PP_FileInfo& file_info) {
+  EXPECT_CALL(*ppb_file_ref_, Create(kFileSystemResource, _)).
+    WillOnce(Return(kFileRefResource));
+  EXPECT_CALL(*ppb_file_ref_, Query(kFileRefResource,
+                                    _,
+                                    _)).
+      WillOnce(Return(PP_ERROR_FAILED)).
+      RetiresOnSaturation();
 }
 
 scoped_refptr<FileStream> PepperFileTest::OpenFile(int oflag) {
@@ -558,6 +580,20 @@ TEST_BACKGROUND_F(PepperFileTest, TestFstat) {
   memset(&st, 1, sizeof(st));
   // Call fstat just to make sure it does not crash.
   EXPECT_EQ(0, file->fstat(&st));
+}
+
+TEST_BACKGROUND_F(PepperFileTest, TestRenameDirectoryCached) {
+  base::AutoLock lock(file_system_->mutex());
+  PP_FileInfo file_info = {};
+  SetUpNoFileRefExpectations(&default_executor_, file_info);
+  struct stat st;
+  EXPECT_EQ(-1, handler_->stat(kPepperPathNewDir, &st));
+  EXPECT_EQ(-1, handler_->stat(kPepperPathNewDir, &st));  // cache hit
+  SetUpRenameExpectations(kPepperOldDir, kPepperNewDir, &default_executor_);
+  EXPECT_EQ(0, handler_->rename(kPepperOldDir, kPepperNewDir));
+  // Expect to be called since cache should be invalidated by previous rename.
+  SetUpStatExpectations(&default_executor_, file_info);
+  EXPECT_EQ(0, handler_->stat(kPepperPathNewDir, &st));
 }
 
 TEST_BACKGROUND_F(PepperFileTest, TestStat) {

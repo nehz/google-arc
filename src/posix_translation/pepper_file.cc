@@ -7,6 +7,8 @@
 #include <string.h>  // memset
 #include <sys/ioctl.h>
 
+#include <vector>
+
 #include "base/containers/mru_cache.h"
 #include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
@@ -170,9 +172,30 @@ class PepperFileCache {
                       path.c_str());
     std::string key(path);
     RemoveTrailingSlash(&key);
-    const MRUCache::iterator it = cache_.Get(key);
+    const MRUCache::iterator it = cache_.Peek(key);
     if (it != cache_.end())
       cache_.Erase(it);
+  }
+
+  void InvalidateEntriesWithPrefix(const std::string& prefix) {
+    VirtualFileSystem::GetVirtualFileSystem()->mutex().AssertAcquired();
+    if (!IsCacheEnabled())
+      return;
+    Invalidate(prefix);
+
+    // Then invalidate prefix/*
+    std::string key(prefix);
+    RemoveTrailingSlash(&key);
+    std::vector<std::string> targets;
+    for (MRUCache::iterator i = cache_.begin(); i != cache_.end(); ++i) {
+      if (StartsWithASCII(i->first, key + "/", true))
+        targets.push_back(i->first);
+    }
+    for (int i = 0; i < targets.size(); ++i) {
+      ARC_STRACE_REPORT("PepperFileCache: Cache invalidation for %s",
+                        targets[i].c_str());
+      cache_.Erase(cache_.Peek(targets[i]));
+    }
   }
 
   void Clear() {
@@ -632,8 +655,9 @@ int PepperFileHandler::rename(const std::string& oldpath,
   TRACE_EVENT0(ARC_TRACE_CATEGORY, "PepperFileHandler::rename - Pepper");
   PP_FileInfo old_file_info = {};
   bool old_file_has_metadata = cache_->Get(oldpath, &old_file_info, NULL);
-  cache_->Invalidate(oldpath);  // call this before unlocking the |mutex_|.
-  cache_->Invalidate(newpath);  // call this before unlocking the |mutex_|.
+  // Invalidate before unlocking the |mutex_|.
+  cache_->InvalidateEntriesWithPrefix(oldpath);
+  cache_->InvalidateEntriesWithPrefix(newpath);
   VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
   int32_t result;
   {
