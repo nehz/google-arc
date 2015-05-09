@@ -73,6 +73,7 @@ class ARC_EXPORT RedirectHandler : public FileSystemHandler {
  private:
   void AddSymlink(const std::string& dest, const std::string& src);
   std::string GetSymlinkTarget(const std::string& src) const;
+  bool RemoveSymlinkTarget(const std::string& src);
 
   // True if this handler has been initialized.
   bool is_initialized_;
@@ -88,6 +89,8 @@ class ARC_EXPORT RedirectHandler : public FileSystemHandler {
 
   // The handler which handles all calls except readlink() and symlink().
   scoped_ptr<FileSystemHandler> underlying_;
+
+  std::string mount_point_;
 
   DISALLOW_COPY_AND_ASSIGN(RedirectHandler);
 };

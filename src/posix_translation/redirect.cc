@@ -17,6 +17,18 @@
 
 namespace posix_translation {
 
+namespace {
+
+void RemoveTrailingSlash(std::string* in_out_path) {
+  ALOG_ASSERT(in_out_path);
+  const size_t len = in_out_path->length();
+  if (len < 2 || !util::EndsWithSlash(*in_out_path))
+    return;
+  in_out_path->erase(len - 1);
+}
+
+}  // namespace
+
 RedirectHandler::RedirectHandler(
     FileSystemHandler* underlying,
     const std::vector<std::pair<std::string, std::string> >& symlinks)
@@ -48,6 +60,8 @@ void RedirectHandler::Initialize() {
 }
 
 void RedirectHandler::OnMounted(const std::string& path) {
+  mount_point_ = path;
+  RemoveTrailingSlash(&mount_point_);
   return underlying_->OnMounted(path);
 }
 
@@ -127,23 +141,19 @@ ssize_t RedirectHandler::readlink(const std::string& pathname,
 }
 
 int RedirectHandler::remove(const std::string& pathname) {
-  // Note: Currently, removing, renaming, or unlinking the symbolic link itself
-  // it not supported since our code does not do that at all (and we cannot
-  // support removing symlinks in the readonly file image anyway). If you really
-  // need to support it, you can modify VFS so that VFS calls these methods with
-  // the symbolic link path name itself.
+  if (RemoveSymlinkTarget(pathname))
+    return 0;
   return underlying_->remove(pathname);
 }
 
 int RedirectHandler::rename(const std::string& oldpath,
                             const std::string& newpath) {
-  // See the comment in remove().
+  // TODO(crbug.com/423063): Renaming a symbolic link itself is not supported
+  // yet. See TODO in VFS::rename().
   return underlying_->rename(oldpath, newpath);
 }
 
 int RedirectHandler::rmdir(const std::string& pathname) {
-  // See the comment in remove(). When the |pathname| is a symbolic link itself,
-  // this method thouls return ENOTDIR.
   return underlying_->rmdir(pathname);
 }
 
@@ -160,10 +170,15 @@ int RedirectHandler::symlink(const std::string& oldpath,
   struct stat st;
   // Save errno because it can be changed by stat below.
   int old_errno = errno;
-  if (!GetSymlinkTarget(newpath).empty() || !underlying_->stat(newpath, &st)) {
+
+  // Note: The mount_point_ check is to allow a call like
+  // symlink("/path/to/link_target", "/path/to/mount_point").
+  if (!GetSymlinkTarget(newpath).empty() ||
+      (newpath != mount_point_ && !underlying_->stat(newpath, &st))) {
     errno = EEXIST;
     return -1;
   }
+
   errno = old_errno;
   AddSymlink(oldpath, newpath);
   return 0;
@@ -174,7 +189,8 @@ int RedirectHandler::truncate(const std::string& pathname, off64_t length) {
 }
 
 int RedirectHandler::unlink(const std::string& pathname) {
-  // See the comment in remove().
+  if (RemoveSymlinkTarget(pathname))
+    return 0;
   return underlying_->unlink(pathname);
 }
 
@@ -205,6 +221,15 @@ std::string RedirectHandler::GetSymlinkTarget(const std::string& src) const {
   if (it == symlinks_.end())
     return std::string();
   return it->second;
+}
+
+bool RedirectHandler::RemoveSymlinkTarget(const std::string& src) {
+  base::hash_map<std::string, std::string>::iterator it =  // NOLINT
+      symlinks_.find(src);
+  if (it == symlinks_.end())
+    return false;
+  symlinks_.erase(it);
+  return true;
 }
 
 }  // namespace posix_translation

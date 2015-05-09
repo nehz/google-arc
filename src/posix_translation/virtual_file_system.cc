@@ -1692,7 +1692,11 @@ int VirtualFileSystem::remove(const std::string& pathname) {
   ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
 
   std::string resolved(pathname);
-  GetNormalizedPathLocked(&resolved, kResolveSymlinks);
+  // Use kResolveParentSymlinks rather than kResolveSymlinks because
+  // man 2 remove says "If the name referred to a symbolic link, the link is
+  // removed."
+  GetNormalizedPathLocked(&resolved, kResolveParentSymlinks);
+
   PermissionInfo permission;
   FileSystemHandler* handler = GetFileSystemHandlerLocked(resolved,
                                                           &permission);
@@ -1709,6 +1713,11 @@ int VirtualFileSystem::rename(const std::string& oldpath,
                               const std::string& newpath) {
   base::AutoLock lock(mutex_);
   ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
+
+  // TODO(crbug.com/423063): Consider using kResolveParentSymlinks for both
+  // paths just like remove() and unlink(). man 2 rename says "If oldpath
+  // refers to a symbolic link, the link is renamed; if newpath refers to a
+  // symbolic link the link will be overwritten."
 
   std::string resolved_oldpath(oldpath);
   GetNormalizedPathLocked(&resolved_oldpath, kResolveSymlinks);
@@ -1795,10 +1804,17 @@ int VirtualFileSystem::symlink(const std::string& oldpath,
   std::string resolved_newpath(newpath);
   GetNormalizedPathLocked(&resolved_newpath, kResolveSymlinks);
 
+  // TODO(crbug.com/423063): The current logic seems good enough for handling
+  // the test cases added in 021377bc and for handling two
+  // android.system.Os.symlink calls for setting up /data/app-lib/<appname> and
+  // /vendor/lib-<arch>. However, there are lots of wrong assumptions like
+  // |parent| and |newpath| are handled by the same handler. If we need more
+  // generic symlink() functionality, we should rewrite the logic below.
+
   const std::string parent = util::GetDirName(resolved_newpath);
   PermissionInfo permission_new;
   FileSystemHandler* newpath_handler = GetFileSystemHandlerLocked(
-      parent, &permission_new);
+      resolved_newpath, &permission_new);
   struct stat st;
   if (!newpath_handler || newpath_handler->stat(parent, &st) < 0) {
     errno = ENOENT;
@@ -1847,7 +1863,10 @@ int VirtualFileSystem::unlink(const std::string& pathname) {
   ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
 
   std::string resolved(pathname);
-  GetNormalizedPathLocked(&resolved, kResolveSymlinks);
+  // Use kResolveParentSymlinks rather than kResolveSymlinks because
+  // man 2 unlink says "If the name referred to a symbolic link, the link is
+  // removed."
+  GetNormalizedPathLocked(&resolved, kResolveParentSymlinks);
   PermissionInfo permission;
   FileSystemHandler* handler = GetFileSystemHandlerLocked(resolved,
                                                           &permission);
