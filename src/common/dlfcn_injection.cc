@@ -89,8 +89,8 @@ void InitDlfcnInjection() {
   // InitDlfcnInjection before the first dlopen is called, and we do
   // not dlclose DT_NEEDED ELF objects.
   //
-  // Note that we have already set up IRT hooks in InitIRTHooks, so
-  // __nacl_irt_close, __nacl_irt_open, __nacl_irt_read, and
+  // Note that we have already set up IRT hooks in InitializeIRTHooks,
+  // so __nacl_irt_close, __nacl_irt_open, __nacl_irt_read, and
   // __nacl_irt_write here are not the original IRT functions, but
   // ARC's customized versions which call __wrap_*.
   __arc_linker_hooks hooks = {

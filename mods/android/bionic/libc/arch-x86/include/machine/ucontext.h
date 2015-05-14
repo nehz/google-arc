@@ -1,4 +1,4 @@
-// ARC MOD TRACK "third_party/chromium-ppapi/sandbox/linux/system_headers/android_i386_ucontext.h"
+// ARC MOD TRACK "third_party/chromium-ppapi/sandbox/linux/system_headers/i386_linux_ucontext.h"
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -12,7 +12,16 @@
 // except we do use sigset_t for uc_sigmask instead of a custom type.
 
 #if !defined(__BIONIC_HAVE_UCONTEXT_T)
+#if !defined(__native_client_nonsfi__)
 #include <asm/sigcontext.h>
+#else
+// In PNaCl toolchain, sigcontext is not defined. So here declare it.
+typedef struct sigaltstack {
+  void* ss_sp;
+  int ss_flags;
+  size_t ss_size;
+} stack_t;
+#endif
 
 /* 80-bit floating-point register */
 struct _libc_fpreg {
@@ -69,7 +78,12 @@ typedef struct ucontext {
   struct ucontext* uc_link;
   stack_t uc_stack;
   mcontext_t uc_mcontext;
-  sigset_t uc_sigmask;
+  // Android and PNaCl toolchain's sigset_t has only 32 bits, though Linux
+  // ABI requires 64 bits.
+  union {
+    sigset_t uc_sigmask;
+    uint32_t kernel_sigmask[2];
+  };
   struct _libc_fpstate __fpregs_mem;
 } ucontext_t;
 

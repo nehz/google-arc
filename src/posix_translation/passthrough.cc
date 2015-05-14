@@ -10,7 +10,7 @@
 #include <string>
 
 #include "common/alog.h"
-#include "posix_translation/wrap.h"
+#include "posix_translation/real_syscall.h"
 
 namespace posix_translation {
 

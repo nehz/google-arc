@@ -3,13 +3,10 @@
 // found in the LICENSE file.
 
 #include "gtest/gtest.h"
-
-namespace arc {
-  void InitIRTHooksForTesting();
-}  // namespace arc
+#include "posix_translation/initialization.h"
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
-  arc::InitIRTHooksForTesting();
+  posix_translation::InitializeForPosixTranslationTest();
   return RUN_ALL_TESTS();
 }

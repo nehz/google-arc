@@ -18,7 +18,7 @@ namespace arc {
 // before the first pthread_create call.
 //
 // We must finish set up IRT hooks before calling this function. So,
-// this function must be called only from InitIRTHooks().
+// this function must be called only from posix_translation::Initialize().
 void InitDlfcnInjection();
 
 // Resolves wrapped symbols, which cannot be handled properly by

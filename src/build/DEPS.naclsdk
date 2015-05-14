@@ -256,85 +256,85 @@
       "archives": [
         {
           "checksum": {
-            "sha1": "398d1e956081b37ab9dee549b3141f71bcb590be"
+            "sha1": "9c6d25031295a68393a43f546af09eea7fc23e57"
           },
           "host_os": "all",
-          "size": 79002853,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/42.0.2311.82/naclports.tar.bz2"
+          "size": 79000528,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/42.0.2311.135/naclports.tar.bz2"
         },
         {
           "checksum": {
-            "sha1": "460411e561b56ca578b3b1dcd5a2a59443086d12"
+            "sha1": "b481f13b37f50fc5d0841452a0b74580139c0d43"
           },
           "host_os": "linux",
-          "size": 384054908,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/42.0.2311.82/naclsdk_linux.tar.bz2"
+          "size": 384050816,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/42.0.2311.135/naclsdk_linux.tar.bz2"
         },
         {
           "checksum": {
-            "sha1": "5115cc9c7189aad169d775dc972213b24f8807c2"
+            "sha1": "d8a3b089bd837f7e0986b6a2eb27d232d8225a5e"
           },
           "host_os": "mac",
-          "size": 378141162,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/42.0.2311.82/naclsdk_mac.tar.bz2"
+          "size": 378159291,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/42.0.2311.135/naclsdk_mac.tar.bz2"
         },
         {
           "checksum": {
-            "sha1": "bc653b2748a84f938635982136b67e33723cd96d"
+            "sha1": "76ec81714c34ded15cb0e106b553b3d5624864e6"
           },
           "host_os": "win",
-          "size": 378680084,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/42.0.2311.82/naclsdk_win.tar.bz2"
+          "size": 378684757,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/42.0.2311.135/naclsdk_win.tar.bz2"
         }
       ],
-      "description": "Chrome 42 bundle. Chrome revision: 457. NaCl revision: 4f204a442b5ca08ab5bc49a8f55dbf8859d5d661",
+      "description": "Chrome 42 bundle. Chrome revision: 506. NaCl revision: 4f204a442b5ca08ab5bc49a8f55dbf8859d5d661",
       "name": "pepper_42",
-      "recommended": "no",
+      "recommended": "yes",
       "repath": "pepper_42",
-      "revision": 457,
-      "stability": "beta",
+      "revision": 506,
+      "stability": "stable",
       "version": 42
     },
     {
       "archives": [
         {
           "checksum": {
-            "sha1": "e80c8d705fab5a441b0c1839c3ecfdb51809312d"
+            "sha1": "83ccace9c8f12e9e10abdfe85147b13edda06e89"
           },
           "host_os": "all",
-          "size": 78017559,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/43.0.2357.37/naclports.tar.bz2"
+          "size": 78016086,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/43.0.2357.52/naclports.tar.bz2"
         },
         {
           "checksum": {
-            "sha1": "92a12aa414d4f9aa8f767f25d45e60cb337217cc"
+            "sha1": "12e6bf665c4dbd126f14f9d74138b5f2df560c9a"
           },
           "host_os": "linux",
-          "size": 364385139,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/43.0.2357.37/naclsdk_linux.tar.bz2"
+          "size": 364383502,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/43.0.2357.52/naclsdk_linux.tar.bz2"
         },
         {
           "checksum": {
-            "sha1": "ed482bebecbe78aceb5342a32117bad0f273f559"
+            "sha1": "98210dd222028bda2ed6555a355c24037ecbc52d"
           },
           "host_os": "mac",
-          "size": 357681679,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/43.0.2357.37/naclsdk_mac.tar.bz2"
+          "size": 357671919,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/43.0.2357.52/naclsdk_mac.tar.bz2"
         },
         {
           "checksum": {
-            "sha1": "cb9a5204a62eff211496c770213517e08b2342b6"
+            "sha1": "70c02df9eef6568fe91678a57b47a5ec9dd50a71"
           },
           "host_os": "win",
-          "size": 359651885,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/43.0.2357.37/naclsdk_win.tar.bz2"
+          "size": 359645227,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/43.0.2357.52/naclsdk_win.tar.bz2"
         }
       ],
-      "description": "Chrome 43 bundle. Chrome revision: 187. NaCl revision: bd095c3ad5f1f25a9c6f44b7f38cec89383a5c33",
+      "description": "Chrome 43 bundle. Chrome revision: 317. NaCl revision: bd095c3ad5f1f25a9c6f44b7f38cec89383a5c33",
       "name": "pepper_43",
       "recommended": "no",
       "repath": "pepper_43",
-      "revision": 187,
+      "revision": 317,
       "stability": "beta",
       "version": 43
     },
@@ -342,42 +342,42 @@
       "archives": [
         {
           "checksum": {
-            "sha1": "dd9c2391a6c8633002e5f6ada919a24260a29c8c"
+            "sha1": "1cb17e35e40d934c2a85f2548cef1fec1a22c4ef"
           },
           "host_os": "all",
-          "size": 77740348,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.325393/naclports.tar.bz2"
+          "size": 77571318,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.329156/naclports.tar.bz2"
         },
         {
           "checksum": {
-            "sha1": "01bcd3aee27e90d3b656b8c56b7ed18213eca786"
+            "sha1": "7fd55b6278cb65c1396e13560a5ea6c0bc6fefcb"
           },
           "host_os": "linux",
-          "size": 367874261,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.325393/naclsdk_linux.tar.bz2"
+          "size": 363313242,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.329156/naclsdk_linux.tar.bz2"
         },
         {
           "checksum": {
-            "sha1": "b0fa5ab1fc8f296e1c71f0ba7ebb57c20c455e04"
+            "sha1": "aa07a187c906ea3cdecf0d2f5c970124941e4494"
           },
           "host_os": "mac",
-          "size": 358103871,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.325393/naclsdk_mac.tar.bz2"
+          "size": 353555291,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.329156/naclsdk_mac.tar.bz2"
         },
         {
           "checksum": {
-            "sha1": "f7cbd1db1d09f218808e80b86f276ebee01eb6b2"
+            "sha1": "071d8476b4711043c00f726dba47bf5ba3e690d4"
           },
           "host_os": "win",
-          "size": 359639455,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.325393/naclsdk_win.tar.bz2"
+          "size": 356098515,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.329156/naclsdk_win.tar.bz2"
         }
       ],
-      "description": "Chrome 44 bundle. Chrome revision: 325393. NaCl revision: 11953a35fcd4f999b097a343bc49d89f94af21a8",
+      "description": "Chrome 44 bundle. Chrome revision: 329156. NaCl revision: c3aa3421888b5e69932e2389658969ac181b83f7",
       "name": "pepper_canary",
       "recommended": "no",
       "repath": "pepper_44",
-      "revision": 325393,
+      "revision": 329156,
       "stability": "canary",
       "version": 44
     },
@@ -385,18 +385,18 @@
       "archives": [
         {
           "checksum": {
-            "sha1": "8999f4412780e6d0ef316b780ce227f99cce753c"
+            "sha1": "ff8e1c1db463b844a3d570de16eb83c087ff6c7d"
           },
           "host_os": "linux",
-          "size": 414703784,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.326583/naclsdk_bionic.tar.bz2"
+          "size": 415508877,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.329179/naclsdk_bionic.tar.bz2"
         }
       ],
-      "description": "Chrome 44 bundle. Chrome revision: 326583. NaCl revision: efe1c643770e76a1c4747e4c5bf9338e5a0ef945",
+      "description": "Chrome 44 bundle. Chrome revision: 329179. NaCl revision: c3aa3421888b5e69932e2389658969ac181b83f7",
       "name": "bionic_canary",
       "recommended": "no",
       "repath": "pepper_44",
-      "revision": 326583,
+      "revision": 329179,
       "stability": "canary",
       "version": 44
     }
