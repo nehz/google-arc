@@ -154,7 +154,7 @@ class CommandLineLinterBase(Linter):
         output = '\n'.join(self._error_line_filter.findall(e.output))
       else:
         output = e.output
-      logging.exception('Lint output errors:\n%s', output)
+      logging.error('Lint output errors:\n%s', output)
       return False
 
   def _build_command(self, path):
