@@ -231,21 +231,21 @@ int __wrap_chown(const char* path, uid_t owner, gid_t group) {
 // Wrap this just for ARC strace.
 int __wrap_closedir(DIR* dirp) {
   ARC_STRACE_ENTER("closedir", "%d, %p", PRETIFY_DIRP(dirp));
-  int result = ::closedir(dirp);
+  int result = closedir(dirp);
   ARC_STRACE_RETURN(result);
 }
 
 // Wrap this just for ARC strace.
 int __wrap_dirfd(DIR* dirp) {
   ARC_STRACE_ENTER("dirfd", "%p", dirp);
-  int result = ::dirfd(dirp);
+  int result = dirfd(dirp);
   ARC_STRACE_RETURN(result);
 }
 
 // Wrap this just for ARC strace.
 int __wrap_dladdr(const void* addr, Dl_info* info) {
   ARC_STRACE_ENTER("dladdr", "%p, %p", addr, info);
-  const int result = ::dladdr(addr, info);
+  const int result = dladdr(addr, info);
   if (result && info) {  // dladdr returns 0 on error.
     ARC_STRACE_REPORT(
         "info={dli_fname=\"%s\" dli_fbase=%p dli_sname=\"%s\" dli_saddr=%p}",
@@ -262,7 +262,7 @@ int __wrap_dlclose(void* handle) {
                    handle, arc::GetDlsymHandleStr(handle).c_str());
   // Remove the handle from ARC_STRACE first. See crbug.com/461155.
   ARC_STRACE_UNREGISTER_DSO_HANDLE(handle);
-  int result = ::dlclose(handle);
+  int result = dlclose(handle);
   // false since dlclose never sets errno.
   ARC_STRACE_RETURN_INT(result, false);
 }
@@ -287,7 +287,7 @@ void* __wrap_dlopen(const char* filename, int flag) {
     //                         converting shared objects to archives.
     filename = NULL;
   }
-  void* result = ::dlopen(filename, flag);
+  void* result = dlopen(filename, flag);
   if (result)
     ARC_STRACE_REGISTER_DSO_HANDLE(result, filename);
 
@@ -315,7 +315,7 @@ void* __wrap_dlsym(void* handle, const char* symbol) {
 // Wrap this just for ARC strace.
 DIR* __wrap_fdopendir(int fd) {
   ARC_STRACE_ENTER_FD("fdopendir", "%d", fd);
-  DIR* dirp = ::fdopendir(fd);
+  DIR* dirp = fdopendir(fd);
   ARC_STRACE_RETURN_PTR(dirp, !dirp);
 }
 
@@ -425,14 +425,14 @@ int __wrap_open(const char* pathname, int flags, ...) {
 // Wrap this just for ARC strace.
 DIR* __wrap_opendir(const char* name) {
   ARC_STRACE_ENTER("opendir", "%s", SAFE_CSTR(name));
-  DIR* dirp = ::opendir(name);
+  DIR* dirp = opendir(name);
   ARC_STRACE_RETURN_PTR(dirp, !dirp);
 }
 
 // Wrap this just for ARC strace.
 struct dirent* __wrap_readdir(DIR* dirp) {
   ARC_STRACE_ENTER_FD("readdir", "%d, %p", PRETIFY_DIRP(dirp));
-  struct dirent* ent = ::readdir(dirp);  // NOLINT(runtime/threadsafe_fn)
+  struct dirent* ent = readdir(dirp);  // NOLINT(runtime/threadsafe_fn)
   ARC_STRACE_RETURN_PTR(ent, false);
 }
 
@@ -440,7 +440,7 @@ struct dirent* __wrap_readdir(DIR* dirp) {
 int __wrap_readdir_r(DIR* dirp, struct dirent* entry, struct dirent** ents) {
   ARC_STRACE_ENTER_FD("readdir_r", "%d, %p, %p, %p",
                       PRETIFY_DIRP(dirp), entry, ents);
-  int result = ::readdir_r(dirp, entry, ents);
+  int result = readdir_r(dirp, entry, ents);
   ARC_STRACE_RETURN(result);
 }
 
@@ -484,7 +484,7 @@ int __wrap_rename(const char* oldpath, const char* newpath) {
 // Wrap this just for ARC strace.
 void __wrap_rewinddir(DIR* dirp) {
   ARC_STRACE_ENTER_FD("rewinddir", "%d, %p", PRETIFY_DIRP(dirp));
-  ::rewinddir(dirp);
+  rewinddir(dirp);
   ARC_STRACE_RETURN_VOID();
 }
 
@@ -495,7 +495,7 @@ int __wrap_scandir(
     int (*compar)(const struct dirent**, const struct dirent**)) {
   ARC_STRACE_ENTER("scandir", "%s, %p, %p, %p",
                    SAFE_CSTR(dirp), namelist, filter, compar);
-  int result = ::scandir(dirp, namelist, filter, compar);
+  int result = scandir(dirp, namelist, filter, compar);
   ARC_STRACE_RETURN(result);
 }
 
@@ -851,7 +851,7 @@ int __wrap_mprotect(const void* addr, size_t len, int prot) {
     // TODO(crbug.com/362862): Stop falling back to real mprotect on ENOSYS and
     // do this only for unit tests.
     ARC_STRACE_REPORT("falling back to real mprotect");
-    result = ::mprotect(addr, len, prot);
+    result = mprotect(addr, len, prot);
     if (!result && errno == ENOSYS)
       errno = errno_orig;  // restore |errno| overwritten by posix_translation
   }
@@ -868,7 +868,7 @@ int __wrap_munmap(void* addr, size_t length) {
     // TODO(crbug.com/362862): Stop falling back to real munmap on ENOSYS and
     // do this only for unit tests.
     ARC_STRACE_REPORT("falling back to real munmap");
-    result = ::munmap(addr, length);
+    result = munmap(addr, length);
     if (!result && errno == ENOSYS)
       errno = errno_orig;  // restore |errno| overwritten by posix_translation
   }

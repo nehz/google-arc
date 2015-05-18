@@ -7,7 +7,7 @@
 
 namespace posix_translation {
 
-// Initializes POSIX translation by performing IRT hooks etc.
+// Initializes POSIX translation by installing IRT hooks etc.
 // This function must be called before any binary linked with -Wl,--wrap
 // calls wrapped functions.
 void Initialize();
