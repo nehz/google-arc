@@ -37,13 +37,6 @@ struct hwc_context_t {
   CompositorInterface* compositor;
   const hwc_procs_t* procs;
 
-  int32_t width;
-  int32_t height;
-  int32_t refresh;
-  int32_t xdpi;
-  int32_t ydpi;
-
-
   // These 3 variables could be reduced to first_overlay only, however it makes
   // the conditions in the code more complicated. In order to keep things as
   // simple as possible, there are 3 major ways to display a frame.
@@ -78,11 +71,6 @@ hwc_context_t::hwc_context_t() :
 #endif
     compositor(NULL),
     procs(0),
-    width(0),
-    height(0),
-    refresh(0),
-    xdpi(0),
-    ydpi(0),
     framebuffer_visible(false),
     first_overlay(0),
     num_overlays(0) {
@@ -197,9 +185,6 @@ static Layer MakeLayer(hwc_layer_1_t* hw_layer) {
 static Display MakeDisplay(hwc_context_t* context,
                            hwc_display_contents_1_t* hw_display) {
   Display display;
-  display.size.width = context->width;
-  display.size.height = context->height;
-
   display.layers.reserve(context->num_overlays + 1);
   if (context->framebuffer_visible) {
     hwc_layer_1_t* layer = &hw_display->hwLayers[hw_display->numHwLayers - 1];
@@ -217,63 +202,65 @@ static int hwc_prepare(hwc_composer_device_1_t* dev, size_t numDisplays,
                        hwc_display_contents_1_t** displays) {
   ALOGD("HWC_PREPARE");
   hwc_context_t* context = reinterpret_cast<hwc_context_t*>(dev);
-  if (displays && displays[0]) {
-    // ARC Only supports the primary display.
-    if (displays[0]->flags & HWC_GEOMETRY_CHANGED) {
-      const size_t& numHwLayers = displays[0]->numHwLayers;
-      size_t i = 1;
-      bool visible = (numHwLayers == 1);
-      // Iterate backwards and skip the first (end) layer, which is the
-      // framebuffer target layer. According to the SurfaceFlinger folks, the
-      // actual location of this layer is up to the HWC implementation to
-      // decide, but is in the well know last slot of the list. This does not
-      // imply that the framebuffer target layer must be topmost.
-      for (; i < numHwLayers; i++) {
-        hwc_layer_1_t* layer = &displays[0]->hwLayers[numHwLayers - 1 - i];
-        if (layer->flags & HWC_SKIP_LAYER) {
-          // All layers below and including this one will be drawn into the
-          // framebuffer. Stop marking further layers as HWC_OVERLAY.
-          visible = true;
-          break;
-        }
-        switch (layer->compositionType) {
-          case HWC_OVERLAY:
-          case HWC_FRAMEBUFFER:
-            layer->compositionType = HWC_OVERLAY;
-            break;
-          case HWC_BACKGROUND:
-            break;
-          default:
-            ALOGE("hwcomposor: Invalid compositionType %d",
-                    layer->compositionType);
-            break;
-        }
-      }
-      context->first_overlay = numHwLayers - i;
-      context->num_overlays = i - 1;
-      context->framebuffer_visible = visible;
-    }
-    return 0;
+  if (displays == NULL || displays[0] == NULL) {
+    return -EINVAL;
   }
-  return -1;
+
+  // ARC Only supports the primary display.
+  if (displays[0]->flags & HWC_GEOMETRY_CHANGED) {
+    const size_t& numHwLayers = displays[0]->numHwLayers;
+    size_t i = 1;
+    bool visible = (numHwLayers == 1);
+    // Iterate backwards and skip the first (end) layer, which is the
+    // framebuffer target layer. According to the SurfaceFlinger folks, the
+    // actual location of this layer is up to the HWC implementation to
+    // decide, but is in the well know last slot of the list. This does not
+    // imply that the framebuffer target layer must be topmost.
+    for (; i < numHwLayers; i++) {
+      hwc_layer_1_t* layer = &displays[0]->hwLayers[numHwLayers - 1 - i];
+      if (layer->flags & HWC_SKIP_LAYER) {
+        // All layers below and including this one will be drawn into the
+        // framebuffer. Stop marking further layers as HWC_OVERLAY.
+        visible = true;
+        break;
+      }
+      switch (layer->compositionType) {
+        case HWC_OVERLAY:
+        case HWC_FRAMEBUFFER:
+          layer->compositionType = HWC_OVERLAY;
+          break;
+        case HWC_BACKGROUND:
+          break;
+        default:
+          ALOGE("hwcomposor: Invalid compositionType %d",
+                  layer->compositionType);
+          break;
+      }
+    }
+    context->first_overlay = numHwLayers - i;
+    context->num_overlays = i - 1;
+    context->framebuffer_visible = visible;
+  }
+  return 0;
 }
 
 static int hwc_set(hwc_composer_device_1_t* dev, size_t numDisplays,
                    hwc_display_contents_1_t** displays) {
   ALOGD("HWC_SET");
   hwc_context_t* context = reinterpret_cast<hwc_context_t*>(dev);
-  if (displays && displays[0]) {
-    if (displays[0]->flags & HWC_GEOMETRY_CHANGED) {
-      context->display = MakeDisplay(context, displays[0]);
-    } else {
-      UpdateDisplay(context, &context->display, displays[0]);
-    }
-
-    int fd = context->compositor->Set(&context->display);
-    displays[0]->retireFenceFd = fd;
-    return 0;
+  if (displays == NULL || displays[0] == NULL) {
+    return -EFAULT;
   }
-  return -1;
+
+  if (displays[0]->flags & HWC_GEOMETRY_CHANGED) {
+    context->display = MakeDisplay(context, displays[0]);
+  } else {
+    UpdateDisplay(context, &context->display, displays[0]);
+  }
+
+  int fd = context->compositor->Set(&context->display);
+  displays[0]->retireFenceFd = fd;
+  return 0;
 }
 
 static int hwc_event_control(hwc_composer_device_1* dev, int disp,
@@ -284,16 +271,16 @@ static int hwc_event_control(hwc_composer_device_1* dev, int disp,
 static int hwc_get_display_configs(hwc_composer_device_1* dev, int disp,
                                    uint32_t* configs, size_t* numConfigs) {
   if (disp != 0) {
-    return android::BAD_INDEX;
+    return -EINVAL;
   }
-  if (*numConfigs < 1) {
-    return android::NO_ERROR;
+
+  if (*numConfigs > 0) {
+    // Config[0] will be passed in to getDisplayAttributes as the disp
+    // parameter. The ARC display supports only 1 configuration.
+    configs[0] = 0;
+    *numConfigs = 1;
   }
-  // Config[0] will be passed in to getDisplayAttributes as the disp parameter.
-  // The ARC display supports only 1 configuration.
-  configs[0] = 0;
-  *numConfigs = 1;
-  return android::NO_ERROR;
+  return 0;
 }
 
 static int hwc_get_display_attributes(hwc_composer_device_1* dev,
@@ -301,26 +288,33 @@ static int hwc_get_display_attributes(hwc_composer_device_1* dev,
                                       const uint32_t* attributes,
                                       int32_t* values) {
   if (disp != 0 || config != 0) {
-    return android::BAD_INDEX;
+    return -EINVAL;
   }
+
+  arc::PluginHandle handle;
+  arc::RendererInterface::RenderParams params;
+  handle.GetRenderer()->GetRenderParams(&params);
+  const int density = GetDisplayDensity();
 
   hwc_context_t* context = reinterpret_cast<hwc_context_t*>(dev);
   while (*attributes != HWC_DISPLAY_NO_ATTRIBUTE) {
     switch (*attributes) {
       case HWC_DISPLAY_VSYNC_PERIOD:
-        *values = context->refresh;
+        // TODO(crbug.com/459280): Get this information from the RenderParams.
+        *values =
+            static_cast<int32_t>(1e9 / arc::Options::GetInstance()->fps_limit);;
         break;
       case HWC_DISPLAY_WIDTH:
-        *values = context->width;
+        *values = params.width;
         break;
       case HWC_DISPLAY_HEIGHT:
-        *values = context->height;
+        *values = params.height;
         break;
       case HWC_DISPLAY_DPI_X:
-        *values = context->xdpi;
+        *values = density;
         break;
       case HWC_DISPLAY_DPI_Y:
-        *values = context->ydpi;
+        *values = density;
         break;
       default:
         ALOGE("Unknown attribute value 0x%02x", *attributes);
@@ -328,7 +322,7 @@ static int hwc_get_display_attributes(hwc_composer_device_1* dev,
     ++attributes;
     ++values;
   }
-  return android::NO_ERROR;
+  return 0;
 }
 
 static void hwc_register_procs(hwc_composer_device_1* dev,
@@ -356,37 +350,26 @@ static int hwc_device_open(const hw_module_t* module, const char* name,
     return -ENODEV;
   }
 
-  int status = -EINVAL;
-  if (!strcmp(name, HWC_HARDWARE_COMPOSER)) {
-    arc::RendererInterface::RenderParams params;
-    handle.GetRenderer()->GetRenderParams(&params);
-
-    const int density = GetDisplayDensity();
-    hwc_context_t* dev = new hwc_context_t();
-    dev->device.common.tag = HARDWARE_DEVICE_TAG;
-    dev->device.common.version = HWC_DEVICE_API_VERSION_1_3;
-    dev->device.common.module = const_cast<hw_module_t*>(module);
-    dev->device.common.close = hwc_device_close;
-    dev->device.prepare = hwc_prepare;
-    dev->device.set = hwc_set;
-    dev->device.eventControl = hwc_event_control;
-    dev->device.blank = hwc_blank;
-    dev->device.query = hwc_query;
-    dev->device.getDisplayConfigs = hwc_get_display_configs;
-    dev->device.getDisplayAttributes = hwc_get_display_attributes;
-    dev->device.registerProcs = hwc_register_procs;
-    dev->compositor = handle.GetRenderer()->GetCompositor();
-    dev->width = params.width;
-    dev->height = params.height;
-    // TODO(crbug.com/459280): Get this information from the RenderParams.
-    dev->refresh =
-        static_cast<int32_t>(1e9 / arc::Options::GetInstance()->fps_limit);
-    dev->xdpi = density;
-    dev->ydpi = density;
-    *device = &dev->device.common;
-    status = 0;
+  if (strcmp(name, HWC_HARDWARE_COMPOSER) != 0) {
+    return -EINVAL;
   }
-  return status;
+
+  hwc_context_t* dev = new hwc_context_t();
+  dev->device.common.tag = HARDWARE_DEVICE_TAG;
+  dev->device.common.version = HWC_DEVICE_API_VERSION_1_3;
+  dev->device.common.module = const_cast<hw_module_t*>(module);
+  dev->device.common.close = hwc_device_close;
+  dev->device.prepare = hwc_prepare;
+  dev->device.set = hwc_set;
+  dev->device.eventControl = hwc_event_control;
+  dev->device.blank = hwc_blank;
+  dev->device.query = hwc_query;
+  dev->device.getDisplayConfigs = hwc_get_display_configs;
+  dev->device.getDisplayAttributes = hwc_get_display_attributes;
+  dev->device.registerProcs = hwc_register_procs;
+  dev->compositor = handle.GetRenderer()->GetCompositor();
+  *device = &dev->device.common;
+  return 0;
 }
 
 static hw_module_methods_t hwc_module_methods = {

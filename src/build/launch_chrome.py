@@ -47,12 +47,9 @@ _PERF_TOOL = 'perf'
 _USER_DATA_DIR = None  # Will be set after we parse the commandline flags.
 
 # List of lines for stdout/stderr Chrome output to suppress.
-_SUPRESS_LIST = [
-    # Problems with gPrecise ALSA give PCM 'underrun occurred' messages
-    # even when stopped in the debugger sometimes.
-    'underrun occurred',
+_SUPPRESS_LIST = [
     # When debugging with gdb, NaCl is emitting many of these messages.
-    'NaClAppThreadSetSuspendedRegisters: Registers not modified'
+    'NaClAppThreadSetSuspendedRegisters: Registers not modified',
 ]
 
 
@@ -540,7 +537,7 @@ def _select_output_handler(parsed_args, stats, chrome_process, **kwargs):
         parsed_args, stats, chrome_process, **kwargs)
   else:
     handler = concurrent_subprocess.RedirectOutputHandler(
-        *[re.escape(suppress) for suppress in _SUPRESS_LIST])
+        *['.*' + re.escape(suppress) for suppress in _SUPPRESS_LIST])
 
   if 'gpu' in parsed_args.gdb or 'renderer' in parsed_args.gdb:
     handler = gdb_util.GdbHandlerAdapter(

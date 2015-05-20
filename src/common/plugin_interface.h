@@ -95,7 +95,6 @@ class CompositorInterface {
   };
 
   struct Display {
-    Size size;
     std::vector<Layer> layers;
   };
 
