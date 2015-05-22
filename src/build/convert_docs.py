@@ -26,6 +26,12 @@ _HTML_TEMPLATE = string.Template("""
 <title>$TITLE</title>
 <style type="text/css">
 /* Sorted in alphabetical order. */
+blockquote {
+  background-color: #cdf;
+  padding: 5px;
+  border-radius: 10px;
+  box-shadow: 5px 5px 30px;
+}
 body {
   font-family: sans-serif;
   line-height: 1.6;
