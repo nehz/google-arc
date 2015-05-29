@@ -308,6 +308,10 @@ class _Options(object):
                         'force configure to run in a single process which can '
                         'aid in diagnosing failures.')
 
+    parser.add_argument('--disable-art-aot', action='store_false',
+                        dest='enable_art_aot', help='Disable ART boot image '
+                        'and AOT compilation.')
+
     parser.add_argument('--disable-debug-info', action='store_true',
                         help='Do not generate debug information. ')
 
@@ -324,17 +328,16 @@ class _Options(object):
     parser.add_argument('--enable-aacenc', action='store_true',
                         help='Build libraries to support AAC encoding.')
 
-    parser.add_argument('--enable-art', action='store_true',
-                        help='Build libraries to support ART runtime.')
-
     parser.add_argument('--enable-atrace', action='store_true',
                         help='Enable Android trace events through Chromium')
 
     parser.add_argument('--enable-binder', action='store_true',
                         help='Enable Binder calls for all services.')
 
-    parser.add_argument('--enable-dalvik-jit', action='store_true',
-                        help='Run Dalvik VM with JIT mode enabled.')
+    parser.add_argument('--enable-jemalloc-debug', action='store_true',
+                        help='Enable jemalloc debug mode.  This fills all '
+                        'memory returned from malloc() and all memory passed '
+                        'to free() with garbage.')
 
     parser.add_argument('--enable-touch-overlay', action='store_true',
                         help='[EXPERIMENTAL]  Overlay touch spots on the '
@@ -350,11 +353,11 @@ class _Options(object):
     parser.add_argument('--goma-dir', help='The directory for goma.')
 
     parser.add_argument('--java-dir',
-                        default='/usr/lib/jvm/java-6-openjdk-amd64',
-                        help='The directory for Java. The path points to a '
-                        'directory, which usually JAVA_HOME env variable '
-                        'points to. E.g. /usr/lib/jvm/java-6-openjdk-amd64 '
-                        'for Ubuntu.')
+                        default='/usr/lib/jvm/java-7-openjdk-amd64',
+                        help='The directory for Java. The path '
+                        'points to a directory, which usually JAVA_HOME env '
+                        'variable points to. E.g. '
+                        '/usr/lib/jvm/java-7-openjdk-amd64 for Ubuntu.')
 
     parser.add_argument('--logging', metavar=str(_ALLOWED_LOGGING),
                         help='A comma-separated list of logging to enable on '
@@ -453,6 +456,11 @@ class _Options(object):
     if self.is_arm():
       self._values['strip_runtime_binaries'] = True
 
+    # NaCl i686 does not support ART AOT and support is not planned in the
+    # future.
+    if self.is_nacl_i686():
+      self._values['enable_art_aot'] = False
+
     error = self._check_args(parsed_args)
     if error:
       parser.print_help()
@@ -464,19 +472,10 @@ class _Options(object):
     if args.enable_valgrind and not self.is_bare_metal_i686():
       return '--enable-valgrind works only on Bare Metal i686 target.'
 
-    # TODO(crbug.com/340573): Enable ART for other targets.
-    if args.enable_art and not self.is_bare_metal_i686():
-      return '--enable-art works only on Bare Metal i686 target.'
-
-    return self._check_enable_dalvik_jit_args(args)
-
-  def _check_enable_dalvik_jit_args(self, args):
-    if args.enable_dalvik_jit and self.is_nacl_build():
-      return 'Dalvik JIT mode is not supported on NaCl targets.'
-
-    if args.enable_dalvik_jit and self.is_java_methods_logging():
-      return ('Dalvik JIT mode and Java methods logging cannot be enabled at '
-              'the same time')
+    # Java method logging does not work properly with ART AOT enabled.
+    if 'java-methods' in args.logging and args.enable_art_aot:
+      return ('java-methods logging cannot be used with ART AOT enabled. '
+              'Use --disable-art-aot')
 
     return None
 

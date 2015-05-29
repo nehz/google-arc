@@ -152,7 +152,8 @@ def canonicalize_commit(commit, cwd=None):
 
 
 def get_last_landed_commit(cwd=None):
-  return subprocess.check_output(['git', 'log', '--grep=Reviewed-on:', '-1',
+  return subprocess.check_output(['git', 'log', '--first-parent',
+                                  '--grep=Reviewed-on:', '-1',
                                   '--pretty=format:%H'], cwd=cwd).rstrip()
 
 
@@ -164,7 +165,7 @@ def get_oneline_for_commit(commit, cwd=None):
 
 def get_in_flight_commits(cwd=None):
   return subprocess.check_output(
-      ['git', 'log', '--pretty=format:%H',
+      ['git', 'log', '--first-parent', '--pretty=format:%H',
        '%s..' % get_last_landed_commit()], cwd=cwd).splitlines()
 
 
@@ -230,6 +231,20 @@ def is_file_git_controlled(path, cwd=None):
                            stderr=devnull) == 0
 
 
+def get_file_at_revision(revision, path, cwd=None):
+  try:
+    return subprocess.check_output(
+        ['git', 'show', '%s:%s' % (revision, path)], cwd=cwd,
+        stderr=subprocess.STDOUT)
+  except subprocess.CalledProcessError, e:
+    if e.output:
+      if ('exists on disk, but not in' in e.output or
+          'does not exist in' in e.output):
+        return ''
+      logging.error(e.output)
+    raise
+
+
 def get_branch_tracked_remote_url(cwd=None):
   remote_name = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref',
                                          '--symbolic-full-name', '@{u}'],
@@ -253,6 +268,26 @@ def force_checkout_revision(revision, cwd=None):
 
 def get_head_revision(cwd=None):
   return _subprocess_check_output(['git', 'rev-parse', 'HEAD'], cwd=cwd).strip()
+
+
+def get_ref_hash(ref, cwd=None):
+  """Converts/canonicalizes a reference (tag or hash) into a hash."""
+  try:
+    output = subprocess.check_output(
+        ['git', 'rev-parse', '--verify', '%s^{commit}' % ref], cwd=cwd,
+        stderr=subprocess.STDOUT)
+  except subprocess.CalledProcessError:
+    # Retry the command, but do a more expensive "git fetch" first.
+    _subprocess_check_output(['git', 'fetch'], cwd=cwd)
+    output = _subprocess_check_output(
+        ['git', 'rev-parse', '--verify', '%s^{commit}' % ref], cwd=cwd)
+
+  return output.strip()
+
+
+def add_to_staging(path):
+  """Issue a "git add" command to add |path| to staging."""
+  _subprocess_check_output(['git', 'add', path])
 
 
 def add_submodule(url, path):

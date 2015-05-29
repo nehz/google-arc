@@ -1,7 +1,6 @@
 // Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-//
 
 #include "common/dlfcn_injection.h"
 
@@ -16,8 +15,8 @@
 #include "base/strings/string_split.h"
 #include "common/alog.h"
 #include "common/android_static_libraries.h"
-#include "common/ndk_support/arm_syscall.h"
 #include "common/ndk_support/mmap.h"
+#include "common/ndk_support/syscall.h"
 #include "common/wrapped_functions.h"
 
 namespace arc {
@@ -69,18 +68,14 @@ void InitDlfcnInjection() {
       LOG_ALWAYS_FATAL("Duplicated library name: %s", *p);
   }
 
-#if defined(USE_NDK_DIRECT_EXECUTION)
-  // Syscall numbers (e.g., __NR_mmap) depend on CPU. As we need to
-  // handle syscalls called by NDK with ARM's syscall numbers instead
-  // of host's, we inject the syscall function for ARM.
-  (*g_wrapped_symbol_map)["syscall"] =
-      reinterpret_cast<void*>(&RunArmLibcSyscall);
+#if !defined(__native_client__)
+  // Redirect syscall() libc calls to posix_translation when necessary.
+  (*g_wrapped_symbol_map)["syscall"] = reinterpret_cast<void*>(&RunLibcSyscall);
   // See src/common/ndk_support/mmap.h for detail.
-  (*g_wrapped_symbol_map)["mmap"] =
-      reinterpret_cast<void*>(&MmapForNdk);
+  (*g_wrapped_symbol_map)["mmap"] = reinterpret_cast<void*>(&MmapForNdk);
   (*g_wrapped_symbol_map)["mprotect"] =
       reinterpret_cast<void*>(&MprotectForNdk);
-#endif
+#endif  // __native_client__
 
   // Inject the custom symbol resolver and posix_translation based
   // file operations to the Bionic loader. After we inject the
@@ -102,6 +97,7 @@ void InitDlfcnInjection() {
     __nacl_irt_open,
     __nacl_irt_read,
     __nacl_irt_write,
+    __nacl_irt_fstat,
   };
   __inject_arc_linker_hooks(&hooks);
 }

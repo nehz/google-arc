@@ -29,21 +29,50 @@ _ANDROID_SYSTEM_IMAGE_DIR = ('ndk/platforms/android-%d' %
                              toolchain.get_android_api_level())
 
 
-def _generate_test_framework_ninjas():
-  n = ArchiveNinjaGenerator('libgtest', base_path='googletest/src',
-                            instances=0,  # Not used by shared objects
-                            enable_clang=True)
+def _generate_gtest_ninja(name, instances=0, enable_libcxx=False, host=False):
+  n = ArchiveNinjaGenerator(name, base_path='googletest/src',
+                            instances=instances,
+                            enable_clang=True,
+                            enable_cxx11=True,
+                            enable_libcxx=enable_libcxx,
+                            host=host)
   n.add_include_paths(staging.as_staging('googletest'))
   # To avoid "private field 'pretty_' is not used" on clang.
   n.add_compiler_flags('-Wno-unused-private-field')
   n.build_default(['gtest-all.cc']).archive()
 
-  n = ArchiveNinjaGenerator('libgmock', base_path='testing/gmock/src',
+
+def _generate_gmock_ninja(name, enable_libcxx=False):
+  n = ArchiveNinjaGenerator(name, base_path='testing/gmock/src',
                             instances=0,  # Not used by shared objects
-                            enable_clang=True)
+                            enable_clang=True,
+                            enable_cxx11=True,
+                            enable_libcxx=enable_libcxx)
   n.add_include_paths(staging.as_staging('testing/gmock'),
                       staging.as_staging('testing/gmock/include'))
   n.build_default(['gmock-all.cc']).archive()
+
+
+def _generate_test_framework_ninjas():
+  # Build two versions of libgtest and libgmock that are built and linked with
+  # STLport or libc++. It is used to build tests that depends on each library.
+  _generate_gtest_ninja('libgtest', enable_libcxx=False)
+  gtest_libcxx_instances = 2
+  if not OPTIONS.run_tests():
+    gtest_libcxx_instances = 0
+  elif OPTIONS.is_debug_code_enabled():
+    # libart-gtest.so, libarttest.so, and libnativebridgetest.so uses
+    # libgtest_libc++.a, and libart-gtest.so is not built with
+    # --disable-debug-code. We should not count libart-gtest.so in with
+    # --notest.
+    gtest_libcxx_instances = 3
+    # libartd.so for host uses libgtest_host.a. Although it is built with
+    # libc++, it is not named libgtest_libc++_host.a by Android.mk.
+    _generate_gtest_ninja('libgtest_host', host=True, enable_libcxx=True)
+  _generate_gtest_ninja('libgtest_libc++',
+                        instances=gtest_libcxx_instances, enable_libcxx=True)
+  _generate_gmock_ninja('libgmock', enable_libcxx=False)
+  _generate_gmock_ninja('libgmock_libc++', enable_libcxx=True)
 
 
 def _generate_breakpad_ninja():
@@ -75,7 +104,7 @@ def _generate_breakpad_ninja():
     n = ninja_generator.ExecNinjaGenerator(
         tool, host=True,
         base_path='breakpad/src/tools/linux/' + directory_name)
-    n.add_include_paths('third_party/breakpad/src')
+    n.add_include_paths('breakpad/src')
     # Workaround for third_party/lss/linux_syscall_support.h
     n.add_compiler_flags('-idirafter', 'third_party/..')
     n.add_library_deps('libbreakpad_common.a')
@@ -138,7 +167,7 @@ def _generate_checkdeps_ninjas():
     return
   n = NinjaGenerator('checkdeps', target_groups=['lint'])
   checkdeps_script = staging.as_staging(
-      'android/external/chromium_org/tools/checkdeps/checkdeps.py')
+      'native_client/tools/checkdeps/checkdeps.py')
   n.rule('checkdeps',
          command=('%s -v --root=$root $in_dir > $out.tmp 2>&1 '
                   '&& mv $out.tmp $out '
@@ -251,7 +280,6 @@ def _generate_check_symbols_ninja():
   # important.
   if not build_common.use_ndk_direct_execution():
     return
-  assert OPTIONS.is_arm(), 'Only ARM supports NDK direct execution'
 
   n = ninja_generator.NinjaGenerator('check_symbols')
   script = staging.as_staging('src/build/check_symbols.py')
@@ -261,7 +289,10 @@ def _generate_check_symbols_ninja():
              script, build_common.get_test_output_handler())),
          description=(rule_name + ' $in'))
 
-  arch_subdir = 'arch-arm'
+  if OPTIONS.is_arm():
+    arch_subdir = 'arch-arm'
+  else:
+    arch_subdir = 'arch-x86'
   lib_dir = os.path.join(_ANDROID_SYSTEM_IMAGE_DIR, arch_subdir, 'usr/lib')
   for so_file in build_common.find_all_files(lib_dir, suffixes='.so'):
     lib_name = os.path.basename(so_file)

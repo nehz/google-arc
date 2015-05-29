@@ -32,3 +32,8 @@ int stat(const char *path, struct stat *buf)
 // ARC MOD BEGIN
 // Remove xstat handling.
 // ARC MOD END
+// ARC MOD BEGIN
+// Add stat64. Note contents of struct stat64 and struct stat are
+// binary compatible.
+__strong_alias(stat64, stat);
+// ARC MOD END

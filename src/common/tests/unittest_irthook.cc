@@ -19,6 +19,15 @@ static ssize_t nacl_getdents_wrapper(int fd, char* buf, size_t buf_size);
 #include <sys/syscall.h>
 #endif
 
+// NaCl's dirent lacks d_type field, so our getdents implementation
+// assumes __nacl_irt_getdents is hooked by posix_translation and
+// returns Bionic's dirent, not NaCl's. See also
+// bionic/libc/arch-nacl/syscalls/__getdents64.c.
+//
+// Due to this reason, our getdents implementation does not work for
+// __nacl_irt_getdents provided by NaCl's supervisor (e.g., sel_ldr)
+// for unittests. We convert NaCl's dirent to Bionic's by this
+// IRT wrapper.
 IRT_WRAPPER(getdents, int fd, struct dirent* ent, size_t count,
             size_t* nread) {
 #if defined(__native_client__)

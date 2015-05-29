@@ -35,7 +35,7 @@ _GCC_RAW_VERSION_CACHE = {}
 _CLANG_RAW_VERSION_CACHE = {}
 
 # The pinned version of the Android SDK's build tools is used for ARC build.
-_ANDROID_SDK_BUILD_TOOLS_PINNED_VERSION = '19.1.0'
+_ANDROID_SDK_BUILD_TOOLS_PINNED_VERSION = '21.1.2'
 
 
 def _get_android_build_tools_dir():
@@ -144,12 +144,16 @@ def get_pnacl_include_dir():
   return _PNACL_INCLUDE_DIR
 
 
-def _get_runner_env_vars(extra_library_paths=None, extra_envs=None):
+def _get_runner_env_vars(use_test_library=True,
+                         extra_library_paths=None, extra_envs=None):
   extra_library_paths = extra_library_paths or []
   extra_envs = extra_envs or {}
-  load_library_path = build_common.get_load_library_path()
+  load_library_paths = []
+  if use_test_library:
+    load_library_paths.append(build_common.get_load_library_path_for_test())
+  load_library_paths.append(build_common.get_load_library_path())
   envs = {
-      'LD_LIBRARY_PATH': ':'.join([load_library_path] + extra_library_paths)
+      'LD_LIBRARY_PATH': ':'.join(load_library_paths + extra_library_paths)
   }
   if extra_envs:
     conflict_keys = envs.viewkeys() & extra_envs.viewkeys()
@@ -159,7 +163,7 @@ def _get_runner_env_vars(extra_library_paths=None, extra_envs=None):
   return envs
 
 
-def get_nacl_runner(bitsize, bin_dir=None,
+def get_nacl_runner(bitsize, bin_dir=None, use_test_library=True,
                     extra_library_paths=None, extra_envs=None):
   extra_library_paths = extra_library_paths or []
   extra_envs = extra_envs or {}
@@ -174,11 +178,15 @@ def get_nacl_runner(bitsize, bin_dir=None,
     irt_core = os.path.join(bin_dir, irt_core)
   args.extend([sel_ldr, '-a', '-B', irt_core])
   library_path = build_common.get_load_library_path()
+  library_path_for_test = build_common.get_load_library_path_for_test()
+  runnable_ld = os.path.join(library_path, 'runnable-ld.so')
+  if use_test_library:
+    library_path = ':'.join([library_path_for_test, library_path])
   args.extend(['-E', 'LD_LIBRARY_PATH=' +
                ':'.join([library_path] + extra_library_paths)])
   for key, value in extra_envs.iteritems():
     args.extend(['-E', '%s=%s' % (key, value)])
-  args.append('%s/runnable-ld.so' % library_path)
+  args.append(runnable_ld)
   return args
 
 
@@ -189,12 +197,14 @@ def get_nonsfi_loader(nacl_arch=None):
 
 
 def get_bare_metal_runner(nacl_arch=None, use_qemu_arm=False, bin_dir=None,
+                          use_test_library=True,
                           extra_library_paths=None, extra_envs=None,
                           with_env_cmd=True):
   args = []
   if with_env_cmd:
     args.append('env')
-    envs = _get_runner_env_vars(extra_library_paths, extra_envs)
+    envs = _get_runner_env_vars(use_test_library,
+                                extra_library_paths, extra_envs)
     args.extend('%s=%s' % item for item in envs.iteritems())
   if use_qemu_arm:
     args.extend(get_qemu_arm_args())
@@ -249,7 +259,7 @@ def _get_native_runner(target):
   return 'env LD_LIBRARY_PATH=' + build_common.get_load_library_path(target)
 
 
-def _get_valgrind_runner(target, nacl_arch=None):
+def _get_valgrind_runner(target, nacl_arch=None, use_test_library=True):
   valgrind_lib_path = 'third_party/valgrind/linux_x64/lib/valgrind'
   env_vars = _get_runner_env_vars(extra_envs={
       'VALGRIND_LIB': valgrind_lib_path,
@@ -263,7 +273,8 @@ def _get_valgrind_runner(target, nacl_arch=None):
       '--trace-children=yes', '--trace-children-skip=env', '--leak-check=full',
       '--suppressions=src/build/valgrind/memcheck/suppressions.txt']
   if target.startswith('bare_metal_'):
-    runner = ' '.join(get_bare_metal_runner(nacl_arch, with_env_cmd=False))
+    runner = ' '.join(get_bare_metal_runner(nacl_arch, with_env_cmd=False,
+                                            use_test_library=use_test_library))
   else:
     runner = _get_native_runner(target)
   return '%s %s %s %s' % (
@@ -291,9 +302,12 @@ def _get_tool_map():
 
   return {
       'host': {
-          'cxx': os.getenv('HOSTCXX', 'g++'),
-          'cc': os.getenv('HOSTCC', 'gcc'),
-          'ld': os.getenv('HOSTLD', 'g++'),
+          # TODO(crbug.com/443760): Change g++-4.8 -> g++ and gcc-4.8 -> gcc
+          # before merging back to master. Requires that our buildbots are
+          # upgraded to Ubuntu 14.04.
+          'cxx': os.getenv('HOSTCXX', 'g++-4.8'),
+          'cc': os.getenv('HOSTCC', 'gcc-4.8'),
+          'ld': os.getenv('HOSTLD', 'g++-4.8'),
           'ar': os.getenv('HOSTAR', 'ar'),
           'nm': os.getenv('HOSTNM', 'nm'),
           'objcopy': os.getenv('HOSTOBJCOPY', 'objcopy'),
@@ -325,14 +339,18 @@ def _get_tool_map():
                                     'i686-nacl-addr2line'),
           'strip': os.path.join(get_nacl_toolchain_path(), 'i686-nacl-strip'),
           'runner': ' '.join(get_nacl_runner(32)),
+          'runner_without_test_library': ' '.join(
+              get_nacl_runner(32, use_test_library=False)),
           # The target does not support Valgrind. Use nacl_runner.
           'valgrind_runner': ' '.join(get_nacl_runner(32)),
+          'valgrind_runner_without_test_library': ' '.join(
+              get_nacl_runner(32, use_test_library=False)),
           'ncval': os.path.join(_NACL_TOOLS_PATH, 'ncval'),
           'gdb': os.path.join(get_nacl_toolchain_path(), 'i686-nacl-gdb'),
           'irt': 'nacl_irt_x86_32.nexe',
           'deps': [_NACL_DEPS_PATH],
           'llvm_tblgen': build_common.get_build_path_for_executable(
-              'tblgen', is_host=True),
+              'llvm-tblgen', is_host=True),
           'clangxx': os.path.join(_PNACL_BIN_PATH, 'i686-nacl-clang++'),
           'clang': os.path.join(_PNACL_BIN_PATH, 'i686-nacl-clang'),
       },
@@ -350,23 +368,27 @@ def _get_tool_map():
                                     'x86_64-nacl-addr2line'),
           'strip': os.path.join(get_nacl_toolchain_path(), 'x86_64-nacl-strip'),
           'runner': ' '.join(get_nacl_runner(64)),
+          'runner_without_test_library': ' '.join(
+              get_nacl_runner(64, use_test_library=False)),
           # The target does not support Valgrind. Use nacl_runner.
           'valgrind_runner': ' '.join(get_nacl_runner(64)),
+          'valgrind_runner_without_test_library': ' '.join(
+              get_nacl_runner(64, use_test_library=False)),
           'ncval': os.path.join(_NACL_TOOLS_PATH, 'ncval'),
           'gdb': os.path.join(get_nacl_toolchain_path(), 'x86_64-nacl-gdb'),
           'irt': 'nacl_irt_x86_64.nexe',
           'deps': [_NACL_DEPS_PATH],
           'llvm_tblgen': build_common.get_build_path_for_executable(
-              'tblgen', is_host=True),
+              'llvm-tblgen', is_host=True),
           'clangxx': os.path.join(_PNACL_BIN_PATH, 'x86_64-nacl-clang++'),
           'clang': os.path.join(_PNACL_BIN_PATH, 'x86_64-nacl-clang'),
       },
       'bare_metal_i686': {
-          'cxx': os.getenv('TARGETCXX', 'g++'),
-          'cc': os.getenv('TARGETCC', 'gcc'),
+          'cxx': os.getenv('TARGETCXX', 'g++-4.8'),
+          'cc': os.getenv('TARGETCC', 'gcc-4.8'),
           'clangxx': os.path.join(_CLANG_BIN_DIR, 'clang++'),
           'clang': os.path.join(_CLANG_BIN_DIR, 'clang'),
-          'ld': os.getenv('TARGETLD', 'g++'),
+          'ld': os.getenv('TARGETLD', 'g++-4.8'),
           'ar': os.getenv('TARGETAR', 'ar'),
           'nm': os.getenv('TARGETNM', 'nm'),
           'objcopy': os.getenv('TARGETOBJCOPY', 'objcopy'),
@@ -374,12 +396,16 @@ def _get_tool_map():
           'addr2line': os.getenv('TARGETADDR2LINE', 'addr2line'),
           'strip': os.getenv('TARGETSTRIP', 'strip'),
           'runner': ' '.join(get_bare_metal_runner('x86_32')),
+          'runner_without_test_library': ' '.join(
+              get_bare_metal_runner('x86_32', use_test_library=False)),
           'valgrind_runner': _get_valgrind_runner('bare_metal_i686',
                                                   nacl_arch='x86_32'),
+          'valgrind_runner_without_test_library': _get_valgrind_runner(
+              'bare_metal_i686', use_test_library=False, nacl_arch='x86_32'),
           'gdb': 'gdb',
           'deps': [],
           'llvm_tblgen': build_common.get_build_path_for_executable(
-              'tblgen', is_host=True),
+              'llvm-tblgen', is_host=True),
       },
       'bare_metal_arm': {
           'cxx': os.getenv('TARGETCXX', ' arm-linux-gnueabihf-g++'),
@@ -396,13 +422,18 @@ def _get_tool_map():
                                  'arm-linux-gnueabihf-addr2line'),
           'strip': os.getenv('TARGETSTRIP', 'arm-linux-gnueabihf-strip'),
           'runner': ' '.join(get_bare_metal_runner('arm', use_qemu_arm=True)),
+          'runner_without_test_library': ' '.join(
+              get_bare_metal_runner('arm', use_qemu_arm=True,
+                                    use_test_library=False)),
           # We do not support valgrind on Bare Metal ARM.
-          'valgrind_runner': ' '.join(
-              get_bare_metal_runner('arm', use_qemu_arm=True)),
+          'valgrind_runner': ' '.join(get_bare_metal_runner(
+              'arm', use_qemu_arm=True)),
+          'valgrind_runner_without_test_library': ' '.join(
+              get_bare_metal_runner(use_qemu_arm=True, use_test_library=False)),
           'gdb': build_common.get_gdb_multiarch_path(),
           'deps': [],
           'llvm_tblgen': build_common.get_build_path_for_executable(
-              'tblgen', is_host=True),
+              'llvm-tblgen', is_host=True),
       },
       'java': {
           'aapt': os.getenv(
@@ -411,8 +442,9 @@ def _get_tool_map():
           'dx': os.getenv(
               'DX', os.path.join(android_sdk_build_tools_dir, 'dx')),
           'deps': [],
-          'dexopt': build_common.get_build_path_for_executable(
-              'dexopt', is_host=True),
+          'dex2oat': build_common.get_build_path_for_executable(
+              'dex2oatd' if OPTIONS.is_debug_code_enabled() else 'dex2oat',
+              is_host=True),
           'dexdump': os.path.join(android_sdk_build_tools_dir, 'dexdump'),
           'java-event-log-tags': os.path.join(android_build_tools_dir,
                                               'java-event-log-tags.py'),
@@ -422,7 +454,7 @@ def _get_tool_map():
           'java': _get_java_command('java'),
           'javac': _get_java_command('javac'),
           'runner': _get_native_runner('java'),
-          'zipalign': 'third_party/android-sdk/tools/zipalign',
+          'zipalign': os.path.join(android_sdk_build_tools_dir, 'zipalign'),
       },
   }
 

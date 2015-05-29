@@ -541,7 +541,7 @@ bool TCPSocket::GetOptNameData(
     switch (optname) {
       case TCP_NODELAY:
         *storage = &no_delay_;
-        *len = SIZEOF_AS_SOCKLEN(int);
+        *len = SIZEOF_AS_SOCKLEN(int);  // NOLINT
         ALOG_ASSERT(*len == sizeof(no_delay_));
         return true;
     }

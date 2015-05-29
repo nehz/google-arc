@@ -29,6 +29,7 @@ from build_common import find_all_files
 from build_options import OPTIONS
 from ninja_generator_runner import request_run_in_parallel
 from notices import Notices
+from util import file_util
 from util.test import unittest_util
 
 # Pull in ninja_syntax from our tools/ninja directory.
@@ -102,7 +103,7 @@ def get_configuration_dependencies():
       'src/build/sync_nacl_sdk.py',
       'src/build/toolchain.py',
       'src/build/wrapped_functions.py',
-      'third_party/android/build/target/product/core_base.mk']
+      'third_party/android/build/target/product/core_minimal.mk']
 
   if not open_source.is_open_source_repo():
     deps += [
@@ -203,12 +204,12 @@ class _BootclasspathComputer(object):
   _installed_jars = []
 
   @staticmethod
-  def _compute_jar_list_from_core_base_definition(definition_name):
+  def _compute_jar_list_from_core_minimal_definition(definition_name):
     name_list = _extract_pattern_from_file(
-        'third_party/android/build/target/product/core_base.mk',
-        definition_name + r' := (.*)')
+        'third_party/android/build/target/product/core_minimal.mk',
+        definition_name + r' := ((.*\\\n)*.*\n)')
     return ['/system/framework/%s.jar' % name.strip()
-            for name in name_list.split(':') if name.strip()]
+            for name in name_list.split('\\\n') if name.strip()]
 
   @staticmethod
   def _compute():
@@ -220,7 +221,7 @@ class _BootclasspathComputer(object):
     """
     if _BootclasspathComputer._string is None:
       upstream_installed = (
-          _BootclasspathComputer._compute_jar_list_from_core_base_definition(
+          _BootclasspathComputer._compute_jar_list_from_core_minimal_definition(
               'PRODUCT_BOOT_JARS'))
 
       # We do not have mms-common.jar yet.
@@ -229,6 +230,14 @@ class _BootclasspathComputer(object):
       except:
         logging.error('Could not remove from: %s' % upstream_installed)
         raise
+
+      # TODO(crbug.com/414569): The Android build code now seems to have this
+      # next list of .jars as a classpath and not a bootclasspath. We should
+      # probably be consistent with it, but to get things to work without a lot
+      # of ARC code fixups, we add them to the bootclasspath
+      upstream_installed.extend(
+          _BootclasspathComputer._compute_jar_list_from_core_minimal_definition(
+              'PRODUCT_SYSTEM_SERVER_JARS'))
 
       # Insert arc-services-framework.jar before services.jar which depends
       # on it.
@@ -550,7 +559,7 @@ class NinjaGenerator(ninja_syntax.Writer):
 
   def install_to_root_dir(self, output, inputs):
     top_dir = output.lstrip(os.path.sep).split(os.path.sep)[0]
-    if top_dir not in ['dev', 'proc', 'sys', 'system', 'vendor']:
+    if top_dir not in ['dev', 'proc', 'sys', 'system', 'usr', 'vendor']:
       raise Exception(output + ' does not start with known top dir')
     root_path = build_common.get_android_fs_path(output)
     self.build(root_path, 'readonly_install', inputs)
@@ -917,7 +926,8 @@ class CNinjaGenerator(NinjaGenerator):
   """Encapsulates ninja file generation for C and C++ files."""
 
   def __init__(self, module_name, ninja_name=None, enable_logtag_emission=True,
-               gl_flags=False, enable_clang=False, enable_libcxx=False,
+               gl_flags=False, enable_clang=False, enable_cxx11=False,
+               enable_libcxx=False,
                **kwargs):
     super(CNinjaGenerator, self).__init__(module_name, ninja_name, **kwargs)
     # This is set here instead of TopLevelNinjaGenerator because the ldflags
@@ -948,17 +958,15 @@ class CNinjaGenerator(NinjaGenerator):
         self.add_include_paths('android/bionic/libc/include')
     self._enable_libcxx = enable_libcxx
     if enable_libcxx:
-      # TODO(crbug.com/406226): Remove following workaround that provide missing
-      # features that are added in AOSP master and L, and needed to use libc++.
-      # '-D_USING_LIBCXX' flag is added by android/external/libcxx/libcxx.mk.
-      # This is the makefile that modules using libc++ include.
-      self.add_compiler_flags(
-          '-include', 'external/libcxx/aosp_bionic_compat.h')
+      self.add_include_paths('android/external/libcxx/include')
       self.add_compiler_flags('-D_USING_LIBCXX')
     if gl_flags:
       self.emit_gl_common_flags()
     self._enable_clang = (enable_clang and
                           toolchain.has_clang(OPTIONS.target(), self._is_host))
+    if enable_cxx11:
+      # TODO(crbug.com/487964): Enable C++11 by default.
+      self.add_cxx_flags('-std=gnu++11')
     # We need 4-byte alignment to pass host function pointers to arm code.
     if (not self._is_host and not OPTIONS.is_nacl_build() and
         not self._enable_clang):
@@ -1226,9 +1234,9 @@ class CNinjaGenerator(NinjaGenerator):
         # Check if they are really necessary once we can compile
         # everything with bionic.
         ' -isystem ' + staging.as_staging(
-            'android/bionic/libc/kernel/common') +
+            'android/bionic/libc/kernel/uapi') +
         ' -isystem ' + staging.as_staging(
-            'android/bionic/libc/kernel/arch-%s' %
+            'android/bionic/libc/kernel/uapi/asm-%s' %
             build_common.get_bionic_arch_name()) +
         ' -isystem ' + staging.as_staging(
             'android/bionic/libc/arch-%s/include' %
@@ -1298,7 +1306,12 @@ class CNinjaGenerator(NinjaGenerator):
             '-DARC_TARGET=\\"' + OPTIONS.target() + '\\" ' +
             '-DARC_TARGET_PATH=\\"' + build_common.get_build_dir() +
             '\\" ' +
-            '-DHAVE_ARC ')
+            '-DHAVE_ARC ' +
+            CNinjaGenerator.get_targetflags() +
+            # Since Binder is now 64-bit aware, we need to add this flag in
+            # every module that includes Binder headers. Rather than doing that,
+            # add a global flag.
+            '-DBINDER_IPC_32BIT ')
 
   @staticmethod
   def get_cflags():
@@ -1325,7 +1338,7 @@ class CNinjaGenerator(NinjaGenerator):
     if OPTIONS.is_debug_info_enabled() or OPTIONS.is_debug_code_enabled():
       # We do not care the binary size when debug info or code is enabled.
       # Emit .eh_frame for better backtrace. Note that _Unwind_Backtrace,
-      # which is used by libcorkscrew, depends on this.
+      # which is used by libunwind, depends on this.
       cflags += ' -funwind-tables'
     elif not OPTIONS.is_nacl_build():
       # Bare Metal build does not require the eh_frame section. Like Chromium,
@@ -1467,7 +1480,7 @@ class CNinjaGenerator(NinjaGenerator):
 
   @staticmethod
   def _get_clangxxflags():
-    return ['-std=gnu++11']
+    return []
 
   @staticmethod
   def _get_debug_cflags():
@@ -1830,6 +1843,9 @@ class TopLevelNinjaGenerator(NinjaGenerator):
     self._emit_ninja_regeneration_rules()
     self._emit_common_rules()
 
+  def _get_depfile_path(self):
+    return self._ninja_path + '.dep'
+
   # TODO(crbug.com/177699): Improve ninja regeneration rule generation.
   def _emit_ninja_regeneration_rules(self):
     # Add rule/target to regenerate all ninja files we built this time
@@ -1841,18 +1857,16 @@ class TopLevelNinjaGenerator(NinjaGenerator):
     self.rule('regen_ninja',
               'python $in $$(cat %s)' % OPTIONS.get_configure_options_file(),
               description='Regenerating ninja files due to dependency',
+              depfile=self._get_depfile_path(),
               generator=True)
     # Use the paths from the regen computer, but transform them to staging
     # paths as we want to make sure we get mods/ paths when appropriate.
-    input_dependencies = map(
-        staging.third_party_to_staging,
-        TopLevelNinjaGenerator._REGEN_DEPENDENCIES.get_input_dependencies())
     output_dependencies = (
         [self._ninja_path] +
         TopLevelNinjaGenerator._REGEN_DEPENDENCIES.get_output_dependencies())
     self.build(output_dependencies,
                'regen_ninja', 'src/build/configure.py',
-               implicit=input_dependencies, use_staging=False)
+               use_staging=False)
 
   def _set_commonflags(self):
     self.variable('commonflags', CNinjaGenerator.get_commonflags())
@@ -1893,6 +1907,14 @@ class TopLevelNinjaGenerator(NinjaGenerator):
       for build_rule in ninja._build_rule_list:
         all_target_groups.record_build_rule(*build_rule)
     all_target_groups.emit_rules(self)
+
+  def emit_depfile(self):
+    input_dependencies = map(
+        staging.third_party_to_staging,
+        TopLevelNinjaGenerator._REGEN_DEPENDENCIES.get_input_dependencies())
+    file_util.write_atomically(
+        self._get_depfile_path(),
+        '%s: %s' % (self._ninja_path, ' '.join(input_dependencies)))
 
 
 class ArchiveNinjaGenerator(CNinjaGenerator):
@@ -2323,8 +2345,24 @@ class NoticeNinjaGenerator(NinjaGenerator):
           '%s has targets in the binary distribution, but %s has a '
           'restrictive license and is not open sourced' %
           (n._module_name, module_name))
-      if included_notices.has_lgpl_or_gpl() and not notices.has_lgpl_or_gpl():
-        logging.info('Included notices: %s' % included_notices)
+
+      # It is an error to include GPL or LPGL code in something that does not
+      # use that license.
+      gpl_included_by_non_gpl_code = (included_notices.has_lgpl_or_gpl() and
+                                      not notices.has_lgpl_or_gpl())
+
+      # TODO(crbug.com/474819): Remove this special case whitelist.
+      # webview_library is marked to be covered by the LGPL and MPL. 'webview'
+      # is marked to be covered by the BSD license.  Since 'webview' includes
+      # 'webview_library', this results in the check above triggering. But this
+      # given that both sets of code from from the AOSP repositories, there
+      # should be no conflict. We either have added bad license information for
+      # one or both, or we have to improve the logic here in some other way to
+      # more generally allow this.
+      if n._module_name == 'webview' and module_name == 'webview_library':
+        gpl_included_by_non_gpl_code = False
+
+      if gpl_included_by_non_gpl_code:
         raise Exception(
             '%s (%s) cannot be included into %s (%s)' %
             (module_name, included_notices.get_most_restrictive_license_kind(),
@@ -2366,24 +2404,30 @@ class TestNinjaGenerator(ExecNinjaGenerator):
   """Create a googletest/googlemock executable ninja file."""
 
   def __init__(self, module_name, is_system_library=False,
-               enable_libcxx=False,
-               use_default_main=True, **kwargs):
+               use_default_main=True, enable_libcxx=False,
+               run_without_test_library=False, **kwargs):
     super(TestNinjaGenerator, self).__init__(
         module_name, is_system_library=is_system_library,
         enable_libcxx=enable_libcxx, **kwargs)
     if OPTIONS.is_bare_metal_build() and is_system_library:
       self.add_library_deps('libgmock_glibc.a', 'libgtest_glibc.a')
     else:
-      # Since there are no use cases, we do not build libc++ version of
-      # libcommon, libchromium_base, libpluginhandle and libcommon_test_main.a.
-      assert not enable_libcxx
-      self.add_library_deps('libchromium_base.a',
-                            'libcommon.a',
-                            'libpluginhandle.a')
+      if enable_libcxx:
+        self.add_library_deps('libchromium_base_libc++.a',
+                              'libcommon_libc++.a',
+                              'libpluginhandle_libc++.a')
+      else:
+        self.add_library_deps('libchromium_base.a',
+                              'libcommon.a',
+                              'libpluginhandle.a')
       if use_default_main:
+        # Since there are no use cases, we do not build libc++ version of
+        # libcommon_test_main.a.
+        assert not enable_libcxx
         self.add_library_deps('libcommon_test_main.a',
                               'libgmock.a',
                               'libgtest.a')
+    self._run_without_test_library = run_without_test_library
     self.add_library_deps('libcommon_real_syscall_aliases.a')
     self.add_include_paths(staging.as_staging('testing/gmock/include'))
     self._run_counter = 0
@@ -2398,8 +2442,12 @@ class TestNinjaGenerator(ExecNinjaGenerator):
     """Get the variables for running unit tests defined in toplevel ninja."""
     variables = {
         'runner': toolchain.get_tool(OPTIONS.target(), 'runner'),
+        'runner_without_test_library': toolchain.get_tool(
+            OPTIONS.target(), 'runner_without_test_library'),
         'valgrind_runner': toolchain.get_tool(OPTIONS.target(),
                                               'valgrind_runner'),
+        'valgrind_runner_without_test_library': toolchain.get_tool(
+            OPTIONS.target(), 'valgrind_runner_without_test_library'),
     }
     if OPTIONS.is_bare_metal_arm():
       variables['qemu_arm'] = ' '.join(toolchain.get_qemu_arm_args())
@@ -2420,8 +2468,16 @@ class TestNinjaGenerator(ExecNinjaGenerator):
             '$runner $in $argv $gtest_options',
             build_common.get_test_output_handler(use_crash_analyzer=True),
             'run_gtest $test_name'),
+        'run_gtest_without_test_library': (
+            '$runner_without_test_library $in $argv $gtest_options',
+            build_common.get_test_output_handler(use_crash_analyzer=True),
+            'run_gtest $test_name'),
         'run_gtest_with_valgrind': (
             '$valgrind_runner $in $argv $gtest_options',
+            build_common.get_test_output_handler(),
+            'run_gtest_with_valgrind $test_name'),
+        'run_gtest_with_valgrind_and_without_test_library': (
+            '$valgrind_runner_without_test_library $in $argv $gtest_options',
             build_common.get_test_output_handler(),
             'run_gtest_with_valgrind $test_name')
     }
@@ -2507,9 +2563,13 @@ class TestNinjaGenerator(ExecNinjaGenerator):
 
   def _get_test_rule_name(self, enable_valgrind):
     if enable_valgrind and OPTIONS.enable_valgrind():
+      if self._run_without_test_library:
+        return 'run_gtest_with_valgrind_and_without_test_library'
       return 'run_gtest_with_valgrind'
     elif OPTIONS.is_bare_metal_build() and self._is_system_library:
       return 'run_gtest_glibc'
+    elif self._run_without_test_library:
+      return 'run_gtest_without_test_library'
     else:
       return 'run_gtest'
 
@@ -2541,6 +2601,10 @@ class TestNinjaGenerator(ExecNinjaGenerator):
         self._enabled_tests, self._disabled_tests + self._qemu_disabled_tests)
 
     implicit = as_list(implicit)
+    # All tests should have an implicit dependency against the fake
+    # libposix_translation.so to run under sel_ldr.
+    implicit.append(os.path.join(build_common.get_load_library_path_for_test(),
+                                 'libposix_translation.so'))
     # When you run a test, you need to install .so files.
     for deps in self._shared_deps:
       implicit.append(os.path.join(build_common.get_load_library_path(),
@@ -2607,9 +2671,9 @@ class JavaNinjaGenerator(NinjaGenerator):
                include_aidl_files=None, classpath_files=None,
                resource_subdirectories=None, resource_includes=None,
                resource_class_names=None, manifest_path=None,
-               require_localization=False, aapt_flags=None,
+               require_localization=False, aapt_flags=None, use_multi_dex=False,
                link_framework_aidl=False, extra_packages=None,
-               **kwargs):
+               extra_dex2oat_flags=None, **kwargs):
     super(JavaNinjaGenerator, self).__init__(module_name, base_path=base_path,
                                              **kwargs)
 
@@ -2672,23 +2736,25 @@ class JavaNinjaGenerator(NinjaGenerator):
       if extra_packages:
         flags.extend(['--extra-packages', ':'.join(extra_packages)])
       aapt_flags = flags
+    self._extra_dex2oat_flags = extra_dex2oat_flags
 
     self._aapt_flags = aapt_flags
+    self._use_multi_dex = use_multi_dex
 
   @staticmethod
   def emit_common_rules(n):
     n.variable('aapt', toolchain.get_tool('java', 'aapt'))
     n.variable('aidl', toolchain.get_tool('java', 'aidl'))
-    n.variable('dexopt', ('src/build/filter_dexopt_warnings.py ' +
-                          toolchain.get_tool('java', 'dexopt')))
+    n.variable('dex2oat', ('src/build/filter_dex2oat_warnings.py ' +
+                           toolchain.get_tool('java', 'dex2oat')))
     n.variable('java-event-log-tags',
                toolchain.get_tool('java', 'java-event-log-tags'))
     n.variable('javac', ('src/build/filter_java_warnings.py ' +
                          toolchain.get_tool('java', 'javac')))
-    n.variable('jflags', ('-J-Xmx512M -target 1.5 '
+    n.variable('jflags', ('-J-Xmx1024M -source 1.7 -target 1.7 '
                           '-Xmaxerrs 9999999 -encoding UTF-8 -g'))
     n.variable('aidlflags', '-b')
-    n.variable('aaptflags', '-x -m')
+    n.variable('aaptflags', '-m')
 
     n.rule('javac',
            ('rm -rf $out_class_path && '
@@ -2722,9 +2788,11 @@ class JavaNinjaGenerator(NinjaGenerator):
             '-I $clangheader -I $scriptheader $in > $log 2>&1 || '
             '(cat $log; rm $log; exit 1)'),
            description='llvm-rs-cc $resout $srcout')
-    n.rule('aapt_remove_file',
-           ('cp $in $out && $aapt remove $out $targets'),
-           description='aapt remove $targets from $out')
+    # Remove classes*.dex from the file.
+    n.rule('aapt_remove_dexes',
+           ('cp $in $out && '
+            '$aapt remove $out `$aapt list $out |grep -e "classes[0-9]*.dex"`'),
+           description='aapt remove .dex from $out')
     n.rule('eventlogtags',
            '$java-event-log-tags -o $out $in /dev/null',
            description='eventlogtag $out')
@@ -2733,15 +2801,10 @@ class JavaNinjaGenerator(NinjaGenerator):
             'BOOTCLASSPATH=$bootclasspath '
             '$dexopt --preopt $in $out "$dexflags" $warning_grep'),
            description='dex_preopt $out')
-    n.rule('create_multidex_zip',
-           'DIR=$$(mktemp -d --tmpdir=out); ' +
-           '(cd $$DIR && ' +
-           'unzip -q -o ../../$in $dexname && ' +
-           'mv -f $dexname classes.dex && ' +
-           'rm -f ../../$out && ' +
-           'zip -q ../../$out classes.dex); ' +
-           'rm -f $$DIR/classes.dex && rmdir $$DIR || (rm $out; exit 1)',
-           description='creating multidex zip $out')
+    n.rule('dex2oat',
+           ('rm -f $out; '
+            '$dex2oat $dex2oatflags $warning_grep'),
+           description='dex2oat $out')
     n.rule('zip',
            command=('TMPD=`mktemp -d` TMPF="$$TMPD/tmp.zip"; '
                     '(cd $zip_working_dir && '
@@ -3165,126 +3228,65 @@ class JavaNinjaGenerator(NinjaGenerator):
     """
     return build_common.get_android_fs_path('.' + install_path)
 
-  def _pre_dexopt_secondary_dex_files(self, input_apk, secondary_dex_files,
-                                      dexopt_variables, implicit_deps,
-                                      multidex_output_dir):
-    """Perform dexopt to Multidex dex files and install them.
+  def _dex2oat(self, apk_install_path, apk_path_in, apk_path_out,
+               extra_flags=None):
+    """Run dex2oat against apk or jar."""
+    # From android/build/core/dex_preopt_libart.mk.  We don't specify -Xms and
+    # -Xmx here, but let the runtime use the default value defined in
+    # art/runtime/gc/heap.h.
+    dex2oatflags = [
+        '--boot-image=' + os.path.join(build_common.get_android_fs_root(),
+                                       'system/framework/boot.art'),
+        '--dex-file=' + apk_path_in,
+        '--dex-location=' + apk_install_path,
+        '--oat-file=' + self._output_odex_file,
+        '--android-root=' + build_common.get_android_fs_root(),
+        '--include-patch-information',
+        '--runtime-arg', '-Xnorelocate']
+    dex2oatflags += build_common.get_dex2oat_target_dependent_flags()
+    if extra_flags:
+      dex2oatflags += as_list(extra_flags)
 
-    This emulates Multidex library's behavior at build time.  Multidex extracts
-    classes$N.dex files from the apk to zip files (which are valid jar files),
-    and puts the zip files into Dalvik's classpath.  If the zip file is new or
-    updated, Dalvik will dexopt it.
+    boot_image_dir = os.path.join(build_common.get_android_fs_root(),
+                                  'system/framework',
+                                  build_common.get_art_isa())
+    implicit = [
+        toolchain.get_tool('java', 'dex2oat'),
+        os.path.join(boot_image_dir, 'boot.art'),
+        os.path.join(boot_image_dir, 'boot.oat')]
+    self.build(self._output_odex_file, 'dex2oat', apk_path_in,
+               {'dex2oatflags': dex2oatflags}, implicit=implicit)
 
-    To avoid running slow dexopt at run time, here is the alternative at build
-    time:
-      1. Create zip files that contain the only dex to be optimized.
-      2. Pre-dexopt the zip files and generate corresponding odex files.
-      3. Install both zip and odex files to multidex_output_dir, so that
-         Multidex library can pick up at run time.
-    """
-    for dexname in secondary_dex_files:
-      base, _ = os.path.splitext(dexname)
-      output_filename = '%s.apk.%s' % (self._module_name, base)
-
-      # File names have to match Multidex's expectation.
-      output_zip = self._get_build_path(
-          os.path.join(dexname, output_filename + '.zip'))
-      output_odex = self._get_build_path(
-          os.path.join(dexname, output_filename + '.odex'))
-
-      self.build(output_zip, 'create_multidex_zip', input_apk,
-                 variables={'dexname': dexname})
-      self.build(output_odex, 'dex_preopt', output_zip,
-                 variables=dexopt_variables,
-                 implicit=implicit_deps)
-
-      for filepath in [output_odex, output_zip]:
-        self.install_to_root_dir(os.path.join(multidex_output_dir,
-                                              os.path.basename(filepath)),
-                                 filepath)
-
-  def _build_odex_and_stripped_javalib(self, output_odex, output_javalib,
-                                       input_zip, install_jar=None,
-                                       implicit=None, secondary_dex_files=None,
-                                       multidex_output_dir=None):
-    """Run dex preoptimization, generating odex and javalib files.
-
-    input_zip is either a jar file or an apk file.  This step does not
-    install the output files, but takes install_jar in order to
-    properly generate a bootclasspath (to account for edge cases of
-    building dexopt'd jars in the middle of the bootclasspath).  If
-    this is an apk or this jar is not installed, install_jar should be
-    None.
-    """
-    if implicit is None:
-      implicit = []
-    bootclasspath = []
-    # Build implicit and bootclasspath at the same time.
-    for p in _BootclasspathComputer.get_installed_jars():
-      if not p.startswith('/system'):
-        raise Exception('BOOTCLASSPATH doesn\'t start with /system: ' + p)
-      if install_jar and p == install_jar:
-        # Avoid dependencies on self or anything in bootclasspath
-        # including self and later.
-        break
-      jar_path = build_common.get_android_fs_path(p)
-      implicit.append(jar_path)
-      # Make sure the earlier .odex files are also implicit
-      # dependencies of dex_preopt.
-      implicit.append(JavaNinjaGenerator._change_extension(jar_path, '.odex',
-                                                           '.jar'))
-      bootclasspath.append(self._get_sentinel_install_path(p))
-
-    dexopt = os.path.relpath(toolchain.get_tool('java', 'dexopt'),
-                             build_common.get_arc_root())
-    implicit.append(staging.third_party_to_staging(dexopt))
-
-    dexopt_variables = {
-        'dexflags': ('v=a,'   # Verify all
-                     'o=v,'   # Optimize == verify
-                     'm=y,'   # Map registers
-                     'u=n'),  # No uniprocessor assumptions
-        'bootclasspath': ':'.join(bootclasspath)}
-    self.build(output_odex, 'dex_preopt',
-               input_zip,
-               variables=dexopt_variables,
-               implicit=implicit)
-    targets = ['classes.dex']
-
-    # Runs additional dex preopt for APKs that use Multidex.
-    if secondary_dex_files:
-      targets.extend(secondary_dex_files)
-
-      # Update classpath for classes$n.dex to refer to classes.odex.
-      dexopt_variables['bootclasspath'] += (
-          ':' + self._get_sentinel_install_path(
-              os.path.join(self._install_path, os.path.basename(output_odex))))
-      implicit.append(output_odex)
-
-      self._pre_dexopt_secondary_dex_files(input_zip, secondary_dex_files,
-                                           dexopt_variables,
-                                           implicit, multidex_output_dir)
-
-    self.build(output_javalib, 'aapt_remove_file',
-               input_zip,
-               variables={'targets': ' '.join(targets)},
+    remove_dexes_rule = 'aapt_remove_dexes'
+    if not OPTIONS.enable_art_aot():
+      # When running in fully interpreted, non-boot image mode, ART needs all
+      # the .jar and .apk files to still have the .dex file inside them. If that
+      # is the case, just copy the intermediate files to their final destination
+      # unchanged.
+      remove_dexes_rule = 'cp'
+    self.build(apk_path_out, remove_dexes_rule, apk_path_in,
                implicit=staging.third_party_to_staging(
                    toolchain.get_tool('java', 'aapt')))
+    if OPTIONS.is_nacl_build():
+      self.build(self._output_odex_file + '.ncval', 'run_ncval_test',
+                 self._output_odex_file)
 
   def _install_odex_to_android_root(self, odex_path, archive_in_fs):
     """Installs the odex to the related path of corresponding jar or apk.
 
     If the apk (or jar) is installed to /dir/to/name.apk or /dir/to/name.jar,
-    the corresponding odex file must be installed to /dir/to/name.odex
+    the corresponding oat file must be installed to /dir/to/$isa/name.odex
 
     Args:
       odex_src_path: odex file to be installed.
       archive_in_fs: Android filesystem path of the apk or jar.
     """
-    filename, extension = os.path.splitext(archive_in_fs)
+    dirname, basename = os.path.split(archive_in_fs)
+    filename, extension = os.path.splitext(basename)
     assert extension in ['.apk', '.jar']
     super(JavaNinjaGenerator, self).install_to_root_dir(
-        filename + '.odex',
+        os.path.join(dirname, build_common.get_art_isa(),
+                     filename + '.odex'),
         odex_path)
 
   def _build_test_list_for_apk(self, final_package_path):
@@ -3328,7 +3330,7 @@ class JarNinjaGenerator(JavaNinjaGenerator):
     self._output_javalib_jar = self._get_build_path(subpath='javalib.jar')
     self._output_javalib_noresources_jar = self._get_build_path(
         subpath='javalib_noresources.jar')
-    if dex_preopt:
+    if OPTIONS.enable_art_aot() and dex_preopt:
       assert install_path, 'Dex-preopt only makes sense for installed jar'
       self._dex_preopt = True
       self._output_odex_file = self._get_build_path(
@@ -3422,16 +3424,16 @@ class JarNinjaGenerator(JavaNinjaGenerator):
     if self._built_from_android_mk:
       # Returns only core's classes.jar as the real Android build does.
       # This is calculated in android/build/core/base_rules.mk.
-      core = _BootclasspathComputer.get_classes()[0]
-      assert core == build_common.get_build_path_for_jar(
-          'core', subpath='classes.jar'), (
-              'Expected core at the front of the bootclass path, but '
-              'found "%s" instead.' % core)
+      core_libart = _BootclasspathComputer.get_classes()[0]
+      assert core_libart == build_common.get_build_path_for_jar(
+          'core-libart', subpath='classes.jar'), (
+              'Expected core-libart at the front of the bootclass path, but '
+              'found "%s" instead.' % core_libart)
 
-      # On building core, it should not depend on core itself.
-      return _truncate_list_at([core], self._output_classes_jar)
+      # On building core-libart, it should not depend on core-libart itself.
+      return _truncate_list_at([core_libart], self._output_classes_jar)
 
-    if self._module_name == 'framework-base':
+    if self._module_name == 'framework':
       return _truncate_list_at(_BootclasspathComputer.get_classes(),
                                build_common.get_build_path_for_jar(
                                    'framework',
@@ -3472,6 +3474,8 @@ class JarNinjaGenerator(JavaNinjaGenerator):
     variables = {'in_path': self._output_classes_jar}
     if self._is_core_library:
       variables['dxflags'] = '$dxflags --core-library'
+    if self._use_multi_dex:
+      variables['dxflags'] = '$dxflags --multi-dex'
     if self._dx_flags:
       variables['dxflags'] = '$dxflags ' + self._dx_flags
     if self._java_resource_dirs or self._java_resource_files:
@@ -3529,10 +3533,8 @@ class JarNinjaGenerator(JavaNinjaGenerator):
     classes = self._build_classes_jar()
     self._build_javalib_jar()
     if self._dex_preopt:
-      self._build_odex_and_stripped_javalib(self._output_odex_file,
-                                            self._output_jar,
-                                            self._output_javalib_jar,
-                                            install_jar=self._install_jar)
+      self._dex2oat(self._install_jar, self._output_javalib_jar,
+                    self._output_jar)
     return classes
 
   def install(self):
@@ -3684,7 +3686,7 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
     else:
       self._apk_install_path = None
 
-    self._dex_preopt = install_path is not None
+    self._dex_preopt = OPTIONS.enable_art_aot() and install_path is not None
     if self._dex_preopt:
       self._output_odex_file = self._get_build_path(
           subpath='package.odex', is_target=True)
@@ -3751,7 +3753,7 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
     built-in core libraries, whereas Android uses a separate Apache
     core library (as well as API frameworks, etc).  We prevent APKs from
     accessing jars they should not need (such as service related jars)
-    by not including any jars that appear after framework2 in the
+    by not including any jars that appear after framework in the
     bootclasspath list.
 
     Currently APKs are being compiled using our custom built jars which
@@ -3761,7 +3763,7 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
     """
     return _truncate_list_at(
         _BootclasspathComputer.get_classes(),
-        build_common.get_build_path_for_jar('framework2',
+        build_common.get_build_path_for_jar('framework',
                                             subpath='classes.jar'),
         is_inclusive=True)
 
@@ -3785,11 +3787,7 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
                      input_path=self._aapt_input_path)
     return self
 
-  # TODO(crbug.com/394394): We could make the build system detect secondary dex
-  # files automatically, but since L-release will support multiple dex at
-  # framework level, we should refactor the way pre-dexopt is done here when we
-  # uprev to L.
-  def package(self, secondary_dex_files=None, multidex_output_dir=None):
+  def package(self):
     original_apk = self._get_build_path(subpath='package.apk.original')
     # Unaligned APK.  In case of pre-dexopt, it ends up with no .dex, too.
     unaligned_apk = self._get_build_path(subpath='package.apk.unaligned')
@@ -3800,14 +3798,10 @@ class ApkNinjaGenerator(JavaNinjaGenerator):
     else:
       self._build_classes_apk(original_apk)
 
-    # Optionally pre-dexopt the apk.  This will remove .dex files from the apk.
+    # Optionally pre-dexopt the apk.  Will remove *.dex from the apk.
     if self._dex_preopt:
-      self._build_odex_and_stripped_javalib(
-          self._output_odex_file,
-          unaligned_apk,
-          original_apk,
-          secondary_dex_files=secondary_dex_files,
-          multidex_output_dir=multidex_output_dir)
+      self._dex2oat(self._apk_install_path, original_apk, unaligned_apk,
+                    self._extra_dex2oat_flags)
     else:
       self.build(unaligned_apk, 'cp', original_apk)
 

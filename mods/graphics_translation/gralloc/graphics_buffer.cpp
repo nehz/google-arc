@@ -25,6 +25,7 @@
 #include "graphics_translation/egl/egl_display_impl.h"
 #include "graphics_translation/gralloc/gralloc.h"
 #include "hardware/gralloc.h"
+#include "libyuv.h"
 
 static ColorBufferPtr GetColorBuffer(void* hnd) {
   EglDisplayImpl* display = EglDisplayImpl::GetDefaultDisplay();
@@ -71,6 +72,18 @@ static int GetBytesPerPixel(GLenum format, GLenum type) {
       LOG_ALWAYS_FATAL("Unknown type: %d", type);
   }
   return 0;
+}
+
+YUVParams::YUVParams(uint8_t* start, int width, int height, int align) {
+  y_plane = start;
+  y_stride = (width + align - 1) & ~(align - 1);
+  const size_t y_size = y_stride * height;
+  v_plane = start + y_size;
+  v_stride = (y_stride / 2 + align - 1) & ~(align - 1);
+  const size_t v_size = v_stride * height / 2;
+  u_plane = v_plane + v_size;
+  u_stride = v_stride;
+  size = y_size + v_size * 2;
 }
 
 GraphicsBuffer::GraphicsBuffer(size_t size, int usage, int width, int height,
@@ -160,6 +173,14 @@ int GraphicsBuffer::Lock(int usage, int left, int top, int width, int height,
     return -EBUSY;
   }
 
+  // TODO(crbug.com/475149): Only locking the whole region is allowed, since
+  // locking a cropped region in a YV12 image is a little bit more complicated
+  // and, so far, is not needed.
+  LOG_ALWAYS_FATAL_IF(
+      format_ == HAL_PIXEL_FORMAT_YV12 &&
+      (left != 0 || top != 0 || width != width_ || height != height_),
+      "Cannot lock a sub-region of a YV12 image.");
+
   const bool sw_read = (usage & GRALLOC_USAGE_SW_READ_MASK);
   const bool hw_read = (usage & GRALLOC_USAGE_HW_TEXTURE);
   const bool sw_write = (usage & GRALLOC_USAGE_SW_WRITE_MASK);
@@ -186,17 +207,17 @@ int GraphicsBuffer::Lock(int usage, int left, int top, int width, int height,
   const bool request_write = (sw_write || hw_cam_write);
 
   if (left == 0 && top == 0 && width == width_ && height == height_ &&
-      hw_handle_ && request_write && !sw_read_allowed) {
+      hw_handle_ && request_write && !sw_read_allowed &&
+      format_ != HAL_PIXEL_FORMAT_YV12) {
     // Only use cb->Lock() for write only graphics buffers.
     ColorBufferPtr cb = GetColorBuffer(hw_handle_);
     if (cb == NULL) {
       return -EACCES;
     }
-    locked_addr_ = static_cast<char*>(cb->Lock(0, 0, width_, height_,
-                                               gl_format_, gl_type_));
+    locked_addr_ = cb->Lock(0, 0, width_, height_, gl_format_, gl_type_);
   } else if (CanBePosted() || request_read || request_write) {
     if (sw_buffer_ == NULL && sw_buffer_size_ > 0) {
-      sw_buffer_ = new char[sw_buffer_size_];
+      sw_buffer_ = new uint8_t[sw_buffer_size_];
     }
     // Read ColorBuffer content for read-only access. This is made to support
     // screen capture that accesses this graphics buffer for reading only
@@ -206,7 +227,8 @@ int GraphicsBuffer::Lock(int usage, int left, int top, int width, int height,
     // read/write access and potentially some code needs content of this buffer,
     // but currently we do not handle read-write access here in order not to
     // introduce additional performance regression.
-    if (hw_handle_ && (usage & GRALLOC_USAGE_SW_READ_MASK) == usage) {
+    if (hw_handle_ && (usage & GRALLOC_USAGE_SW_READ_MASK) == usage &&
+        format_ != HAL_PIXEL_FORMAT_YV12) {
       ColorBufferPtr cb = GetColorBuffer(hw_handle_);
       if (cb == NULL) {
         return -EACCES;
@@ -240,20 +262,19 @@ int GraphicsBuffer::Unlock() {
     if (cb != NULL) {
       if (locked_addr_ == sw_buffer_) {
         if (locked_width_ && locked_height_) {
-          const int bpp = GetBytesPerPixel(gl_format_, gl_type_);
-          const int dst_line_len = locked_width_ * bpp;
-          const int src_line_len = width_ * bpp;
-          const char* src = locked_addr_ + (locked_top_ * src_line_len) +
-                            (locked_left_ * bpp);
-          void* tmp = cb->Lock(locked_left_, locked_top_, locked_width_,
-                               locked_height_, gl_format_, gl_type_);
-          char* dst = static_cast<char*>(tmp);
-          for (int y = 0; y < locked_height_; y++) {
-            memcpy(dst, src, dst_line_len);
-            src += src_line_len;
-            dst += dst_line_len;
+          uint8_t* dst = cb->Lock(locked_left_, locked_top_, locked_width_,
+                                  locked_height_, gl_format_, gl_type_);
+          // Memory may not be available during unload process.
+          if (dst) {
+            if (format_ == HAL_PIXEL_FORMAT_YV12) {
+              CopyYV12(dst, locked_addr_, width_, height_);
+            } else {
+              CopySubimage(dst, locked_addr_, locked_left_, locked_top_,
+                           locked_width_, locked_height_, width_,
+                           GetBytesPerPixel(gl_format_, gl_type_));
+            }
           }
-          cb->Unlock(tmp);
+          cb->Unlock(dst);
         }
       } else {
         cb->Unlock(locked_addr_);
@@ -267,6 +288,28 @@ int GraphicsBuffer::Unlock() {
   locked_height_ = 0;
   locked_addr_ = NULL;
   return 0;
+}
+
+void GraphicsBuffer::CopyYV12(uint8_t* dst, uint8_t* src,
+                              int width, int height) {
+  YUVParams params(src, width, height, 16);
+  libyuv::I420ToABGR(params.y_plane, params.y_stride,
+                     params.u_plane, params.u_stride,
+                     params.v_plane, params.v_stride,
+                     dst, 4 * width, width, height);
+}
+
+void GraphicsBuffer::CopySubimage(uint8_t* dst, uint8_t* src, int left, int top,
+                                  int width, int height, int src_width,
+                                  int bpp) {
+  const int dst_line_len = width * bpp;
+  const int src_line_len = src_width * bpp;
+  src += top * src_line_len + left * bpp;
+  for (int y = 0; y < height; y++) {
+    memcpy(dst, src, dst_line_len);
+    src += src_line_len;
+    dst += dst_line_len;
+  }
 }
 
 void GraphicsBuffer::SetSystemTexture(int target, int name) {

@@ -18,6 +18,8 @@ from util.test import suite_runner
 _ADB_SERVICE_PATTERN = re.compile(
     'I/AdbService:\s+(?:(emulator\-\d+)|Failed to start)')
 
+_ADB_WAIT_TIMEOUT_SECONDS = 120
+
 
 class SystemModeError(Exception):
   """SystemMode class raised in this module."""
@@ -123,7 +125,7 @@ class _SystemModeThread(threading.Thread, concurrent_subprocess.OutputHandler):
 
   # Following methods are called from SystemMode, running on other thread.
   def wait_for_adb(self):
-    self._adb_wait_event.wait(90)
+    self._adb_wait_event.wait(_ADB_WAIT_TIMEOUT_SECONDS)
 
   @property
   def is_ready(self):

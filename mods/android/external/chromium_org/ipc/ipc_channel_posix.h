@@ -14,6 +14,7 @@
 #include <sys/socket.h>  // for CMSG macros
 
 #include <queue>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -52,24 +53,39 @@
 
 namespace IPC {
 
-class Channel::ChannelImpl : public internal::ChannelReader,
-                             public base::MessageLoopForIO::Watcher {
+class IPC_EXPORT ChannelPosix : public Channel,
+                                public internal::ChannelReader,
+                                public base::MessageLoopForIO::Watcher {
  public:
-  // Mirror methods of Channel, see ipc_channel.h for description.
-  ChannelImpl(const IPC::ChannelHandle& channel_handle, Mode mode,
-              Listener* listener);
-  virtual ~ChannelImpl();
-  bool Connect();
-  void Close();
-  bool Send(Message* message);
-  int GetClientFileDescriptor();
-  int TakeClientFileDescriptor();
-  void CloseClientFileDescriptor();
+  ChannelPosix(const IPC::ChannelHandle& channel_handle, Mode mode,
+               Listener* listener);
+  virtual ~ChannelPosix();
+
+  // Channel implementation
+  virtual bool Connect() OVERRIDE;
+  virtual void Close() OVERRIDE;
+  virtual bool Send(Message* message) OVERRIDE;
+  virtual base::ProcessId GetPeerPID() const OVERRIDE;
+  virtual int GetClientFileDescriptor() const OVERRIDE;
+  virtual int TakeClientFileDescriptor() OVERRIDE;
+
+  // Returns true if the channel supports listening for connections.
   bool AcceptsConnections() const;
+
+  // Returns true if the channel supports listening for connections and is
+  // currently connected.
   bool HasAcceptedConnection() const;
-  bool GetPeerEuid(uid_t* peer_euid) const;
+
+  // Closes any currently connected socket, and returns to a listening state
+  // for more connections.
   void ResetToAcceptingConnectionState();
-  base::ProcessId peer_pid() const { return peer_pid_; }
+
+  // Returns true if the peer process' effective user id can be determined, in
+  // which case the supplied peer_euid is updated with it.
+  bool GetPeerEuid(uid_t* peer_euid) const;
+
+  void CloseClientFileDescriptor();
+
   static bool IsNamedServerInitialized(const std::string& channel_id);
 #if defined(OS_LINUX)
   static void SetGlobalPid(int pid);
@@ -84,6 +100,8 @@ class Channel::ChannelImpl : public internal::ChannelReader,
   void ClosePipeOnError();
   int GetHelloMessageProcId();
   void QueueHelloMessage();
+  void CloseFileDescriptors(Message* msg);
+  void QueueCloseFDMessage(int fd, int hops);
 
   // ChannelReader implementation.
   virtual ReadState ReadData(char* buffer,
@@ -91,7 +109,7 @@ class Channel::ChannelImpl : public internal::ChannelReader,
                              int* bytes_read) OVERRIDE;
   virtual bool WillDispatchInputMessage(Message* msg) OVERRIDE;
   virtual bool DidEmptyInputBuffers() OVERRIDE;
-  virtual void HandleHelloMessage(const Message& msg) OVERRIDE;
+  virtual void HandleInternalMessage(const Message& msg) OVERRIDE;
 
 #if defined(IPC_USES_READWRITE)
   // Reads the next message from the fd_pipe_ and appends them to the
@@ -145,7 +163,7 @@ class Channel::ChannelImpl : public internal::ChannelReader,
   // For a server, the client end of our socketpair() -- the other end of our
   // pipe_ that is passed to the client.
   int client_pipe_;
-  base::Lock client_pipe_lock_;  // Lock that protects |client_pipe_|.
+  mutable base::Lock client_pipe_lock_;  // Lock that protects |client_pipe_|.
 
 #if defined(IPC_USES_READWRITE)
   // Linux/BSD use a dedicated socketpair() for passing file descriptors.
@@ -188,6 +206,13 @@ class Channel::ChannelImpl : public internal::ChannelReader,
   // implementation!
   std::vector<int> input_fds_;
 
+#if defined(OS_MACOSX)
+  // On OSX, sent FDs must not be closed until we get an ack.
+  // Keep track of sent FDs here to make sure the remote is not
+  // trying to bamboozle us.
+  std::set<int> fds_to_close_;
+#endif
+
   // True if we are responsible for unlinking the unix domain socket file.
   bool must_unlink_;
 
@@ -196,7 +221,7 @@ class Channel::ChannelImpl : public internal::ChannelReader,
   static int global_pid_;
 #endif  // OS_LINUX
 
-  DISALLOW_IMPLICIT_CONSTRUCTORS(ChannelImpl);
+  DISALLOW_IMPLICIT_CONSTRUCTORS(ChannelPosix);
 };
 
 }  // namespace IPC

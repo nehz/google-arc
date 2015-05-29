@@ -90,15 +90,17 @@ def _check_android_deps(push_files):
   with open(android_deps_file) as f:
     linecount = len(f.readlines())
   # For normal purposes, we expect that the DEPS.android file will contain just
-  # a single line, naming a release branch tag.
+  # a single line naming an Android release branch tag, or a very small file
+  # mapping a few subprojects to specific release tags, with a default mapping
+  # of the official Android branch tag used for everything else.
   # For arc/next-pastry we allow it to be an Android manifest file, which
   # identifies git hash tags for each Android sub-project. However these
   # sub-project names may be confidential, and should not be published, so we
   # have this check to help ensure that does not happen accidentally.
-  if linecount > 1:
+  if linecount > 10:
     if not _is_patch_to_next_pastry():
       print ''
-      print 'DEPS.android appears to be something other than a one-line file'
+      print 'DEPS.android appears to be something other than a simple file'
       print 'naming a publicly visible branch tag.  Any other content should'
       print 'be restricted to arc/next-pastry.'
       print ''

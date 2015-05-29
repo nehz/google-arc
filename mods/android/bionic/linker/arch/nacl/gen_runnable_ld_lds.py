@@ -44,6 +44,13 @@ def main(args):
   output = re.sub(r'\. = DATA_SEGMENT_END *\(\.\);', '', output)
   output = re.sub(r'(_end = \.; PROVIDE \(end = \.\);)',
                   r'\1 . = DATA_SEGMENT_END(.);', output)
+  # linker.cpp in runnable-ld.so needs to use .init_array section to call
+  # initializers, but the ELF header is not mapped in NaCl. To access the
+  # .init_array, inject magical symbols, __init_array and __init_array_end.
+  output = re.sub(
+      r'(\s*)(\.init_array\s+:\n\s+{\n.*\n.*\n\s+})',
+      r'\1PROVIDE (__init_array = .);\1\2\1PROVIDE (__init_array_end = .);',
+      output)
 
   if re.search(r'OUTPUT_ARCH\(arm\)', output):
     # sel_ldr_arm refuses to load ELF executable which has multiple
@@ -55,6 +62,16 @@ def main(args):
     output = re.sub(r'\.note\.gnu\.build-id : { \*\(\.note\.gnu\.build-id\) }',
                     r'\g<0>\n.note.NaCl.ABI.arm : { *(.note.NaCl.ABI.arm) }',
                     output)
+
+  if re.search(r'OUTPUT_ARCH\(i386:x86-64\)', output):
+    # Place a pointer to __get_tls in a fixed address on NaCl
+    # x86-64. 0x10020000 is at the beginning of the Bionic loader's
+    # readonly segment.
+    # See also bionic/libc/include/private/get_tls_for_art.h.
+    output = re.sub(r'(\.note\.gnu\.build-id +:)',
+                    r'. = 0x10020000; .get_tls_for_art : { '
+                    r'KEEP(*(.get_tls_for_art)) } :seg_rodata\n'
+                    r' . = 0x10020004; \1', output)
 
   print output
 

@@ -4,7 +4,7 @@
 
 """Build libutils.so."""
 
-import build_common
+import build_options
 import make_to_ninja
 import ninja_generator
 
@@ -18,10 +18,10 @@ def _generate_libutils_arc_tests_ninja():
   n.add_compiler_flags('-Werror')
   library_deps = ['libchromium_base.a',  # for libcommon.a etc.
                   'libcommon.a',
-                  'libcorkscrew.a',
                   'libcutils.a',
-                  'libgccdemangle.a',
+                  'libgccdemangle_static.a',
                   'libpluginhandle.a',
+                  'libunwind_static.a',
                   'libutils_static.a']
   n.add_library_deps(*library_deps)
   n.run(n.link())
@@ -31,8 +31,6 @@ def _generate_libutils_ninja():
   # We generate both static library and shared library because arc_tests needs
   # to compile without --wrap flags. See crbug.com/423063.
   def _filter(vars):
-    if vars.is_host():
-      return False
     if vars.get_module_name() != 'libutils':
       return False
     if vars.is_shared():
@@ -40,7 +38,10 @@ def _generate_libutils_ninja():
       vars.get_whole_archive_deps().append('libutils_static')
       # TODO(crbug.com/364344): Once Renderscript is built from source, this
       # canned install can be removed.
-      if not build_common.use_ndk_direct_execution():
+      # TODO(crbug.com/484862): Once we set up an NDK proxy library for
+      # libutils.so, we can go back to using the canned version only if "not
+      # build_common.use_ndk_direct_execution()".
+      if not build_options.OPTIONS.is_bare_metal_arm():
         vars.set_canned(True)
     else:
       vars.set_module_name('libutils_static')

@@ -19,6 +19,7 @@
 #include "graphics_translation/gles/macros.h"
 
 STUB_APIENTRY(void, BeginQuery, GLenum target, GLuint id);
+STUB_APIENTRY(void, BeginQueryEXT, GLenum target, GLuint id);
 STUB_APIENTRY(void, BeginTransformFeedback, GLenum primitiveMode);
 STUB_APIENTRY(void, BindBufferBase, GLenum target, GLuint index, GLuint buffer);
 STUB_APIENTRY(void, BindBufferRange, GLenum target, GLuint index, GLuint buffer,
@@ -69,10 +70,13 @@ STUB_APIENTRY(void, DrawElementsInstanced, GLenum mode, GLsizei count,
 STUB_APIENTRY(void, DrawRangeElements, GLenum mode, GLuint start, GLuint end,
               GLsizei count, GLenum type, const GLvoid* indices);
 STUB_APIENTRY(void, EndQuery, GLenum target);
+STUB_APIENTRY(void, EndQueryEXT, GLenum target);
 STUB_APIENTRY(void, EndTilingQCOM, GLbitfield preserveMask);
 STUB_APIENTRY(void, EndTransformFeedback);
 STUB_APIENTRY(GLsync, FenceSync, GLenum condition, GLbitfield flags);
 STUB_APIENTRY(void, FlushMappedBufferRange, GLenum target, GLintptr offset,
+              GLsizeiptr length);
+STUB_APIENTRY(void, FlushMappedBufferRangeEXT, GLenum target, GLintptr offset,
               GLsizeiptr length);
 STUB_APIENTRY(void, FramebufferTexture2DMultisampleEXT, GLenum target,
               GLenum attachment, GLenum textarget, GLuint texture, GLint level,
@@ -83,6 +87,7 @@ STUB_APIENTRY(void, FramebufferTexture2DMultisampleIMG, GLenum target,
 STUB_APIENTRY(void, FramebufferTextureLayer, GLenum target, GLenum attachment,
               GLuint texture, GLint level, GLint layer);
 STUB_APIENTRY(void, GenQueries, GLsizei n, GLuint* ids);
+STUB_APIENTRY(void, GenQueriesEXT, GLsizei n, GLuint* ids);
 STUB_APIENTRY(void, GenSamplers, GLsizei count, GLuint* samplers);
 STUB_APIENTRY(void, GenTransformFeedbacks, GLsizei n, GLuint* ids);
 STUB_APIENTRY(void, GenVertexArrays, GLsizei n, GLuint* arrays);
@@ -109,7 +114,21 @@ STUB_APIENTRY(void, GetObjectLabelEXT, GLenum type, GLuint object,
               GLsizei bufSize, GLsizei *length, GLchar *label);
 STUB_APIENTRY(void, GetProgramBinary, GLuint program, GLsizei bufSize,
               GLsizei* length, GLenum* binaryFormat, GLvoid* binary);
-STUB_APIENTRY(void, GetQueryObjectuiv, GLuint id, GLenum pname, GLuint* params);
+STUB_APIENTRY(void, GetQueryObjectiv, GLuint id, GLenum pname, GLint* params);
+STUB_APIENTRY(void, GetQueryObjectivEXT, GLuint id, GLenum pname,
+              GLint* params);
+STUB_APIENTRY(void, GetQueryObjectuiv, GLuint id, GLenum pname,
+              GLuint* params);
+STUB_APIENTRY(void, GetQueryObjectuivEXT, GLuint id, GLenum pname,
+              GLuint* params);
+STUB_APIENTRY(void, GetQueryObjecti64v, GLuint id, GLenum pname,
+              GLint64* params);
+STUB_APIENTRY(void, GetQueryObjecti64vEXT, GLuint id, GLenum pname,
+              GLint64* params);
+STUB_APIENTRY(void, GetQueryObjectui64v, GLuint id, GLenum pname,
+              GLuint64* params);
+STUB_APIENTRY(void, GetQueryObjectui64vEXT, GLuint id, GLenum pname,
+              GLuint64* params);
 STUB_APIENTRY(void, GetQueryiv, GLenum target, GLenum pname, GLint* params);
 STUB_APIENTRY(void, GetSamplerParameterfv, GLuint sampler, GLenum pname,
               GLfloat* params);
@@ -153,6 +172,8 @@ STUB_APIENTRY(void, LogicOp, GLenum opcode);
 STUB_APIENTRY(void*, MapBufferOES, GLenum target, GLenum access);
 STUB_APIENTRY(void*, MapBufferRange, GLenum target, GLintptr offset,
               GLsizeiptr length, GLbitfield access);
+STUB_APIENTRY(void*, MapBufferRangeEXT, GLenum target, GLintptr offset,
+              GLsizeiptr length, GLbitfield access);
 STUB_APIENTRY(void, MultiTexCoord4f, GLenum target, GLfloat s, GLfloat t,
               GLfloat r, GLfloat q);
 STUB_APIENTRY(void, MultiTexCoord4x, GLenum target, GLfixed s, GLfixed t,
@@ -169,7 +190,6 @@ STUB_APIENTRY(void, PushGroupMarkerEXT, GLsizei length, const GLchar *marker);
 STUB_APIENTRY(GLbitfield, QueryMatrixxOES, GLfixed mantissa[16],
               GLint exponent[16]);
 STUB_APIENTRY(void, ReadBuffer, GLenum mode);
-STUB_APIENTRY(void, ReleaseShaderCompiler);
 STUB_APIENTRY(void, RenderbufferStorageMultisample, GLenum target,
               GLsizei samples, GLenum internalformat, GLsizei width,
               GLsizei height);

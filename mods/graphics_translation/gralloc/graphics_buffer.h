@@ -19,6 +19,18 @@
 #include "cutils/native_handle.h"
 #include "sys/types.h"
 
+struct YUVParams {
+  YUVParams(uint8_t* start, int width, int height, int align);
+
+  size_t size;
+  uint8_t* y_plane;
+  size_t y_stride;
+  uint8_t* u_plane;
+  size_t u_stride;
+  uint8_t* v_plane;
+  size_t v_stride;
+};
+
 struct GraphicsBuffer : public native_handle {
   // Magic value used to verify validity of the color buffer handle.
   enum {
@@ -62,29 +74,44 @@ struct GraphicsBuffer : public native_handle {
  private:
   static int GetVersion();
   static int CalculateNumInts(int numFds);
+  static void CopyYV12(uint8_t* dst, uint8_t* src, int width, int height);
+  static void CopySubimage(uint8_t* dst, uint8_t* src, int left, int top,
+                           int width, int height, int src_width, int bpp);
 
   bool CanBePosted() const;
 
-  int fd_;           // Will be -1 if buffer not allocated (ie. no SW access).
-                     // Must be the first member (required by native_handle).
-  int magic_;        // Magic number to validate handle.
-  int usage_;        // Buffer usage flags.
-  int width_;        // Buffer width.
-  int height_;       // Buffer height.
-  int format_;       // Internal pixel format.
-  int gl_format_;    // OpenGL format enum used for h/w color buffer.
-  int gl_type_;      // OpenGL type enum used for h/w color buffer.
-  int locked_left_;  // Region of buffer locked for s/w write.
+  // Will be -1 if buffer not allocated (ie. no SW access). Must be the first
+  // member (required by native_handle).
+  int fd_;
+  // Magic number to validate handle.
+  int magic_;
+  // Buffer usage flags.
+  int usage_;
+  // Buffer width.
+  int width_;
+  // Buffer height.
+  int height_;
+  // Internal pixel format.
+  int format_;
+  // OpenGL format enum used for h/w color buffer.
+  int gl_format_;
+  // OpenGL type enum used for h/w color buffer.
+  int gl_type_;
+  // Region of buffer locked for s/w write.
+  int locked_left_;
   int locked_top_;
   int locked_width_;
   int locked_height_;
   int system_texture_;
   int system_target_;
   int system_texture_tracking_handle_;
-  size_t sw_buffer_size_;  // Size of s/w image buffer.
-  char* sw_buffer_;        // Pointer to s/w image buffer.
-  void* hw_handle_;        // Handle to underlying h/w color buffer.
-  char* locked_addr_;
+  // Size of s/w image buffer.
+  size_t sw_buffer_size_;
+  // Pointer to s/w image buffer.
+  uint8_t* sw_buffer_;
+  // Handle to underlying h/w color buffer.
+  void* hw_handle_;
+  uint8_t* locked_addr_;
 
   GraphicsBuffer(const GraphicsBuffer&);
   GraphicsBuffer& operator=(const GraphicsBuffer&);

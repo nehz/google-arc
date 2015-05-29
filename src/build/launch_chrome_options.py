@@ -23,7 +23,7 @@ _ALLOWED_FORMFACTORS = ['maximized', 'phone', 'tablet']
 
 _ALLOWED_FORMFACTOR_MAPPING = {'m': 'maximized', 'p': 'phone', 't': 'tablet'}
 
-_ALLOWED_NDK_ABIS = ['armeabi', 'armeabi-v7a']
+_ALLOWED_NDK_ABIS = ['armeabi', 'armeabi-v7a', 'x86']
 
 _ALLOWED_ORIENTATIONS = ['landscape', 'portrait']
 

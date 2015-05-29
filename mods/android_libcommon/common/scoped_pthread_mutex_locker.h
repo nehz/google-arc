@@ -20,6 +20,16 @@
 
 #include <pthread.h>
 
+/* ARC MOD BEGIN */
+// Avoid including bionic_macros.h, declare DISALLOW_COPY_AND_ASSIGN here.
+
+// DISALLOW_COPY_AND_ASSIGN disallows the copy and operator= functions.
+// It goes in the private: declarations in a class.
+#define DISALLOW_COPY_AND_ASSIGN(TypeName) \
+  TypeName(const TypeName&);               \
+  void operator=(const TypeName&)
+/* ARC MOD END */
+
 class ScopedPthreadMutexLocker {
  public:
   explicit ScopedPthreadMutexLocker(pthread_mutex_t* mu) : mu_(mu) {
@@ -33,9 +43,7 @@ class ScopedPthreadMutexLocker {
  private:
   pthread_mutex_t* mu_;
 
-  // Disallow copy and assignment.
-  ScopedPthreadMutexLocker(const ScopedPthreadMutexLocker&);
-  void operator=(const ScopedPthreadMutexLocker&);
+  DISALLOW_COPY_AND_ASSIGN(ScopedPthreadMutexLocker);
 };
 
 #endif // SCOPED_PTHREAD_MUTEX_LOCKER_H

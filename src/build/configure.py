@@ -65,11 +65,11 @@ def _check_javac_version():
   if stamp_file.is_up_to_date():
     return
 
-  want_version = '1.6.'
+  want_version = '1.7.'
   javac_version = subprocess.check_output(
       [javac_path, '-version'], stderr=subprocess.STDOUT)
   if want_version not in javac_version:
-    print '\nWARNING: You are not using Java 6.',
+    print '\nWARNING: You are not using Java 7.',
     print 'Installed version:', javac_version.strip()
     print 'See docs/getting-java.md.\n'
   else:
@@ -221,7 +221,8 @@ def _set_up_chromium_org_submodules():
       'sdch/open-vcdiff',
       'testing/gtest',
       'third_party/WebKit',
-      'third_party/angle_dx11',
+      'third_party/angle',
+      'third_party/brotli/src',
       ('third_party/eyesfree/src/android/java/'
        'src/com/googlecode/eyesfree/braille'),
       'third_party/freetype',
@@ -230,14 +231,19 @@ def _set_up_chromium_org_submodules():
       'third_party/libjingle/source/talk',
       'third_party/libphonenumber/src/phonenumbers',
       'third_party/libphonenumber/src/resources',
+      'third_party/libsrtp',
+      'third_party/libvpx',
+      'third_party/libyuv',
       'third_party/mesa/src',
+      'third_party/openmax_dl',
       'third_party/openssl',
       'third_party/opus/src',
       'third_party/ots',
-      'third_party/skia/gyp',
-      'third_party/skia/include',
-      'third_party/skia/src',
+      'third_party/sfntly/cpp/src',
+      'third_party/skia',
       'third_party/smhasher/src',
+      'third_party/usrsctp/usrsctplib',
+      'third_party/webrtc',
       'third_party/yasm/source/patched-yasm',
       'v8']
 

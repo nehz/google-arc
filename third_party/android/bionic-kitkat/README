@@ -1,0 +1,9 @@
+TODO(crbug.com/432441): Always compile our code with 64bit long double and
+remove this directory.
+
+This directory contains Bionic sources from KitKat.
+We partially use modified version of them, and these modified files track
+files in this directory.
+
+They are from AOSP Bionic (https://android.googlesource.com/platform/bionic),
+and the revision is 8e39d2f9f403639195e430f81a47ad3940bd6975

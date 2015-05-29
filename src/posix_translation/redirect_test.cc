@@ -71,7 +71,7 @@ class RedirectHandlerTestTest : public FileSystemTestCommon {
     symlinks.push_back(std::make_pair("/dest", "/src0"));
     symlinks.push_back(std::make_pair("/dest", "/src1"));
 
-    handler_.reset(new RedirectHandler(underlying, symlinks));
+    handler_.reset(new RedirectHandler(underlying, symlinks, true));
     handler_->Initialize();
     EXPECT_TRUE(handler_->IsInitialized());
     // Confirm that RedirectHandler delegates the call to the underlying

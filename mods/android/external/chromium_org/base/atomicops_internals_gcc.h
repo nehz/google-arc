@@ -122,11 +122,6 @@ inline Atomic64 NoBarrier_AtomicExchange(volatile Atomic64* ptr,
   return old_value;
 }
 
-inline Atomic64 NoBarrier_AtomicIncrement(volatile Atomic64* ptr,
-                                          Atomic64 increment) {
-  return Barrier_AtomicIncrement(ptr, increment);
-}
-
 inline Atomic64 Barrier_AtomicIncrement(volatile Atomic64* ptr,
                                         Atomic64 increment) {
   for (;;) {
@@ -139,6 +134,11 @@ inline Atomic64 Barrier_AtomicIncrement(volatile Atomic64* ptr,
     }
     // Otherwise, *ptr changed mid-loop and we need to retry.
   }
+}
+
+inline Atomic64 NoBarrier_AtomicIncrement(volatile Atomic64* ptr,
+                                          Atomic64 increment) {
+  return Barrier_AtomicIncrement(ptr, increment);
 }
 
 inline Atomic64 Acquire_CompareAndSwap(volatile Atomic64* ptr,

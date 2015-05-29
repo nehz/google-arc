@@ -10,6 +10,7 @@ import re
 import build_common
 import build_options
 import ninja_generator
+import ninja_generator_runner
 
 
 def _add_chromium_base_compiler_flags(n):
@@ -32,10 +33,13 @@ def _add_chromium_base_compiler_flags(n):
                       'android/system/core/include')
 
 
-def _generate_chromium_base_ninja():
+def _generate_chromium_base_ninja_common(module_name, instances, enable_libcxx):
   base_path = 'android/external/chromium_org/base'
+  # chromium_base is required by libart-gtest, libposix_translation, and the
+  # plugin.
   n = ninja_generator.ArchiveNinjaGenerator(
-      'libchromium_base', base_path=base_path, instances=2, enable_clang=True)
+      module_name, base_path=base_path, instances=instances,
+      enable_clang=True, enable_cxx11=True, enable_libcxx=enable_libcxx)
   n.add_compiler_flags('-fvisibility=hidden')  # for libposix_translation.so
   _add_chromium_base_compiler_flags(n)
 
@@ -44,6 +48,7 @@ def _generate_chromium_base_ninja():
     # Files with specific suffixes like '_linux' are usually excluded.
     # Here is the list of exceptions.
     whitelist = ['base/threading/platform_thread_linux.cc',
+                 'base/threading/thread_local_android.cc',
                  'base/debug/stack_trace_android.cc',
                  'base/debug/trace_event_android.cc']
     if f in whitelist:
@@ -65,10 +70,15 @@ def _generate_chromium_base_ninja():
         # This is excluded in the upstream, too.
         'base/debug/stack_trace_posix.cc',
         'base/debug/trace_event_system_stats_monitor.cc',
+        # TODO(crbug.com/414569): L-rebase: Do I need it?
+        'base/memory/discardable_memory_ashmem.cc',
+        'base/memory/discardable_memory_ashmem_allocator.cc',
         'base/files/file_enumerator_posix.cc',
         'base/files/file_proxy.cc',
+        'base/files/file_path_watcher_fsevents.cc',  # for Mac
         'base/files/important_file_writer.cc',
         'base/files/memory_mapped_file.cc',
+        'base/files/memory_mapped_file_posix.cc',
         'base/files/scoped_temp_dir.cc',
         'base/guid_posix.cc',
         'base/json/json_file_value_serializer.cc',
@@ -111,18 +121,37 @@ def _generate_chromium_base_ninja():
   n.build_default(build_files, base_path=None).archive()
 
   # Dump global symbols in libchromium_base.
-  out_path = os.path.join(ninja_generator.CNinjaGenerator.get_symbols_path(),
-                          'libchromium_base.a.defined')
-  n.build([out_path], 'dump_defined_symbols',
-          build_common.get_build_path_for_library('libchromium_base.a'),
-          implicit='src/build/symbol_tool.py')
+  if not enable_libcxx:
+    out_path = os.path.join(ninja_generator.CNinjaGenerator.get_symbols_path(),
+                            'libchromium_base.a.defined')
+    n.build([out_path], 'dump_defined_symbols',
+            build_common.get_build_path_for_library('libchromium_base.a'),
+            implicit='src/build/symbol_tool.py')
+
+
+def _generate_chromium_base_libcxx_ninja():
+  # libc++ version, used for linking with unit tests.
+  _generate_chromium_base_ninja_common('libchromium_base_libc++',
+                                       instances=0,
+                                       enable_libcxx=True)
+
+
+def _generate_chromium_base_ninja():
+  # Production version with STLport.
+  # libposix_translation.so and arc.nexe use libchromium_base.a in all targets.
+  # libndk_translation.so also uses libchromium_base.a in non-arm targets.
+  instances = 2 if build_options.OPTIONS.is_arm() else 3
+  _generate_chromium_base_ninja_common('libchromium_base',
+                                       instances=instances,
+                                       enable_libcxx=False)
 
 
 def _generate_chromium_base_test_ninja():
   base_path = 'android/external/chromium_org'
   n = ninja_generator.TestNinjaGenerator('libchromium_base_test',
                                          base_path=base_path,
-                                         enable_clang=True)
+                                         enable_clang=True,
+                                         enable_cxx11=True)
   _add_chromium_base_compiler_flags(n)
 
   # For third_party/testing/gmock. chromium_org/base/*_test.cc include gmock
@@ -150,7 +179,7 @@ def _generate_chromium_base_test_ninja():
       'base/memory/scoped_ptr_unittest.cc',
       'base/memory/scoped_vector_unittest.cc',
       'base/memory/singleton_unittest.cc',
-      'base/safe_numerics_unittest.cc',
+      'base/numerics/safe_numerics_unittest.cc',
       'base/scoped_clear_errno_unittest.cc',
       'base/sha1_unittest.cc',
       'base/stl_util_unittest.cc',
@@ -191,12 +220,18 @@ def _generate_chromium_base_test_ninja():
   # '/system/usr/share/zoneinfo/tzdata' in the readonly filesystem, but we do
   # not have an easy way to access this data from unit tests.
   exclude.append('TimeTest.FromLocalExplodedCrashOnAndroid')
+  # TODO(crbug.com/414569): L-rebase: Exclude TimeDelta.FromAndIn for now due to
+  # subtle floating point issues, e.g.
+  # TimeDelta::FromSecondsD(13.1).InSecondsF() != 13.1.
+  exclude.append('TimeDelta.FromAndIn')
   n.add_disabled_tests(*exclude)
   n.run(n.link())
 
 
 def generate_ninjas():
-  _generate_chromium_base_ninja()
+  ninja_generator_runner.request_run_in_parallel(
+      _generate_chromium_base_libcxx_ninja,
+      _generate_chromium_base_ninja)
 
 
 def generate_test_ninjas():

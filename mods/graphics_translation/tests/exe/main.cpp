@@ -49,7 +49,7 @@ GLXFBConfig g_fb_config = 0;
 GLXContext g_glx_context = 0;
 GLXWindow g_glx_window = 0;
 const int kWidth = 360;
-const int kHeight = 592;
+const int kHeight = 584;
 
 // Because None and Bool are undef'ed, in graphics_tests.h to avoid name
 // confliction with gtest, so we use 0 and int directly, instead.

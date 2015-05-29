@@ -1,4 +1,3 @@
-# mods/android/frameworks/native/arc/binder/driver.cc guard variable for arc::binder::Singleton<arc::binder::BinderDriverImpl>::mutex_
 # mods/android/frameworks/native/arc/binder/driver.cc arc::binder::Singleton<arc::binder::BinderDriverImpl>::mutex_
 # mods/android/frameworks/native/arc/binder/driver.cc android::Mutex::~Mutex()
 # mods/android/frameworks/native/arc/binder/driver.cc __bss_start
@@ -13,13 +12,11 @@
 # mods/android/frameworks/native/arc/binder/local_process.cc __bss_start
 # mods/android/frameworks/native/arc/binder/local_process.cc __cxa_atexit@plt [registers a dtor to run at exit]
 # mods/android/frameworks/native/arc/binder/local_process.cc pthread_mutex_init@plt
-# proxy_binder.cc guard variable for arc::binder::Singleton<arc::binder::ProxyManager>::mutex_
 # proxy_binder.cc arc::binder::Singleton<arc::binder::ProxyManager>::mutex_
 # proxy_binder.cc android::Mutex::~Mutex()
 # proxy_binder.cc __bss_start
 # proxy_binder.cc __cxa_atexit@plt [registers a dtor to run at exit]
 # proxy_binder.cc pthread_mutex_init@plt
-# mods/android/frameworks/native/arc/binder/transport.cc guard variable for arc::binder::Singleton<arc::binder::InMemoryTransport>::mutex_
 # mods/android/frameworks/native/arc/binder/transport.cc arc::binder::Singleton<arc::binder::InMemoryTransport>::mutex_
 # mods/android/frameworks/native/arc/binder/transport.cc android::Mutex::~Mutex()
 # mods/android/frameworks/native/arc/binder/transport.cc __bss_start

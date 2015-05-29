@@ -137,7 +137,8 @@ def check_and_perform_updates(cache_base_path, cache_history_size):
   download_package_util.BasicCachedPackage(
       'src/build/DEPS.ndk',
       'third_party/ndk',
-      unpack_method=download_package_util.unpack_tar_archive('pbzip2'),
+      unpack_method=download_package_util.unpack_self_extracting_archive(),
+      link_subdir='android-ndk-r10d',
       cache_base_path=cache_base_path,
       cache_history_size=cache_history_size
   ).check_and_perform_update()

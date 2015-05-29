@@ -6,8 +6,6 @@
 #include "common/trace_event_ppapi.h"
 #include "ppapi/c/dev/ppb_trace_event_dev.h"
 
-#define TRACE_VALUE_TYPE_CONVERTABLE  (static_cast<unsigned char>(8))
-
 namespace arc {
 namespace trace {
 
@@ -32,20 +30,6 @@ const unsigned char* GetCategoryEnabled(const char* category_name) {
   return &dummy;
 }
 
-// Checks if any trace value types are convertables, which are not
-// handled by PPAPI trace.
-// TODO(kmixter): Define a ConvertableToTraceFormat type and generate
-// a string from any convertable objects.
-static bool AreAnyTypesUnsupported(int num_args,
-                                   const unsigned char* arg_types) {
-  for (int i = 0; i < num_args; ++i) {
-    if (arg_types[i] == TRACE_VALUE_TYPE_CONVERTABLE) {
-      return true;
-    }
-  }
-  return false;
-}
-
 void AddTraceEvent(char phase,
                   const unsigned char* category_enabled,
                   const char* name,
@@ -56,38 +40,11 @@ void AddTraceEvent(char phase,
                   const uint64_t* arg_values,
                   unsigned char flags) {
   if (g_trace_iface) {
-    if (AreAnyTypesUnsupported(num_args, arg_types)) {
-      // Get rid of all arguments to avoid passing unsupported ones.
-      num_args = 0;
-    }
     // |category_enabled| has to be passed as (const void*) because PPAPI has no
     // concept of pointers of different types being used as parameters.
     g_trace_iface->AddTraceEvent(phase,
         reinterpret_cast<const void*>(category_enabled), name, id, num_args,
         arg_names, arg_types, arg_values, flags);
-  }
-}
-
-void AddTraceEventWithThreadIdAndTimestamp(
-    char phase,
-    const unsigned char* category_enabled,
-    const char* name,
-    uint64_t id,
-    int thread_id,
-    uint64_t timestamp,
-    int num_args,
-    const char** arg_names,
-    const unsigned char* arg_types,
-    const uint64_t* arg_values,
-    unsigned char flags) {
-  if (g_trace_iface) {
-    if (AreAnyTypesUnsupported(num_args, arg_types)) {
-      // Get rid of all arguments to avoid passing unsupported ones.
-      num_args = 0;
-    }
-    g_trace_iface->AddTraceEventWithThreadIdAndTimestamp(phase,
-        reinterpret_cast<const void*>(category_enabled), name, id, thread_id,
-        timestamp, num_args, arg_names, arg_types, arg_values, flags);
   }
 }
 

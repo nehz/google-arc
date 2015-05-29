@@ -32,10 +32,3 @@ void* __nacl_add_tp (ptrdiff_t off)
   return (char*) __nacl_irt_tls_get () + off;
 }
 #endif
-// ARC MOD BEGIN
-// Add __get_tls for bionic.
-void* __get_tls(void)
-{
-  return __nacl_irt_tls_get();
-}
-// ARC MOD END

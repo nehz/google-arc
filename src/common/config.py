@@ -8,6 +8,8 @@ import os
 
 import build_common
 import ninja_generator
+import ninja_generator_runner
+import staging
 from build_options import OPTIONS
 
 
@@ -16,9 +18,11 @@ def _add_compile_flags(ninja):
     ninja.add_defines('MEMORY_USAGE_LOGGING')
   ninja.add_ppapi_compile_flags()  # for mprotect_rwx.cc
   ninja.add_libchromium_base_compile_flags()
+  ninja.add_cxx_flags('-isystem',
+                      staging.as_staging('android/external/stlport/stlport'))
 
 
-def _get_generated_file(ninja, out_name, script_name, implicit_add):
+def _get_generated_file(ninja, out_name, script_name):
   script_path = os.path.join('src/common', script_name)
   rule_name = os.path.splitext(os.path.basename(script_path))[0]
   ninja.rule(rule_name,
@@ -27,7 +31,8 @@ def _get_generated_file(ninja, out_name, script_name, implicit_add):
 
   out_path = os.path.join(build_common.get_build_dir(), 'common_gen_sources',
                           out_name)
-  implicit = [script_path, 'src/build/build_options.py'] + implicit_add
+  implicit = build_common.find_python_dependencies(
+      'src/build', script_path) + [script_path]
   ninja.build(out_path, rule_name, implicit=implicit)
   return out_path
 
@@ -36,50 +41,50 @@ def _get_wrapped_functions_cc(ninja):
   return _get_generated_file(
       ninja,
       out_name='wrapped_functions.cc',
-      script_name='gen_wrapped_functions_cc.py',
-      implicit_add=['src/build/wrapped_functions.py'])
+      script_name='gen_wrapped_functions_cc.py')
 
 
 def _get_android_static_libraries_cc(ninja):
   return _get_generated_file(
       ninja,
       out_name='android_static_libraries.cc',
-      script_name='gen_android_static_libraries_cc.py',
-      implicit_add=['src/build/android_static_libraries.py'])
+      script_name='gen_android_static_libraries_cc.py')
 
 
 def _get_real_syscall_aliases_s(ninja):
   return _get_generated_file(
       ninja,
       out_name='real_syscall_aliases.S',
-      script_name='gen_real_syscall_aliases_s.py',
-      implicit_add=['src/build/wrapped_functions.py'])
+      script_name='gen_real_syscall_aliases_s.py')
 
 
-def _generate_libpluginhandle_ninja():
-  n = ninja_generator.ArchiveNinjaGenerator('libpluginhandle')
+def _generate_libpluginhandle_ninja_common(
+    module_name, instances, enable_libcxx):
+  n = ninja_generator.ArchiveNinjaGenerator(module_name,
+                                            instances=instances,
+                                            enable_libcxx=enable_libcxx)
   return n.build_default(['src/common/plugin_handle.cc']).archive()
 
 
-# Generate libcommon.a, the library that should be linked into everything.
-def generate_ninjas():
-  n = ninja_generator.ArchiveNinjaGenerator(
-      'libcommon_test_main',
-      base_path='src/common/tests',
-      instances=0)  # Should not be used by production binary.
-  sources = n.find_all_sources(include_tests=True)
-  n.build_default(sources, base_path=None).archive()
+def _generate_libpluginhandle_ninja():
+  return _generate_libpluginhandle_ninja_common('libpluginhandle',
+                                                instances=1,
+                                                enable_libcxx=False)
 
-  n = ninja_generator.ArchiveNinjaGenerator(
-      'libcommon_real_syscall_aliases',
-      instances=0)  # Should not be used by production binary.
-  sources = [_get_real_syscall_aliases_s(n)]
-  n.build_default(sources, base_path=None).archive()
 
-  _generate_libpluginhandle_ninja()
+def _generate_libpluginhandle_libcxx_ninja():
+  return _generate_libpluginhandle_ninja_common('libpluginhandle_libc++',
+                                                instances=0,
+                                                enable_libcxx=True)
 
-  n = ninja_generator.ArchiveNinjaGenerator('libcommon',
+
+def _generate_libcommon_ninja(
+    module_name, instances, enable_libcxx, extra_sources):
+  n = ninja_generator.ArchiveNinjaGenerator(module_name,
+                                            instances=instances,
                                             enable_clang=True,
+                                            enable_cxx11=True,
+                                            enable_libcxx=enable_libcxx,
                                             base_path='src/common')
   n.add_compiler_flags('-Werror')
   if build_common.use_ndk_direct_execution():
@@ -89,17 +94,60 @@ def generate_ninjas():
   _add_compile_flags(n)
   sources = n.find_all_sources()
   sources.remove('src/common/plugin_handle.cc')
-  sources.append(_get_wrapped_functions_cc(n))
-  sources.append(_get_android_static_libraries_cc(n))
+  sources.extend(build_common.as_list(extra_sources))
   return n.build_default(sources, base_path=None).archive()
+
+
+def _generate_libcommon_ninjas():
+  n = ninja_generator.NinjaGenerator('libcommon_gen_sources')
+  extra_sources = [_get_wrapped_functions_cc(n),
+                   _get_android_static_libraries_cc(n)]
+  _generate_libcommon_ninja(module_name='libcommon',
+                            instances=1,
+                            enable_libcxx=False,
+                            extra_sources=extra_sources)
+  _generate_libcommon_ninja(module_name='libcommon_libc++',
+                            instances=0,
+                            enable_libcxx=True,
+                            extra_sources=extra_sources)
+
+
+def _generate_libcommon_test_main_ninja():
+  n = ninja_generator.ArchiveNinjaGenerator(
+      'libcommon_test_main',
+      base_path='src/common/tests',
+      instances=0)  # Should not be used by production binary.
+  sources = n.find_all_sources(include_tests=True)
+  n.build_default(sources, base_path=None).archive()
+
+
+def _generate_real_syscall_aliases_ninja():
+  n = ninja_generator.ArchiveNinjaGenerator(
+      'libcommon_real_syscall_aliases',
+      instances=0)  # Should not be used by production binary.
+  sources = [_get_real_syscall_aliases_s(n)]
+  n.build_default(sources, base_path=None).archive()
+
+
+# Generate libcommon.a, the library that should be linked into everything.
+def generate_ninjas():
+  ninja_generator_runner.request_run_in_parallel(
+      _generate_libcommon_test_main_ninja,
+      _generate_libpluginhandle_libcxx_ninja,
+      _generate_libpluginhandle_ninja,
+      _generate_libcommon_ninjas,
+      _generate_real_syscall_aliases_ninja)
 
 
 def generate_test_ninjas():
   n = ninja_generator.TestNinjaGenerator('libcommon_test',
                                          enable_clang=True,
+                                         enable_cxx11=True,
                                          base_path='src/common')
   n.build_default_all_test_sources()
+  if build_common.use_ndk_direct_execution():
+    n.add_compiler_flags('-DUSE_NDK_DIRECT_EXECUTION')
   n.add_compiler_flags('-Werror')
-  n.add_library_deps('libgccdemangle.a')
+  n.add_library_deps('libgccdemangle_static.a')
   _add_compile_flags(n)
   n.run(n.link())

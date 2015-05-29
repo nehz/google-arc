@@ -15,41 +15,42 @@
  */
 
 #include <dlfcn.h>
+#include <link.h>
+#include <stdlib.h>
+#include <android/dlext.h>
+
 // ARC MOD BEGIN
 // Add includes for ARC linker functions.
 #include <private/dlsym.h>
 #include <private/inject_arc_linker_hooks.h>
+#include <private/nacl_dyncode_alloc.h>
 // ARC MOD END
-/* These are stubs for functions that are actually defined
- * in the dynamic linker (dlfcn.c), and hijacked at runtime.
- */
-void *dlopen(const char *filename, int flag) { return 0; }
-const char *dlerror(void) { return 0; }
-void *dlsym(void *handle, const char *symbol) { return 0; }
-int dladdr(const void *addr, Dl_info *info) { return 0; }
-int dlclose(void *handle) { return 0; }
+// These are stubs for functions that are actually defined
+// in the dynamic linker and hijacked at runtime.
 
-void android_update_LD_LIBRARY_PATH(const char* ld_library_path) { }
+void* dlopen(const char* filename __unused, int flag __unused) { return 0; }
+const char* dlerror(void) { return 0; }
+void* dlsym(void* handle __unused, const char* symbol __unused) { return 0; }
+int dladdr(const void* addr __unused, Dl_info* info __unused) { return 0; }
+int dlclose(void* handle __unused) { return 0; }
+
+#if defined(__arm__)
+_Unwind_Ptr dl_unwind_find_exidx(_Unwind_Ptr pc __unused, int* pcount __unused) { return 0; }
+#endif
+
+int dl_iterate_phdr(int (*cb)(struct dl_phdr_info* info, size_t size, void* data) __unused, void* data __unused) { return 0; }
+
+void android_get_LD_LIBRARY_PATH(char* buffer __unused, size_t buffer_size __unused) { }
+void android_update_LD_LIBRARY_PATH(const char* ld_library_path __unused) { }
 // ARC MOD BEGIN
 // Add ARC linker functions.
 void* __dlsym_with_return_address(
     void* handle, const char* symbol, void* ret_addr) { return 0; }
-void __inject_arc_linker_hooks(__arc_linker_hooks* hooks) { }
+void __inject_arc_linker_hooks(__arc_linker_hooks* hooks __unused) { }
+#if defined(__native_client__)
+void* nacl_dyncode_alloc(
+    size_t code_size, size_t data_size, size_t data_offset) { return 0; }
+#endif
 // ARC MOD END
 
-#if defined(__arm__)
-
-void *dl_unwind_find_exidx(void *pc, int *pcount) { return 0; }
-// ARC MOD BEGIN
-#endif
-// Add __x86_64__ and __arm__.
-#if defined(__i386__) || defined(__mips__) \
-  || defined(__x86_64__) || defined(__arm__)
-// ARC MOD END
-/* we munge the cb definition so we don't have to include any headers here.
- * It won't affect anything since these are just symbols anyway */
-int dl_iterate_phdr(int (*cb)(void *info, void *size, void *data), void *data) { return 0; }
-
-#else
-#error Unsupported architecture. Only mips, arm and x86 are supported.
-#endif
+void* android_dlopen_ext(const char* filename __unused, int flag __unused, const android_dlextinfo* extinfo __unused) { return 0; }

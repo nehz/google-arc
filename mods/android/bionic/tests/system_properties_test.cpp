@@ -16,10 +16,11 @@
 
 #include <gtest/gtest.h>
 #include <sys/wait.h>
+#include <errno.h>
 #include <unistd.h>
 #include <string>
 
-#if __BIONIC__
+#if defined(__BIONIC__)
 
 #define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_
 #include <sys/_system_properties.h>
@@ -31,10 +32,13 @@ struct LocalPropertyTestState {
 /* ARC MOD BEGIN */
 // TODO(crbug.com/354523): Reenable when we support mapping in a file.
 #if !defined(HAVE_ARC)
-        char dir_template[] = "/data/local/tmp/prop-XXXXXX";
-        char *dirname = mkdtemp(dir_template);
+        const char* ANDROID_DATA = getenv("ANDROID_DATA");
+        char dir_template[PATH_MAX];
+        snprintf(dir_template, sizeof(dir_template), "%s/local/tmp/prop-XXXXXX", ANDROID_DATA);
+        char* dirname = mkdtemp(dir_template);
         if (!dirname) {
-            perror("making temp file for test state failed (is /data/local/tmp writable?)");
+            fprintf(stderr, "making temp file for test state failed (is %s writable?): %s",
+                    dir_template, strerror(errno));
             return;
         }
 #else
@@ -54,8 +58,9 @@ struct LocalPropertyTestState {
     }
 
     ~LocalPropertyTestState() {
-        if (!valid)
+        if (!valid) {
             return;
+        }
 
         __system_property_area__ = old_pa;
 
@@ -71,7 +76,54 @@ private:
     void *old_pa;
 };
 
+static void foreach_test_callback(const prop_info *pi, void* cookie) {
+    size_t *count = static_cast<size_t *>(cookie);
+
+    ASSERT_NE((prop_info *)NULL, pi);
+    (*count)++;
+}
+
+static void hierarchical_test_callback(const prop_info *pi, void *cookie) {
+    bool (*ok)[8][8] = static_cast<bool (*)[8][8]>(cookie);
+
+    char name[PROP_NAME_MAX];
+    char value[PROP_VALUE_MAX];
+
+    __system_property_read(pi, name, value);
+
+    int name_i, name_j, name_k;
+    int value_i, value_j, value_k;
+    ASSERT_EQ(3, sscanf(name, "property_%d.%d.%d", &name_i, &name_j, &name_k));
+    ASSERT_EQ(3, sscanf(value, "value_%d.%d.%d", &value_i, &value_j, &value_k));
+    ASSERT_EQ(name_i, value_i);
+    ASSERT_GE(name_i, 0);
+    ASSERT_LT(name_i, 8);
+    ASSERT_EQ(name_j, value_j);
+    ASSERT_GE(name_j, 0);
+    ASSERT_LT(name_j, 8);
+    ASSERT_EQ(name_k, value_k);
+    ASSERT_GE(name_k, 0);
+    ASSERT_LT(name_k, 8);
+
+    ok[name_i][name_j][name_k] = true;
+}
+
+static void *PropertyWaitHelperFn(void *arg) {
+    int *flag = (int *)arg;
+    prop_info *pi;
+    pi = (prop_info *)__system_property_find("property");
+    usleep(100000);
+
+    *flag = 1;
+    __system_property_update(pi, "value3", 6);
+
+    return NULL;
+}
+
+#endif // __BIONIC__
+
 TEST(properties, add) {
+#if defined(__BIONIC__)
     LocalPropertyTestState pa;
     ASSERT_TRUE(pa.valid);
 
@@ -89,9 +141,13 @@ TEST(properties, add) {
 
     ASSERT_EQ(6, __system_property_get("property_other", propvalue));
     ASSERT_STREQ(propvalue, "value3");
+#else // __BIONIC__
+    GTEST_LOG_(INFO) << "This test does nothing.\n";
+#endif // __BIONIC__
 }
 
 TEST(properties, update) {
+#if defined(__BIONIC__)
     LocalPropertyTestState pa;
     ASSERT_TRUE(pa.valid);
 
@@ -122,9 +178,13 @@ TEST(properties, update) {
 
     ASSERT_EQ(6, __system_property_get("property_other", propvalue));
     ASSERT_STREQ(propvalue, "value6");
+#else // __BIONIC__
+    GTEST_LOG_(INFO) << "This test does nothing.\n";
+#endif // __BIONIC__
 }
 
 TEST(properties, fill) {
+#if defined(__BIONIC__)
     LocalPropertyTestState pa;
     ASSERT_TRUE(pa.valid);
     char prop_name[PROP_NAME_MAX];
@@ -163,16 +223,13 @@ TEST(properties, fill) {
         ASSERT_EQ(PROP_VALUE_MAX - 1, __system_property_get(prop_name, prop_value_ret));
         ASSERT_EQ(0, memcmp(prop_value, prop_value_ret, PROP_VALUE_MAX));
     }
-}
-
-static void foreach_test_callback(const prop_info *pi, void* cookie) {
-    size_t *count = static_cast<size_t *>(cookie);
-
-    ASSERT_NE((prop_info *)NULL, pi);
-    (*count)++;
+#else // __BIONIC__
+    GTEST_LOG_(INFO) << "This test does nothing.\n";
+#endif // __BIONIC__
 }
 
 TEST(properties, foreach) {
+#if defined(__BIONIC__)
     LocalPropertyTestState pa;
     ASSERT_TRUE(pa.valid);
     size_t count = 0;
@@ -183,9 +240,13 @@ TEST(properties, foreach) {
 
     ASSERT_EQ(0, __system_property_foreach(foreach_test_callback, &count));
     ASSERT_EQ(3U, count);
+#else // __BIONIC__
+    GTEST_LOG_(INFO) << "This test does nothing.\n";
+#endif // __BIONIC__
 }
 
 TEST(properties, find_nth) {
+#if defined(__BIONIC__)
     LocalPropertyTestState pa;
     ASSERT_TRUE(pa.valid);
 
@@ -203,34 +264,13 @@ TEST(properties, find_nth) {
     ASSERT_EQ((const prop_info *)NULL, __system_property_find_nth(100));
     ASSERT_EQ((const prop_info *)NULL, __system_property_find_nth(200));
     ASSERT_EQ((const prop_info *)NULL, __system_property_find_nth(247));
-}
-
-static void hierarchical_test_callback(const prop_info *pi, void *cookie) {
-    bool (*ok)[8][8] = static_cast<bool (*)[8][8]>(cookie);
-
-    char name[PROP_NAME_MAX];
-    char value[PROP_VALUE_MAX];
-
-    __system_property_read(pi, name, value);
-
-    int name_i, name_j, name_k;
-    int value_i, value_j, value_k;
-    ASSERT_EQ(3, sscanf(name, "property_%d.%d.%d", &name_i, &name_j, &name_k));
-    ASSERT_EQ(3, sscanf(value, "value_%d.%d.%d", &value_i, &value_j, &value_k));
-    ASSERT_EQ(name_i, value_i);
-    ASSERT_GE(name_i, 0);
-    ASSERT_LT(name_i, 8);
-    ASSERT_EQ(name_j, value_j);
-    ASSERT_GE(name_j, 0);
-    ASSERT_LT(name_j, 8);
-    ASSERT_EQ(name_k, value_k);
-    ASSERT_GE(name_k, 0);
-    ASSERT_LT(name_k, 8);
-
-    ok[name_i][name_j][name_k] = true;
+#else // __BIONIC__
+    GTEST_LOG_(INFO) << "This test does nothing.\n";
+#endif // __BIONIC__
 }
 
 TEST(properties, fill_hierarchical) {
+#if defined(__BIONIC__)
     LocalPropertyTestState pa;
     ASSERT_TRUE(pa.valid);
     char prop_name[PROP_NAME_MAX];
@@ -281,9 +321,13 @@ TEST(properties, fill_hierarchical) {
             }
         }
     }
+#else // __BIONIC__
+    GTEST_LOG_(INFO) << "This test does nothing.\n";
+#endif // __BIONIC__
 }
 
 TEST(properties, errors) {
+#if defined(__BIONIC__)
     LocalPropertyTestState pa;
     ASSERT_TRUE(pa.valid);
     char prop_value[PROP_NAME_MAX];
@@ -298,9 +342,13 @@ TEST(properties, errors) {
     ASSERT_EQ(-1, __system_property_add("name", PROP_NAME_MAX, "value", 5));
     ASSERT_EQ(-1, __system_property_add("name", 4, "value", PROP_VALUE_MAX));
     ASSERT_EQ(-1, __system_property_update(NULL, "value", PROP_VALUE_MAX));
+#else // __BIONIC__
+    GTEST_LOG_(INFO) << "This test does nothing.\n";
+#endif // __BIONIC__
 }
 
 TEST(properties, serial) {
+#if defined(__BIONIC__)
     LocalPropertyTestState pa;
     ASSERT_TRUE(pa.valid);
     const prop_info *pi;
@@ -311,22 +359,13 @@ TEST(properties, serial) {
     serial = __system_property_serial(pi);
     ASSERT_EQ(0, __system_property_update((prop_info *)pi, "value2", 6));
     ASSERT_NE(serial, __system_property_serial(pi));
-}
-
-static void *PropertyWaitHelperFn(void *arg)
-{
-    int *flag = (int *)arg;
-    prop_info *pi;
-    pi = (prop_info *)__system_property_find("property");
-    usleep(100000);
-
-    *flag = 1;
-    __system_property_update(pi, "value3", 6);
-
-    return NULL;
+#else // __BIONIC__
+    GTEST_LOG_(INFO) << "This test does nothing.\n";
+#endif // __BIONIC__
 }
 
 TEST(properties, wait) {
+#if defined(__BIONIC__)
     LocalPropertyTestState pa;
     ASSERT_TRUE(pa.valid);
     unsigned int serial;
@@ -348,6 +387,9 @@ TEST(properties, wait) {
 
     void* result;
     ASSERT_EQ(0, pthread_join(t, &result));
+#else // __BIONIC__
+    GTEST_LOG_(INFO) << "This test does nothing.\n";
+#endif // __BIONIC__
 }
 
 class KilledByFault {
@@ -363,16 +405,18 @@ bool KilledByFault::operator()(int exit_status) const {
          WTERMSIG(exit_status) == SIGABRT);
 }
 
-/* ARC MOD BEGIN */
-// TODO(crbug.com/354523): Reenable when we support a read-only mapping.
-#if !defined(HAVE_ARC)
 TEST(properties_DeathTest, read_only) {
-/* ARC MOD END */
-      ::testing::FLAGS_gtest_death_test_style = "threadsafe";
-      ASSERT_EXIT(__system_property_add("property", 8, "value", 5),
-                  KilledByFault(), "");
+#if defined(__BIONIC__)
+  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+  // This test only makes sense if we're talking to the real system property service.
+  struct stat sb;
+  if (stat(PROP_FILENAME, &sb) == -1 && errno == ENOENT) {
+    return;
+  }
+
+  ASSERT_EXIT(__system_property_add("property", 8, "value", 5), KilledByFault(), "");
+#else // __BIONIC__
+  GTEST_LOG_(INFO) << "This test does nothing.\n";
+#endif // __BIONIC__
 }
-/* ARC MOD BEGIN */
-#endif // !defined(HAVE_ARC)
-/* ARC MOD END */
-#endif

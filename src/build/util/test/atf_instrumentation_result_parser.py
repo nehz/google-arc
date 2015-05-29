@@ -38,6 +38,11 @@ class AtfInstrumentationResultParser(object):
   _ERROR = -1
   _FAILURE = -2
 
+  # These two new result value are defined in
+  # android.support.test.internal.runner.listener.InstrumentationResultPrinter
+  _IGNORED = -3
+  _ASSUMPTION_FAILURE = -4
+
   # Following status code is defined in com.android.pts.util.DeviceReportLog.
   # We simply ignore that message.
   _IN_PROGRESS = 2
@@ -48,6 +53,8 @@ class AtfInstrumentationResultParser(object):
       _OK: TestMethodResult.PASS,
       _ERROR: TestMethodResult.FAIL,
       _FAILURE: TestMethodResult.FAIL,
+      _IGNORED: TestMethodResult.FAIL,
+      _ASSUMPTION_FAILURE: TestMethodResult.FAIL,
   }
 
   # RESULT_CODE which instrumentation returns. See Activity.java.

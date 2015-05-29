@@ -40,7 +40,7 @@ AwDrawGLFunction* g_aw_drawgl_function = NULL;
 
 class DrawGLFunctor : public Functor {
  public:
-  DrawGLFunctor(jint view_context) : view_context_(view_context) {}
+  DrawGLFunctor(jlong view_context) : view_context_(view_context) {}
   virtual ~DrawGLFunctor() {}
 
   // Functor
@@ -52,53 +52,49 @@ class DrawGLFunctor : public Functor {
     }
 
     AwDrawGLInfo aw_info;
-    aw_info.mode = (what == DrawGlInfo::kModeProcess) ?
-        AwDrawGLInfo::kModeProcess : AwDrawGLInfo::kModeDraw;
-    DrawGlInfo* gl_info = reinterpret_cast<DrawGlInfo*>(data);
+    aw_info.version = kAwDrawGLInfoVersion;
+    switch (what) {
+      case DrawGlInfo::kModeDraw: {
+        aw_info.mode = AwDrawGLInfo::kModeDraw;
+        DrawGlInfo* gl_info = reinterpret_cast<DrawGlInfo*>(data);
 
-    // Map across the input values.
-    aw_info.clip_left = gl_info->clipLeft;
-    aw_info.clip_top = gl_info->clipTop;
-    aw_info.clip_right = gl_info->clipRight;
-    aw_info.clip_bottom = gl_info->clipBottom;
-    aw_info.width = gl_info->width;
-    aw_info.height = gl_info->height;
-    aw_info.is_layer = gl_info->isLayer;
-    COMPILE_ASSERT(NELEM(aw_info.transform) == NELEM(gl_info->transform),
-                   mismatched_transform_matrix_sizes);
-    for (int i = 0; i < NELEM(aw_info.transform); ++i) {
-      aw_info.transform[i] = gl_info->transform[i];
+        // Map across the input values.
+        aw_info.clip_left = gl_info->clipLeft;
+        aw_info.clip_top = gl_info->clipTop;
+        aw_info.clip_right = gl_info->clipRight;
+        aw_info.clip_bottom = gl_info->clipBottom;
+        aw_info.width = gl_info->width;
+        aw_info.height = gl_info->height;
+        aw_info.is_layer = gl_info->isLayer;
+        COMPILE_ASSERT(NELEM(aw_info.transform) == NELEM(gl_info->transform),
+                       mismatched_transform_matrix_sizes);
+        for (int i = 0; i < NELEM(aw_info.transform); ++i) {
+          aw_info.transform[i] = gl_info->transform[i];
+        }
+        break;
+      }
+      case DrawGlInfo::kModeProcess:
+        aw_info.mode = AwDrawGLInfo::kModeProcess;
+        break;
+      case DrawGlInfo::kModeProcessNoContext:
+        aw_info.mode = AwDrawGLInfo::kModeProcessNoContext;
+        break;
+      case DrawGlInfo::kModeSync:
+        aw_info.mode = AwDrawGLInfo::kModeSync;
+        break;
+      default:
+        ALOGE("Unexpected DrawGLInfo type %d", what);
+        return DrawGlInfo::kStatusDone;
     }
-
-    // Also pre-initialize the output fields in case the implementation does
-    // not modify them.
-    aw_info.status_mask = AwDrawGLInfo::kStatusMaskDone;
-    aw_info.dirty_left = gl_info->dirtyLeft;
-    aw_info.dirty_top = gl_info->dirtyTop;
-    aw_info.dirty_right = gl_info->dirtyRight;
-    aw_info.dirty_bottom = gl_info->dirtyBottom;
 
     // Invoke the DrawGL method.
     g_aw_drawgl_function(view_context_, &aw_info, NULL);
 
-    // Copy out the outputs.
-    gl_info->dirtyLeft = aw_info.dirty_left;
-    gl_info->dirtyTop = aw_info.dirty_top;
-    gl_info->dirtyRight = aw_info.dirty_right;
-    gl_info->dirtyBottom = aw_info.dirty_bottom;
-
-    // Calculate the return code.
-    status_t res = DrawGlInfo::kStatusDone;
-    if (aw_info.status_mask & AwDrawGLInfo::kStatusMaskDraw)
-      res |= DrawGlInfo::kStatusDraw;
-    if (aw_info.status_mask & AwDrawGLInfo::kStatusMaskInvoke)
-      res |= DrawGlInfo::kStatusInvoke;
-
-    return res;
+    return DrawGlInfo::kStatusDone;
   }
 
  private:
-  int view_context_;
+  intptr_t view_context_;
 };
 
 // Raise the file handle soft limit to the hard limit since gralloc buffers
@@ -132,26 +128,26 @@ void RaiseFileNumberLimit() {
 /* ARC MOD END */
 }
 
-jint CreateGLFunctor(JNIEnv*, jclass, jint view_context) {
+jlong CreateGLFunctor(JNIEnv*, jclass, jlong view_context) {
   RaiseFileNumberLimit();
-  return reinterpret_cast<jint>(new DrawGLFunctor(view_context));
+  return reinterpret_cast<jlong>(new DrawGLFunctor(view_context));
 }
 
-void DestroyGLFunctor(JNIEnv*, jclass, jint functor) {
+void DestroyGLFunctor(JNIEnv*, jclass, jlong functor) {
   delete reinterpret_cast<DrawGLFunctor*>(functor);
 }
 
-void SetChromiumAwDrawGLFunction(JNIEnv*, jclass, jint draw_function) {
+void SetChromiumAwDrawGLFunction(JNIEnv*, jclass, jlong draw_function) {
   g_aw_drawgl_function = reinterpret_cast<AwDrawGLFunction*>(draw_function);
 }
 
 const char kClassName[] = "com/android/webview/chromium/DrawGLFunctor";
 const JNINativeMethod kJniMethods[] = {
-    { "nativeCreateGLFunctor", "(I)I",
+    { "nativeCreateGLFunctor", "(J)J",
         reinterpret_cast<void*>(CreateGLFunctor) },
-    { "nativeDestroyGLFunctor", "(I)V",
+    { "nativeDestroyGLFunctor", "(J)V",
         reinterpret_cast<void*>(DestroyGLFunctor) },
-    { "nativeSetChromiumAwDrawGLFunction", "(I)V",
+    { "nativeSetChromiumAwDrawGLFunction", "(J)V",
         reinterpret_cast<void*>(SetChromiumAwDrawGLFunction) },
 };
 

@@ -22,10 +22,11 @@ def _add_compile_flags(n):
 def _generate_unit_test_ninja():
   n = ninja_generator.TestNinjaGenerator('graphics_translation_unit_test',
                                          enable_clang=True,
+                                         enable_cxx11=True,
                                          base_path='graphics_translation')
   _add_compile_flags(n)
   n.add_ppapi_link_flags()
-  n.add_library_deps('libcutils.a', 'libetc1.a', 'libgccdemangle.a',
+  n.add_library_deps('libcutils.a', 'libetc1.a', 'libgccdemangle_static.a',
                      'libutils_static.a', 'libppapi_mocks.a', 'libegl.a',
                      'libgles.a')
   sources = n.find_all_files('graphics_translation/gles', ['_test.cpp'],

@@ -68,9 +68,6 @@ bool ReadonlyFileHandler::ParseReadonlyFsImage() {
           addr, static_cast<uint64_t>(buf.st_size));
     return false;
   }
-
-  // TODO(yusukes): Re-enable the L's CTS test currently disabled for
-  // crbug.com/463441 once the mtime fix is merged into ARC's L branch.
   directory_mtime_ = buf.st_mtime;
 
   return true;
@@ -371,8 +368,8 @@ ssize_t ReadonlyFile::PreadImpl(void* buf, size_t count, off64_t offset,
 
   // Update the read-ahead cache.
   ARC_STRACE_REPORT("Update the read ahead cache: "
-                      "%zu bytes from the image at offset 0x%08llx",
-                      pread_result, pread_offset_in_image);
+                    "%zd bytes from the image at offset 0x%08llx",
+                    pread_result, pread_offset_in_image);
   read_ahead_buf_.resize(pread_result);
   read_ahead_buf_offset_ = offset;
 

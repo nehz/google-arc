@@ -12,15 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Valgrind requires a few symbols which exist only in glibc. This
-// complements these missing symbols.
+// Valgrind requires __libc_freeres which exist only in glibc. This
+// file complements it.
 
-#include <asm/page.h>
+#include <limits.h>
 
 // On glibc, this is used to free libc's internal memory.
 void __libc_freeres(void) {
-}
-
-int getpagesize(void) {
-  return PAGE_SIZE;
 }

@@ -32,6 +32,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/cdefs.h>
 
 static void nacl_syscall_write(int fd, const void *buf, int count) {
 #if defined(BARE_METAL_BIONIC)
@@ -46,8 +47,7 @@ static void nacl_syscall_write(int fd, const void *buf, int count) {
 #endif
 }
 
-__attribute__ ((visibility("hidden")))
-void print_str(const char* s) {
+__LIBC_HIDDEN__ void print_str(const char* s) {
   int cnt = 0;
   const char* p;
   for (p = s; *p; p++)
@@ -56,8 +56,7 @@ void print_str(const char* s) {
   nacl_syscall_write(kStderrFd, s, cnt);
 }
 
-__attribute__ ((visibility("hidden")))
-void print_str_array(char* const* a) {
+__LIBC_HIDDEN__ void print_str_array(char* const* a) {
   int i;
   for (i = 0; a[i]; i++) {
     if (i) print_str(" ");
@@ -93,8 +92,7 @@ static char* stringify_int(long v, char* p) {
   return p;
 }
 
-__attribute__ ((visibility("hidden")))
-void print_int(long v) {
+__LIBC_HIDDEN__ void print_int(long v) {
   char buf[32];
   print_str(stringify_int(v, buf + sizeof(buf) - 1));
 }
@@ -126,14 +124,12 @@ static char* stringify_hex(long v, char* p) {
   return p;
 }
 
-__attribute__ ((visibility("hidden")))
-void print_hex(long v) {
+__LIBC_HIDDEN__ void print_hex(long v) {
   char buf[32];
   print_str(stringify_hex(v, buf + sizeof(buf) - 1));
 }
 
-__attribute__ ((visibility("hidden")))
-void print_format(const char* fmt, ...) {
+__LIBC_HIDDEN__ void print_format(const char* fmt, ...) {
   static const char kOverflowMsg[] = " *** OVERFLOW! ***\n";
   char buf[300] = {0};
   const size_t kMaxFormattedStringSize = sizeof(buf) - sizeof(kOverflowMsg);
@@ -143,10 +139,11 @@ void print_format(const char* fmt, ...) {
   int is_overflow = 0;
 
   va_start(ap, fmt);
-  for (inp = fmt; *inp && (outp - buf) < kMaxFormattedStringSize; inp++) {
+  for (inp = fmt; *inp && (size_t)(outp - buf) < kMaxFormattedStringSize;
+       inp++) {
     if (*inp != '%') {
       *outp++ = *inp;
-      if (outp - buf >= kMaxFormattedStringSize) {
+      if ((size_t)(outp - buf) >= kMaxFormattedStringSize) {
         is_overflow = 1;
         break;
       }
@@ -174,7 +171,7 @@ void print_format(const char* fmt, ...) {
     }
 
     size_t len = strlen(cur_p);
-    if (outp + len - buf >= kMaxFormattedStringSize) {
+    if ((size_t)(outp + len - buf) >= kMaxFormattedStringSize) {
       is_overflow = 1;
       break;
     }

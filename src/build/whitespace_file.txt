@@ -112,3 +112,14 @@ testing bots after m3 -> m7a masters move.
 kick apk builder bot.
 
 Will it blend?
+
+L_rebase no longer has any nacl-i686 bots. Test the nacl-x86_64 replacements....
+
+This is a magic to fix failing integration tests.
+
+Introducing the YOLO distribution to replace the bell curve
+
+Nekonekonya-n
+
+K's dead, baby. K's dead.
+L's the hot new thing.

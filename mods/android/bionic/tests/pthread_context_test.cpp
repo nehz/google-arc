@@ -104,10 +104,10 @@ TEST(pthread_thread_context, get_cur_thread_context) {
   __pthread_get_current_thread_info(&info);
 #if defined(__x86_64__)
   ASSERT_TRUE(info.has_context_regs);
-  ASSERT_NE(0u, info.context_regs[REG_RIP]);
+  ASSERT_NE(0, info.context_regs[REG_RIP]);
 #elif defined(__arm__)
   ASSERT_TRUE(info.has_context_regs);
-  ASSERT_NE(0u, info.context_regs[15]);
+  ASSERT_NE(0, info.context_regs[15]);
 #else
   ASSERT_FALSE(info.has_context_regs);
 #endif

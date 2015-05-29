@@ -144,6 +144,8 @@ ARC_EXPORT int __wrap_mprotect(const void* addr, size_t length, int prot);
 ARC_EXPORT int __wrap_munmap(void* addr, size_t length);
 ARC_EXPORT int __wrap_poll(struct pollfd* fds, nfds_t nfds, int timeout);
 ARC_EXPORT ssize_t __wrap_read(int fd, void* buf, size_t count);
+ARC_EXPORT ssize_t __wrap___read_chk(
+    int fd, void* buf, size_t count, size_t buflen);
 ARC_EXPORT ssize_t __wrap_readv(int fd, const struct iovec* iov, int iovcnt);
 ARC_EXPORT ssize_t __wrap_write(int fd, const void* buf, size_t count);
 ARC_EXPORT ssize_t __wrap_writev(int fd, const struct iovec* iov, int iovcnt);
@@ -396,7 +398,7 @@ int __wrap_open(const char* pathname, int flags, ...) {
     // passed to this vaarg function and fetching it as a short value
     // is not valid. This definition can be bad if mode_t is a 64bit
     // value, but such environment might not exist.
-    COMPILE_ASSERT(sizeof(mode) <= sizeof(int), mode_t_is_too_big);
+    COMPILE_ASSERT(sizeof(mode) <= sizeof(int), mode_t_is_too_big);  // NOLINT
     mode = va_arg(argp, int);
   }
   va_end(argp);
@@ -971,6 +973,11 @@ ssize_t __wrap_read(int fd, void* buf, size_t count) {
   if (result >= 0)
     ARC_STRACE_REPORT("buf=%s", arc::GetRWBufStr(buf, result).c_str());
   ARC_STRACE_RETURN(result);
+}
+
+ssize_t __wrap___read_chk(int fd, void* buf, size_t count, size_t buflen) {
+  // TODO(crbug.com/478000): Wrap __read_chk accurately?
+  return __wrap_read(fd, buf, count);
 }
 
 ssize_t __wrap_readv(int fd, const struct iovec* iov, int iovcnt) {

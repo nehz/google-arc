@@ -56,11 +56,11 @@ class ReadonlyFsReaderTest : public FileSystemTestCommon {
   const ReadonlyFsReader::Metadata* FindNonVendorLibraries(
       const ReadonlyFsReader::FileToMemory& files) {
     const std::string kSo(".so");
-    const std::string kVendorLib("/vendor/lib");
+    const std::string kVendorLibPrefix("/vendor/lib");
     for (ReadonlyFsReader::FileToMemory::const_iterator it = files.begin();
          it != files.end(); ++it) {
       if (EndsWith(it->first, kSo, true) &&
-          !StartsWithASCII(it->first, kVendorLib, true))
+          !StartsWithASCII(it->first, kVendorLibPrefix, true))
         return &it->second;
     }
     return NULL;
@@ -414,8 +414,15 @@ TEST_F(ReadonlyFsReaderTest, TestParseImageProd) {
   EXPECT_TRUE(FindFile(reader_prod_->file_objects_, "/system/bin/sh"));
   EXPECT_TRUE(FindFile(reader_prod_->file_objects_,
                        "/system/usr/share/zoneinfo/tzdata"));
+  // TODO(crbug.com/484758): Check lib-x86 once crbug.com/484758 is fixed.
   EXPECT_TRUE(FindFile(reader_prod_->file_objects_,
-                       "/vendor/lib/libstdc++.so"));
+                       "/vendor/lib-armeabi-v7a/libRS.so"));
+  // /vendor/lib/libstdc++.so (pre-built ARM) has been removed in favor of
+  // a native version in /system/lib.
+  EXPECT_FALSE(FindFile(reader_prod_->file_objects_,
+                        "/vendor/lib-armeabi-v7a/libstdc++.so"));
+  EXPECT_FALSE(FindFile(reader_prod_->file_objects_,
+                        "/vendor/lib-x86/libstdc++.so"));
   // These files should NOT exist in the image.
   EXPECT_FALSE(FindFile(reader_prod_->file_objects_, "root/proc/version"));
   EXPECT_FALSE(FindFile(reader_prod_->file_objects_, "intermediates/"));

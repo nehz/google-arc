@@ -21,11 +21,17 @@
 #include <unistd.h>
 
 // ARC MOD BEGIN
-// Removed #include ldsodefs.h
+// Removed #include ldsodefs.h and add pthread.h for the mutex.
+#include <pthread.h>
 // ARC MOD END
 #include <nacl_dyncode.h>
 
+// ARC MOD BEGIN
+// This mutex protects |nacl_next_code| and |nacl_next_data| when calling
+// nacl_dyncode_alloc from different threads.
+static pthread_mutex_t g_nacl_dyncode_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+// ARC MOD END
 static char *nacl_next_code;
 static char *nacl_next_data;
 
@@ -41,7 +47,6 @@ static size_t round_up_to_pagesize(size_t val) {
   return (val + NACL_PAGE_SIZE - 1) & ~(NACL_PAGE_SIZE - 1);
 }
 // ARC MOD END
-
 static void nacl_dyncode_alloc_init (void)
 {
   extern char __etext[]; /* Defined by the linker script */
@@ -74,6 +79,9 @@ static void nacl_dyncode_alloc_init (void)
 void *nacl_dyncode_alloc (size_t code_size, size_t data_size,
                           size_t data_offset)
 {
+  // ARC MOD BEGIN
+  pthread_mutex_lock (&g_nacl_dyncode_mutex);
+  // ARC MOD END
   assert (data_offset == round_up_to_pagesize (data_offset));
 
   nacl_dyncode_alloc_init ();
@@ -105,6 +113,9 @@ void *nacl_dyncode_alloc (size_t code_size, size_t data_size,
                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
       if (mapped == MAP_FAILED)
         {
+          // ARC MOD BEGIN
+          pthread_mutex_unlock (&g_nacl_dyncode_mutex);
+          // ARC MOD END
           return NULL;
         }
       if (mapped != nacl_next_data)
@@ -113,6 +124,9 @@ void *nacl_dyncode_alloc (size_t code_size, size_t data_size,
           // Changed |nacl_next_data| to |mapped|.
           __munmap (mapped, data_size);
           // ARC MOD END UPSTREAM
+          // ARC MOD BEGIN
+          pthread_mutex_unlock (&g_nacl_dyncode_mutex);
+          // ARC MOD END
           return NULL;
         }
     }
@@ -120,12 +134,18 @@ void *nacl_dyncode_alloc (size_t code_size, size_t data_size,
   void *code_addr = nacl_next_code;
   nacl_next_data += data_size;
   nacl_next_code += code_size;
+  // ARC MOD BEGIN
+  pthread_mutex_unlock (&g_nacl_dyncode_mutex);
+  // ARC MOD END
   return code_addr;
 }
 
 void *nacl_dyncode_alloc_fixed (void *dest, size_t code_size, size_t data_size,
                                 size_t data_offset)
 {
+  // ARC MOD BEGIN
+  pthread_mutex_lock (&g_nacl_dyncode_mutex);
+  // ARC MOD END
   /* TODO(eaeltsin): probably these alignment requirements are overly strict.
      If really so, support unaligned case.  */
   // ARC MOD BEGIN
@@ -141,6 +161,9 @@ void *nacl_dyncode_alloc_fixed (void *dest, size_t code_size, size_t data_size,
   if (nacl_next_code > (char *)dest)
   // ARC MOD END
     {
+      // ARC MOD BEGIN
+      pthread_mutex_unlock (&g_nacl_dyncode_mutex);
+      // ARC MOD END
       return NULL;
     }
   nacl_next_code = dest;
@@ -159,6 +182,9 @@ void *nacl_dyncode_alloc_fixed (void *dest, size_t code_size, size_t data_size,
       else if (data_offset < last_offset)
         {
           /* Cannot move code. */
+          // ARC MOD BEGIN
+          pthread_mutex_unlock (&g_nacl_dyncode_mutex);
+          // ARC MOD END
           return NULL;
         }
       assert (nacl_next_code + data_offset == nacl_next_data);
@@ -170,6 +196,9 @@ void *nacl_dyncode_alloc_fixed (void *dest, size_t code_size, size_t data_size,
                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
       if (mapped == MAP_FAILED)
         {
+          // ARC MOD BEGIN
+          pthread_mutex_unlock (&g_nacl_dyncode_mutex);
+          // ARC MOD END
           return NULL;
         }
       if (mapped != nacl_next_data)
@@ -178,11 +207,17 @@ void *nacl_dyncode_alloc_fixed (void *dest, size_t code_size, size_t data_size,
           // Changed |nacl_next_data| to |mapped|.
           __munmap (mapped, data_size);
           // ARC MOD END UPSTREAM
+          // ARC MOD BEGIN
+          pthread_mutex_unlock (&g_nacl_dyncode_mutex);
+          // ARC MOD END
           return NULL;
         }
     }
 
   nacl_next_data += data_size;
   nacl_next_code += code_size;
+  // ARC MOD BEGIN
+  pthread_mutex_unlock (&g_nacl_dyncode_mutex);
+  // ARC MOD END
   return dest;
 }

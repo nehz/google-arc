@@ -6,7 +6,9 @@
 
 
 def get_wrapped_functions():
-  wrapped_functions = ['__umask_chk',
+  wrapped_functions = ['__read_chk',
+                       '__recvfrom_chk',
+                       '__umask_chk',
                        'abort',
                        'accept',
                        'access',

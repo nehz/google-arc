@@ -148,8 +148,8 @@ static int gralloc_alloc(alloc_device_t* dev, int w, int h, int format,
   int bpp = 0;
   int align = 1;
   int stride = w;
-  GLenum glType = 0;
-  GLenum glFormat = 0;
+  GLenum gl_type = 0;
+  GLenum gl_format = 0;
   bool yuv_format = false;
 
   switch (format) {
@@ -157,18 +157,18 @@ static int gralloc_alloc(alloc_device_t* dev, int w, int h, int format,
     case HAL_PIXEL_FORMAT_RGBX_8888:
     case HAL_PIXEL_FORMAT_BGRA_8888:
       bpp = 4;
-      glFormat = GL_RGBA;
-      glType = GL_UNSIGNED_BYTE;
+      gl_format = GL_RGBA;
+      gl_type = GL_UNSIGNED_BYTE;
       break;
     case HAL_PIXEL_FORMAT_RGB_888:
       bpp = 3;
-      glFormat = GL_RGB;
-      glType = GL_UNSIGNED_BYTE;
+      gl_format = GL_RGB;
+      gl_type = GL_UNSIGNED_BYTE;
       break;
     case HAL_PIXEL_FORMAT_RGB_565:
       bpp = 2;
-      glFormat = GL_RGB;
-      glType = GL_UNSIGNED_SHORT_5_6_5;
+      gl_format = GL_RGB;
+      gl_type = GL_UNSIGNED_SHORT_5_6_5;
       break;
     case HAL_PIXEL_FORMAT_RAW_SENSOR:
       bpp = 2;
@@ -178,8 +178,8 @@ static int gralloc_alloc(alloc_device_t* dev, int w, int h, int format,
         return -EINVAL;
       }
       // Not expecting to actually create any GL surfaces for this
-      glFormat = GL_LUMINANCE;
-      glType = GL_UNSIGNED_SHORT;
+      gl_format = GL_LUMINANCE;
+      gl_type = GL_UNSIGNED_SHORT;
       break;
     case HAL_PIXEL_FORMAT_BLOB:
       bpp = 1;
@@ -188,8 +188,8 @@ static int gralloc_alloc(alloc_device_t* dev, int w, int h, int format,
         return -EINVAL;
       }
       // Not expecting to actually create any GL surfaces for this
-      glFormat = GL_LUMINANCE;
-      glType = GL_UNSIGNED_BYTE;
+      gl_format = GL_LUMINANCE;
+      gl_type = GL_UNSIGNED_BYTE;
       break;
     case HAL_PIXEL_FORMAT_YCrCb_420_SP:
       align = 1;
@@ -201,7 +201,10 @@ static int gralloc_alloc(alloc_device_t* dev, int w, int h, int format,
       align = 16;
       bpp = 1;  // per-channel bpp
       yuv_format = true;
-      // Not expecting to actually create any GL surfaces for this
+      // For this format, we use a software buffer. We convert YV12 to RGBA and
+      // update the GL texture when the software buffer is unlocked.
+      gl_format = GL_RGBA;
+      gl_type = GL_UNSIGNED_BYTE;
       break;
     default:
       ALOGE("%s: Unknown format %d", __FUNCTION__, format);
@@ -211,11 +214,9 @@ static int gralloc_alloc(alloc_device_t* dev, int w, int h, int format,
   int size = 0;
   if (sw_read || sw_write || hw_cam_write || hw_vid_enc_read) {
     if (yuv_format) {
-      size_t yStride = (w * bpp + (align - 1)) & ~(align - 1);
-      size_t uvStride = (yStride / 2 + (align - 1)) & ~(align - 1);
-      size_t uvHeight = h / 2;
-      size += yStride * h + 2 * (uvHeight * uvStride);
-      stride = yStride / bpp;
+      YUVParams params(NULL, w, h, align);
+      size = params.size;
+      stride = params.y_stride / bpp;
     } else {
       size_t bpr = (w * bpp + (align - 1)) & ~(align - 1);
       size += (bpr * h);
@@ -224,7 +225,7 @@ static int gralloc_alloc(alloc_device_t* dev, int w, int h, int format,
   }
 
   GraphicsBuffer* gb =
-      new GraphicsBuffer(size, usage, w, h, format, glFormat, glType);
+      new GraphicsBuffer(size, usage, w, h, format, gl_format, gl_type);
   if (!gb->IsValid()) {
     delete gb;
     return -EIO;

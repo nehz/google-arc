@@ -26,13 +26,15 @@ class ARC_EXPORT RedirectHandler : public FileSystemHandler {
   // except readlink() and symlink(). The handler must be used only by a
   // redirect handler because the redirect handler delegates all calls
   // including IsInitialized, Initialize, and so on. RedirectHandler takes
-  // ownership if the |underlying| handler. |symlinks| are an array of a
-  // pair of dest/src path names that are added to the handler during its
-  // initialization. Unlike symlink() which may return EEXIST, the existence
-  // of src paths passed to the constructor are never checked.
+  // ownership of the |underlying| handler if |own_underlying| is true.
+  // |symlinks| are an array of a pair of dest/src path names that are added
+  // to the handler during its initialization. Unlike symlink() which may
+  // return EEXIST, the existence of src paths passed to the constructor are
+  // never checked.
   RedirectHandler(
       FileSystemHandler* underlying,
-      const std::vector<std::pair<std::string, std::string> >& symlinks);
+      const std::vector<std::pair<std::string, std::string> >& symlinks,
+      bool own_underlying);
   virtual ~RedirectHandler();
 
   // FileSystemHandler overrides. This class should override ALL virtual
@@ -88,7 +90,10 @@ class ARC_EXPORT RedirectHandler : public FileSystemHandler {
     std::string, std::vector<std::string> > dir_to_symlinks_;
 
   // The handler which handles all calls except readlink() and symlink().
+  // TODO(crbug.com/423063): Use a ref-counted smart pointer to remove the
+  // own_underlying_ hack.
   scoped_ptr<FileSystemHandler> underlying_;
+  const bool own_underlying_;
 
   std::string mount_point_;
 

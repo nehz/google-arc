@@ -35,7 +35,6 @@
 #include <sys/inotify.h>
 #include <sys/mman.h>
 #include <sys/mount.h>
-#include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/select.h>
 #include <sys/sendfile.h>
@@ -60,10 +59,14 @@
 DEFINE_ENOSYS_SYSCALL(void *, __brk, void *addr)
 DEFINE_ENOSYS_SYSCALL(int, __fcntl64, int fd, int cmd, ...)
 DEFINE_ENOSYS_SYSCALL(pid_t, __fork, void)
+DEFINE_ENOSYS_SYSCALL(int, __fstatfs64, int fd, size_t size,
+                      struct statfs* buf)
 DEFINE_ENOSYS_SYSCALL(int, __ioctl, int d, int request, ...)
 DEFINE_ENOSYS_SYSCALL(long, __ptrace, int request, pid_t pid,
                       void *addr, void *data)
 DEFINE_ENOSYS_SYSCALL(int, __sigsuspend, const sigset_t *mask)
+DEFINE_ENOSYS_SYSCALL(int, __statfs64, const char *path, size_t size,
+                      struct statfs* buf)
 DEFINE_ENOSYS_SYSCALL(int, accept, int sockfd, struct sockaddr *addr,
                       socklen_t *addrlen)
 DEFINE_ENOSYS_SYSCALL(int, access, const char *pathname, int mode)
@@ -91,6 +94,8 @@ DEFINE_ENOSYS_SYSCALL(int, epoll_wait, int epfd, struct epoll_event *events,
 DEFINE_ENOSYS_SYSCALL(int, eventfd, unsigned int initval, int flags)
 DEFINE_ENOSYS_SYSCALL(int, execve, const char *filename, char *const argv[],
                       char *const envp[])
+DEFINE_ENOSYS_SYSCALL(int, fallocate64, int fd, int mode, off64_t offset,
+                      off64_t length)
 DEFINE_ENOSYS_SYSCALL(int, fchdir, int fd)
 DEFINE_ENOSYS_SYSCALL(int, fchmod, int fd, mode_t mode)
 DEFINE_ENOSYS_SYSCALL(int, fchmodat,
@@ -99,6 +104,11 @@ DEFINE_ENOSYS_SYSCALL(int, fchown, int fd, uid_t owner, gid_t group)
 DEFINE_ENOSYS_SYSCALL(int, fchownat,
                       int dirfd, const char *pathname,
                       uid_t owner, gid_t group, int flags)
+#if defined(__amd64__)
+// 32-bit architectrures have a trampoline defined for __fcntl64 but
+// for 64-bit architectures, fcntl is directly implemented.
+//DEFINE_ENOSYS_SYSCALL(int, fcntl, int fd, int cmd, ...)
+#endif
 DEFINE_ENOSYS_SYSCALL(int, flock, int fd, int operation)
 DEFINE_ENOSYS_SYSCALL(pid_t, fork, void)
 DEFINE_ENOSYS_SYSCALL(int, fstatat,
@@ -153,23 +163,28 @@ DEFINE_ENOSYS_SYSCALL(int, munlockall)
 DEFINE_ENOSYS_SYSCALL(int, pause, void)
 DEFINE_ENOSYS_SYSCALL(int, personality, unsigned long persona)
 DEFINE_ENOSYS_SYSCALL(int, pipe, int pipefd[2])
-DEFINE_ENOSYS_SYSCALL(int, prctl, int option, ...)
+DEFINE_ENOSYS_SYSCALL(ssize_t, pread64, int fd, void *buf, size_t count,
+                      off64_t offset)
+DEFINE_ENOSYS_SYSCALL(int, prlimit64, pid_t pid, int resource,
+                      const struct rlimit64* new_limit,
+                      struct rlimit64* old_limit)
 DEFINE_ENOSYS_SYSCALL(int, pthread_kill, pthread_t thread, int sig)
 DEFINE_ENOSYS_SYSCALL(int, pthread_sigmask,
                       int how, const sigset_t *set, sigset_t *oldset)
-DEFINE_ENOSYS_SYSCALL(int, readlink,
+DEFINE_ENOSYS_SYSCALL(ssize_t, pwrite64, int fd, const void *buf, size_t count,
+                      off64_t offset)
+DEFINE_ENOSYS_SYSCALL(ssize_t, readlink,
                       const char *path, char *buf, size_t bufsize)
 DEFINE_ENOSYS_SYSCALL(int, readv, int fd, const struct iovec *iov, int iovcnt)
 DEFINE_ENOSYS_SYSCALL(ssize_t, recvfrom, int sockfd, void *buf, size_t len,
-                      uint32_t flags, const struct sockaddr *src_addr,
+                      int flags, const struct sockaddr *src_addr,
                       socklen_t *addrlen)
-DEFINE_ENOSYS_SYSCALL(ssize_t, recvmsg, int sockfd, struct msghdr *msg,
-                      unsigned int flags)
+DEFINE_ENOSYS_SYSCALL(int, recvmsg, int sockfd, struct msghdr *msg,
+                      int flags)
 DEFINE_ENOSYS_SYSCALL(int, rename, const char *oldpath, const char *newpath)
 DEFINE_ENOSYS_SYSCALL(int, renameat,
                       int olddirfd, const char *oldpath,
                       int newdirfd, const char *newpath)
-DEFINE_ENOSYS_SYSCALL(int, rmdir, const char *pathname)
 DEFINE_ENOSYS_SYSCALL(int, sched_getparam,
                       pid_t pid, struct sched_param *param)
 DEFINE_ENOSYS_SYSCALL(int, sched_get_priority_max, int policy)
@@ -185,8 +200,8 @@ DEFINE_ENOSYS_SYSCALL(int, select, int nfds, fd_set *readfds, fd_set *writefds,
                       fd_set *exceptfds, struct timeval *timeout)
 DEFINE_ENOSYS_SYSCALL(ssize_t, sendfile, int out_fd, int in_fd,
                       off_t *offset, size_t count)
-DEFINE_ENOSYS_SYSCALL(ssize_t, sendmsg, int sockfd, const struct msghdr *msg,
-                      unsigned int flags)
+DEFINE_ENOSYS_SYSCALL(int, sendmsg, int sockfd, const struct msghdr *msg,
+                      int flags)
 DEFINE_ENOSYS_SYSCALL(ssize_t, sendto, int sockfd, const void *buf, size_t len,
                       int flags, const struct sockaddr *dest_addr,
                       socklen_t addrlen)
@@ -204,6 +219,7 @@ DEFINE_ENOSYS_SYSCALL(int, setsockopt, int sockfd, int level, int optname,
                       const void *optval, socklen_t optlen)
 DEFINE_ENOSYS_SYSCALL(int, settimeofday, const struct timeval *tv,
                       const struct timezone *tz)
+DEFINE_ENOSYS_SYSCALL(int, setuid, uid_t uid)
 DEFINE_ENOSYS_SYSCALL(int, sigaltstack, const stack_t *ss, stack_t *oss)
 DEFINE_ENOSYS_SYSCALL(int, sigpending, sigset_t *set)
 DEFINE_ENOSYS_SYSCALL(int, shutdown, int sockfd, int how)

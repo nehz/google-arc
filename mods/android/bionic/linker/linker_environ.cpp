@@ -33,11 +33,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <private/KernelArgumentBlock.h>
+#include "private/KernelArgumentBlock.h"
 
 static char** _envp;
 // ARC MOD BEGIN
-#if defined(__native_client__) || defined(BARE_METAL_BIONIC)
+#if defined(HAVE_ARC)
 // NaCl and Bare Metal need to parse LD_LIBRARY_PATH.
 static bool _AT_SECURE_value = false;
 #else
@@ -177,7 +177,7 @@ void linker_env_init(KernelArgumentBlock& args) {
   _envp = args.envp;
   // ARC MOD BEGIN
   // Neither NaCl nor Bare Metal provides AT_SECURE.
-#if !defined(__native_client__) && !defined(BARE_METAL_BIONIC)
+#if !defined(HAVE_ARC)
   __init_AT_SECURE(args);
   __sanitize_environment_variables();
 #endif

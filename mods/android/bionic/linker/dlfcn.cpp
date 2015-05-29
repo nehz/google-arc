@@ -23,24 +23,27 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <android/dlext.h>
 
 #include <bionic/pthread_internal.h>
-#include <private/bionic_tls.h>
-#include <private/ScopedPthreadMutexLocker.h>
-#include <private/ThreadLocalBuffer.h>
+#include "private/bionic_tls.h"
+#include "private/ScopedPthreadMutexLocker.h"
+#include "private/ThreadLocalBuffer.h"
 // ARC MOD BEGIN
 // Add includes for ARC linker functions.
 #include <private/dlsym.h>
 #include <private/inject_arc_linker_hooks.h>
+#if defined(__native_client__)
+#include <private/nacl_dyncode_alloc.h>
+#endif
 // ARC MOD END
 
 /* This file hijacks the symbols stubbed out in libdl.so. */
 
-static pthread_mutex_t gDlMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
+static pthread_mutex_t g_dl_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
 
 static const char* __bionic_set_dlerror(char* new_value) {
-  void* tls = const_cast<void*>(__get_tls());
-  char** dlerror_slot = &reinterpret_cast<char**>(tls)[TLS_SLOT_DLERROR];
+  char** dlerror_slot = &reinterpret_cast<char**>(__get_tls())[TLS_SLOT_DLERROR];
 
   const char* old_value = *dlerror_slot;
   *dlerror_slot = new_value;
@@ -63,19 +66,32 @@ const char* dlerror() {
   return old_value;
 }
 
+void android_get_LD_LIBRARY_PATH(char* buffer, size_t buffer_size) {
+  ScopedPthreadMutexLocker locker(&g_dl_mutex);
+  do_android_get_LD_LIBRARY_PATH(buffer, buffer_size);
+}
+
 void android_update_LD_LIBRARY_PATH(const char* ld_library_path) {
-  ScopedPthreadMutexLocker locker(&gDlMutex);
+  ScopedPthreadMutexLocker locker(&g_dl_mutex);
   do_android_update_LD_LIBRARY_PATH(ld_library_path);
 }
 
-void* dlopen(const char* filename, int flags) {
-  ScopedPthreadMutexLocker locker(&gDlMutex);
-  soinfo* result = do_dlopen(filename, flags);
+static void* dlopen_ext(const char* filename, int flags, const android_dlextinfo* extinfo) {
+  ScopedPthreadMutexLocker locker(&g_dl_mutex);
+  soinfo* result = do_dlopen(filename, flags, extinfo);
   if (result == NULL) {
     __bionic_format_dlerror("dlopen failed", linker_get_error_buffer());
     return NULL;
   }
   return result;
+}
+
+void* android_dlopen_ext(const char* filename, int flags, const android_dlextinfo* extinfo) {
+  return dlopen_ext(filename, flags, extinfo);
+}
+
+void* dlopen(const char* filename, int flags) {
+  return dlopen_ext(filename, flags, NULL);
 }
 
 // ARC MOD BEGIN
@@ -84,51 +100,46 @@ void* dlopen(const char* filename, int flags) {
 void* __dlsym_with_return_address(
     void* handle, const char* symbol, void* ret_addr) {
 // ARC MOD END
-  ScopedPthreadMutexLocker locker(&gDlMutex);
+  ScopedPthreadMutexLocker locker(&g_dl_mutex);
 
+#if !defined(__LP64__)
   if (handle == NULL) {
     __bionic_format_dlerror("dlsym library handle is null", NULL);
     return NULL;
   }
+#endif
+
   if (symbol == NULL) {
     __bionic_format_dlerror("dlsym symbol name is null", NULL);
     return NULL;
   }
 
   soinfo* found = NULL;
-  Elf32_Sym* sym = NULL;
+  ElfW(Sym)* sym = NULL;
   if (handle == RTLD_DEFAULT) {
     sym = dlsym_linear_lookup(symbol, &found, NULL);
   } else if (handle == RTLD_NEXT) {
     // ARC MOD BEGIN
     // Expose __dlsym_with_return_address for __wrap_dlsym.
     // See android/bionic/libc/include/private/dlsym.h for details.
-    // void* ret_addr = __builtin_return_address(0);
-    // ARC MOD END
+    // void* caller_addr = __builtin_return_address(0);
+    // soinfo* si = find_containing_library(caller_addr);
     soinfo* si = find_containing_library(ret_addr);
+    // ARC MOD END
 
     sym = NULL;
     if (si && si->next) {
       sym = dlsym_linear_lookup(symbol, &found, si->next);
     }
   } else {
-    found = reinterpret_cast<soinfo*>(handle);
-    sym = dlsym_handle_lookup(found, symbol);
+    sym = dlsym_handle_lookup(reinterpret_cast<soinfo*>(handle), &found, symbol);
   }
 
   if (sym != NULL) {
-    unsigned bind = ELF32_ST_BIND(sym->st_info);
+    unsigned bind = ELF_ST_BIND(sym->st_info);
 
-    // ARC MOD BEGIN UPSTREAM bionic-allow-weak-in-dlsym
-    // Allow weak symbols as return values of dlsym. Without this,
-    // dlsym("isalpha") may fail if 1. you are building your program
-    // with g++ (not gcc), 2. you have -DNDEBUG, and 3. your
-    // program calls isalpha directly. This issue happens even on
-    // a real android device.
     if ((bind == STB_GLOBAL || bind == STB_WEAK) && sym->st_shndx != 0) {
-    // ARC MOD END UPSTREAM
-      unsigned ret = sym->st_value + found->load_bias;
-      return (void*) ret;
+      return reinterpret_cast<void*>(sym->st_value + found->load_bias);
     }
 
     __bionic_format_dlerror("symbol found but not global", symbol);
@@ -148,7 +159,7 @@ void* dlsym(void* handle, const char* symbol) {
 // ARC MOD END
 
 int dladdr(const void* addr, Dl_info* info) {
-  ScopedPthreadMutexLocker locker(&gDlMutex);
+  ScopedPthreadMutexLocker locker(&g_dl_mutex);
 
   // Determine if this address can be found in any library currently mapped.
   soinfo* si = find_containing_library(addr);
@@ -160,42 +171,79 @@ int dladdr(const void* addr, Dl_info* info) {
 
   info->dli_fname = si->name;
   // Address at which the shared object is loaded.
-  info->dli_fbase = (void*) si->base;
+  info->dli_fbase = reinterpret_cast<void*>(si->base);
 
   // Determine if any symbol in the library contains the specified address.
-  Elf32_Sym *sym = dladdr_find_symbol(si, addr);
+  ElfW(Sym)* sym = dladdr_find_symbol(si, addr);
   if (sym != NULL) {
     info->dli_sname = si->strtab + sym->st_name;
-    info->dli_saddr = (void*)(si->load_bias + sym->st_value);
+    info->dli_saddr = reinterpret_cast<void*>(si->load_bias + sym->st_value);
   }
 
   return 1;
 }
 
 int dlclose(void* handle) {
-  ScopedPthreadMutexLocker locker(&gDlMutex);
-  return do_dlclose(reinterpret_cast<soinfo*>(handle));
+  ScopedPthreadMutexLocker locker(&g_dl_mutex);
+  do_dlclose(reinterpret_cast<soinfo*>(handle));
+  // dlclose has no defined errors.
+  return 0;
 }
 
-#if defined(ANDROID_ARM_LINKER)
+// name_offset: starting index of the name in libdl_info.strtab
+#define ELF32_SYM_INITIALIZER(name_offset, value, shndx) \
+    { name_offset, \
+      reinterpret_cast<Elf32_Addr>(reinterpret_cast<void*>(value)), \
+      /* st_size */ 0, \
+      (shndx == 0) ? 0 : (STB_GLOBAL << 4), \
+      /* st_other */ 0, \
+      shndx, \
+    }
+
+// ARC MOD BEGIN
+// We will redefine ELF64_SYM_INITIALIZER later on because our ELF64
+// header has a 32 bit pointer.
+#if defined(__native_client__) && defined(__x86_64__)
+// Modified for Elf64_Sym_NaCl.
+#define ELF64_SYM_INITIALIZER(name_offset, value, shndx) \
+  { name_offset, \
+    (shndx == 0) ? 0 : (STB_GLOBAL << 4), \
+    /* st_other */ 0, \
+    shndx, \
+    reinterpret_cast<Elf32_Addr>(reinterpret_cast<void*>(value)), \
+    /* st_value_padding */ 0, \
+    /* st_size */ 0 }
+#else
+// ARC MOD END
+#define ELF64_SYM_INITIALIZER(name_offset, value, shndx) \
+    { name_offset, \
+      (shndx == 0) ? 0 : (STB_GLOBAL << 4), \
+      /* st_other */ 0, \
+      shndx, \
+      reinterpret_cast<Elf64_Addr>(reinterpret_cast<void*>(value)), \
+      /* st_size */ 0, \
+    }
+// ARC MOD BEGIN
+#endif
+// ARC MOD END
+#if defined(__arm__)
 // ARC MOD BEGIN
 // Add ARC linker functions.
-//   0000000 00011111 111112 22222222 2333333 3333444444444455555555556666666 666777777777788888888 8899999999990000 00000011111111112222222222 3333333333444444444455555555
-//   0123456 78901234 567890 12345678 9012345 6789012345678901234567890123456 789012345678901234567 8901234567890123 45678901234567890123456789 0123456789012345678901234567
-#define ANDROID_LIBDL_STRTAB \
-    "dlopen\0dlclose\0dlsym\0dlerror\0dladdr\0android_update_LD_LIBRARY_PATH\0dl_unwind_find_exidx\0dl_iterate_phdr\0__inject_arc_linker_hooks\0__dlsym_with_return_address\0"
-
-// Add x86-64 support.
-#elif defined(ANDROID_X86_LINKER) || defined(ANDROID_MIPS_LINKER) \
-  || defined(ANDROID_X86_64_LINKER)
+  // 0000000 00011111 111112 22222222 2333333 3333444444444455555555556666666 6667777777777888888888899999 9999900000000001 1111111112222222222 333333333344444444445 55555555566666666667777777 7778888888888999999999900000
+  // 0123456 78901234 567890 12345678 9012345 6789012345678901234567890123456 7890123456789012345678901234 5678901234567890 1234567890123456789 012345678901234567890 12345678901234567890123456 7890123456789012345678901234
+#  define ANDROID_LIBDL_STRTAB \
+    "dlopen\0dlclose\0dlsym\0dlerror\0dladdr\0android_update_LD_LIBRARY_PATH\0android_get_LD_LIBRARY_PATH\0dl_iterate_phdr\0android_dlopen_ext\0dl_unwind_find_exidx\0__inject_arc_linker_hooks\0__dlsym_with_return_address\0"
+// ARC MOD END
+#elif defined(__aarch64__) || defined(__i386__) || defined(__mips__) || defined(__x86_64__)
+// ARC MOD BEGIN
 // Add ARC linker functions.
-//   0000000 00011111 111112 22222222 2333333 3333444444444455555555556666666 6667777777777888 88888889999999999000000000 0111111111122222222223333333
-//   0123456 78901234 567890 12345678 9012345 6789012345678901234567890123456 7890123456789012 34567890123456789012345678 9012345678901234567890123456
-#define ANDROID_LIBDL_STRTAB \
-    "dlopen\0dlclose\0dlsym\0dlerror\0dladdr\0android_update_LD_LIBRARY_PATH\0dl_iterate_phdr\0__inject_arc_linker_hooks\0__dlsym_with_return_address\0"
+  // 0000000 00011111 111112 22222222 2333333 3333444444444455555555556666666 6667777777777888888888899999 9999900000000001 1111111112222222222 33333333334444444444555555 5555666666666677777777777888 888888999999999900
+  // 0123456 78901234 567890 12345678 9012345 6789012345678901234567890123456 7890123456789012345678901234 5678901234567890 1234567890123456789 01234567890123456789012345 6789012345678901234567890123 456789012345678901
+#  define ANDROID_LIBDL_STRTAB \
+    "dlopen\0dlclose\0dlsym\0dlerror\0dladdr\0android_update_LD_LIBRARY_PATH\0android_get_LD_LIBRARY_PATH\0dl_iterate_phdr\0android_dlopen_ext\0__inject_arc_linker_hooks\0__dlsym_with_return_address\0nacl_dyncode_alloc\0"
 // ARC MOD END
 #else
-#error Unsupported architecture. Only ARM, MIPS, and x86 are presently supported.
+#  error Unsupported architecture. Only arm, arm64, mips, mips64, x86 and x86_64 are presently supported.
 #endif
 
 // ARC MOD BEGIN
@@ -211,7 +259,7 @@ int dlclose(void* handle) {
 // |libdl_symtab| below. |libdl_symtab| will be passed to
 // libdl_info.symtab in this file. Other code will not use this and
 // use normal Elf64_Sym instead.
-#if defined(ANDROID_X86_64_LINKER) && defined(__native_client__)
+#if defined(__native_client__) && defined(__x86_64__)
 struct Elf64_Sym_NaCl {
   Elf64_Word st_name;
   unsigned char st_info;
@@ -236,32 +284,10 @@ STATIC_ASSERT(offsetof(Elf64_Sym_NaCl, st_size) ==
               offsetof(Elf64_Sym, st_size),
               OffsetOf_st_size);
 
-// Remove map from Elf32_Addr to Elf64_Addr defined in linker.h.
-#undef Elf32_Addr
-
-// Modified for Elf64_Sym_NaCl.
-#define ELF32_SYM_INITIALIZER(name_offset, value, shndx)            \
-  { /* st_name */ name_offset,                                      \
-    /* st_info */ (shndx == 0) ? 0 : (STB_GLOBAL << 4),             \
-    /* st_other */ 0,                                               \
-    /* st_shndx */ shndx,                                           \
-    /* st_value */ reinterpret_cast<Elf32_Addr>(reinterpret_cast<void*>(value)), \
-    /* st_value_padding */ 0,                                       \
-    /* st_size */ 0 }
-
-static Elf64_Sym_NaCl gLibDlSymtab[] = {
+static Elf64_Sym_NaCl g_libdl_symtab[] = {
 #else
 // ARC MOD END
-// name_offset: starting index of the name in libdl_info.strtab
-#define ELF32_SYM_INITIALIZER(name_offset, value, shndx) \
-    { name_offset, \
-      reinterpret_cast<Elf32_Addr>(reinterpret_cast<void*>(value)), \
-      /* st_size */ 0, \
-      (shndx == 0) ? 0 : (STB_GLOBAL << 4), \
-      /* st_other */ 0, \
-      shndx }
-
-static Elf32_Sym gLibDlSymtab[] = {
+static ElfW(Sym) g_libdl_symtab[] = {
 // ARC MOD BEGIN
 #endif
 // ARC MOD END
@@ -269,110 +295,93 @@ static Elf32_Sym gLibDlSymtab[] = {
   // This is actually the STH_UNDEF entry. Technically, it's
   // supposed to have st_name == 0, but instead, it points to an index
   // in the strtab with a \0 to make iterating through the symtab easier.
-  ELF32_SYM_INITIALIZER(sizeof(ANDROID_LIBDL_STRTAB) - 1, NULL, 0),
-  ELF32_SYM_INITIALIZER( 0, &dlopen, 1),
-  ELF32_SYM_INITIALIZER( 7, &dlclose, 1),
-  ELF32_SYM_INITIALIZER(15, &dlsym, 1),
-  ELF32_SYM_INITIALIZER(21, &dlerror, 1),
-  ELF32_SYM_INITIALIZER(29, &dladdr, 1),
-  ELF32_SYM_INITIALIZER(36, &android_update_LD_LIBRARY_PATH, 1),
-#if defined(ANDROID_ARM_LINKER)
-  ELF32_SYM_INITIALIZER(67, &dl_unwind_find_exidx, 1),
+  ELFW(SYM_INITIALIZER)(sizeof(ANDROID_LIBDL_STRTAB) - 1, NULL, 0),
+  ELFW(SYM_INITIALIZER)(  0, &dlopen, 1),
+  ELFW(SYM_INITIALIZER)(  7, &dlclose, 1),
+  ELFW(SYM_INITIALIZER)( 15, &dlsym, 1),
+  ELFW(SYM_INITIALIZER)( 21, &dlerror, 1),
+  ELFW(SYM_INITIALIZER)( 29, &dladdr, 1),
+  ELFW(SYM_INITIALIZER)( 36, &android_update_LD_LIBRARY_PATH, 1),
+  ELFW(SYM_INITIALIZER)( 67, &android_get_LD_LIBRARY_PATH, 1),
+  ELFW(SYM_INITIALIZER)( 95, &dl_iterate_phdr, 1),
+  ELFW(SYM_INITIALIZER)(111, &android_dlopen_ext, 1),
+#if defined(__arm__)
+  ELFW(SYM_INITIALIZER)(130, &dl_unwind_find_exidx, 1),
   // ARC MOD BEGIN
   // Add ARC linker functions.
-  ELF32_SYM_INITIALIZER(88, &dl_iterate_phdr, 1),
-  ELF32_SYM_INITIALIZER(104, &__inject_arc_linker_hooks, 1),
-  ELF32_SYM_INITIALIZER(130, &__dlsym_with_return_address, 1),
-  // Add x86-64 support.
-#elif defined(ANDROID_X86_LINKER) || defined(ANDROID_MIPS_LINKER) \
-  || defined(ANDROID_X86_64_LINKER)
-  // ARC MOD END
-  ELF32_SYM_INITIALIZER(67, &dl_iterate_phdr, 1),
-  // ARC MOD BEGIN
-  // Add ARC linker functions.
-  ELF32_SYM_INITIALIZER(83, &__inject_arc_linker_hooks, 1),
-  ELF32_SYM_INITIALIZER(109, &__dlsym_with_return_address, 1),
+  ELFW(SYM_INITIALIZER)(151, &__inject_arc_linker_hooks, 1),
+  ELFW(SYM_INITIALIZER)(177, &__dlsym_with_return_address, 1),
+#else
+  ELFW(SYM_INITIALIZER)(130, &__inject_arc_linker_hooks, 1),
+  ELFW(SYM_INITIALIZER)(156, &__dlsym_with_return_address, 1),
+#if defined(__native_client__)
+  ELFW(SYM_INITIALIZER)(184, &nacl_dyncode_alloc, 1),
+#endif
   // ARC MOD END
 #endif
 };
 
 // Fake out a hash table with a single bucket.
-// A search of the hash table will look through
-// gLibDlSymtab starting with index [1], then
-// use gLibDlChains to find the next index to
-// look at.  gLibDlChains should be set up to
-// walk through every element in gLibDlSymtab,
-// and then end with 0 (sentinel value).
 //
-// That is, gLibDlChains should look like
-// { 0, 2, 3, ... N, 0 } where N is the number
-// of actual symbols, or nelems(gLibDlSymtab)-1
-// (since the first element of gLibDlSymtab is not
-// a real symbol).
+// A search of the hash table will look through g_libdl_symtab starting with index 1, then
+// use g_libdl_chains to find the next index to look at. g_libdl_chains should be set up to
+// walk through every element in g_libdl_symtab, and then end with 0 (sentinel value).
 //
-// (see soinfo_elf_lookup())
+// That is, g_libdl_chains should look like { 0, 2, 3, ... N, 0 } where N is the number
+// of actual symbols, or nelems(g_libdl_symtab)-1 (since the first element of g_libdl_symtab is not
+// a real symbol). (See soinfo_elf_lookup().)
 //
-// Note that adding any new symbols here requires
-// stubbing them out in libdl.
-static unsigned gLibDlBuckets[1] = { 1 };
+// Note that adding any new symbols here requires stubbing them out in libdl.
+static unsigned g_libdl_buckets[1] = { 1 };
+#if defined(__arm__)
 // ARC MOD BEGIN
-// Size now varies because ARC linker functions have been added.
-#ifdef ANDROID_ARM_LINKER
-static unsigned gLibDlChains[11] = { 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0 };
-#else
-static unsigned gLibDlChains[10] = { 0, 2, 3, 4, 5, 6, 7, 8, 9, 0 };
-#endif
+// Size now varies because __inject_arc_linker_hooks and
+// __dlsym_with_return_address have been added.
+static unsigned g_libdl_chains[] = { 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0 };
+#elif defined(__native_client__)
+// Size now varies because __inject_arc_linker_hooks,
+// __dlsym_with_return_address, and nacl_dyncode_alloc have been added.
+static unsigned g_libdl_chains[] = { 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0 };
 // ARC MOD END
+#else
+// ARC MOD BEGIN
+// Size now varies because __inject_arc_linker_hooks and
+// __dlsym_with_return_address have been added.
+static unsigned g_libdl_chains[] = { 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0 };
+// ARC MOD END
+#endif
+
+// Defined as global because we do not yet have access
+// to synchronization functions __cxa_guard_* needed
+// to define statics inside functions.
+static soinfo __libdl_info;
 
 // This is used by the dynamic linker. Every process gets these symbols for free.
-soinfo libdl_info = {
-    "libdl.so",
-
-    phdr: 0, phnum: 0,
-    entry: 0, base: 0, size: 0,
-    unused1: 0, dynamic: 0, unused2: 0, unused3: 0,
-    next: 0,
-
-    flags: FLAG_LINKED,
-
-    strtab: ANDROID_LIBDL_STRTAB,
+soinfo* get_libdl_info() {
+  if (__libdl_info.name[0] == '\0') {
+    // initialize
+    strncpy(__libdl_info.name, "libdl.so", sizeof(__libdl_info.name));
+    __libdl_info.flags = FLAG_LINKED | FLAG_NEW_SOINFO;
+    __libdl_info.strtab = ANDROID_LIBDL_STRTAB;
     // ARC MOD BEGIN
-#if defined(ANDROID_X86_64_LINKER) && defined(__native_client__)
+#if defined(__native_client__) && defined(__x86_64__)
     // Add a cast for x86-64.
-    symtab: reinterpret_cast<Elf64_Sym*>(gLibDlSymtab),
+    __libdl_info.symtab = reinterpret_cast<Elf64_Sym*>(g_libdl_symtab);
 #else
     // ARC MOD END
-    symtab: gLibDlSymtab,
+    __libdl_info.symtab = g_libdl_symtab;
     // ARC MOD BEGIN
 #endif
     // ARC MOD END
-
-    nbucket: 1,
+    __libdl_info.nbucket = sizeof(g_libdl_buckets)/sizeof(unsigned);
+    __libdl_info.nchain = sizeof(g_libdl_chains)/sizeof(unsigned);
+    __libdl_info.bucket = g_libdl_buckets;
+    __libdl_info.chain = g_libdl_chains;
+    __libdl_info.has_DT_SYMBOLIC = true;
     // ARC MOD BEGIN
-    // Support for variable-length nchain has already been added upstream.
-    nchain: sizeof(gLibDlChains) / sizeof(gLibDlChains[0]),
+    __libdl_info.is_ndk = false;
     // ARC MOD END
-    bucket: gLibDlBuckets,
-    chain: gLibDlChains,
+  }
 
-    plt_got: 0, plt_rel: 0, plt_rel_count: 0, rel: 0, rel_count: 0,
-    preinit_array: 0, preinit_array_count: 0, init_array: 0, init_array_count: 0,
-    fini_array: 0, fini_array_count: 0, init_func: 0, fini_func: 0,
-
-#if defined(ANDROID_ARM_LINKER)
-    ARM_exidx: 0, ARM_exidx_count: 0,
-#elif defined(ANDROID_MIPS_LINKER)
-    mips_symtabno: 0, mips_local_gotno: 0, mips_gotsym: 0,
-#endif
-
-    ref_count: 0,
-    { l_addr: 0, l_name: 0, l_ld: 0, l_next: 0, l_prev: 0, },
-    constructors_called: false,
-    load_bias: 0,
-    has_text_relocations: false,
-    has_DT_SYMBOLIC: true,
-    // ARC MOD BEGIN
-    // Initialize |is_ndk|.
-    is_ndk: false,
-    // ARC MOD END
-};
+  return &__libdl_info;
+}

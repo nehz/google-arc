@@ -4,6 +4,7 @@
 
 #include <dlfcn.h>
 #include <fcntl.h>
+#include <linux/futex.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
 
@@ -116,6 +117,22 @@ TEST(ArcStrace, GetSyscallStr) {
   EXPECT_EQ("__ARM_NR_cacheflush", arc::GetSyscallStr(__ARM_NR_cacheflush));
   EXPECT_EQ("__ARM_NR_set_tls", arc::GetSyscallStr(__ARM_NR_set_tls));
 #endif
+}
+
+TEST(ArcStrace, GetFutexOpStr) {
+  EXPECT_EQ("FUTEX_WAIT", arc::GetFutexOpStr(FUTEX_WAIT));
+  EXPECT_EQ("FUTEX_WAIT_PRIVATE", arc::GetFutexOpStr(FUTEX_WAIT_PRIVATE));
+  EXPECT_EQ("FUTEX_WAIT_PRIVATE|FUTEX_CLOCK_REALTIME",
+            arc::GetFutexOpStr(FUTEX_WAIT_PRIVATE|FUTEX_CLOCK_REALTIME));
+  EXPECT_EQ("FUTEX_WAKE", arc::GetFutexOpStr(FUTEX_WAKE));
+  EXPECT_EQ("FUTEX_WAKE_PRIVATE", arc::GetFutexOpStr(FUTEX_WAKE_PRIVATE));
+  EXPECT_EQ("FUTEX_WAKE_PRIVATE|FUTEX_CLOCK_REALTIME",
+            arc::GetFutexOpStr(FUTEX_WAKE_PRIVATE|FUTEX_CLOCK_REALTIME));
+  EXPECT_EQ("FUTEX_CMP_REQUEUE", arc::GetFutexOpStr(FUTEX_CMP_REQUEUE));
+  EXPECT_EQ("FUTEX_CMP_REQUEUE_PRIVATE",
+            arc::GetFutexOpStr(FUTEX_CMP_REQUEUE_PRIVATE));
+  EXPECT_EQ("FUTEX_CMP_REQUEUE_PRIVATE|FUTEX_CLOCK_REALTIME",
+            arc::GetFutexOpStr(FUTEX_CMP_REQUEUE_PRIVATE|FUTEX_CLOCK_REALTIME));
 }
 
 }  // namespace arc

@@ -31,15 +31,23 @@ void RemoveTrailingSlash(std::string* in_out_path) {
 
 RedirectHandler::RedirectHandler(
     FileSystemHandler* underlying,
-    const std::vector<std::pair<std::string, std::string> >& symlinks)
+    const std::vector<std::pair<std::string, std::string> >& symlinks,
+    bool own_underlying)
     : FileSystemHandler("RedirectHandler"),
-      is_initialized_(false), underlying_(underlying) {
+      is_initialized_(false),
+      underlying_(underlying),
+      own_underlying_(own_underlying) {
   ALOG_ASSERT(underlying);
   for (size_t i = 0; i < symlinks.size(); ++i)
     AddSymlink(symlinks[i].first, symlinks[i].second);
 }
 
 RedirectHandler::~RedirectHandler() {
+  if (!own_underlying_) {
+    FileSystemHandler* underlying;
+    // For supressing the "unused result" compiler warning.
+    underlying = underlying_.release();
+  }
 }
 
 bool RedirectHandler::IsInitialized() const {

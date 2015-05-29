@@ -18,9 +18,8 @@
 #include <errno.h>
 #include <pthread.h>
 
+#include "private/bionic_atomic_inline.h"
 #include "private/pthread_context.h"
-
-#include "bionic_atomic_inline.h"
 #include "pthread_internal.h"
 
 extern "C" {
@@ -41,11 +40,11 @@ void __pthread_clear_context_regs() {
 static bool obtain_lock(bool try_lock) {
     if (try_lock) {
         // Ideally, we could also check that the mutex is async-safe:
-        //   ((gThreadListLock & MUTEX_TYPE_MASK) == MUTEX_TYPE_BITS_NORMAL)
-        if (pthread_mutex_trylock(&gThreadListLock))
+        //   ((g_thread_list_lock & MUTEX_TYPE_MASK) == MUTEX_TYPE_BITS_NORMAL)
+        if (pthread_mutex_trylock(&g_thread_list_lock))
             return false;
     } else {
-        pthread_mutex_lock(&gThreadListLock);
+        pthread_mutex_lock(&g_thread_list_lock);
     }
     return true;
 }
@@ -55,60 +54,60 @@ int __pthread_get_thread_count(bool try_lock) {
         return -1;
 
     int count = 0;
-    pthread_internal_t* thread = gThreadList;
+    pthread_internal_t* thread = g_thread_list;
     while (thread) {
         ++count;
         thread = thread->next;
     }
 
-    pthread_mutex_unlock(&gThreadListLock);
+    pthread_mutex_unlock(&g_thread_list_lock);
     return count;
 }
 
 static void copy_thread_info(__pthread_context_info_t* dst,
                              const pthread_internal_t* src) {
-    dst->stack_base = NULL;
-    dst->has_context_regs = 0;
+  dst->stack_base = NULL;
+  dst->has_context_regs = 0;
 
-    // Copy the stack boundaries.
+  // Copy the stack boundaries.
 #if defined(BARE_METAL_BIONIC)
-    // Main thread or any other thread that has no stack info
-    // (e.g. stack_end_from_irt) will not be reported here, and so will be
-    // omitted from caller's outputs.
-    // Note: Because |stack_end_from_irt| is initialized in the
-    // created thread there is a chance we get an uninitialized value
-    // from it. As pthread_create always initializes
-    // pthread_internal_t by zero, this will not be a big issue. Such
-    // threads will be just ignored.
-    // TODO(crbug.com/467085): Support tracing sleeping main thread.
-    // TODO(crbug.com/372248): Remove the use of stack_end_from_irt.
-    if (src->stack_end_from_irt) {
-        // Value from chrome/src/components/nacl/loader/nonsfi/irt_thread.cc.
-        static const int kIrtStackSize = 1024 * 1024;
-        dst->stack_base = src->stack_end_from_irt - kIrtStackSize;
-        dst->stack_size = kIrtStackSize;
-    }
-#else
-    if (src->attr.stack_base) {
-        dst->stack_base =
-            reinterpret_cast<char*>(src->attr.stack_base) +
-            src->attr.guard_size;
-        dst->stack_size = src->attr.stack_size - src->attr.guard_size;
-    }
-#endif
+  // Main thread or any other thread that has no stack info
+  // (e.g. stack_end_from_irt) will not be reported here, and so will be
+  // omitted from caller's outputs.
+  // Note: Because |stack_end_from_irt| is initialized in the
+  // created thread there is a chance we get an uninitialized value
+  // from it. As pthread_create always initializes
+  // pthread_internal_t by zero, this will not be a big issue. Such
+  // threads will be just ignored.
+  // TODO(crbug.com/467085): Support tracing sleeping main thread.
+  // TODO(crbug.com/372248): Remove the use of stack_end_from_irt.
+  if (src->stack_end_from_irt) {
+    // Value from chrome/src/components/nacl/loader/nonsfi/irt_thread.cc.
+    static const int kIrtStackSize = 1024 * 1024;
+    dst->stack_base = src->stack_end_from_irt - kIrtStackSize;
+    dst->stack_size = kIrtStackSize;
+  }
+  #else
+  if (src->attr.stack_base) {
+            dst->stack_base =
+                reinterpret_cast<char*>(src->attr.stack_base) +
+                src->attr.guard_size;
+            dst->stack_size = src->attr.stack_size - src->attr.guard_size;
+  }
+  #endif
 
-    // Copy registers, then do a second (racy) read of has_context_regs.
-    if (src->has_context_regs) {
-        memcpy(dst->context_regs, src->context_regs,
-               sizeof(dst->context_regs));
-        ANDROID_MEMBAR_FULL();
-        dst->has_context_regs = src->has_context_regs;
-    }
+  // Copy registers, then do a second (racy) read of has_context_regs.
+  if (src->has_context_regs) {
+    memcpy(dst->context_regs, src->context_regs,
+           sizeof(dst->context_regs));
+    ANDROID_MEMBAR_FULL();
+    dst->has_context_regs = src->has_context_regs;
+  }
 }
 
 void __pthread_get_current_thread_info(__pthread_context_info_t* info) {
-    pthread_internal_t* cur_thread = __get_thread();
-    copy_thread_info(info, cur_thread);
+  pthread_internal_t* cur_thread = __get_thread();
+  copy_thread_info(info, cur_thread);
 }
 
 int __pthread_get_thread_infos(
@@ -119,17 +118,17 @@ int __pthread_get_thread_infos(
 
     int idx = 0;
     pthread_internal_t* cur_thread = __get_thread();
-    for (pthread_internal_t* thread = gThreadList;
+    for (pthread_internal_t* thread = g_thread_list;
          thread && idx < max_info_count; thread = thread->next) {
         if (!include_current && thread == cur_thread)
             continue;
 
         copy_thread_info(infos + idx, thread);
         if (infos[idx].stack_base)
-            ++idx;
+          ++idx;
     }
 
-    pthread_mutex_unlock(&gThreadListLock);
+    pthread_mutex_unlock(&g_thread_list_lock);
     return idx;
 }
 

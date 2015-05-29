@@ -20,10 +20,10 @@
 #include "common/export.h"
 
 // Returns >=0 on success, -errno on error.
-extern "C" int __futex_syscall4(volatile void* addr,
-                                int op,
-                                int val,
-                                const timespec* timeout);
+extern "C" int __nacl_futex(volatile void* addr,
+                            int op,
+                            int val,
+                            const timespec* timeout);
 
 namespace {
 
@@ -50,7 +50,7 @@ int HandleSyscallFutex(va_list ap) {
   ARC_STRACE_REPORT("addr=%p, op=%s, val=%d, timeout=%p",
                     addr, arc::GetFutexOpStr(op).c_str(), val, timeout);
 
-  const int result = __futex_syscall4(addr, op, val, timeout);
+  const int result = __nacl_futex(addr, op, val, timeout);
   if (result >= 0 && (op == FUTEX_WAKE || op == FUTEX_WAKE_PRIVATE))
     return result;  // woken threads
 

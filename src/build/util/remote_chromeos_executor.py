@@ -371,7 +371,7 @@ def run_remote_integration_tests(parsed_args, argv,
         ['sudo', '-u', 'chronos', executor.get_remote_env(),
          '/bin/sh', './run_integration_tests'] +
         remote_executor_util.create_launch_remote_chrome_param(argv))
-    executor.run(command)
+    executor.run_with_filter(command)
     return 0
   except subprocess.CalledProcessError as e:
     return e.returncode

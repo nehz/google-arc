@@ -28,7 +28,7 @@
 
 #include <errno.h>
 // ARC MOD BEGIN
-#if defined(__native_client__) || defined(BARE_METAL_BIONIC)
+#if defined(HAVE_ARC)
 #include <unistd.h>  // for write.
 #endif
 // ARC MOD END
@@ -41,7 +41,7 @@ int pthread_getcpuclockid(pthread_t t, clockid_t* clockid) {
     return ESRCH;
   }
   // ARC MOD BEGIN
-#if defined(__native_client__) || defined(BARE_METAL_BIONIC)
+#if defined(HAVE_ARC)
   // NaCl and Bare Metal do not support per-thread CPU time clocks.
   static const int kStderrFd = 2;
   static const char kMsg[] = "*** pthread_getcpuclockid is called ***\n";

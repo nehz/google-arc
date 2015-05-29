@@ -21,6 +21,10 @@ from build_options import OPTIONS
 
 OPTIONS.parse_configure_file()
 
+# Note the following restrictions:
+#    Property name max length:  31 characters
+#    Property value max length: 91 characters
+# See frameworks/base/core/java/android/os/SystemProperties.java
 
 # Provide an option to generate different build properties for running non-CWS
 # apps, such as sideloaded or via ARC Welder.  This allows WebView (Chromium) to
@@ -34,9 +38,9 @@ _BUILD_NUMBER = build_common.get_build_version()
 
 os.environ['BUILD_DISPLAY_ID'] = _BUILD_NUMBER
 
-# Non-tagged builds generate fingerprints that are longer than the maximum of 92
-# characters allowed for system property values. Split the build ID in version
-# and specific build to be within the limit.
+# Non-tagged builds generate fingerprints that are longer than the maximum
+# number of characters allowed for system property values. Split the build ID
+# in version and specific build to be within the limit.
 if '-' in _BUILD_NUMBER:
   tokens = _BUILD_NUMBER.split('-')
   os.environ['BUILD_ID'] = tokens[0]
@@ -51,7 +55,8 @@ else:
 
 # "REL" means a release build (everything else is a dev build).
 os.environ['PLATFORM_VERSION_CODENAME'] = 'REL'
-os.environ['PLATFORM_VERSION'] = '4.4'
+os.environ['PLATFORM_VERSION_ALL_CODENAMES'] = 'REL'
+os.environ['PLATFORM_VERSION'] = '5.0'
 # SDK has to be pinned to correct level to avoid loading
 # unsupported featured from app's APK file.
 os.environ['PLATFORM_SDK_VERSION'] = str(toolchain.get_android_api_level())
@@ -72,14 +77,14 @@ os.environ['TARGET_AAPT_CHARACTERISTICS'] = 'default'
 os.environ['TARGET_BOARD_PLATFORM'] = OPTIONS.target()
 os.environ['TARGET_BOOTLOADER_BOARD_NAME'] = OPTIONS.target()
 os.environ['TARGET_BUILD_VARIANT'] = build_common.get_build_type()
-# TODO(crbug.com/365574): BUILD_TYPE should be set properly, but
-# changing the value does not work for now.
-os.environ['TARGET_BUILD_TYPE'] = 'eng'
+# TARGET_BUILD_TYPE is set to the value of TARGET_BUILD_VARIANT
+# in build/core/Makefile upstream. We do it manually here.
+os.environ['TARGET_BUILD_TYPE'] = os.environ['TARGET_BUILD_VARIANT']
 
 # Prefer ARM v7 NDK code over v6 as v7 has hardware floating point
 # and thus can be translated/simulated in fewer instructions.
-os.environ['TARGET_CPU_ABI'] = 'armeabi-v7a'
-os.environ['TARGET_CPU_ABI2'] = 'armeabi'
+os.environ['TARGET_CPU_ABI_LIST'] = 'armeabi-v7a,armeabi'
+os.environ['TARGET_CPU_ABI_LIST_32_BIT'] = 'armeabi-v7a,armeabi'
 
 # Cannot set device as "simulator" as it causes NPE in network service.
 # NetworkManagementService and MountService appear to be the only places
@@ -138,5 +143,33 @@ if not OPTIONS.disable_hwui():
   # available. The number is the major version number in the upper sixteen bits
   # followed by the minor version number in the lower sixteen bits.
   print 'ro.opengles.version=131072'
+
+# Normally added upstream at android/build/core/main.mk. Services can restrict
+# functionality based on this value (currently very few do).  Setting this
+# value allows CtsOsTestCases:android.os.cts.BuildTest to pass.
+secure = "0"
+if build_common.get_build_type() == "user":
+  secure = "1"
+print 'ro.secure=' + secure
+
+# The following three properties synchronize dex2oat's arguments at build time
+# and runtime.
+dex2oatFlags = build_common.get_dex2oat_target_dependent_flags_map()
+print ('dalvik.vm.isa.' + build_common.get_art_isa() + '.features=' +
+       dex2oatFlags['instruction-set-features'])
+print 'dalvik.vm.dex2oat-filter=' + dex2oatFlags['compiler-filter']
+if 'no-include-debug-symbols' in dex2oatFlags:
+  print 'dalvik.vm.dex2oat-flags=--no-include-debug-symbols'
+
+# This property tells dex2oat to compile x86 code even though we say in the
+# ABI_LIST above that we only support ARM.
+if OPTIONS.is_i686():
+  print 'ro.dalvik.vm.isa.arm=x86'
+if OPTIONS.is_x86_64():
+  print 'ro.dalvik.vm.isa.arm=x86_64'
+
+# When AOT is not enabled, make sure dex2oat does not run.
+if not OPTIONS.enable_art_aot():
+  print 'ro.arc.dex2oat.disabled=1'
 
 print '# end build properties added by generate_build_prop.py'

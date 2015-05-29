@@ -10,8 +10,7 @@ from ninja_generator import ArchiveNinjaGenerator
 def generate_ninjas():
   base_path = os.path.join('graphics_translation', 'egl')
 
-  n = ArchiveNinjaGenerator('libegl',
-                            enable_clang=True,
+  n = ArchiveNinjaGenerator('libegl', enable_clang=True, enable_cxx11=True,
                             base_path=base_path)
   n.add_compiler_flags('-Werror')
   n.add_notice_sources(['mods/graphics_translation/NOTICE'])

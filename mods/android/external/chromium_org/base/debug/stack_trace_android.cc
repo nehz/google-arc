@@ -17,6 +17,12 @@
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
 
+#ifdef __LP64__
+#define FMT_ADDR  "0x%016lx"
+#else
+#define FMT_ADDR  "0x%08x"
+#endif
+
 namespace {
 
 struct StackCrawlState {
@@ -31,22 +37,6 @@ struct StackCrawlState {
   size_t max_depth;
   bool have_skipped_self;
 };
-
-// Clang's unwind.h doesn't provide _Unwind_GetIP on ARM, refer to
-// http://llvm.org/bugs/show_bug.cgi?id=16564 for details.
-// ARC MOD BEGIN
-// The clang we are using does not have this issue.
-// TODO(crbug.com/414569): Remove this MOD. This code does not exist
-// in L's Chrome.
-// #if defined(__clang__)
-#if 0
-// ARC MOD END
-uintptr_t _Unwind_GetIP(_Unwind_Context* context) {
-  uintptr_t ip = 0;
-  _Unwind_VRS_Get(context, _UVRSC_CORE, 15, _UVRSD_UINT32, &ip);
-  return ip & ~static_cast<uintptr_t>(0x1);  // Remove thumb mode bit.
-}
-#endif
 
 _Unwind_Reason_Code TraceStackFrame(_Unwind_Context* context, void* arg) {
   StackCrawlState* state = static_cast<StackCrawlState*>(arg);
@@ -87,7 +77,7 @@ StackTrace::StackTrace() {
   count_ = state.frame_count;
 }
 
-void StackTrace::PrintBacktrace() const {
+void StackTrace::Print() const {
   std::string backtrace = ToString();
   __android_log_write(ANDROID_LOG_ERROR, "chromium", backtrace.c_str());
 }
@@ -136,12 +126,12 @@ void StackTrace::OutputToStream(std::ostream* os) const {
       ++iter;
     }
 
-    *os << base::StringPrintf("#%02d 0x%08x ", i, address);
+    *os << base::StringPrintf("#%02zd " FMT_ADDR " ", i, address);
 
     if (iter != regions.end()) {
       uintptr_t rel_pc = address - iter->start + iter->offset;
       const char* path = iter->path.c_str();
-      *os << base::StringPrintf("%s+0x%08x", path, rel_pc);
+      *os << base::StringPrintf("%s+" FMT_ADDR, path, rel_pc);
     } else {
       *os << "<unknown>";
     }

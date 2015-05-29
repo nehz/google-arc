@@ -133,8 +133,8 @@ ColorBuffer::~ColorBuffer() {
   d->Unlock();
 }
 
-void* ColorBuffer::Lock(GLint xoffset, GLint yoffset, GLsizei width,
-                        GLsizei height, GLenum format, GLenum type) {
+uint8_t* ColorBuffer::Lock(GLint xoffset, GLint yoffset, GLsizei width,
+                           GLsizei height, GLenum format, GLenum type) {
   LOG_ALWAYS_FATAL_IF(!sw_write_,
                       "Try to lock a hardware render color buffer.");
 
@@ -152,15 +152,16 @@ void* ColorBuffer::Lock(GLint xoffset, GLint yoffset, GLsizei width,
                         GetEnumString(type), GetEnumString(type_));
     glBindTexture(GL_TEXTURE_2D, texture_);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    locked_mem_ = glMapTexSubImage2DCHROMIUM(GL_TEXTURE_2D, 0, xoffset, yoffset,
-                                             width, height, format, type,
-                                             GL_WRITE_ONLY_OES);
+    locked_mem_ = static_cast<uint8_t*>(
+        glMapTexSubImage2DCHROMIUM(GL_TEXTURE_2D, 0, xoffset, yoffset,
+                                   width, height, format, type,
+                                   GL_WRITE_ONLY_OES));
     d->Unlock();
   }
   return locked_mem_;
 }
 
-void ColorBuffer::Unlock(const void* mem) {
+void ColorBuffer::Unlock(const uint8_t* mem) {
   EglDisplayImpl* d = EglDisplayImpl::GetDisplay(display_);
   if (d->Lock()) {
     if (!locked_mem_) {
@@ -236,7 +237,7 @@ void* ColorBuffer::GetHostContext() const {
   }
 }
 
-void ColorBuffer::ReadPixels(void* dst) {
+void ColorBuffer::ReadPixels(uint8_t* dst) {
   EglDisplayImpl* d = EglDisplayImpl::GetDisplay(display_);
   if (d->Lock()) {
     // Get current frame buffer. 0 - means default.

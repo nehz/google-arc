@@ -60,7 +60,13 @@
 
 // Define how to include our native headers.
 #define _STLP_NATIVE_HEADER(header) <libstdc++/include/header>
+// ARC MOD BEGIN stlport-native-c-header
+#if defined(HAVE_ARC)
+#define _STLP_NATIVE_C_HEADER(header) <libc/include/header>
+#else
 #define _STLP_NATIVE_C_HEADER(header) <../include/header>
+#endif
+// ARC MOD END
 #define _STLP_NATIVE_CPP_C_HEADER(header) <libstdc++/include/header>
 #define _STLP_NATIVE_CPP_RUNTIME_HEADER(header) <libstdc++/include/header>
 #define _STLP_NATIVE_OLD_STREAMS_HEADER(header) <libstdc++/include/header>
@@ -85,5 +91,8 @@
 // insert, find, ... member functions of the containers.
 #define _STLP_NO_CONTAINERS_EXTENSION 1
 #endif
+
+// Without this, we don't get int16_t/uint16_t num_get::get overloads.
+#define _STLP_FIX_LIBRARY_ISSUES 1
 
 #endif /* __stl_config__android_h */

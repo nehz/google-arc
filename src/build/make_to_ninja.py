@@ -28,12 +28,14 @@ from ninja_generator import ExecNinjaGenerator
 from ninja_generator import JarNinjaGenerator
 from ninja_generator import NinjaGenerator
 from ninja_generator import SharedObjectNinjaGenerator
+from ninja_generator import TestNinjaGenerator
 from util import file_util
 
 
 # The directory inside Android build/ where all shared scripts reside.
 _CORE_DIRNAME = 'core'
 
+BUILD_TYPE_HOST_DALVIK_JAVA_LIBRARY = 'host_dalvik_java_library'
 BUILD_TYPE_HOST_SHARED = 'host_shared_library'
 BUILD_TYPE_HOST_STATIC = 'host_static_library'
 BUILD_TYPE_HOST_EXECUTABLE = 'host_executable'
@@ -42,6 +44,7 @@ BUILD_TYPE_PACKAGE = 'package'
 BUILD_TYPE_TARGET_SHARED = 'shared_library'
 BUILD_TYPE_TARGET_STATIC = 'static_library'
 BUILD_TYPE_TARGET_EXECUTABLE = 'executable'
+BUILD_TYPE_TARGET_TEST_EXECUTABLE = 'test_executable'
 BUILD_TYPE_NOTICES_SHARED = 'shared_notices'
 BUILD_TYPE_NOTICES_STATIC = 'static_notices'
 BUILD_TYPE_PREBUILT = 'prebuilt'
@@ -54,8 +57,10 @@ _MAKE_TO_NINJA_DIR = os.path.join(_ARC_ROOT, _MAKE_TO_NINJA_SUBDIR)
 _MAKE_TO_NINJA_BIN_DIR = os.path.join(_MAKE_TO_NINJA_DIR, 'bin')
 _MAKE_BUILD_DIR = os.path.join(_MAKE_TO_NINJA_DIR, 'build')
 
-_ANDROID_GEN_SOURCES_DIR = os.path.join(build_common.get_target_common_dir(),
-                                        'android_gen_sources')
+_ANDROID_TARGET_GEN_SOURCES_DIR = os.path.join(
+    build_common.get_target_common_dir(), 'android_gen_sources')
+_ANDROID_HOST_GEN_SOURCES_DIR = os.path.join(
+    build_common.get_host_common_dir(), 'android_gen_sources')
 _INTERMEDIATE_HEADERS_DIR = os.path.join(build_common.get_target_common_dir(),
                                          'intermediate_headers')
 
@@ -80,189 +85,238 @@ _TARGET_MAKEFILE = 'TARGET_MAKEFILE'
 # a set of variables and functions that appear to be OK to referenced
 # in Android.mk files without being defined.
 #
+# TODO(crbug.com/442224): Do not centralize too much value names to the
+# whitelist |_DEFAULT_VARS|. If an empty value is only for a few components,
+# |extra_env_vars| may be the solution.
+#
 # Use _IGNORED_VAR_PREFIXES, _IGNORED_VARS for those that do not need
 # to be defined.
-_DEFAULT_VARS = ['_include_stack',  # for _import_node
-                 'ADDITIONAL_BUILD_PROPERTIES',
-                 'ALL_PRODUCTS',
-                 'all_res_assets',
-                 'ANDROID_BUILD_FROM_SOURCE',
-                 'ANDROID_BUILD_PATHS',
-                 'ARCH_ARM_HAVE_32_BYTE_CACHE_LINES',  # for arm
-                 'ARCH_ARM_HAVE_TLS_REGISTER',
-                 'ARCH_ARM_USE_NON_NEON_MEMCPY',  # for arm
-                 'ARCH_X86_HAVE_SSE2',  # for art
-                 'ARCH_X86_HAVE_SSE3',  # for art
-                 'ART_BUILD_DEBUG',  # for art
-                 'ART_BUILD_HOST',  # for art
-                 'ART_BUILD_NDEBUG',  # for art
-                 'ART_BUILD_TARGET',  # for art
-                 'ART_BUILD_TARGET_NDEBUG',  # for art
-                 'ART_CPP_EXTENSION',  # for art
-                 'ART_HOST_CLANG',  # for art
-                 'ART_HOST_GTEST_EXECUTABLES',  # for art
-                 'ART_TARGET_CFLAGS_x86',  # for art
-                 'ART_TARGET_CLANG',  # for art
-                 'ART_TARGET_CLANG_',  # for art
-                 'ART_TARGET_GTEST_EXECUTABLES',  # for art
-                 'ART_TEST_TARGET_RUN_TEST_OPTIMIZING_NO_PREBUILD32_RULES',  # NOQA
-                 'ART_TEST_TARGET_RUN_TEST_OPTIMIZING_PREBUILD32_RULES',  # NOQA
-                 'ART_TEST_HOST_RUN_TEST_OPTIMIZING_NO_PREBUILD64_RULES',  # NOQA
-                 'ART_TEST_HOST_RUN_TEST_OPTIMIZING_PREBUILD64_RULES',  # NOQA
-                 'ART_USE_PORTABLE_COMPILER',  # for art
-                 'ART_SEA_IR_MODE',  # for art
-                 'art_dont_bother',  # for art
-                 'BOARD_MALLOC_ALIGNMENT',  # for arm
-                 'BUILD_ENV_SEQUENCE_NUMBER',
-                 'BUILD_EXECUTABLE_SUFFIX',
-                 'BUILD_FDO_INSTRUMENT',  # for arm
-                 'BUILD_HOST_64bit',
-                 'BUILD_HOST_DALVIK_JAVA_LIBRARY',  # for art
-                 'BUILD_HOST_static',
-                 'BUILD_TINY_ANDROID',  # for no-elf-hash-table-library.so
-                 'CALLED_FROM_SETUP',
-                 'clcore_LLVM_LD',
-                 'common_SHARED_LIBRARIES',
-                 'common_cflags_host',
-                 'common_conlyflags',
-                 'common_conlyflags_host',
-                 'common_conlyflags_target',
-                 'common_cppflags',
-                 'core_cflags',
-                 'core_cppflags',
-                 'CUSTOM_JAVA_COMPILER',
-                 'CUSTOM_KERNEL_HEADERS',
-                 'CUSTOM_LOCALES',
-                 'DALVIKVM_FLAGS',  # for art
-                 'DEBUG_BIONIC_LIBC',
-                 'DEBUG_DALVIK_VM',
-                 'DEBUG_V8',
-                 'DEFAULT_APP_TARGET_SDK',
-                 'DEFAULT_DEX_PREOPT_IMAGE',  # for art
-                 'DEFAULT_DEX_PREOPT_INSTALLED_IMAGE',  # for art
-                 'DEFAULT_GOAL',
-                 'DEX2OAT_IMAGE_XMS',  # for art
-                 'DEX2OAT_IMAGE_XMX',  # for art
-                 'DEX2OAT_TARGET_ARCH',  # for art
-                 'DEX2OAT_XMS',  # for art
-                 'DEX2OAT_XMX',  # for art
-                 'DEX2OATD_DEPENDENCY',  # for art
-                 'DEXPREOPT_BOOT_JAR_DIR',  # for art
-                 'DEXPREOPT_BOOT_JARS',  # for art
-                 'DIST_DIR',
-                 'DONT_INSTALL_DEX_FILES',
-                 'EMMA_INSTRUMENT',
-                 'ENABLE_AUTOFILL',
-                 'ENABLE_INCREMENTALJAVAC',
-                 'ENABLE_JSC_JIT',
-                 'ENABLE_SVG',  # TODO(igorc): Does WebKit need it
-                 'ENABLE_V8_SNAPSHOT',  # TODO(igorc): Does WebKit need it
-                 'ENABLE_WTF_USE_ACCELERATED_COMPOSITING',
-                 'FORCE_ARM_DEBUGGING',  # for arm
-                 'full_classes_compiled_jar',  # for Java library
-                 'full_classes_jar',  # for Java library
-                 'full_classes_jarjar_jar',  # for Java library
-                 'full_java_libs',  # for Java library
-                 'GENERATE_DEX_DEBUG',
-                 'HAVE_SELINUX',
-                 'HOST_ACP_UNAVAILABLE',
-                 'HOST_BUILD_TYPE',
-                 'HOST_CUSTOM_LD_COMMAND',
-                 'HOST_EXECUTABLES_SUFFIX',
-                 'HOST_LIBRARY_PATH',  # for art
-                 'HOST_PREFER_32_BIT',  # for art
-                 'HOST_RUN_RANLIB_AFTER_COPYING',
-                 'HOST_TOOLCHAIN_PREFIX',
-                 # From development/tools/emulator/opengl/system/
-                 # GLESv1_enc/Android.mk
-                 'intermediates',
-                 # For java lib in frameworks/webview
-                 'intermediates.COMMON',
-                 'INTERNAL_MODIFIER_TARGETS',
-                 'LIBART_LDFLAGS',  # for art
-                 'LIBART_TARGET_BOOT_JARS',  # for art
-                 'LIBART_TARGET_LDFLAGS_arm',  # for art
-                 'LIBART_TARGET_LDFLAGS_arm64',  # for art
-                 'LIBART_TARGET_LDFLAGS_mips',  # for art
-                 'LIBART_TARGET_LDFLAGS_x86',  # for art
-                 'LIBART_TARGET_LDFLAGS_x86_64',  # for art
-                 'LIBCORE_SKIP_TESTS',
-                 'LLVM_DEVICE_BUILD_MK',  # for art
-                 'LLVM_ENABLE_ASSERTION',  # for llvm
-                 'LLVM_GEN_INTRINSICS_MK',  # for art
-                 'LLVM_HOST_BUILD_MK',  # for art
-                 'libm_arm_cflags',  # for Bionic
-                 'libm_x86_cflags',  # for Bionic
-                 'local_javac_flags',  # libsqlite_jni has this
-                 # if --enable-art is not specified, this temporary variable
-                 # never gets set and make fails.
-                 'local-generated-sources-dir',
-                 'log_c_includes',
-                 'log_shared_libraries',
-                 'MALLOC_IMPL',  # for art
-                 'MAKECMDGOALS',
-                 'MINIMAL_NEWWAVELABS',
-                 'NO_FALLBACK_FONT',
-                 'NUM_FRAMEBUFFER_SURFACE_BUFFERS',
-                 'ONE_SHOT_MAKEFILE',
-                 'OUT_DIR',
-                 'OUT_DIR_COMMON_BASE',
-                 'OVERRIDE_RS_DRIVER',  # for rs
-                 'OVERRIDE_RUNTIMES',
-                 'PLATFORM_SDK_VERSION',
-                 'PLATFORM_VERSION',
-                 'PLATFORM_VERSION_CODENAME',
-                 'PRESENT_TIME_OFFSET_FROM_VSYNC_NS',
-                 'PRINT_BUILD_CONFIG',
-                 'PRODUCTS',
-                 'PV_INCLUDES',  # Private include dirs
-                 'REQUIRES_EH',  # for llvm
-                 'REQUIRES_RTTI',  # for llvm
-                 'rs_debug_runtime',  # for rs
-                 'rs_generated_source',  # for rs
-                 'SDK_ONLY',
-                 'SF_VSYNC_EVENT_PHASE_OFFSET_NS',
-                 'should-install-to-system',
-                 'SHOW_COMMANDS',
-                 'STRIP',
-                 'TARGET_BOARD_KERNEL_HEADERS',
-                 'TARGET_BOARD_PLATFORM',
-                 'TARGET_BOOTLOADER_BOARD_NAME',
-                 'TARGET_BUILD_APPS',
-                 'TARGET_BUILD_PDK',
-                 'TARGET_BUILD_TYPE',
-                 'TARGET_CPU_ABI2',
-                 'TARGET_DEFAULT_JAVA_LIBRARIES',
-                 'TARGET_DISABLE_TRIPLE_BUFFERING',
-                 'TARGET_FDO_PROFILE_PATH',  # for arm
-                 'TARGET_GCC_VERSION_EXP',
-                 'TARGET_HAS_BIGENDIAN',
-                 'TARGET_RUN_RANLIB_AFTER_COPYING',
-                 'TARGET_RUNNING_WITHOUT_SYNC_FRAMEWORK',
-                 'TARGET_SIMULATOR',
-                 'TARGET_TOOLS_PREFIX',
-                 'TEST_ART_HOST_RUN_TEST_DEFAULT_TARGETS',  # for art
-                 'TEST_ART_HOST_RUN_TEST_INTERPRETER_TARGETS',  # for art
-                 'TEST_ART_TARGET_RUN_TEST_DEFAULT_TARGETS',  # for art
-                 'TEST_ART_TARGET_RUN_TEST_TARGETS',  # for art
-                 'TMPDIR',  # for art
-                 'TOOL_CFLAGS',
-                 'TOP_DIR',
-                 'USE_CCACHE',
-                 'USE_MINGW',
-                 'VSYNC_EVENT_PHASE_OFFSET_NS',
-                 'WEBCORE_INSTRUMENTATION',
-                 'WITH_ART_USE_OPTIMIZING_COMPILER',  # for art
-                 'WITH_ADDRESS_SANITIZER',
-                 'WITH_COPYING_GC',
-                 'WITH_DEXPREOPT',
-                 'WITH_HOST_DALVIK',
-                 'WITH_MALLOC_CHECK_LIBC_A',
-                 'WITH_MALLOC_LEAK_CHECK',
-                 'WITHOUT_HOST_CLANG',  # for art
-                 'xlink_attrs',
-                 'xml_attrs',
-                 'xmlns_attrs']
+_DEFAULT_VARS = [
+    '2ND_HOST_TOOLCHAIN_PREFIX',
+    '_include_stack',  # for _import_node
+    'ADDITIONAL_BUILD_PROPERTIES',
+    'ALL_PRODUCTS',
+    'all_res_assets',
+    'ALTERNATE_JAVAC',
+    'ANDROID_BUILD_FROM_SOURCE',
+    'ANDROID_BUILD_PATHS',
+    'ARCH_ARM_HAVE_32_BYTE_CACHE_LINES',  # for arm
+    'ARCH_ARM_HAVE_TLS_REGISTER',
+    'ARCH_ARM_USE_NON_NEON_MEMCPY',  # for arm
+    'ARCH_X86_HAVE_SSE2',  # for art
+    'ARCH_X86_HAVE_SSE3',  # for art
+    'ARCH_X86_HAVE_SSSE3',
+    'ARCH_X86_HAVE_SSE4',
+    'ARCH_X86_HAVE_SSE4_1',
+    'ARCH_X86_HAVE_SSE4_2',
+    'ARCH_X86_HAVE_AVX',
+    'ARCH_X86_HAVE_AES_NI',
+    'ART_BUILD_HOST',  # for art
+    'ART_BUILD_TARGET',  # for art
+    'ART_CPP_EXTENSION',  # for art
+    'art_dont_bother',  # for art
+    'ART_HOST_CLANG',  # for art
+    'ART_HOST_GTEST_EXECUTABLES',  # for art
+    'ART_TARGET_CFLAGS_x86',  # for art
+    'ART_TARGET_CLANG',  # for art
+    'ART_TARGET_CLANG_',  # for art
+    'ART_TARGET_GTEST_EXECUTABLES',  # for art
+    'ART_TEST_TARGET_RUN_TEST_OPTIMIZING_NO_PREBUILD32_RULES',
+    'ART_TEST_TARGET_RUN_TEST_OPTIMIZING_PREBUILD32_RULES',
+    'ART_TEST_HOST_RUN_TEST_OPTIMIZING_NO_PREBUILD32_RULES',
+    'ART_TEST_HOST_RUN_TEST_OPTIMIZING_PREBUILD32_RULES',
+    'ART_TEST_HOST_RUN_TEST_OPTIMIZING_NO_PREBUILD64_RULES',
+    'ART_TEST_HOST_RUN_TEST_OPTIMIZING_PREBUILD64_RULES',
+    'ART_USE_HSPACE_COMPACT',  # for art
+    'ART_USE_PORTABLE_COMPILER',  # for art
+    'ART_SEA_IR_MODE',  # for art
+    'BOARD_CUSTOM_MKBOOTIMG',
+    'BOARD_MALLOC_ALIGNMENT',  # for arm
+    'BUILD_ARM_FOR_X86',
+    'BUILD_ENV_SEQUENCE_NUMBER',
+    'BUILD_EXECUTABLE_SUFFIX',
+    'BUILD_FDO_INSTRUMENT',  # for arm
+    'BUILD_FDO_OPTIMIZE',
+    'build_host',
+    'BUILD_HOST_64bit',
+    'BUILD_HOST_DALVIK_JAVA_LIBRARY',  # for art
+    'BUILD_HOST_static',
+    'BUILD_TINY_ANDROID',  # for no-elf-hash-table-library.so
+    'CALLED_FROM_SETUP',
+    'CLANG_CONFIG_x86_64_EXTRA_CPPFLAGS',
+    'CLANG_CONFIG_x86_EXTRA_CPPFLAGS',
+    'clcore_LLVM_LD',
+    'common_ASFLAGS',  # for libpng
+    'common_c_includes',
+    'common_cflags',
+    'common_cflags_host',
+    'common_conlyflags',
+    'common_conlyflags_host',
+    'common_conlyflags_target',
+    'common_cppflags',
+    'common_SHARED_LIBRARIES',
+    'core_cflags',
+    'core_cppflags',
+    'CUSTOM_JAVA_COMPILER',
+    'CUSTOM_KERNEL_HEADERS',
+    'CUSTOM_LOCALES',
+    'DALVIKVM_FLAGS',  # for art
+    'DEBUG_BIONIC_LIBC',
+    'DEBUG_DALVIK_VM',
+    'DEBUG_V8',
+    'DEFAULT_APP_TARGET_SDK',
+    'DEFAULT_DEX_PREOPT_BUILT_IMAGE',  # for art
+    'DEFAULT_DEX_PREOPT_BUILT_IMAGE_FILENAME',  # for art
+    'DEFAULT_DEX_PREOPT_IMAGE',  # for art
+    'DEFAULT_DEX_PREOPT_INSTALLED_IMAGE',  # for art
+    'DEFAULT_GOAL',
+    'DEX2OAT_IMAGE_XMS',  # for art
+    'DEX2OAT_IMAGE_XMX',  # for art
+    'DEX2OAT_TARGET_ARCH',  # for art
+    'DEX2OAT_XMS',  # for art
+    'DEX2OAT_XMX',  # for art
+    'DEX2OATD_DEPENDENCY',  # for art
+    'DEXPREOPT_BOOT_JAR_DIR',  # for art
+    'DEXPREOPT_BOOT_JARS',  # for art
+    'DIST_DIR',
+    'DONT_INSTALL_DEX_FILES',
+    'EMMA_INSTRUMENT',
+    'ENABLE_AUTOFILL',
+    'ENABLE_INCREMENTALJAVAC',
+    'ENABLE_JSC_JIT',
+    'ENABLE_SVG',  # TODO(igorc): Does WebKit need it
+    'ENABLE_V8_SNAPSHOT',  # TODO(igorc): Does WebKit need it
+    'ENABLE_WTF_USE_ACCELERATED_COMPOSITING',
+    'FORCE_ARM_DEBUGGING',  # for arm
+    'FORCE_BUILD_LLVM_COMPONENTS',
+    'full_classes_compiled_jar',  # for Java library
+    'full_classes_jar',  # for Java library
+    'full_classes_jarjar_jar',  # for Java library
+    'full_java_libs',  # for Java library
+    'GENERATE_DEX_DEBUG',
+    'HAVE_SELINUX',
+    'HOST_ACP_UNAVAILABLE',
+    'HOST_BUILD_TYPE',
+    'HOST_CUSTOM_LD_COMMAND',
+    'HOST_EXECUTABLES_SUFFIX',
+    'HOST_LIBRARY_PATH',  # for art
+    'HOST_PREFER_32_BIT',  # for art
+    'HOST_RUN_RANLIB_AFTER_COPYING',
+    'HOST_TOOLCHAIN_PREFIX',
+    # From development/tools/emulator/opengl/system/
+    # GLESv1_enc/Android.mk
+    'intermediates',
+    # For java lib in frameworks/webview
+    'intermediates.COMMON',
+    'INTERNAL_MODIFIER_TARGETS',
+    'LEGACY_USE_JAVA6',
+    'LIBART_LDFLAGS',  # for art
+    'LIBART_TARGET_BOOT_JARS',  # for art
+    'LIBART_TARGET_LDFLAGS_arm',  # for art
+    'LIBART_TARGET_LDFLAGS_arm64',  # for art
+    'LIBART_TARGET_LDFLAGS_mips',  # for art
+    'LIBART_TARGET_LDFLAGS_x86',  # for art
+    'LIBART_TARGET_LDFLAGS_x86_64',  # for art
+    'LIBCORE_SKIP_TESTS',
+    'LLVM_DEVICE_BUILD_MK',  # for art
+    'LLVM_ENABLE_ASSERTION',  # for llvm
+    'LLVM_GEN_INTRINSICS_MK',  # for art
+    'LLVM_HOST_BUILD_MK',  # for art
+    'libm_arm_cflags',  # for Bionic
+    'libm_x86_cflags',  # for Bionic
+    'libc_arch_dynamic_src_files',
+    'libc_static_common_src_files',
+    'libcutils_c_includes',
+    'local_c_includes',  # for libssl
+    'LOCAL_CFLAGS_',  # for bionic
+    'LOCAL_CLANG',
+    'local_javac_flags',  # libsqlite_jni has this
+    'LOCAL_REQUIRED_MODULES_',
+    # if --enable-art is not specified, this temporary variable
+    # never gets set and make fails.
+    'local-generated-sources-dir',
+    'log_c_includes',
+    'log_shared_libraries',
+    'MAKECMDGOALS',
+    'MALLOC_IMPL',  # for art, TODO: is jemalloc ok?
+    'MINIMAL_NEWWAVELABS',
+    'NO_FALLBACK_FONT',
+    'NUM_FRAMEBUFFER_SURFACE_BUFFERS',
+    'NULL',
+    'ONE_SHOT_MAKEFILE',
+    'OUT_DIR',
+    'OUT_DIR_COMMON_BASE',
+    'OVERRIDE_RUNTIMES',
+    'PLATFORM_SDK_VERSION',
+    'PLATFORM_VERSION',
+    'PLATFORM_VERSION_CODENAME',
+    'PRESENT_TIME_OFFSET_FROM_VSYNC_NS',
+    'PRINT_BUILD_CONFIG',
+    'PRODUCTS',
+    'PV_INCLUDES',  # Private include dirs
+    'REQUIRES_EH',  # for llvm
+    'REQUIRES_RTTI',  # for llvm
+    'SDK_ONLY',
+    'SF_VSYNC_EVENT_PHASE_OFFSET_NS',
+    'should-install-to-system',
+    'SHOW_COMMANDS',
+    'SOUND_TRIGGER_USE_STUB_MODULE',
+    'STRIP',
+    'TARGET_BOARD_KERNEL_HEADERS',
+    'TARGET_BOARD_PLATFORM',
+    'TARGET_BOOTLOADER_BOARD_NAME',
+    'TARGET_BUILD_APPS',
+    'TARGET_BUILD_PDK',
+    'TARGET_BUILD_TYPE',
+    'target_c_flags',  # for libssl
+    'target_c_includes',  # for libssl
+    'TARGET_CPU_ABI2',
+    'TARGET_CPU_ABI_LIST',
+    'TARGET_CPU_ABI_LIST_64_BIT',
+    'TARGET_CPU_ABI_LIST_32_BIT',
+    'TARGET_DEFAULT_JAVA_LIBRARIES',
+    'TARGET_DISABLE_TRIPLE_BUFFERING',
+    'TARGET_FDO_PROFILE_PATH',  # for arm
+    'TARGET_FORCE_HWC_FOR_VIRTUAL_DISPLAYS',
+    'TARGET_GCC_VERSION_EXP',
+    'TARGET_HAS_BIGENDIAN',
+    'TARGET_IS_64_BIT',
+    'TARGET_RUN_RANLIB_AFTER_COPYING',
+    'TARGET_RUNNING_WITHOUT_SYNC_FRAMEWORK',
+    'TARGET_SIMULATOR',
+    'target_src_files',  # for libssl
+    'TARGET_USE_PRIVATE_LIBM',
+    'TARGET_USES_LOGD',
+    'TARGET_TOOLS_PREFIX',
+    'TEST_ART_BROKEN_TARGET_PREBUILD_RUN_TESTS',  # for art
+    'TEST_ART_HOST_RUN_TEST_DEFAULT_TARGETS',  # for art
+    'TEST_ART_HOST_RUN_TEST_INTERPRETER_TARGETS',  # for art
+    'TEST_ART_TARGET_RUN_TEST_DEFAULT_TARGETS',  # for art
+    'TEST_ART_TARGET_RUN_TEST_TARGETS',  # for art
+    'TMPDIR',  # for art
+    'TOOL_CFLAGS',
+    'TOP_DIR',
+    'USE_CCACHE',
+    'USE_CUSTOM_AUDIO_POLICY',
+    'USE_MINGW',
+    'VSYNC_EVENT_PHASE_OFFSET_NS',
+    'WEBCORE_INSTRUMENTATION',
+    'WITH_ADDRESS_SANITIZER',
+    'WITH_ART_USE_OPTIMIZING_COMPILER',  # for art
+    'WITH_COPYING_GC',
+    'WITH_DEXPREOPT',
+    'WITH_HOST_DALVIK',
+    'WITH_MALLOC_CHECK_LIBC_A',
+    'WITH_MALLOC_LEAK_CHECK',
+    'WITH_STATIC_ANALYZER',
+    'WITH_SYNTAX_CHECK',
+    'WITHOUT_CLANG',
+    'WITHOUT_HOST_CLANG',  # for art
+    'WITHOUT_TARGET_CLANG',
+    'xlink_attrs',
+    'xml_attrs',
+    'xmlns_attrs',
+]
 
 # Ignore these when make complains that such variables are not
 # defined.  These prefixes are used for many variables - we cannot
@@ -274,11 +328,24 @@ _IGNORED_VAR_PREFIXES = [
     '_nic.PRODUCTS.',
     'PRODUCTS.',
     'libunwind',
+    # for bionic tests
+    'libBionic',
+    'fortify1-tests',
+    'fortify2-tests',
+    # for libbacktrace
+    'backtrace',
+    'libbacktrace',
+    # for libicu4c
+    'optional_android_logging_',
+    # for art/build/Android.gtest.mk
+    'ART_GTEST_',
     # base_rules.mk introduces ALL_MODULE_TAGS.<tag>, and
     # ALL_MODULES.<local module>.<attribute>. See, 'Register with ALL_MODULES'
     # section in base_rules.mk.
     'ALL_MODULE_TAGS.',
     'ALL_MODULES.',
+    # LLVM
+    'DISABLE_LLVM',
 ]
 
 _IGNORED_VAR_PREFIXES_RE = re.compile(
@@ -286,7 +353,7 @@ _IGNORED_VAR_PREFIXES_RE = re.compile(
 
 # Ignore missing these variables, as opposed to setting empty values
 # in _DEFAULT_VARS.
-_IGNORED_VARS = [
+_IGNORED_VARS_RE = [
     # (1), (2), ... are variable name for the arguments of a function
     # call. Some callers may not pass that parameter in and
     # it is normal and make would use empty value.
@@ -295,16 +362,63 @@ _IGNORED_VARS = [
     # Android has a capability to build for two architectures at the
     # same time, but for ARC we do not have a second architecture to
     # target.
+    '2ND_DEFAULT_DEX_PREOPT_BUILT_IMAGE_FILENAME',
+    '2ND_HOST_IS_64_BIT',
+    '2ND_HOST_OUT_SHARED_LIBRARIES',  # for ART
+    '2ND_TARGET_CORE_DEX_FILES',
+    '2ND_TARGET_CORE_IMG_OUT',
+    '2ND_TARGET_IS_64_BIT',
+    '2ND_TARGET_TOOLS_PREFIX',
+    'LOCAL_2ND_ARCH',
+    'LOCAL_2ND_ARCH_VAR_PREFIX',
     'TARGET_2ND_ARCH',
     'TARGET_2ND_ARCH_VAR_PREFIX',
-    # for ART
-    '2ND_HOST_OUT_SHARED_LIBRARIES',
-    '2ND_TARGET_CORE_IMG_OUT']
+    'TARGET_2ND_CPU_ABI2',
+    'TARGET_2ND_CPU_VARIANT',
+    'TARGET_PREFER_32_BIT',  # undef and 32-bit support is ignored.
+    'TARGET_PREFER_32_BIT_APPS',
+    'TARGET_PREFER_32_BIT_EXECUTABLES',
+    'TARGET_SUPPORTS_32_BIT_APPS',
+    'TARGET_SUPPORTS_64_BIT_APPS',  # default is to assume 32 bit.
+    # LMP makefiles use <module>_xxx_<arch> to override specific
+    # configs.
+    '[-_a-z]*_c_includes',
+    '[-_a-z]*_c_includes_host',
+    '[-_a-z]*_c_includes_target',
+    '[-_a-z]*_cflags',
+    '[-_a-z]*_cflags_[_a-z0-9]*',
+    '[-_a-z]*_clang_host',
+    '[-_a-z]*_clang_target',
+    '[-_a-z]*_conlyflags',
+    '[-_a-z]*_conlyflags_host',
+    '[-_a-z]*_conlyflags_target',
+    '[-_a-z]*_cppflags',
+    '[-_a-z]*_cppflags_host',
+    '[-_a-z]*_cppflags_target',
+    '[-_a-z]*_force_static_executable',
+    '[-_a-z]*_install_to_out_data',
+    '[-_a-z]*_ldflags',
+    '[-_a-z]*_ldflags_host',
+    '[-_a-z]*_ldflags_target',
+    '[-_a-z]*_ldflags_arm',
+    '[-_a-z]*_ldlibs',
+    '[-_a-z]*_ldlibs_host',
+    '[-_a-z]*_ldlibs_target',
+    '[-_a-z]*_library_ldflags',
+    '[-_a-z]*_library_ldflags_target',
+    '[-_a-z]*_shared_libraries',
+    '[-_a-z]*_shared_libraries_host',
+    '[-_a-z]*_shared_libraries_target',
+    '[-_a-z]*_src_files_[_a-z0-9]*',
+    '[-_a-z]*_static_libraries',
+    '[-_a-z]*_static_libraries_host',
+    '[-_a-z]*_static_libraries_target',
+]
 
 _IGNORED_WARNING_RE = re.compile(
     "warning: undefined variable (`(%s)|`(%s)')" % (
         '|'.join([re.escape(w) for w in _IGNORED_VAR_PREFIXES]),
-        '|'.join([re.escape(w) for w in _IGNORED_VARS])))
+        '|'.join([w for w in _IGNORED_VARS_RE])))
 
 _INITIALIZED = False
 
@@ -348,30 +462,34 @@ printvars:
 
 
 def _create_main_makefile(file_name, extra_env_vars):
+  if OPTIONS.is_debug_code_enabled():
+    debug = 'true'
+    ndebug = 'false'
+  else:
+    debug = 'false'
+    ndebug = 'true'
   _ENV_VARS = {
       'ANDROID_BUILD_TOP': _ARC_ROOT,
       # TODO(crbug.com/233769): Renderscript is not enabled.
       'ANDROID_ENABLE_RENDERSCRIPT': 'false',
       # For art
-      'ART_BUILD_HOST_DEBUG': 'false',
-      'ART_BUILD_HOST_NDEBUG': 'true',
-      'ART_BUILD_TARGET_DEBUG': 'false',
-      'ART_BUILD_TARGET_NDEBUG': 'true',
+      'ART_BUILD_HOST_DEBUG': debug,
+      'ART_BUILD_HOST_NDEBUG': ndebug,
+      'ART_BUILD_TARGET_DEBUG': debug,
+      'ART_BUILD_TARGET_NDEBUG': ndebug,
       # Set to a fixed value to prevent mk from generating one each time.
       # Build number is passed to aapt and so becomes a dependency.
-      'BUILD_NUMBER': 'eng.eng.20120505.150022',
+      'BUILD_NUMBER': 'eng.eng.20141104.000000',
       # Directory for including most of the shared make files.
       'BUILD_SYSTEM': os.path.join(_MAKE_BUILD_DIR, _CORE_DIRNAME),
       # Assume all our processors are cortex-a15 that have hardware div
       # instruction
       'DEX2OAT_TARGET_INSTRUCTION_SET_FEATURES': 'div',
       'HOST_OUT_GEN': os.path.join(build_common.get_build_dir(), 'gen-host'),
-      # TODO(crbug.com/340573): ART_BASE_ADDRESS defined in
-      # third_party/android/art/dex2oat/Android.mk should be modified for other
-      # targets.
-      'LIBART_IMG_HOST_BASE_ADDRESS': '0x60000000',
-      'LIBART_IMG_TARGET_BASE_ADDRESS': '0x70000000',
+      'LLVM_SUPPORTED_ARCH': 'arm arm64 mips mips64 x86 x86_64',
       'LOCAL_SDL_CONFIG': 'echo',
+      # This is supposed to be a private, temporary variable, but it is leaking.
+      'my_32_64_bit_suffix': 32,
       # Build webviewchromium.
       'PRODUCT_PREBUILT_WEBVIEWCHROMIUM': 'no',
       # Support "complex" scripts in WebKit.
@@ -384,6 +502,9 @@ def _create_main_makefile(file_name, extra_env_vars):
       # Top-level Android directory used to reference include files.
       'TOP': _MAKE_TO_NINJA_DIR + os.path.sep,
       'TOPDIR': _MAKE_TO_NINJA_DIR + os.path.sep,
+      # Use a 32-bit keystore, even in 64 bit builds.
+      'USE_32_BIT_KEYSTORE': 'true',
+      'USE_LEGACY_AUDIO_POLICY': '1',
       # User name for inclusion in build id.
       'USER': 'eng',  # Some anonymous name
       # SEA mode. See, art/build/Android.common.mk.
@@ -424,6 +545,28 @@ def _create_main_makefile(file_name, extra_env_vars):
         'WITH_JIT': 'true',
     }
     _ENV_VARS.update(arm_vars)
+  elif OPTIONS.is_x86_64():
+    # NOTE: For Native Client x86_64, we want to use the 32-bit x86
+    # defines in general, consistent with the use of 32-bit
+    # int/long/pointer types and the NaCl strategy for source-code
+    # portability.  We are taking the approach of setting architecture
+    # to x86_64 and then fix up things later. This works because most
+    # of the code that require 64-bit pointer in Android code base are
+    # guarded by #if defined(__LP64__).
+    x86_64_vars = {
+        'arch': 'x86_64',  # for art
+        'ART_SUPPORTED_ARCH': 'x86_64',
+        'ARCH_ARM_HAVE_ARMV7A': 'false',
+        'ARCH_ARM_HAVE_NEON': 'false',
+        'ARCH_ARM_HAVE_VFP': 'false',
+        'TARGET_ARCH': 'x86_64',
+        'TARGET_ARCH_ABI': 'x86_64',
+        'BOARD_MALLOC_ALIGNMENT': '16',
+        'TARGET_ARCH_VARIANT': 'x86_64',
+        'TARGET_CPU_VARIANT': 'x86_64',
+        'TARGET_PRODUCT': 'full_x86_64',
+        'WITH_JIT': 'false'}  # Android enables this by default on ARM only.
+    _ENV_VARS.update(x86_64_vars)
   else:
     x86_vars = {
         'arch': 'x86',  # for art
@@ -432,9 +575,6 @@ def _create_main_makefile(file_name, extra_env_vars):
         'ARCH_ARM_HAVE_NEON': 'false',
         'ARCH_ARM_HAVE_VFP': 'false',
         # Select 'x86' if the target is *_i686 since the default is 'arm'.
-        # NOTE: For Native Client x86_64, we use the 32-bit x86 defines,
-        # consistent with the use of 32-bit int/long/pointer types and
-        # the NaCl strategy for source-code portability.
         'TARGET_ARCH': 'x86',
         'TARGET_ARCH_ABI': 'x86',
         # TODO(igorc): Consider switching to x86-atom build to use faster
@@ -517,23 +657,41 @@ def _copy_build_scripts():
   # a previously-unused mk becomes included - it may need to be replaced.
   # If all files under build/core are copied, 'make' command does not pass
   # because of many undefined variables.
-  _copy_external_files(['build/core/base_rules.mk',
+  _copy_external_files(['build/core/android_manifest.mk',
+                        'build/core/base_rules.mk',
                         'build/core/build_id.mk',
+                        'build/core/clang/HOST_x86.mk',
+                        'build/core/clang/HOST_x86_64.mk',
+                        'build/core/clang/HOST_x86_common.mk',
+                        'build/core/clang/TARGET_x86.mk',
+                        'build/core/clang/TARGET_x86_64.mk',
+                        'build/core/clang/TARGET_arm.mk',
+                        'build/core/clang/arm.mk',
+                        'build/core/clang/config.mk',
+                        'build/core/clang/x86.mk',
+                        'build/core/clang/x86_64.mk',
                         'build/core/clear_vars.mk',
                         'build/core/combo/HOST_linux-x86.mk',
+                        'build/core/combo/HOST_linux-x86_64.mk',
                         'build/core/combo/TARGET_linux-arm.mk',
                         'build/core/combo/TARGET_linux-x86.mk',
+                        'build/core/combo/TARGET_linux-x86_64.mk',
                         'build/core/combo/arch/arm/armv7-a.mk',
                         'build/core/combo/arch/x86/x86.mk',
+                        'build/core/combo/arch/x86_64/x86_64.mk',
+                        'build/core/combo/fdo.mk',
                         'build/core/combo/javac.mk',
                         'build/core/combo/select.mk',
                         'build/core/config.mk',
+                        'build/core/configure_module_stem.mk',
                         'build/core/definitions.mk',
                         'build/core/device.mk',
                         'build/core/distdir.mk',
                         'build/core/envsetup.mk',
+                        'build/core/host_dalvik_static_java_library.mk',
+                        'build/core/host_static_test_lib.mk',
+                        'build/core/host_test_internal.mk',
                         'build/core/java.mk',
-                        'build/core/llvm_config.mk',
                         'build/core/multi_prebuilt.mk',
                         'build/core/node_fns.mk',
                         'build/core/notice_files.mk',
@@ -541,7 +699,9 @@ def _copy_build_scripts():
                         'build/core/phony_package.mk',
                         'build/core/product.mk',
                         'build/core/product_config.mk',
+                        'build/core/static_test_lib.mk',
                         'build/core/static_java_library.mk',
+                        'build/core/target_test_internal.mk',
                         'build/core/version_defaults.mk'])
 
   _copy_external_dir('build/target/board')
@@ -551,26 +711,24 @@ def _copy_build_scripts():
       'abi/cpp/use_rtti.mk',
       'art/build/Android.common.mk',
       'art/build/Android.executable.mk',
-      'bionic/libc/arch-x86/x86.mk',
       'bionic/libc/arch-arm/arm.mk',
       'bionic/libc/arch-arm/cortex-a15/cortex-a15.mk',
       'bionic/libc/arch-arm/generic/generic.mk',
-      'frameworks/av/drm/libdrmframework/plugins/common/include/IDrmEngine.h',
-      'frameworks/av/media/libstagefright/codecs/common/Config.mk',
-      'frameworks/compile/slang/RSSpec.mk',
-      'external/chromium/third_party/libevent/Android.mk',
-      'external/chromium/third_party/modp_b64/Android.mk',
-      'external/chromium/base/third_party/dmg_fp/Android.mk',
-      'external/llvm/llvm.mk',
+      'bionic/libc/arch-x86/x86.mk',
       'external/llvm/llvm-device-build.mk',
       'external/llvm/llvm-gen-intrinsics.mk',
       'external/llvm/llvm-host-build.mk',
-      'external/stlport/libstlport.mk'])
+      'external/llvm/llvm.mk',
+      'external/stlport/libstlport.mk',
+      'frameworks/av/drm/libdrmframework/plugins/common/include/IDrmEngine.h',
+      'frameworks/av/media/libstagefright/codecs/common/Config.mk',
+      'frameworks/compile/libbcc/libbcc-targets.mk',
+      'frameworks/compile/slang/rs_version.mk'])
 
 
 def _copy_canned_generated_sources():
   # Do nothing if a stamp file is up to date.
-  stamp_file_path = os.path.join(_ANDROID_GEN_SOURCES_DIR, 'STAMP')
+  stamp_file_path = os.path.join(_ANDROID_TARGET_GEN_SOURCES_DIR, 'STAMP')
   tar_stat = os.stat(_CANNED_GEN_SOURCES_TAR)
   tar_revision = '%s:%s' % (tar_stat.st_size, tar_stat.st_mtime)
   stamp_file = StampFile(tar_revision, stamp_file_path)
@@ -578,9 +736,9 @@ def _copy_canned_generated_sources():
     return
 
   # Wipe existing directory in case files are removed from the tarball.
-  shutil.rmtree(_ANDROID_GEN_SOURCES_DIR, True)
+  shutil.rmtree(_ANDROID_TARGET_GEN_SOURCES_DIR, True)
   t = tarfile.open(_CANNED_GEN_SOURCES_TAR)
-  _extract_dir(t, _ANDROID_GEN_SOURCES_DIR, None)
+  _extract_dir(t, _ANDROID_TARGET_GEN_SOURCES_DIR, None)
   t.close()
 
   stamp_file.update()
@@ -625,6 +783,7 @@ def prepare_make_to_ninja():
       'host_java_library.mk',  # Not supported
       'host_native_test.mk',  # Not supported
       'native_test.mk'])  # Not supported
+  _create_print_vars_makefile(BUILD_TYPE_HOST_DALVIK_JAVA_LIBRARY)
   _create_print_vars_makefile(BUILD_TYPE_HOST_SHARED)
   _create_print_vars_makefile(BUILD_TYPE_HOST_STATIC)
   _create_print_vars_makefile(BUILD_TYPE_HOST_EXECUTABLE)
@@ -637,13 +796,8 @@ def prepare_make_to_ninja():
   _create_print_vars_makefile(BUILD_TYPE_NOTICES_STATIC)
   _create_print_vars_makefile(BUILD_TYPE_PREBUILT)
   _copy_build_scripts()
-  # TODO(crbug.com/409511): Now libcxx is supported only for Bare Metal i686.
-  # libcxx seriously depends on C++11 that NaCl gcc does not support.
-  # We will use PNaCl partially to build libcxx.
-  if OPTIONS.is_bare_metal_i686():
-    _copy_external_files(['external/libcxx/libcxx.mk'])
-  else:
-    _create_noop_makefiles(['../../external/libcxx/libcxx.mk'])
+
+  _copy_external_files(['external/libcxx/libcxx.mk'])
   _copy_external_file('build/tools/findleaves.py')
   _copy_canned_generated_sources()
   _create_tool_scripts()
@@ -847,11 +1001,18 @@ class BuildVarHelper(object):
   def get_optional_bool(self, name, default=False):
     return _get_optional_bool(self._build_type, self._vars, name, default)
 
-  def get_optional_list(self, name):
+  def get_optional_list(self, name, variants=None):
+    result = self._get_optional_list_internal(name)
+    if variants:
+      for v in variants:
+        result.extend(self._get_optional_list_internal('%s_%s' % (name, v)))
+    return result
+
+  def _get_optional_list_internal(self, name):
     return shlex.split(self.get_optional(name, default=''))
 
-  def get_optional_flags(self, name):
-    return _merge_separated_flags(self.get_optional_list(name))
+  def get_optional_flags(self, name, variants=None):
+    return _merge_separated_flags(self.get_optional_list(name, variants))
 
 
 # Merges the value for '-D' and '-I' into one element if they are contained in
@@ -975,6 +1136,10 @@ class MakeVars:
     # TODO(crbug.com/364344): Once Renderscript is built from source, remove.
     self._is_canned = False
 
+    # C++ exceptions are disabled by default. Only certain modules that
+    # absolutely require them (like pdfium) should set this to True
+    self._enable_exceptions = False
+
     self._force_optimization = False
 
     self._path = _rel_from_root(vars_helper.get_required('LOCAL_PATH'))
@@ -1000,37 +1165,47 @@ class MakeVars:
   def _init_c_program(self, vars_helper):
     self._module_name = vars_helper.get_required('LOCAL_MODULE')
 
-    self._cflags = self._get_build_flags(vars_helper, 'CFLAGS')
-    # For consistency with NinjaGenerator, call it cxxflags rather than
-    # cppflags.
-    self._cxxflags = self._get_build_flags(vars_helper, 'CPPFLAGS')
-    self._conlyflags = self._get_build_flags(vars_helper, 'CONLYFLAGS')
-    self._clangflags = self._get_build_flags(vars_helper, 'CLANG_FLAGS')
-    self._asmflags = vars_helper.get_optional_flags('LOCAL_ASFLAGS')
-
-    self._ldflags = self._get_build_flags(vars_helper, 'LDFLAGS')
-
     if self.is_host():
       arch_variant = 'x86_64'
+      arch_bit_variant = '64'
     elif OPTIONS.is_arm():
       arch_variant = 'arm'
+      arch_bit_variant = '32'
     elif OPTIONS.is_x86_64():
       arch_variant = 'x86_64'
+      arch_bit_variant = '64'
     else:
       arch_variant = 'x86'
+      arch_bit_variant = '32'
 
-    self._includes = vars_helper.get_optional_list('LOCAL_C_INCLUDES')
-    self._includes += vars_helper.get_optional_list(
-        'LOCAL_C_INCLUDES_' + arch_variant)
+    self._cflags = self._get_build_flags(vars_helper, 'CFLAGS',
+                                         [arch_variant, arch_bit_variant])
+    self._conlyflags = self._get_build_flags(vars_helper, 'CONLYFLAGS',
+                                             [arch_variant])
+    # For consistency with NinjaGenerator, call it cxxflags rather than
+    # cppflags.
+    self._cxxflags = self._get_build_flags(vars_helper, 'CPPFLAGS',
+                                           [arch_variant])
+    self._clangflags = self._get_build_flags(vars_helper, 'CLANG_FLAGS',
+                                             [arch_variant])
+    self._asmflags = self._get_build_flags(vars_helper, 'ASFLAGS',
+                                           [arch_bit_variant])
+    self._ldflags = self._get_build_flags(vars_helper, 'LDFLAGS',
+                                          [arch_variant, arch_bit_variant])
+
+    self._includes = vars_helper.get_optional_list(
+        'LOCAL_C_INCLUDES', [arch_variant])
     self._includes.append(self._path)
-    if self.is_shared():
-      self._android_gen_path = os.path.join(
-          _ANDROID_GEN_SOURCES_DIR, 'SHARED_LIBRARIES',
-          self._module_name + '_intermediates')
+    if self.is_target():
+      gen_sources_dir = _ANDROID_TARGET_GEN_SOURCES_DIR
     else:
-      self._android_gen_path = os.path.join(
-          _ANDROID_GEN_SOURCES_DIR, 'STATIC_LIBRARIES',
-          self._module_name + '_intermediates')
+      gen_sources_dir = _ANDROID_HOST_GEN_SOURCES_DIR
+    if self.is_shared():
+      libraries_dir = 'SHARED_LIBRARIES'
+    else:
+      libraries_dir = 'STATIC_LIBRARIES'
+    self._android_gen_path = os.path.join(
+        gen_sources_dir, libraries_dir, self._module_name + '_intermediates')
     self._includes.append(self._android_gen_path)
     self._includes += vars_helper.get_optional_list('JNI_H_INCLUDE')
 
@@ -1043,11 +1218,10 @@ class MakeVars:
           'TARGET_PROJECT_INCLUDES')
       self._sys_includes += vars_helper.get_optional_list('TARGET_C_INCLUDES')
 
-    local_sources = vars_helper.get_optional_list('LOCAL_SRC_FILES')
-    local_sources += vars_helper.get_optional_list(
-        'LOCAL_SRC_FILES_' + arch_variant)
-
-    gen_sources = vars_helper.get_optional_list('LOCAL_GENERATED_SOURCES')
+    local_sources = vars_helper.get_optional_list(
+        'LOCAL_SRC_FILES', [arch_variant, arch_bit_variant])
+    gen_sources = vars_helper.get_optional_list(
+        'LOCAL_GENERATED_SOURCES', [arch_variant, arch_bit_variant])
 
     self._sources = []
     # .ipp is a header file that implements inline template methods.
@@ -1057,13 +1231,12 @@ class MakeVars:
 
     self._static_deps = vars_helper.get_optional_list('LOCAL_STATIC_LIBRARIES')
     self._whole_archive_deps = vars_helper.get_optional_list(
-        'LOCAL_WHOLE_STATIC_LIBRARIES')
+        'LOCAL_WHOLE_STATIC_LIBRARIES', [arch_variant, arch_bit_variant])
     self._shared_deps = vars_helper.get_optional_list('LOCAL_SHARED_LIBRARIES')
     self._addld_deps = []
 
-    self._implicit_deps = []
-    self._implicit_deps += (os.path.join(self._path, x) for x in local_sources
-                            if x.endswith('.h') or x.endswith('.ipp'))
+    self._implicit_deps = [os.path.join(self._path, x) for x in local_sources
+                           if x.endswith('.h') or x.endswith('.ipp')]
 
     self._copy_headers = vars_helper.get_optional_flags('LOCAL_COPY_HEADERS')
     self._copy_headers_to = vars_helper.get_optional('LOCAL_COPY_HEADERS_TO')
@@ -1072,7 +1245,7 @@ class MakeVars:
                                            self._copy_headers_to)
 
     self._clang_incompatible_flags = vars_helper.get_optional_list(
-        'CLANG_CONFIG_UNKNOWN_CFLAGS')
+        'CLANG_CONFIG_%s_UNKNOWN_CFLAGS' % build_common.get_bionic_arch_name())
     if OPTIONS.is_nacl_build():
       # Add flags that PNaCl clang does not recognize.
       self._clang_incompatible_flags.extend([
@@ -1082,10 +1255,20 @@ class MakeVars:
     # warning for it.
     self._clang_incompatible_flags.append('-finline-functions')
 
-    self._is_clang_enabled = (
-        vars_helper.get_optional('LOCAL_CLANG') == 'true')
+    if vars_helper.get_optional('LOCAL_CLANG') == 'true':
+      self._is_clang_enabled = True
+      self._is_cxx11_enabled = True
+    else:
+      self._is_clang_enabled = False
+      self._is_cxx11_enabled = False
     self._is_clang_linker_enabled = False
     self._is_libcxx_enabled = ('-D_USING_LIBCXX' in self._cflags)
+
+    if (self.is_target_executable() and
+        'tests' in vars_helper.get_optional_list('LOCAL_MODULE_TAGS')):
+      self.set_build_type(BUILD_TYPE_TARGET_TEST_EXECUTABLE)
+    self._disabled_tests = []
+    self._qemu_disabled_tests = []
 
     # TODO(igorc): Maybe support LOCAL_SYSTEM_SHARED_LIBRARIES
 
@@ -1148,7 +1331,11 @@ class MakeVars:
       self._local_resource_dirs = None
 
     self._dx_flags = vars_helper.get_optional('LOCAL_DX_FLAGS')
-    self._aapt_flags = vars_helper.get_optional('LOCAL_AAPT_FLAGS')
+    self._aapt_flags = vars_helper.get_optional_flags('LOCAL_AAPT_FLAGS')
+    self._aapt_manifest = vars_helper.get_optional(
+        'LOCAL_FULL_MANIFEST_FILE', default='AndroidManifest.xml')
+    self._dex_preopt = (not self.is_static_java_library() and
+                        vars_helper.get_optional_bool('LOCAL_DEX_PREOPT', True))
 
   def _init_package(self, vars_helper):
     """Does initialization for a package."""
@@ -1157,6 +1344,7 @@ class MakeVars:
     self._aapt_flags = vars_helper.get_optional_flags('LOCAL_AAPT_FLAGS')
     self._aapt_manifest = vars_helper.get_optional(
         'LOCAL_MANIFEST_FILE', default='AndroidManifest.xml')
+    self._local_resource_dirs = None
 
   def _init_prebuilt(self, vars_helper):
     """Does initialization for a prebuilt package."""
@@ -1222,18 +1410,24 @@ class MakeVars:
     self._prebuilt_install_path = prebuilt_install_path
     self._prebuilt_install_to_root_dir = False
 
-  def _get_build_flags(self, vars_helper, name):
+  def _get_build_flags(self, vars_helper, name, variants):
     """Gets build flags such as C flags, CPP flags.
 
+    LOCAL_<name> is always used.
     TARGET_GLOBAL_<name> is used only if the module is for the target.
-    LOCAL_NAME_<name> is always used.
+    HOST_GLOBAL_<name> is used only if the module is for the host.
+
+    This also tries to get architecture-specific flags from
+    <prefix>_<name>_<variant>.
     """
+    prefixes = [
+        'LOCAL',
+        ('HOST' if self.is_host() else 'TARGET') + '_GLOBAL',
+    ]
     flags = []
-    if self.is_host():
-      flags += vars_helper.get_optional_flags('HOST_GLOBAL_' + name)
-    else:
-      flags += vars_helper.get_optional_flags('TARGET_GLOBAL_' + name)
-    flags += vars_helper.get_optional_flags('LOCAL_' + name)
+    for prefix in prefixes:
+      flags.extend(
+          vars_helper.get_optional_flags('%s_%s' % (prefix, name), variants))
     return flags
 
   def __repr__(self):
@@ -1257,8 +1451,15 @@ class MakeVars:
   def is_target_executable(self):
     return (self._build_type == BUILD_TYPE_TARGET_EXECUTABLE)
 
+  def is_target_test_executable(self):
+    return (self._build_type == BUILD_TYPE_TARGET_TEST_EXECUTABLE)
+
+  def is_host_java_library(self):
+    return self._build_type == BUILD_TYPE_HOST_DALVIK_JAVA_LIBRARY
+
   def is_java_library(self):
-    return (self._build_type == BUILD_TYPE_JAVA_LIBRARY)
+    return ((self._build_type == BUILD_TYPE_JAVA_LIBRARY) or
+            (self._build_type == BUILD_TYPE_HOST_DALVIK_JAVA_LIBRARY))
 
   def is_notices_shared(self):
     return (self._build_type == BUILD_TYPE_NOTICES_SHARED)
@@ -1276,7 +1477,7 @@ class MakeVars:
 
   def is_host(self):
     return (self.is_host_shared() or self.is_host_static() or
-            self.is_host_executable())
+            self.is_host_executable() or self.is_host_java_library())
 
   def is_target(self):
     return (self.is_target_shared() or self.is_target_static() or
@@ -1286,7 +1487,8 @@ class MakeVars:
     return self.is_shared() or self.is_static()
 
   def is_executable(self):
-    return self.is_target_executable() or self.is_host_executable()
+    return (self.is_target_executable() or self.is_target_test_executable() or
+            self.is_host_executable())
 
   def is_package(self):
     return (self._build_type == BUILD_TYPE_PACKAGE)
@@ -1297,6 +1499,14 @@ class MakeVars:
   def is_static_java_library(self):
     assert self.is_java_library()
     return self._is_static_java_library
+
+  def get_enable_exceptions(self):
+    return self._enable_exceptions
+
+  def set_enable_exceptions(self, value):
+    self._enable_exceptions = value
+    if value:
+      self.get_cxxflags().append('-fexceptions')
 
   def get_module_name(self):
     return self._module_name
@@ -1310,7 +1520,9 @@ class MakeVars:
     return self._build_type
 
   def set_build_type(self, build_type):
-    if self.is_c_library():
+    if (self.is_c_library() or
+        (self.is_target_executable() and
+         (build_type == BUILD_TYPE_TARGET_TEST_EXECUTABLE))):
       self._build_type = build_type
       return
     raise Exception('Cannot change build type of ' + self._build_type)
@@ -1324,6 +1536,10 @@ class MakeVars:
   def is_clang_enabled(self):
     assert self.is_c_library() or self.is_executable()
     return self._is_clang_enabled
+
+  def is_cxx11_enabled(self):
+    assert self.is_c_library() or self.is_executable()
+    return self._is_cxx11_enabled
 
   def is_clang_linker_enabled(self):
     assert self.is_c_library() or self.is_executable()
@@ -1357,6 +1573,10 @@ class MakeVars:
     self._check_flags_unmodified()
     self._update_flags_for_clang()
     self._is_clang_enabled = True
+
+  def enable_cxx11(self):
+    assert self.is_c_library() or self.is_executable()
+    self._is_cxx11_enabled = True
 
   def enable_clang_linker(self):
     assert self.is_c_library() or self.is_executable()
@@ -1463,12 +1683,44 @@ class MakeVars:
   def remove_c_or_cxxflag(self, flag):
     """Removes all uses of a given C or C++ flag."""
     self._check_c_library_or_executable()
-    while flag in self._cflags:
-      self._cflags.remove(flag)
-    while flag in self._cxxflags:
-      self._cxxflags.remove(flag)
-    while flag in self._clangflags:
-      self._clangflags.remove(flag)
+    for flags in (self._cflags, self._conlyflags, self._cxxflags,
+                  self._clangflags):
+      while flag in flags:
+        flags.remove(flag)
+
+  def replace_c_or_cxxflag(self, before, after):
+    """Replaces all existing flag |before| with |after| in C or C++ flag."""
+    self._check_c_library_or_executable()
+    for flags in (self._cflags, self._conlyflags, self._cxxflags,
+                  self._clangflags):
+      if before in flags:
+        while before in flags:
+          flags.remove(before)
+        flags.append(after)
+
+  def add_disabled_tests(self, *disabled_tests):
+    """Add tests to be disabled."""
+    if not self.is_target_test_executable():
+      raise Exception('Can only call this function for a test executable')
+    self._disabled_tests += list(disabled_tests)
+
+  def get_disabled_tests(self):
+    """Get a list containing disabled tests."""
+    if not self.is_target_test_executable():
+      raise Exception('Can only call this function for a test executable')
+    return self._disabled_tests
+
+  def add_qemu_disabled_tests(self, *disabled_tests):
+    """Add tests to be disabled on QEMU."""
+    if not self.is_target_test_executable():
+      raise Exception('Can only call this function for a test executable')
+    self._qemu_disabled_tests += list(disabled_tests)
+
+  def get_qemu_disabled_tests(self):
+    """Get a list containing tests that are disabled only on QEMU."""
+    if not self.is_target_test_executable():
+      raise Exception('Can only call this function for a test executable')
+    return self._qemu_disabled_tests
 
   def _check_c_archive(self):
     if not self.is_static():
@@ -1643,7 +1895,7 @@ def _add_compiler_flags(n, vars):
   for f in vars.get_asmflags():
     n.add_asm_flag(f)
 
-  if vars._force_optimization:
+  if vars._force_optimization and not OPTIONS.is_optimized_build():
     ninja_generator.CNinjaGenerator.emit_optimization_flags(n, True)
 
 
@@ -1653,6 +1905,7 @@ def _generate_c_ninja(vars, out_lib_deps):
   extra_args['enable_logtag_emission'] = vars.is_logtag_emission_enabled()
   extra_args['extra_notices'] = vars.get_extra_notices()
   extra_args['enable_clang'] = vars.is_clang_enabled()
+  extra_args['enable_cxx11'] = vars.is_cxx11_enabled()
   extra_args['notices_only'] = vars.is_notices()
   extra_args['enable_libcxx'] = vars._is_libcxx_enabled
 
@@ -1660,6 +1913,11 @@ def _generate_c_ninja(vars, out_lib_deps):
     extra_args['use_clang_linker'] = vars.is_clang_linker_enabled()
     n = SharedObjectNinjaGenerator(vars.get_module_name(), host=vars.is_host(),
                                    **extra_args)
+  elif vars.is_target_test_executable():
+    n = TestNinjaGenerator(vars.get_module_name(), host=vars.is_host(),
+                           use_default_main=False, **extra_args)
+    n.add_disabled_tests(*vars.get_disabled_tests())
+    n.add_qemu_disabled_tests(*vars.get_qemu_disabled_tests())
   elif vars.is_host_executable():
     n = ExecNinjaGenerator(vars.get_module_name(), host=vars.is_host(),
                            **extra_args)
@@ -1697,9 +1955,26 @@ def _generate_c_ninja(vars, out_lib_deps):
 
   if vars.is_canned():
     filename = '%s.so' % vars.get_module_name()
+    # TODO(crbug.com/484758): Install the file to /vendor/lib-x86 when the
+    # file is for x86 (EM_386).
     n.install_to_root_dir(
-        os.path.join('vendor/lib', filename),
+        os.path.join('vendor/lib-armeabi-v7a', filename),
         os.path.join('canned/target/android/vendor/lib-neon', filename))
+
+  if vars.is_target_test_executable():
+    n.run(out_libs, enable_valgrind=OPTIONS.enable_valgrind())
+
+
+def _fix_relative_resource_path(res, path):
+  """Fixes a relative generated path that make_to_ninja cannot expand correctly.
+  """
+  res = re.sub(
+      (r'/target/common/make_to_ninja/out/target/product/'
+       r'generic(_x86|_x86_64)?/obj'),
+      '/target/common/android_gen_sources',
+      res)
+  res = os.path.join(staging.as_staging(path), res)
+  return os.path.abspath(res)
 
 
 def _generate_java_ninja(vars):
@@ -1714,16 +1989,51 @@ def _generate_java_ninja(vars):
   source_count = len(java_sources) + len(aidl_sources) + len(logtags)
   assert source_count == len(sources), sources
 
+  # AAPT flags might contain extra packages. Extract them to let the
+  # JarNinjaGenerator expose these extra dependencies.
+  aapt_flags = None
+  extra_packages = None
+  manifest_path = None
+  if vars._aapt_flags:
+    aapt_flags = []
+    original_aapt_flags = vars._aapt_flags
+    i = 0
+    while i < len(original_aapt_flags):
+      if original_aapt_flags[i] == '--extra-packages':
+        if not extra_packages:
+          extra_packages = []
+        extra_packages.append(original_aapt_flags[i + 1])
+        i += 1
+      else:
+        aapt_flags.append(original_aapt_flags[i])
+      i += 1
+    framework_res_jar = build_common.get_build_path_for_apk(
+        'framework-res', 'R/framework-res.apk')
+    aapt_flags.extend(['-I', framework_res_jar])
+    vars._aapt_flags = aapt_flags
+    vars._local_resource_dirs = [
+        _fix_relative_resource_path(res, vars.get_path())
+        for res in vars._local_resource_dirs]
+    manifest_path = vars.get_aapt_manifest()
+
+  # Add --non-constant-id to prevent inlining constants when building a static
+  # java library in the same way as static_java_library.mk.
+  if vars.is_static_java_library():
+    if aapt_flags is None:
+      aapt_flags = []
+    aapt_flags.append('--non-constant-id')
+
   n = JarNinjaGenerator(vars.get_module_name(), base_path=base_path,
                         install_path='/system/framework',
                         resource_subdirectories=vars._local_resource_dirs,
-                        aapt_flags=shlex.split(vars._aapt_flags),
+                        aapt_flags=aapt_flags, extra_packages=extra_packages,
                         include_aidl_files=aidl_sources,
-                        dex_preopt=not vars.is_static_java_library(),
+                        dex_preopt=vars._dex_preopt,
                         java_resource_dirs=vars._java_resource_dirs,
                         static_library=vars.is_static_java_library(),
                         jarjar_rules=vars._jarjar_rules,
-                        dx_flags=vars._dx_flags, built_from_android_mk=True)
+                        dx_flags=vars._dx_flags, built_from_android_mk=True,
+                        manifest_path=manifest_path)
   n.add_aidl_include_paths(*vars._aidl_includes)
   n.add_java_files(java_sources)
 
@@ -1852,13 +2162,18 @@ def _adjust_gen_output(path):
   # The canned build files use 'generic' as a PRODUCT_DEVICE on ARMv7, and
   # 'generic_x86' on x86.
   if OPTIONS.is_arm():
-    prefix = os.path.join('out', 'target', 'product', 'generic', 'obj')
+    prefix = os.path.join('out', 'target', 'product', 'generic')
+  elif OPTIONS.is_x86_64():
+    prefix = os.path.join('out', 'target', 'product', 'generic_x86_64')
   else:
-    prefix = os.path.join('out', 'target', 'product', 'generic_x86', 'obj')
-  if not path.startswith(prefix):
-    return path
-  path = os.path.relpath(path, prefix)
-  return os.path.join(_ANDROID_GEN_SOURCES_DIR, path)
+    prefix = os.path.join('out', 'target', 'product', 'generic_x86')
+  for directory in ['obj', 'gen']:
+    local_prefix = os.path.join(prefix, directory)
+    if path.startswith(local_prefix):
+      path = os.path.relpath(path, local_prefix)
+      return os.path.join(_ANDROID_TARGET_GEN_SOURCES_DIR, path)
+
+  return path
 
 
 def _adjust_source_path(path):
@@ -1903,9 +2218,10 @@ def _remove_feature_flags(vars):
   # This option breaks our static initializer checker.
   vars.remove_c_or_cxxflag('-fno-use-cxa-atexit')
 
-  # Expat adds this flag. This flag is necessary if a callback function called
-  # by expat throws an exception, but our code never does that.
-  vars.remove_c_or_cxxflag('-fexceptions')
+  if not vars.get_enable_exceptions():
+    # Expat adds this flag. This flag is necessary if a callback function called
+    # by expat throws an exception, but our code never does that.
+    vars.remove_c_or_cxxflag('-fexceptions')
 
   # $ANDROID/build/core/combo/TARGET_linux-x86.mk might add these flags that
   # are incompatible with global flags added by emit_common_rules() in
@@ -1951,7 +2267,33 @@ def _adjust_arm_flags(vars):
       vars.get_cflags().append('-m' + local_arm_mode)
 
 
+def _adjust_target_nacl_common_flags(vars):
+  if not vars.is_clang_enabled():
+    # Remove options that NaCl gcc does not recognize.
+    vars.remove_c_or_cxxflag('-fno-canonical-system-headers')
+    # Replace -std=gnu11, -std=gnu++11, and -std=c++11 flags with -std=gnu0x,
+    # -std=gnu++0x, and -std=c++0x.
+    replace_map = {
+        '-std=gnu11': '-std=gnu0x',
+        '-std=gnu++11': '-std=gnu++0x',
+        '-std=c++11': '-std=c++0x'
+    }
+    for before, after in replace_map.iteritems():
+      vars.replace_c_or_cxxflag(before, after)
+  else:
+    # Remove options that NaCl clang does not recognize.
+    vars.remove_c_or_cxxflag('-no-canonical-prefixes')
+
+
+def _adjust_target_nacl_i686_flags(vars):
+  _adjust_target_nacl_common_flags(vars)
+  if vars.is_clang_enabled():
+    # Remove options that NaCl clang does not recognize.
+    vars.remove_c_or_cxxflag('-march=i686')
+
+
 def _adjust_target_nacl_x86_64_flags(vars):
+  _adjust_target_nacl_common_flags(vars)
   vars.remove_c_or_cxxflag('-m32')
   if '-m32' in vars.get_asmflags():
     vars.get_asmflags().remove('-m32')
@@ -1963,11 +2305,12 @@ def _adjust_target_nacl_x86_64_flags(vars):
 
 
 def _adjust_flags(vars):
-  if not vars.is_host():
+  if vars.is_host():
+    vars.get_cflags().append('-DHAVE_ARC_HOST')
+  else:
     if OPTIONS.is_arm():
       _adjust_arm_flags(vars)
-    else:
-      vars.get_cflags().remove('-mbionic')
+
     vars.get_cflags().append('-DHAVE_ARC')
 
   vars.get_cflags().append('-D_GNU_SOURCE')
@@ -1975,8 +2318,24 @@ def _adjust_flags(vars):
   _substitute_android_config_include(vars)
   _remove_feature_flags(vars)
 
-  if not vars.is_host() and OPTIONS.is_nacl_x86_64():
-    _adjust_target_nacl_x86_64_flags(vars)
+  if not vars.is_host():
+    if OPTIONS.is_nacl_i686():
+      _adjust_target_nacl_i686_flags(vars)
+    elif OPTIONS.is_nacl_x86_64():
+      _adjust_target_nacl_x86_64_flags(vars)
+
+    # ARC builds own standard libraries, and should not link with toolchain's
+    # libc, which is glibc. Without removing them, it will link toolchain's
+    # version even if -nostdlib is specified.
+    # There are three way to link binaries against libFOO by Android.mk.
+    #  1) LOCAL_LDFLAGS += -lFOO
+    #  2) LOCAL_LDLIBS += -lFOO
+    #  3) LOCAL_SHARED_LIBRARIES += libFOO
+    # 1) is removed here, and 2) is just ignored in make_to_ninja.
+    # 3) is replaced with a pathname of a right library built for ARC.
+    ldflags = vars.get_ldflags()
+    ldflags[:] = [flag for flag in ldflags if
+                  flag not in ['-lc', '-ldl', '-lm']]
 
   if not vars.is_host() and OPTIONS.is_nacl_build():
     # TODO(crbug.com/329434): We might want to enable GNU RELRO. There
@@ -1989,16 +2348,23 @@ def _adjust_flags(vars):
     while '-Wl,-z,relro' in vars.get_ldflags():
       vars.get_ldflags().remove('-Wl,-z,relro')
 
-  if not OPTIONS.is_optimized_build():
-    # We remove all optimization flags.
+  if OPTIONS.is_optimized_build() or vars._force_optimization:
+    for flag in ['-O0', '-O1', '-O', '-O2']:
+      vars.remove_c_or_cxxflag(flag)
+    # -O3, -Os, -Oz, and -Ofast specified in Android.mk will remain as-is.
+    # Such an optimization flag overrides -O2 added in emit_common_rules() in
+    # ninja_generator.py. Remove '-O2' here too as it should already be
+    # present and it would repeat the flag.
+    assert '-O2' in ninja_generator.get_optimization_cflags()
+  else:
     optimization_cflags = (ninja_generator.get_optimization_cflags() +
                            ninja_generator.get_gcc_optimization_cflags())
     for flag in optimization_cflags:
       vars.remove_c_or_cxxflag(flag)
-    vars.remove_c_or_cxxflag('-O1')  # Just in case
-    vars.remove_c_or_cxxflag('-O3')
-    # To disable all other finer-level opt flags
-    vars.get_cflags().append('-O0')
+    # Remove all -O* optimization flags except -O0 so that Android.mk does
+    # not override -O0 added by emit_common_rules().
+    for flag in ['-O1', '-O', '-O2', '-O3', '-Os', '-Oz', '-Ofast']:
+      vars.remove_c_or_cxxflag(flag)
 
   # Remove -Werror.
   vars.get_cxxflags()[:] = [x for x in vars.get_cxxflags()
@@ -2069,10 +2435,17 @@ def _clean_package_vars(vars):
   if sdk_version != target_sdk:
     raise Exception('Unexpected difference in SDK versions: ' +
                     sdk_version + ' vs ' + target_sdk)
-  flags.append('--min-sdk-version')
-  flags.append(sdk_version)
-  flags.append('--target-sdk-version')
-  flags.append(sdk_version)
+
+  # TODO(crbug.com/442994): L-Rebase: Upstream android includes the
+  # framework-res package in some cases and uses --min-sdk-version and
+  # --target-sdk-version in others. Since framework-res has metadata that can
+  # supercede the flags, always including framework-res is safe, but we should
+  # try to not do it unconditionally to be more compatible with upstream android
+  # and reduce build times.
+  if vars.get_module_name() != 'framework-res':
+    framework_res_jar = build_common.get_build_path_for_apk(
+        'framework-res', 'R/framework-res.apk')
+    flags.extend(['-I', framework_res_jar])
 
   if '--version-code' not in flags:
     flags.append('--version-code')
@@ -2098,7 +2471,10 @@ class Filters:
 
   @staticmethod
   def convert_to_shared_lib(vars):
-    vars.set_build_type(BUILD_TYPE_TARGET_SHARED)
+    if vars.is_host():
+      vars.set_build_type(BUILD_TYPE_HOST_SHARED)
+    else:
+      vars.set_build_type(BUILD_TYPE_TARGET_SHARED)
     return True
 
   @staticmethod
@@ -2198,6 +2574,23 @@ class MakefileNinjaTranslator:
         return False
     return True
 
+  def _check_optimization_flags(self, flags):
+    # These optimization flags should be used only once (to override the default
+    # '-O2'.) Using them twice or more is error-prone and should always be
+    # avoided.
+    opt_flags = filter(lambda f: f in ['-O3', '-Os', '-Oz', '-Ofast'], flags)
+    if len(opt_flags) > 1:
+      raise Exception(
+          'Two or more optimization flags are specified for %s: %s' % (
+              self._in_file, ' '.join(opt_flags)))
+    # Since --opt build uses -O2 as a global flag, make_to_ninja should not
+    # add extra -O2 flags.
+    if OPTIONS.is_optimized_build():
+      assert '-O2' in ninja_generator.get_optimization_cflags()
+      if '-O2' in flags:
+        raise Exception('Two or more -O2 flags are specified for %s' % (
+            self._in_file))
+
   def _update_and_filter_vars_list(self):
     # Perform general updates and filtering to the list of vars
     for vars in self._vars_list:
@@ -2208,14 +2601,16 @@ class MakefileNinjaTranslator:
       should_generate = self._apply_filters(vars)
 
       if should_generate:
+        if vars.is_c_library():
+          self._check_optimization_flags(vars.get_cxxflags())
+          self._check_optimization_flags(
+              vars.get_cflags() + vars.get_conlyflags())
         self._modules.append(vars)
 
   def _generate_module(self, vars):
     if vars.is_c_library():
       _generate_c_ninja(vars, self._out_libs)
-    elif vars.is_target_executable():
-      _generate_c_ninja(vars, self._out_libs)
-    elif vars.is_host_executable():
+    elif vars.is_executable():
       _generate_c_ninja(vars, self._out_libs)
     elif vars.is_java_library():
       _generate_java_ninja(vars)

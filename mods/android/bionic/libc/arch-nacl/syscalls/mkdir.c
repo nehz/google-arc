@@ -13,9 +13,8 @@
 // limitations under the License.
 
 #include <errno.h>
-#include <sys/types.h>
-
 #include <irt_syscalls.h>
+#include <sys/types.h>
 
 int mkdir(const char *pathname, mode_t mode) {
   int result = __nacl_irt_mkdir(pathname, mode);

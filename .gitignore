@@ -5,6 +5,7 @@
 .ninja_deps
 .ninja_log
 build.ninja
+build.ninja.dep
 botlogs/
 cache/
 out/
@@ -28,4 +29,3 @@ third_party/tools/python_mock
 .pydevproject
 .subversion
 /internal
-

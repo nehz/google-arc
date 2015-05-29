@@ -451,6 +451,7 @@ def handle_stash(parsed_args):
   + /cache/
   # Artifacts for the target arch and common.
   + /{out}/target/{target}/runtime/
+  + /{out}/target/{target}/unittest_info/
   - /{out}/target/{target}/*
   + /{out}/target/{target}/
   + /{out}/target/common/

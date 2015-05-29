@@ -258,7 +258,7 @@ def get_bionic_arch_name():
   """Returns Bionic's architecture name as used in sub directories.
 
   The architecture name is used in sub directories like
-  android/bionic/libc/kernel/arch-arm.
+  android/bionic/libc/kernel/uapi/asm-arm.
   android/bionic/libc/arch-arm.
   """
   if OPTIONS.is_arm():
@@ -477,6 +477,10 @@ def get_load_library_path(target_override=None):
   return os.path.join(get_build_dir(target_override), 'lib')
 
 
+def get_load_library_path_for_test(target_override=None):
+  return os.path.join(get_build_dir(target_override), 'test/lib')
+
+
 def get_posix_translation_readonly_fs_image_file_path():
   return os.path.join(get_build_dir(), 'posix_translation_fs_images',
                       'readonly_fs_image.img')
@@ -533,6 +537,10 @@ def get_runtime_version():
     assert 0 <= num < 65535, 'runtime version out of range: ' + runtime_tag
   assert len(version_string.split('.')) <= 4
   return version_string
+
+
+def get_host_common_dir():
+  return os.path.join(OUT_DIR, 'host', 'common')
 
 
 def get_target_common_dir():
@@ -619,12 +627,65 @@ def is_common_editor_tmp_file(filename):
   return bool(COMMON_EDITOR_TMP_FILE_REG.match(filename))
 
 
+def get_dex2oat_target_dependent_flags_map():
+  # New flags added here might need to be accounted for in
+  # src/build/generate_build_prop.py for runtime dex2oat to work properly.
+  flags = {}
+  if not OPTIONS.is_debug_info_enabled():
+    flags['no-include-debug-symbols'] = ''
+
+  if OPTIONS.is_i686():
+    flags['instruction-set-features'] = 'default'
+    flags['instruction-set'] = 'x86'
+    flags['compiler-filter'] = 'speed'
+  elif OPTIONS.is_x86_64():
+    flags['instruction-set-features'] = 'default'
+    flags['instruction-set'] = 'x86_64'
+    flags['compiler-filter'] = 'space'
+    flags['small-method-max'] = '30'
+    flags['tiny-method-max'] = '10'
+    # TODO(crbug.com/340579): Stop hardcoding this address.  This
+    # address was chosen in the following way:
+    # 256MB (NaCl executable area limit) - 6MB (NaCl IRT) -
+    # 49.25M (page aligned code length for AOT).
+    flags['executable-section-address'] = '0xC7C0000'
+  elif OPTIONS.is_arm():
+    flags['instruction-set-features'] = 'div'
+    flags['instruction-set'] = 'arm'
+    flags['compiler-filter'] = 'everything'
+  return flags
+
+
+def get_dex2oat_target_dependent_flags():
+  flags_map = get_dex2oat_target_dependent_flags_map()
+  flags = []
+  for flag, value in flags_map.iteritems():
+    if value == '':
+      flags.append('--' + flag)
+    else:
+      flags.append('--' + flag + '=' + value)
+  return flags
+
+
+def get_art_isa():
+  if OPTIONS.is_i686():
+    return 'x86'
+  elif OPTIONS.is_x86_64():
+    return 'x86_64'
+  elif OPTIONS.is_arm():
+    return 'arm'
+  raise Exception('Unable to map target into an ART ISA: %s' % OPTIONS.target())
+
+
 def use_ppapi_fpabi_shim():
   return OPTIONS.is_arm()
 
 
 def use_ndk_direct_execution():
-  return OPTIONS.is_arm()
+  # On -t=ba, we always use NDK direct execution. On -t=bi, it is dynamically
+  # enabled/disabled at runtime. When --ndk-abi=x86 is passed, it is enabled.
+  # Otherwise it is not.
+  return OPTIONS.is_bare_metal_build()
 
 
 def has_internal_checkout():

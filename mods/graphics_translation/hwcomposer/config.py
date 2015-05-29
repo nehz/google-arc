@@ -8,6 +8,7 @@ from ninja_generator import SharedObjectNinjaGenerator
 def generate_ninjas():
   n = SharedObjectNinjaGenerator('hwcomposer.default', install_path='/lib/hw',
                                  enable_clang=True,
+                                 enable_cxx11=True,
                                  base_path='android/hardware/arc/hwcomposer')
 
   # hwcomposer.cpp uses gcc-style struct initialization "member: value"

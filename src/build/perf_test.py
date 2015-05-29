@@ -34,7 +34,7 @@ from util import concurrent_subprocess
 from util import launch_chrome_util
 from util import logging_util
 from util import remote_executor
-from util.test import dalvik_vm_test_runner
+from util.test import art_test_runner
 from util.test import suite_runner
 from util.test import suite_runner_config_flags as flags
 
@@ -322,8 +322,8 @@ class VMPerfDriver(BaseDriver):
     super(VMPerfDriver, self).__init__(args)
 
   def _run(self, benchmark):
-    runner = dalvik_vm_test_runner.DalvikVMTestRunner(
-        '401-perf', config={'flags': flags.PASS})
+    runner = art_test_runner.ArtTestRunner('901-perf',
+                                           config={'flags': flags.PASS})
     args = _prepare_integration_tests_args(100)
 
     # We reuse scripts for integration tests in vm tests, and they expect
@@ -335,10 +335,9 @@ class VMPerfDriver(BaseDriver):
     # Call setup_work_root() and prepare_to_run() iff source files
     # to build tests exist. Perf builders do not have them, and can skip it.
     # The builders have downloaded pre-built files.
-    if os.path.exists(os.path.join(
-        dalvik_vm_test_runner.DalvikVMTestRunner.DALVIK_TESTS_DIR, 'etc')):
+    if os.path.exists(os.path.join(runner.get_source_root(), 'etc')):
       runner.setup_work_root()
-      runner.prepare_to_run([benchmark], args)
+      runner.prepare_to_run([], args)
 
     with contextlib.closing(suite_runner.SuiteRunnerLogger(
         runner.name,

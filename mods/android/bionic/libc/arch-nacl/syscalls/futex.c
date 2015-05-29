@@ -13,17 +13,17 @@
 // limitations under the License.
 // Add futex interface for Bionic.
 
-#include <irt_syscalls.h>
-
-#include <bionic_futex.h>
 #include <errno.h>
+#include <irt_syscalls.h>
+#include <linux/futex.h>
 #include <nacl_timespec.h>
 #include <nacl_timeval.h>
+#include <private/bionic_futex.h>
 #include <thread_context.h>
 #include <unistd.h>
 
-int  __futex_syscall4(volatile void *ftx, int op, int val,
-                      const struct timespec *timeout) {
+int __nacl_futex(volatile void *ftx, int op, int val,
+                 const struct timespec *timeout) {
   /* FUTEX_FD, FUTEX_REQUEUE, and FUTEX_CMP_REQUEUE are not used
    * by android.
    * TODO(crbug.com/243244): Support these operations. In theory, NDK
@@ -82,18 +82,4 @@ int  __futex_syscall4(volatile void *ftx, int op, int val,
       abort();
     }
   }
-}
-
-int __futex_syscall3(volatile void *ftx, int op, int val) {
-  return __futex_syscall4(ftx, op, val, NULL);
-}
-
-int __futex_wait(volatile void *ftx, int val, const struct timespec *timeout) {
-  // See third_party/android/bionic/libc/arch-x86/bionic/futex_x86.S.
-  return  __futex_syscall4(ftx, FUTEX_WAIT, val, timeout);
-}
-
-int __futex_wake(volatile void *ftx, int count) {
-  // See third_party/android/bionic/libc/arch-x86/bionic/futex_x86.S.
-  return  __futex_syscall4(ftx, FUTEX_WAKE, count, NULL);
 }

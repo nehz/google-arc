@@ -16,6 +16,9 @@
 
 #include <float.h>
 #include <math.h>
+// ARC MOD BEGIN bionic-long-double
+#include <complex.h>
+// ARC MOD END
 // ARC MOD BEGIN UPSTREAM bionic-isnanl-crash-on-x86
 // When sizeof(long double) != sizeof(double) (i.e., bare_metal_i686),
 // isnan macro will be expanded to __isnanl, hence it causes an
@@ -23,68 +26,87 @@
 #undef isnan
 // ARC MOD END UPSTREAM
 
-extern int __isinf(double); /* isinf.c */
-int (isinf)(double a1) { return __isinf(a1); }
-
+// ARC MOD BEGIN bionic-long-double
+// TODO(crbug.com/432441): Compile our code with 64bit long double.
+// Note: These functions originally assume long double is 64bit, but it is
+// actually 80bit under Bare Metal i686, so they loses precisions.
+// ARC MOD END
+#ifndef __LP64__
 /*
  * The BSD "long double" functions are broken when sizeof(long double) == sizeof(double).
  * Android works around those cases by replacing the broken functions with our own trivial stubs
  * that call the regular "double" function.
  */
 
-int __fpclassifyl(long double a1) { return __fpclassifyd(a1); }
-int __isfinitel(long double a1) { return __isfinite(a1); }
-int __isinfl(long double a1) { return __isinf(a1); }
-int __isnanl(long double a1) { return isnan(a1); }
-int __isnormall(long double a1) { return __isnormal(a1); }
-int __signbitl(long double a1) { return __signbit(a1); }
-
-long double acoshl(long double a1) { return acosh(a1); }
-long double asinhl(long double a1) { return asinh(a1); }
-long double atanhl(long double a1) { return atanh(a1); }
-long double cbrtl(long double a1) { return cbrt(a1); }
 long double copysignl(long double a1, long double a2) { return copysign(a1, a2); }
-long double coshl(long double a1) { return cosh(a1); }
-long double cosl(long double a1) { return cos(a1); }
-long double erfcl(long double a1) { return erfc(a1); }
-long double erfl(long double a1) { return erf(a1); }
-long double expm1l(long double a1) { return expm1(a1); }
 long double fabsl(long double a1) { return fabs(a1); }
 long double fmaxl(long double a1, long double a2) { return fmax(a1, a2); }
 long double fmodl(long double a1, long double a2) { return fmod(a1, a2); }
 long double fminl(long double a1, long double a2) { return fmin(a1, a2); }
 int ilogbl(long double a1) { return ilogb(a1); }
-long double lgammal(long double a1) { return lgamma(a1); }
 long long llrintl(long double a1) { return llrint(a1); }
-long double log10l(long double a1) { return log10(a1); }
-long double log1pl(long double a1) { return log1p(a1); }
-long double log2l(long double a1) { return log2(a1); }
-long double logbl(long double a1) { return logb(a1); }
-long double logl(long double a1) { return log(a1); }
 long lrintl(long double a1) { return lrint(a1); }
 long long llroundl(long double a1) { return llround(a1); }
 long lroundl(long double a1) { return lround(a1); }
-// ARC MOD BEGIN UPSTREAM bionic-modfl-long-double-on-x86
-// The original code is wrong for x86, where sizeof(long double) is
-// different from sizeof(double).
-// TODO(crbug.com/357564): Specify --builtin-function and write
-// unittests appropriately.
-long double modfl(long double a1, long double* a2) {
-  double integral_part;
-  double fractional_part = modf(a1, &integral_part);
-  *a2 = integral_part;
-  return fractional_part;
-}
-// long double modfl(long double a1, long double* a2) { return modf(a1, (double*) a2); }
-// ARC MOD END UPSTREAM
-long double powl(long double a1, long double a2) { return pow(a1, a2); }
-long double rintl(long double a1) { return rint(a1); }
+long double modfl(long double a1, long double* a2) { double i; double f = modf(a1, &i); *a2 = i; return f; }
+float nexttowardf(float a1, long double a2) { return nextafterf(a1, (float) a2); }
 long double roundl(long double a1) { return round(a1); }
-long double scalbnl(long double a1, int a2) { return scalbn(a1, a2); }
-long double significandl(long double a1) { return significand(a1); }
-long double sinhl(long double a1) { return sinh(a1); }
-long double sinl(long double a1) { return sin(a1); }
-long double sqrtl(long double a1) { return sqrt(a1); }
-long double tanhl(long double a1) { return tanh(a1); }
-long double tanl(long double a1) { return tan(a1); }
-long double tgammal(long double a1) { return tgamma(a1); }
+
+#endif // __LP64__
+// ARC MOD BEGIN bionic-long-double
+// TODO(crbug.com/432441): Compile our code with 64bit long double.
+// Here we define additional stubs for 80bit long double under bare metal i686,
+// possibly losing precisions.
+#if LDBL_MANT_DIG != 53
+
+// Note: The list of math functions to be wrapped can be obtained by:
+// grep -r __weak_reference third_party/android/bionic/libm | sed '/imprecise/d;/#define/d;s/.*, //;s/).*//' | sort
+
+#define SIMPLE_LONG_DOUBLE_MAP(name) \
+  long double name ## l (long double a) { return name(a); }
+
+SIMPLE_LONG_DOUBLE_MAP(acosh);
+SIMPLE_LONG_DOUBLE_MAP(acos);
+SIMPLE_LONG_DOUBLE_MAP(asinh);
+SIMPLE_LONG_DOUBLE_MAP(asin);
+SIMPLE_LONG_DOUBLE_MAP(atanh);
+SIMPLE_LONG_DOUBLE_MAP(atan);
+SIMPLE_LONG_DOUBLE_MAP(cbrt);
+SIMPLE_LONG_DOUBLE_MAP(ceil);
+SIMPLE_LONG_DOUBLE_MAP(cos);
+SIMPLE_LONG_DOUBLE_MAP(exp2);
+SIMPLE_LONG_DOUBLE_MAP(exp);
+SIMPLE_LONG_DOUBLE_MAP(expm1);
+SIMPLE_LONG_DOUBLE_MAP(floor);
+SIMPLE_LONG_DOUBLE_MAP(log10);
+SIMPLE_LONG_DOUBLE_MAP(log1p);
+SIMPLE_LONG_DOUBLE_MAP(log2);
+SIMPLE_LONG_DOUBLE_MAP(logb);
+SIMPLE_LONG_DOUBLE_MAP(log);
+SIMPLE_LONG_DOUBLE_MAP(rint);
+SIMPLE_LONG_DOUBLE_MAP(sin);
+SIMPLE_LONG_DOUBLE_MAP(sqrt);
+SIMPLE_LONG_DOUBLE_MAP(tan);
+SIMPLE_LONG_DOUBLE_MAP(trunc);
+int __signbitl(long double a1) { return __signbit(a1); }
+long double atan2l(long double a1, long double a2) { return atan2(a1, a2); }
+long double fmal(long double a1, long double a2, long double a3) { return fma(a1, a2, a3); }
+long double frexpl(long double a1, int* exp) { return frexp(a1, exp); }
+long double hypotl(long double a1, long double a2) { return hypot(a1, a2); }
+long double ldexpl(long double a1, int exp) { return scalbn(a1, exp); }
+long double nanl(const char* tagp) { return nan(tagp); }
+long double nextafterl(long double a1, long double a2) { return nextafter(a1, a2); }
+double nexttoward(double a1, long double a2) { return nextafter(a1, a2); }
+long double nexttowardl(long double a1, long double a2) { return nextafter(a1, a2); }
+long double remainderl(long double a1, long double a2) { return remainder(a1, a2); }
+long double remquol(long double a1, long double a2, int* quo) { return remquo(a1, a2, quo); }
+long double scalbnl(long double a1, int exp) { return scalbn(a1, exp); }
+
+#define EXPORT __attribute__((__visibility__("default")))
+// android-21/arch-x86/usr/lib/libm.so exports these 3 symbols.
+EXPORT long double cabsl(long double complex a1) { return cabs(a1); }
+EXPORT long double complex cprojl(long double complex a1) { return cproj(a1); }
+EXPORT long double complex csqrtl(long double complex a1) { return csqrt(a1); }
+
+#endif  // LDBL_MANT_DIG != 53
+// ARC MOD END

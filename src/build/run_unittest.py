@@ -85,6 +85,10 @@ def _construct_command(test_info, gtest_filter, gtest_list_tests):
       variables['runner'] = ' '.join(
           toolchain.get_bare_metal_runner(use_qemu_arm=False,
                                           bin_dir=arc_root_without_noexec))
+      variables['runner_without_test_library'] = ' '.join(
+          toolchain.get_bare_metal_runner(use_qemu_arm=False,
+                                          bin_dir=arc_root_without_noexec,
+                                          use_test_library=False))
       # Update --gtest_filter to re-enable the tests disabled only on qemu.
       if variables.get('qemu_disabled_tests'):
         variables['gtest_options'] = unittest_util.build_gtest_options(
@@ -94,6 +98,11 @@ def _construct_command(test_info, gtest_filter, gtest_list_tests):
           toolchain.get_nacl_runner(
               build_options.OPTIONS.get_target_bitsize(),
               bin_dir=arc_root_without_noexec))
+      variables['runner_without_test_library'] = ' '.join(
+          toolchain.get_nacl_runner(
+              build_options.OPTIONS.get_target_bitsize(),
+              bin_dir=arc_root_without_noexec,
+              use_test_library=False))
     build_dir = build_common.get_build_dir()
     # Use test binary in the directory mounted without noexec.
     variables['in'] = variables['in'].replace(

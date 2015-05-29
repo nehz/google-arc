@@ -52,9 +52,9 @@ typedef void (*structor_fn)(void);
 // *--iter in _init are undefined because it will look like the code
 // is using an invalid pointer, and they remove the while loop
 // entirely. GCC 4.6.3-1ubuntu5 actually does this optimization.
-__attribute__((section(".ctors"), visibility("hidden")))
+__LIBC_HIDDEN__ __attribute__((section(".ctors")))
 const structor_fn __CTOR_LIST__ = (structor_fn)-1;
-__attribute__((section(".dtors"), visibility("hidden")))
+__LIBC_HIDDEN__ __attribute__((section(".dtors")))
 const structor_fn __DTOR_LIST__ = (structor_fn)-1;
 
 // Unlike .ctors and .dtors, .eh_frame does not have a watchdog for
@@ -70,7 +70,7 @@ void __deregister_frame_info(const void* eh);
 // soinfo_unload() in linker.cpp calls this function. When the DSO
 // is a DT_NEEDED one, this function is called as an atexit handler
 // when the main nexe exits.
-__attribute__((section(".fini"), visibility("hidden")))
+__LIBC_HIDDEN__ __attribute__((section(".fini")))
 void _fini(void) {
   // http://gcc.gnu.org/git/?p=gcc.git;a=blob;f=libgcc/crtstuff.c
   // says this function can be called multiple times when exit() is
@@ -95,7 +95,7 @@ void _fini(void) {
   __cxa_finalize(&__dso_handle);
 }
 
-__attribute__((unused, section(".init"), visibility("hidden")))
+__LIBC_HIDDEN__ __attribute__((unused, section(".init")))
 void _init(void *irt_query) {
   // This is the max size of "struct object" in
   // http://gcc.gnu.org/git/?p=gcc.git;a=blob;f=libgcc/unwind-dw2-fde.h;h=2bbc60a837c8e3a5d62cdd44f2ae747731f9c8f8;hb=HEAD
@@ -141,4 +141,4 @@ void _init(void *irt_query) {
 #error "This is only for x86 architectures"
 #endif
 #include <arch-x86/bionic/atexit.h>
-#include <private/__dso_handle.h>
+#include "../../arch-common/bionic/__dso_handle.h"

@@ -234,6 +234,21 @@ extern int (*__nacl_irt_clear_cache) (void *addr, size_t size);
 // ARC MOD END
 #endif
 
+// ARC MOD BEGIN
+// Define a few glibc compatible macros.
+#define INTDEF(name)
+#define libc_hidden_def(name)
+#define libc_hidden_weak(name)
+#define strong_alias(name, aliasname)                                   \
+  extern __typeof(name) aliasname __attribute__((alias(#name)));
+#define weak_alias(name, aliasname)                                     \
+  extern __typeof(name) aliasname __attribute__((weak, alias(#name)));
+
+// ARC MOD END
+// ARC MOD BEGIN
+// Remove unnecessary #include and definitions.
+#if 0
+// ARC MOD END
 #if defined(_LIBC) || defined (__need_emulated_syscalls)
 #ifndef _IRT_EMULATED_SYSCALLS_H
 #define _IRT_EMULATED_SYSCALLS_H 1
@@ -249,20 +264,6 @@ extern int (*__nacl_irt_clear_cache) (void *addr, size_t size);
 #endif
 #endif
 
-// ARC MOD BEGIN
-// Remove unnecessary #include and definitions. Define a few glibc
-// compatible macros.
-
-#define INTDEF(name)
-#define libc_hidden_def(name)
-#define libc_hidden_weak(name)
-#define strong_alias(name, aliasname)                                   \
-  extern __typeof(name) aliasname __attribute__((alias(#name)));
-#define weak_alias(name, aliasname)                                     \
-  extern __typeof(name) aliasname __attribute__((weak, alias(#name)));
-
-#if 0
-// ARC MOD END
 #include <linux/getcpu.h>
 #include <linux/posix_types.h>
 #if !defined (_LIBC) || defined(IS_IN_librt)

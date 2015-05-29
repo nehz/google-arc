@@ -9,6 +9,7 @@ from ninja_generator import ArchiveNinjaGenerator
 def _generate_lib_ninja():
   n = ArchiveNinjaGenerator('libgralloc',
                             enable_clang=True,
+                            enable_cxx11=True,
                             base_path='graphics_translation/gralloc')
   n.add_compiler_flags('-Werror')
   n.add_notice_sources(['mods/graphics_translation/NOTICE'])
@@ -16,7 +17,8 @@ def _generate_lib_ninja():
   n.add_include_paths('mods',
                       'android/system/core/include',
                       'android/hardware/libhardware/include',
-                      'android/frameworks/native/opengl/include')
+                      'android/frameworks/native/opengl/include',
+                      'libyuv/include')
   sources = n.find_all_sources()
   sources.remove('graphics_translation/gralloc/gralloc_main.cpp')
   n.build_default(sources, base_path='mods')
@@ -26,6 +28,7 @@ def _generate_lib_ninja():
 def _generate_so_ninja():
   n = SharedObjectNinjaGenerator('gralloc.arc', install_path='/lib/hw',
                                  enable_clang=True,
+                                 enable_cxx11=True,
                                  base_path='graphics_translation/gralloc')
 
   # gralloc_main.cpp uses gcc-style struct initialization "member: value"

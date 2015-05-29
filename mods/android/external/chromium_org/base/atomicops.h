@@ -28,7 +28,8 @@
 #ifndef BASE_ATOMICOPS_H_
 #define BASE_ATOMICOPS_H_
 
-#include "base/basictypes.h"
+#include <stdint.h>
+
 #include "build/build_config.h"
 
 #if defined(OS_WIN) && defined(ARCH_CPU_64_BITS)
@@ -43,9 +44,23 @@
 namespace base {
 namespace subtle {
 
-typedef int32 Atomic32;
+typedef int32_t Atomic32;
 // ARC MOD BEGIN
+// 64bit atomics are always supported on ARC.
+// #ifdef ARCH_CPU_64_BITS
+// We need to be able to go between Atomic64 and AtomicWord implicitly.  This
+// means Atomic64 and AtomicWord should be the same type on 64-bit.
+#if defined(__ILP32__) || defined(OS_NACL) || defined(HAVE_ARC)
+// ARC MOD END
+// NaCl's intptr_t is not actually 64-bits on 64-bit!
+// http://code.google.com/p/nativeclient/issues/detail?id=1162
 typedef int64_t Atomic64;
+#else
+typedef intptr_t Atomic64;
+#endif
+// ARC MOD BEGIN
+// 64bit atomics are always supported on ARC.
+// #endif
 // ARC MOD END
 
 // Use AtomicWord for a machine-sized pointer.  It will use the Atomic32 or
@@ -102,9 +117,8 @@ Atomic32 NoBarrier_Load(volatile const Atomic32* ptr);
 Atomic32 Acquire_Load(volatile const Atomic32* ptr);
 Atomic32 Release_Load(volatile const Atomic32* ptr);
 
-// ARC MOD BEGIN
-// 64-bit atomic operations.
-// ARC MOD END
+// 64-bit atomic operations (only available on 64-bit processors).
+#ifdef ARCH_CPU_64_BITS
 Atomic64 NoBarrier_CompareAndSwap(volatile Atomic64* ptr,
                                   Atomic64 old_value,
                                   Atomic64 new_value);
@@ -124,9 +138,9 @@ void Release_Store(volatile Atomic64* ptr, Atomic64 value);
 Atomic64 NoBarrier_Load(volatile const Atomic64* ptr);
 Atomic64 Acquire_Load(volatile const Atomic64* ptr);
 Atomic64 Release_Load(volatile const Atomic64* ptr);
-// ARC MOD BEGIN
-// ARC MOD END
-}  // namespace base::subtle
+#endif  // ARCH_CPU_64_BITS
+
+}  // namespace subtle
 }  // namespace base
 
 // Include our platform specific implementation.
@@ -141,8 +155,10 @@ Atomic64 Release_Load(volatile const Atomic64* ptr);
 #elif defined(OS_NACL) || defined(HAVE_ARC)
 /* ARC MOD END */
 #include "base/atomicops_internals_gcc.h"
-#elif defined(COMPILER_GCC) && defined(ARCH_CPU_ARM_FAMILY)
+#elif defined(COMPILER_GCC) && defined(ARCH_CPU_ARMEL)
 #include "base/atomicops_internals_arm_gcc.h"
+#elif defined(COMPILER_GCC) && defined(ARCH_CPU_ARM64)
+#include "base/atomicops_internals_arm64_gcc.h"
 #elif defined(COMPILER_GCC) && defined(ARCH_CPU_X86_FAMILY)
 #include "base/atomicops_internals_x86_gcc.h"
 #elif defined(COMPILER_GCC) && defined(ARCH_CPU_MIPS_FAMILY)

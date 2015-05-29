@@ -200,7 +200,7 @@ TEST_F(GraphicsCapabilityTest, TestClip) {
   glEnable(GL_CLIP_PLANE0);
   glClipPlanef(GL_CLIP_PLANE0, plane);
   DrawCube();
-  EXPECT_IMAGE_WITH_TOLERANCE(256);
+  EXPECT_IMAGE_WITH_TOLERANCE(1024);
 }
 
 TEST_F(GraphicsCapabilityTest, TestFog) {

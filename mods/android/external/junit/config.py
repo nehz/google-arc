@@ -8,13 +8,18 @@ import open_source
 
 def generate_ninjas():
   def _filter(vars):
-    if vars.is_static_java_library():
+    assert vars.is_java_library()
+    if vars.is_static_java_library() or vars.is_host():
       return False
 
-    module_name = vars.get_module_name()
-    assert module_name == 'core-junit', module_name
-    assert vars.is_java_library()
-    return True
+    return {
+        'core-junit': True,
+        'junit-runner': False,
+        # TODO(crbug.com/468670): L-rebase: junit-targetdex exercises our dexopt
+        # compile paths, which are disabled until we find how to do dex2oat in
+        # ninja time.
+        'junit-targetdex': False,
+    }[vars.get_module_name()]
 
   if open_source.is_open_source_repo():
     # We currently do not build Java code in open source.

@@ -41,7 +41,7 @@ def _build_apk(source_path, use_ndk, build_path, install_apk, debug, verbose):
     file_util.rmtree(work_path)
   shutil.copytree(os.path.join('.', source_path), work_path)
   print os.path.join(_SDK_PATH, 'tools', 'android')
-  # Any target 14+ should work (tested on 17).
+  # Any target 14+ should work (tested on 21).
   subprocess.check_call([
       os.path.join(_SDK_PATH, 'tools', 'android'),
       'update', 'project',
@@ -54,7 +54,8 @@ def _build_apk(source_path, use_ndk, build_path, install_apk, debug, verbose):
     if debug:
       app_optim = 'debug'
     if not os.path.exists(os.path.join(work_path, 'jni', 'Application.mk')):
-      # Write desired ABI before calling ndk-build
+      # Write desired ABI before calling ndk-build. Do not drop 'x86' since
+      # -t=bi uses x86 NDK binaries by default.
       open(os.path.join(work_path, 'jni', 'Application.mk'), 'w').write(
           'APP_ABI := x86 armeabi armeabi-v7a\n' +
           ('APP_OPTIM := %s\n' % app_optim) +

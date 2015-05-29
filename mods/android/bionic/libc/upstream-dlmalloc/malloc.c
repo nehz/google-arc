@@ -1718,7 +1718,7 @@ static FORCEINLINE int win32munmap(void* ptr, size_t size) {
         // on all build targets. But if MORECORE is not provided, this file
         // does not support NaCl since MORECORE_DEFAULT depends on missing
         // sbrk function.
-        #if defined(__native_client__) || defined(BARE_METAL_BIONIC)
+        #if defined(HAVE_ARC)
         #error MORECORE_DEFAULT does not work because NaCl does not provide sbrk
         #endif
         // ARC MOD END
@@ -5326,12 +5326,19 @@ void* dlvalloc(size_t bytes) {
   return dlmemalign(pagesz, bytes);
 }
 
+/* BEGIN android-changed: added overflow check */
 void* dlpvalloc(size_t bytes) {
   size_t pagesz;
+  size_t size;
   ensure_initialization();
   pagesz = mparams.page_size;
-  return dlmemalign(pagesz, (bytes + pagesz - SIZE_T_ONE) & ~(pagesz - SIZE_T_ONE));
+  size = (bytes + pagesz - SIZE_T_ONE) & ~(pagesz - SIZE_T_ONE);
+  if (size < bytes) {
+    return NULL;
+  }
+  return dlmemalign(pagesz, size);
 }
+/* END android-change */
 
 void** dlindependent_calloc(size_t n_elements, size_t elem_size,
                             void* chunks[]) {

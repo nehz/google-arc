@@ -17,13 +17,14 @@
 //
 
 #include <stdint.h>
+#include <sys/cdefs.h>
 
 // This cannot be static because _init in crtbegin.c will use this to
 // iterate .ctors in reverse order.
 //
 // Note that we do not define them as arrays which have a single
 // element because of the reason mentioned in crtbegin_so.c.
-__attribute__((used, section(".ctors"), visibility("hidden")))
+__LIBC_HIDDEN__ __attribute__((used, section(".ctors")))
 void (*const __CTOR_END__)(void) = 0;
 __attribute__((used, section(".dtors")))
 static void (*const __DTOR_END__)(void) = 0;

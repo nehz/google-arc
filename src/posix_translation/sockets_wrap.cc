@@ -67,6 +67,9 @@ ARC_EXPORT ssize_t __wrap_recv(int sockfd, void* buf, size_t len, int flags);
 ARC_EXPORT ssize_t __wrap_recvfrom(
     int sockfd, void* buf, size_t len, int flags, struct sockaddr* src_addr,
     socklen_t* addrlen);
+ARC_EXPORT ssize_t __wrap___recvfrom_chk(
+    int sockfd, void* buf, size_t len, size_t buflen, int flags,
+    struct sockaddr* src_addr, socklen_t* addrlen);
 ARC_EXPORT ssize_t __wrap_recvmsg(int sockfd, struct msghdr* msg, int flags);
 ARC_EXPORT int __wrap_select(
     int nfds, fd_set* readfds, fd_set* writefds, fd_set* exceptfds,
@@ -341,6 +344,13 @@ ssize_t __wrap_recvfrom(int sockfd, void* buf, size_t len, int flags,
   if (result >= 0)
     ARC_STRACE_REPORT("buf=%s", arc::GetRWBufStr(buf, result).c_str());
   ARC_STRACE_RETURN(result);
+}
+
+ssize_t __wrap___recvfrom_chk(int sockfd, void* buf, size_t len, size_t buflen,
+                              int flags, struct sockaddr* src_addr,
+                              socklen_t* addrlen) {
+  // TODO(crbug.com/478000): Wrap __recvfrom_chk accurately?
+  return __wrap_recvfrom(sockfd, buf, len, flags, src_addr, addrlen);
 }
 
 ssize_t __wrap_recvmsg(int sockfd, struct msghdr* msg, int flags) {

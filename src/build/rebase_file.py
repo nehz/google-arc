@@ -4,127 +4,101 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Tool to automate rebasing our patched files against upstream
-# Android code.
+"""Automates rebasing our patched files against upstream Android code."""
 
 import argparse
-import os
-import subprocess
 import sys
 
-_OLD_TAG_NAME = 'android-4.2_r1'
-_NEW_TAG_NAME = 'android-4.4_r1'
+import util.rebase.constants
+import util.rebase.mod
 
-_OLD_TMP_FILE = '/tmp/rebase_old_file'
-_NEW_TMP_FILE = '/tmp/rebase_new_file'
+_EPILOG = r"""
+This script performs the following operations:
 
+  1. Locate the base code being modified, for both the old version and the
+     current (newer) version.
 
-def _create_dir_for_file(name):
-  dir_name = os.path.dirname(name)
-  if not os.path.isdir(dir_name):
-    os.makedirs(dir_name)
+  2. Validate that the modification is correct for the old version of the base
+     code.
 
+  3. If necessary, "git mv" the modification to the new location.
 
-def _save_revision(base, file_name, tag, dst):
-  try:
-    text = subprocess.check_output(['git', 'show', tag + ':' + file_name],
-                                   cwd=base, stderr=subprocess.STDOUT)
-  except subprocess.CalledProcessError, e:
-    if e.output.find('exists on disk, but not in') != -1:
-      text = ''
-    else:
-      raise
-  with open(dst, 'w') as f:
-    f.write(text)
+  4. Perform a three way merge of the mod, the old base code, and the new base
+     code to generate a new mod (rebase the mod).
 
+  5. Validate that the new modification is correct for the new version of the
+     base code.
 
-def _is_valid_base(base):
-  if not base.startswith('mods') and not base.startswith('third_party'):
-    return base
-  raise argparse.ArgumentError(base + ' is not a valid base path')
+  Note that the newly rebased modification still needs to be compiled and
+  tested.  Everything might merge and verify cleanly only for there to be some
+  other error (such as a variable being renamed in the base code).
 
+Usage Examples:
 
-def _get_tag_hash(tag, repo):
-  """Get the equivalent git hash for the given tag in given repository."""
-  ref_output = subprocess.check_output(['git', 'show-ref', '-d', tag],
-                                       cwd=repo)
-  # Expect output of this form:
-  # b891ad9ea409911890ceff7200156d74cfd72adc refs/tags/android-4.2_r1
-  # f67623632a545bd9ca1d8afefc3dd0789eaba6b3 refs/tags/android-4.2_r1^{}
-  # Where the first entry is for the tag's git entry and the second
-  # is the interesting one, where it points to.  If the tag itself is
-  # a lightweight tag only one line is output and it's the actual
-  # hash.  So the first word on the last line is always the interesting
-  # one.
-  return ref_output.split('\n')[-2].split(' ')[0]
+  1. Rebase BootAnimation.cpp in place, upgrading from android-5.0.0_r7 to the
+     current version.
+
+    %(prog)s --from android-5.0.0_r7 \
+        mods/frameworks/base/cmds/bootanimation/BootAnimation.cpp
+
+  2. Rebase the modification to Surface.h, moving it to a new subdirectory to
+     match the base file being moved as well from android-4.4_r1 to the current
+     version.
+
+    %(prog)s --from android-4.4_r1 \
+        mods/frameworks/native/include/gui/Surface.h \
+        mods/frameworks/base/include/surfaceflinger/Surface.h
+""".strip()
 
 
 def main():
-  progname = os.path.basename(sys.argv[0])
   parser = argparse.ArgumentParser(
-      formatter_class=argparse.RawTextHelpFormatter,
-      description="""
-The tool will "git mv" the file to the new location and then rebase it.
-The corresponding third_party base has to be already updated to the new label.
+      description=__doc__, epilog=_EPILOG,
+      formatter_class=argparse.RawTextHelpFormatter)
 
-Examples:
-%(progname)s frameworks/base   cmds/bootanimation/BootAnimation.cpp
-%(progname)s frameworks/av     media/nuplayer/NuPlayerRenderer.cpp   \
-frameworks/base
-%(progname)s frameworks/native include/gui/Surface.h                 \
-frameworks/base include/surfaceflinger/Surface.h
-""" % {"progname": progname})
-
-  parser.add_argument(dest='new_base', metavar='<new_base>',
-                      type=_is_valid_base)
-  parser.add_argument(dest='new_file', metavar='<new_file>')
-  parser.add_argument(dest='old_base', metavar='<old_base>', nargs='?',
-                      type=_is_valid_base)
-  parser.add_argument(dest='old_file', metavar='<old_file>', nargs='?')
+  parser.add_argument('--from', dest='old_revision', required=True,
+                      help='The old Android revision tag.')
+  parser.add_argument('old_path')
+  parser.add_argument('new_path', nargs='?')
   args = parser.parse_args()
 
-  if not args.old_base:
-    args.old_base = args.new_base
+  mod = util.rebase.mod.get_arc_android_mod(args.old_path)
+  mod.rebase(args.old_revision, force_new_mod_path=args.new_path)
 
-  if not args.old_file:
-    args.old_file = args.new_file
-
-  old_mods_path = os.path.join('mods', 'android', args.old_base, args.old_file)
-  new_mods_path = os.path.join('mods', 'android', args.new_base, args.new_file)
-  if not os.path.exists(old_mods_path):
-    raise Exception('Old path does not exist: ' + old_mods_path)
-
-  new_third_party_base = os.path.join('third_party', 'android', args.new_base)
-  new_tag = subprocess.check_output(['git', 'describe'],
-                                    cwd=new_third_party_base)
-  if (_get_tag_hash(new_tag.strip(), new_third_party_base) !=
-      _get_tag_hash(_NEW_TAG_NAME, new_third_party_base)):
-    raise Exception('git checkout at %s is not pointing to %s ' %
-                    (new_third_party_base, _NEW_TAG_NAME))
-
-  old_third_party_base = os.path.join('third_party', 'android', args.old_base)
-  _save_revision(old_third_party_base, args.old_file, _OLD_TAG_NAME,
-                 _OLD_TMP_FILE)
-  _save_revision(new_third_party_base, args.new_file, _NEW_TAG_NAME,
-                 _NEW_TMP_FILE)
-
-  if new_mods_path != old_mods_path:
-    if os.path.exists(new_mods_path):
-      raise Exception('New path already exists: ' + new_mods_path)
-    _create_dir_for_file(new_mods_path)
-    subprocess.check_call(['git', 'mv', old_mods_path, new_mods_path])
-
-  try:
-    subprocess.check_call(['merge', new_mods_path, _OLD_TMP_FILE,
-                           _NEW_TMP_FILE])
+  if mod.status == util.rebase.constants.RESULT_OK:
     print 'Merged files automatically, no manual work needed'
-  except subprocess.CalledProcessError as e:
-    if e.returncode == 1:
-      print 'The file needs MERGE:', new_mods_path
-    else:
-      raise
-
-  return 0
+  elif mod.status == util.rebase.contants.RESULT_MOD_INCORRECT_FOR_OLD_VERSION:
+    sys.exit(
+        'analyze_diffs reported errors for "%s". The old version you specified '
+        'may not match the version of the code the modification is actually '
+        'supposed to track.' % (
+            args.old_path))
+  elif mod.status == (
+      util.rebase.contants.RESULT_MOD_ANDROID_SUBMODULE_NOT_IDENTIFIED):
+    sys.exit(
+        'The tracked source code appears to have moved, and the new location '
+        'for the base code modified by "%s" was not identified.' % (
+            mod.new_mod_path))
+  elif mod.status == util.rebase.contants.RESULT_MOD_EXISTS_AT_NEW_LOCATION:
+    sys.exit(
+        'A file exists at the new location for the mod "%s".' % (
+            mod.new_mod_path))
+  elif mod.status == util.rebase.constants.RESULT_REBASE_RESULT_NO_UPSTREAM:
+    sys.exit(
+        'The original source file for %s was unable to be located. You will '
+        'need to manually move the mod or otherwise fix it up to identify the '
+        'correct file.' % (
+            args.old_path))
+  elif mod.status == util.rebase.constants.RESULT_NO_CLEAN_MERGE:
+    sys.exit(
+        'The merge of "%s" did not complete cleanly. You will need to manually '
+        'edit it to fix it.' % (
+            mod.new_mod_path))
+  elif mod.status == util.rebase.constants.RESULT_DIFFS_AFTER_MERGE:
+    sys.exit(
+        'The merge of "%s" completed cleanly, but analyze_diffs reported '
+        'errors.' % (
+            mod.new_mod_path))
 
 if __name__ == '__main__':
   sys.exit(main())

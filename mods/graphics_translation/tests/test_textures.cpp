@@ -53,7 +53,7 @@ class GraphicsTextureTest : public GraphicsTranslationTestBase {
 TEST_F(GraphicsTextureTest, TestCopyTextures) {
   glClearColor(1.f, 0.f, 0.f, 1.f);
   glClear(GL_COLOR_BUFFER_BIT);
-  glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 0, 0, 256, 256, 0);
+  glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 0, 0, 256, 256, 0);
 
   glClearColor(0.f, 1.f, 0.f, 1.f);
   glClear(GL_COLOR_BUFFER_BIT);

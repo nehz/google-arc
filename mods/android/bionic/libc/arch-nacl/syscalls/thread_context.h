@@ -71,7 +71,7 @@ extern void BionicInternalSaveRegContext(uint64_t*);
 #define SAVE_CONTEXT_REGS()                                     \
   {                                                             \
     uint32_t regs_tmp[16];                                      \
-    BionicInternalSaveRegContext((char*) regs_tmp);             \
+    BionicInternalSaveRegContext((char*)regs_tmp);              \
     __pthread_save_context_regs(regs_tmp, sizeof(regs_tmp));    \
   }
 

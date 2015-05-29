@@ -16,6 +16,8 @@
 // and calls main using __libc_init. This should be linked into all
 // executables.
 //
+// This code path is used for x86 and x86-64. For ARM, see
+// arch-common/bionic/crtbegin.c
 
 #include <elf.h>
 
@@ -42,7 +44,7 @@ static void onexit(void) {
 
 static structor_fn fini_array[3];
 
-__attribute__((visibility("hidden")))
+__LIBC_HIDDEN__
 void _start(unsigned **info) {
   structors_array_t structors;
   memset(&structors, 0, sizeof(structors));

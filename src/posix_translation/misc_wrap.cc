@@ -216,6 +216,8 @@ int __wrap_getpriority(int which, int who) {
 int __wrap_getrlimit(int resource, struct rlimit *rlim) {
   // TODO(crbug.com/241955): Stringify |resource| and |rlim|.
   ARC_STRACE_ENTER("getrlimit", "%d, %p", resource, rlim);
+  // TODO(crbug.com/452386): Consider moving getrlimit from
+  // posix_translation to Bionic.
   int result = -1;
   static const uint32_t kArcRLimInfinity = -1;
   switch (resource) {
@@ -242,6 +244,8 @@ int __wrap_getrlimit(int resource, struct rlimit *rlim) {
     case RLIMIT_RSS:
     case RLIMIT_SIGPENDING:
     case RLIMIT_STACK:
+      // Note this value for stack should be sync-ed with the one in
+      // android/bionic/libc/bionic/libc_init_common.cpp.
       rlim->rlim_cur = kArcRLimInfinity;
       rlim->rlim_max = kArcRLimInfinity;
       result = 0;

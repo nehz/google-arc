@@ -339,6 +339,8 @@ void PepperFileTest::CheckStatStructure(const struct stat& st,
   EXPECT_EQ(arc::kRootUid, st.st_uid);
   EXPECT_EQ(arc::kRootGid, st.st_gid);
   EXPECT_EQ(static_cast<dev_t>(0), st.st_rdev);
+  // Sanity check of the sizes.
+  EXPECT_EQ(sizeof(size), sizeof(st.st_size));
   EXPECT_EQ(size, st.st_size);
   EXPECT_EQ(static_cast<blksize_t>(4096), st.st_blksize);
   EXPECT_EQ(static_cast<blkcnt_t>(0), st.st_blocks);
@@ -606,6 +608,7 @@ TEST_BACKGROUND_F(PepperFileTest, TestStat) {
   struct stat st;
   memset(&st, 1, sizeof(st));
   EXPECT_EQ(0, handler_->stat(kPepperPath, &st));
+  SCOPED_TRACE("TestStat");
   CheckStatStructure(st, S_IFREG, 1, kSize, GetInode(kPepperPath), 0, 0, 0);
 }
 
@@ -617,6 +620,7 @@ TEST_BACKGROUND_F(PepperFileTest, TestStatDirectory) {
   struct stat st;
   memset(&st, 1, sizeof(st));
   EXPECT_EQ(0, handler_->stat(kPepperPath, &st));
+  SCOPED_TRACE("TestStatDirectory");
   CheckStatStructure(st, S_IFDIR, 32, 4096, GetInode(kPepperPath), 0, 0, 0);
 }
 

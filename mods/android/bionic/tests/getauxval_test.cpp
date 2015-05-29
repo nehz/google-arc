@@ -18,10 +18,10 @@
 #include <features.h>
 #include <gtest/gtest.h>
 // ARC MOD BEGIN
-// For some reason, Bionic does not have AT_SYSINFO for ARM. As we
-// should not have bionic/libc in the #include paths for unittests, we
-// include it by a relative path.
-#if defined(__arm__)
+// Linux kernel uapi headers used in Bionic only defines AT_SYSINFO
+// for __i386__. As we should not have bionic/libc in the #include
+// paths for unittests, we include it by a relative path.
+#if defined(__arm__) || defined(__x86_64__)
 #include "../private/at_sysinfo.h"
 #endif
 // ARC MOD END
@@ -39,14 +39,15 @@
 #endif
 
 #if defined(GETAUXVAL_CAN_COMPILE)
-
 #include <sys/auxv.h>
+#endif
 
 TEST(getauxval, expected_values) {
+#if defined(GETAUXVAL_CAN_COMPILE)
   ASSERT_EQ((unsigned long int) 0, getauxval(AT_SECURE));
   // ARC MOD BEGIN
   // NaCl and Bare Metal supervisors only pass AT_SYSINFO.
-#if defined(__native_client__) || defined(BARE_METAL_BIONIC)
+#if defined(HAVE_ARC)
   ASSERT_NE((unsigned long int) 0, getauxval(AT_SYSINFO));
 #else
   // ARC MOD END
@@ -63,10 +64,15 @@ TEST(getauxval, expected_values) {
 // ARC MOD BEGIN
 #endif
 // ARC MOD END
+#else
+  GTEST_LOG_(INFO) << "This test does nothing.\n";
+#endif
 }
 
 TEST(getauxval, unexpected_values) {
+#if defined(GETAUXVAL_CAN_COMPILE)
   ASSERT_EQ((unsigned long int) 0, getauxval(0xdeadbeef));
+#else
+  GTEST_LOG_(INFO) << "This test does nothing.\n";
+#endif
 }
-
-#endif /* GETAUXVAL_CAN_COMPILE */

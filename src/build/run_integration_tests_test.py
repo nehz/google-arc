@@ -246,7 +246,7 @@ class _RunIntegrationTestsTestBase(unittest.TestCase):
   # A chosen real test suite, and a test in it. The test should normally pass.
   EXAMPLE_SUITE_NAME = 'cts.android.core.tests.libcore.package.libcore'
   EXAMPLE_TEST_NAME = 'libcore.java.lang.StringTest#testIsEmpty'
-  EXAMPLE_TEST_NAME2 = 'libcore.java.lang.StringTest#test_replaceAll'
+  EXAMPLE_TEST_NAME2 = 'libcore.java.lang.StringTest#test_compareTo'
 
   def _run_integration_tests(self, args):
     with patch('sys.stdout', _FakeStream()) as stdout:
@@ -403,6 +403,8 @@ class RunIntegrationTestsSlowTest(_RunIntegrationTestsTestBase):
     # This is just a representative sample. There is no good way to get the full
     # set of names without duplicating code.
     expected_tests_names = [
+        '000-nop',
+        '001-HelloWorld',
         'arc.activity',
         'arc.atf_default',
         'cts.CtsAccelerationTestCases',

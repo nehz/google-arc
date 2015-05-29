@@ -82,15 +82,15 @@ API_FUNCTION_IMPL_TEMPLATE = string.Template("""
 extern "C" ${RETURN_TYPE} gl${NAME}(${ARGUMENTS}) {
   const GlesContext* ctx = GetCurrentGlesContext();
 #ifdef ENABLE_API_LOGGING
-  ALOGI("[id=%d] ${NAME}(${ARGUMENTS_FORMAT_STRING})",
-        ctx->GetId(), ${FORMAT_ARGUMENTS});
+  ALOGE("[id=%d] ${NAME}(${ARGUMENTS_FORMAT_STRING})",
+        ctx ? ctx->GetId() : -1, ${FORMAT_ARGUMENTS});
 #endif  // ENABLE_API_LOGGING
 
 #ifdef ENABLE_API_TRACING
   char* args = NULL;
   asprintf(&args, "${ARGUMENTS_FORMAT_STRING}", ${FORMAT_ARGUMENTS});
   TRACE_EVENT2(ARC_TRACE_CATEGORY, "${NAME}",
-               "id", ctx->GetId(), "args", TRACE_STR_COPY(args));
+               "id", ctx ? ctx->GetId() : -1, "args", TRACE_STR_COPY(args));
   free(args);
 #endif  // ENABLE_API_TRACING
   return impl${NAME}(${ARGUMENTS_NAME_ONLY});

@@ -17,15 +17,14 @@ def get_android_static_library_deps():
       'libandroid_servers_vibrator.a',
       'libaudioflinger.a',
       'libaudioutils.a',  # used by libmedia
+      'libaudiopolicyservice.a',
+      'libaudioresampler.a',  # used by libaudioflinger
       'libbinder.a',
       'libbinder_driver.a',
-      'libbootanimation.a',
       'libcamera_client.a',
       'libcamera_metadata.a',  # used by libcameraservice
       'libcameraservice.a',
       'libcommon_time_client.a',  # used by audioflinger
-      'libconnectivitymanager.a',
-      'libcorkscrew.a',
       'libcpustats.a',
       'libcrypto_static.a',
       'libcutils.a',
@@ -38,18 +37,17 @@ def get_android_static_library_deps():
       'libexpat.a',
       'libFLAC.a',  # used by libstagefright
       'libft2.a',  # used by libskia
-      'libgabi++.a',
-      'libgccdemangle.a',
       'libgif.a',  # used by libskia
       'libgles.a',
       'libgralloc.a',
       'libgui.a',
       'libhardware.a',
       'libharfbuzz_ng.a',
-      'libicui18n.a',
-      'libicuuc.a',
+      'libimg_utils.a',
       'libinput.a',
       'libinputservice.a',
+      'libinputflinger.a',
+      'libinstantssq.a',
       'libjpeg_static.a',
       'liblogcat.a',
       'liblog_fake.a',
@@ -57,7 +55,10 @@ def get_android_static_library_deps():
       'libmedia_helper.a',  # used by audioflinger
       'libmediaplayerservice.a',
       'libmemtrack.a',
+      'libminikin.a',
       'libnbaio.a',  # used by audioflinger
+      'libnetd_client.a',
+      'libopus.a',  # used by libstagefright
       'libOpenMAXAL.a',
       'libopensles_helper.a',  # used by libOpenMAXAL
       'libOpenSLES.a',  # used by libOpenMAXAL
@@ -67,6 +68,7 @@ def get_android_static_library_deps():
       'libsafe_iop.a',
       'libscheduling_policy.a',  # used by audioflinger
       'libsensorservice.a',
+      'libserviceutility.a',
       'libsfntly.a',  # used by libskia
       'libskia.a',
       'libsonivox.a',
@@ -74,11 +76,14 @@ def get_android_static_library_deps():
       'libsqlite3_android.a',
       'libsqlite.a',
       'libssl_static.a',
+      'libsoundtrigger.a',
+      'libsoundtriggerservice.a',
       'libstagefright.a',
       'libstagefright_amrnb_common.a',  # used by libmedia_jni
       'libstagefright_color_conversion.a',  # used by libstagefright
       'libstagefright_enc_common.a',
       'libstagefright_foundation.a',
+      'libstagefright_http_support.a',  # used by libstagefright
       'libstagefright_httplive.a',  # used by libstagefright
       'libstagefright_id3.a',  # used by libstagefright
       'libstagefright_matroska.a',  # used by libstagefright
@@ -87,11 +92,11 @@ def get_android_static_library_deps():
       'libstagefright_omx.a',
       'libstagefright_rtsp.a',  # used by libmediaplayerservice
       'libstagefright_timedtext.a',  # used by libstagefright
+      'libstagefright_webm.a',  # used by libmediaplayerservice
       'libstagefright_wfd.a',  # used by libmediaplayerservice
       'libstagefright_yuv.a',
       'libsync.a',  # used by HW composer
       'libui.a',
-      'libunwind.a',
       'libvorbisidec.a',  # used by libstagefright
       'libvpx.a',  # used by libstagefright
       'libwebm.a',  # used by libstagefright

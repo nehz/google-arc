@@ -79,6 +79,6 @@ class GraphicsTranslationTestBase : public ::testing::Test {
 
 #define EXPECT_IMAGE() EXPECT_TRUE(ExpectImageWithTolerance(0))
 #define EXPECT_IMAGE_WITH_TOLERANCE(tolerance) \
-    EXPECT_PRED1(ExpectImageWithTolerance, tolerance)
+    EXPECT_TRUE(ExpectImageWithTolerance(tolerance))
 
 #endif  // GRAPHICS_TRANSLATION_TESTS_GRAPHICS_TEST_H_

@@ -151,8 +151,8 @@ def _generate_apk_to_crx_args(parsed_args, metadata=None,
   if parsed_args.additional_android_permissions:
     additional_permissions.extend(
         parsed_args.additional_android_permissions.split(','))
-  if parsed_args.jdb_port or parsed_args.enable_adb:
-    additional_permissions.append('INTERNET')
+  # All Android apps now have an implicit INTERNET permission.
+  additional_permissions.append('INTERNET')
   if additional_permissions:
     crx_args.extend(['--additional-android-permissions',
                      ','.join(additional_permissions)])

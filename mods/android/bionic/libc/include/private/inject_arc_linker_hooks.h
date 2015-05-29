@@ -39,6 +39,7 @@ typedef struct {
   typeof(__nacl_irt_open) nacl_irt_open;
   typeof(__nacl_irt_read) nacl_irt_read;
   typeof(__nacl_irt_write) nacl_irt_write;
+  typeof(__nacl_irt_fstat) nacl_irt_fstat;
 } __arc_linker_hooks;
 
 // This function must be called before the first pthread_create.

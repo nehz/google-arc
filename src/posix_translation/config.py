@@ -10,8 +10,10 @@ import build_common
 import ninja_generator
 import ninja_generator_runner
 import open_source
+import staging
 from build_options import OPTIONS
 from ninja_generator import ArchiveNinjaGenerator
+from ninja_generator import NinjaGenerator
 from ninja_generator import SharedObjectNinjaGenerator
 
 
@@ -20,13 +22,17 @@ _CREATE_READONLY_FS_IMAGE_SCRIPT = (
 
 
 # Mount points for directories.
+# TODO(crbug.com/484758): Remove /vendor/lib-x86 once x86 Renderscript binaries
+# are added to the image.
 _EMPTY_DIRECTORIES = ['/cache',
                       '/data',
                       '/storage',
                       '/sys/devices/system/cpu',
                       '/system/lib',
                       '/usr/lib',
-                      '/vendor/chromium/crx']
+                      '/vendor/chromium/crx',
+                      '/vendor/lib-x86',
+                      '/vendor/lib']
 
 
 # Mount points used for files.
@@ -64,6 +70,7 @@ _SYMLINK_MAP = {
     # rest of the files be symlinks.
     '/sdcard': '/storage/sdcard',
     '/mnt/sdcard': '/storage/sdcard',
+    '/system/lib64': '/system/lib',
 }
 
 
@@ -73,7 +80,10 @@ def _generate_libposix_translation():
   compiler_flags = [
       '-Werror', '-fvisibility=hidden', '-fvisibility-inlines-hidden']
 
-  n = ArchiveNinjaGenerator('libposix_translation_static', enable_clang=True)
+  n = ArchiveNinjaGenerator('libposix_translation_static',
+                            # libart-gtest and libposix_translation need this
+                            enable_clang=True,
+                            enable_cxx11=True)
   n.add_compiler_flags(*compiler_flags)
   if OPTIONS.is_posix_translation_debug():
     n.add_defines('DEBUG_POSIX_TRANSLATION')
@@ -89,17 +99,63 @@ def _generate_libposix_translation():
   n.build_default(all_files).archive()
 
   n = SharedObjectNinjaGenerator('libposix_translation',
-                                 is_system_library=True, enable_clang=True)
+                                 is_system_library=True, enable_clang=True,
+                                 enable_cxx11=True)
   n.add_library_deps('libc.so', 'libm.so', 'libdl.so', 'libstlport.so')
   n.add_whole_archive_deps('libposix_translation_static.a')
   # Statically link libchromium_base.a so that we can use unwrapped version of
   # the library.
-  # TODO(crbug.com/423063): Statically link libcommon.a into the DSO too for
-  # more safety.
+  # TODO(crbug.com/423063, crbug.com/336316): Statically link libcommon.a into
+  # the DSO too for more safety.
   n.add_library_deps('libchromium_base.a')
   n.add_compiler_flags(*compiler_flags)
   n.add_ppapi_link_flags()
   n.build_default([]).link()
+
+
+def _generate_libposix_translation_for_test():
+  n = SharedObjectNinjaGenerator('libposix_translation_for_test',
+                                 dt_soname='libposix_translation.so',
+                                 is_system_library=True,
+                                 is_for_test=True)
+  # libposix_translation_for_test is built using generated code in the out/
+  # directory. The logic we have to scan for NOTICES does not find one for this
+  # generated code, and complains later. The libposix_translation.so code
+  # normally inherits the project NOTICE from src/NOTICE, so we just explicitly
+  # point to it here as the notice to use for this special version of the
+  # library.
+  n.add_notice_sources([staging.as_staging('src/NOTICE')])
+  gen_rule_name = 'gen_wrap_syscall_aliases_s'
+  gen_script_path = os.path.join('src/common', gen_rule_name + '.py')
+  n.rule(gen_rule_name,
+         command='%s > $out.tmp && mv $out.tmp $out' % gen_script_path,
+         description=gen_rule_name + ' $in')
+  gen_out_path = os.path.join(build_common.get_build_dir(),
+                              'posix_translation_gen_sources',
+                              'wrap_syscall_aliases.S')
+  gen_implicit_deps = build_common.find_python_dependencies(
+      'src/build', gen_script_path) + [gen_script_path]
+  n.build(gen_out_path, gen_rule_name, implicit=gen_implicit_deps)
+  # Following deps order is important. art_libc_supplement_for_test.so should
+  # be placed before libc.so.
+  if not open_source.is_open_source_repo():
+    # This is for ART unit tests which have not been opensourced. To not let
+    # posix_translation depend on ART on arc_open, use is_open_source_repo().
+    n.add_library_deps('art_libc_supplement_for_test.so')
+  n.add_library_deps('libc.so', 'libdl.so')
+  n.build_default([gen_out_path], base_path=None).link()
+
+  # /test/libposix_translation.so should be a symbolic link to
+  # ../lib/libposix_translation_for_test.so.
+  n = NinjaGenerator('test_libposix_translation')
+  orig_so = os.path.join(
+      build_common.get_load_library_path(), 'libposix_translation_for_test.so')
+  link_so = os.path.join(
+      build_common.get_load_library_path_for_test(), 'libposix_translation.so')
+  command = 'ln -sf %s %s' % (
+      os.path.join('../../lib/', os.path.basename(orig_so)), link_so)
+  n.build(link_so, 'run_shell_command', implicit=orig_so,
+          variables={'command': command})
 
 
 def _generate_libposix_files():
@@ -123,14 +179,16 @@ def _generate_libposix_files():
 def generate_ninjas():
   ninja_generator_runner.request_run_in_parallel(
       _generate_libposix_files,
-      _generate_libposix_translation)
+      _generate_libposix_translation,
+      _generate_libposix_translation_for_test)
 
 
 def generate_test_ninjas():
   n = ninja_generator.PpapiTestNinjaGenerator(
       'posix_translation_test',
       base_path='src/posix_translation',
-      enable_clang=True)
+      enable_clang=True,
+      enable_cxx11=True)
   # Build a rootfs image for tests.
   rule_name = 'gen_test_fs_image'
   script_path = 'src/posix_translation/scripts/create_test_fs_image.py'
@@ -156,13 +214,11 @@ def generate_test_ninjas():
   all_files = n.find_all_contained_test_sources()
 
   n.build_default(all_files, base_path=None)
-  if OPTIONS.enable_art():
-    n.add_defines('ENABLE_ART=1')
   n.add_compiler_flags('-Werror')
   n.add_library_deps('libposix_translation_static.a',
                      'libchromium_base.a',
                      'libcommon.a',
-                     'libgccdemangle.a')
+                     'libgccdemangle_static.a')
   implicit = [gen_test_image]
   if open_source.is_open_source_repo():
     implicit.append(gen_prod_image)
@@ -179,7 +235,8 @@ def generate_test_ninjas():
 
   # To be able to refer mock implementation from outside of posix_translation.
   # Setting instance count is zero because usage count verifier doesn't check
-  # the reference from test executable. See verify_usage in ninja_generator.py.
+  # the reference from test executable. See verify_usage_counts in
+  # ninja_generator.py
   n = ArchiveNinjaGenerator('mock_posix_translation', instances=0)
   n.add_libchromium_base_compile_flags()
   n.add_compiler_flags('-Werror')

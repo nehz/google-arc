@@ -1,58 +1,30 @@
 // Copyright 2006-2009 the V8 project authors. All rights reserved.
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//     * Redistributions in binary form must reproduce the above
-//       copyright notice, this list of conditions and the following
-//       disclaimer in the documentation and/or other materials provided
-//       with the distribution.
-//     * Neither the name of Google Inc. nor the names of its
-//       contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
 // CPU specific code for arm independent of OS goes here.
 #ifdef __arm__
 /* ARC MOD BEGIN */
-#include <stdlib.h>  // for abort() in DebugBreak().
 #include <unistd.h>  // for cache flushing.
 /* ARC MOD END */
+#ifdef __QNXNTO__
+#include <sys/mman.h>  // for cache flushing.
+#undef MAP_TYPE
+#else
+#include <sys/syscall.h>  // for cache flushing.
+#endif
 #endif
 
-#include "v8.h"
+#include "src/v8.h"
 
 #if V8_TARGET_ARCH_ARM
 
-#include "cpu.h"
-#include "macro-assembler.h"
-#include "simulator.h"  // for cache flushing.
+#include "src/cpu.h"
+#include "src/macro-assembler.h"
+#include "src/simulator.h"  // for cache flushing.
 
 namespace v8 {
 namespace internal {
-
-void CPU::SetUp() {
-  CpuFeatures::Probe();
-}
-
-
-bool CPU::SupportsCrankshaft() {
-  return CpuFeatures::IsSupported(VFP3);
-}
-
 
 void CPU::FlushICache(void* start, size_t size) {
   // Nothing to do flushing no instructions.
@@ -60,7 +32,7 @@ void CPU::FlushICache(void* start, size_t size) {
     return;
   }
 
-#if defined (USE_SIMULATOR)
+#if defined(USE_SIMULATOR)
   // Not generating ARM instructions for C-code. This means that we are
   // building an ARM emulator based target.  We should notify the simulator
   // that the Icache was flushed.
@@ -73,6 +45,8 @@ void CPU::FlushICache(void* start, size_t size) {
   long begin = reinterpret_cast<long>(start);
   cacheflush(begin, begin + size, 0);
   /* ARC MOD END */
+#elif V8_OS_QNX
+  msync(start, size, MS_SYNC | MS_INVALIDATE_ICACHE);
 #else
   // Ideally, we would call
   //   syscall(__ARM_NR_cacheflush, start,
@@ -112,22 +86,6 @@ void CPU::FlushICache(void* start, size_t size) {
         : "0" (beg), "r" (end), "r" (flg), "r" (__ARM_NR_cacheflush)
         : "r3");
   #endif
-#endif
-}
-
-
-void CPU::DebugBreak() {
-  // ARC MOD BEGIN
-#if defined(HAVE_ARC)
-  // To be able to obtain minidump, calling abort() in DebugBreak is better
-  // than emitting breakpoint instructions. This works because we have a crash
-  // handler installed in ARC (this is also why we cannot upstream it).
-  abort();
-#elif !defined (__arm__)
-  // ARC MOD END
-  UNIMPLEMENTED();  // when building ARM emulator target
-#else
-  asm volatile("bkpt 0");
 #endif
 }
 

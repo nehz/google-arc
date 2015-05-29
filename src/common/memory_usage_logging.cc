@@ -4,6 +4,7 @@
 //
 // TODO(crbug.com/434999): Remove this file.
 
+#include <pthread.h>
 #include <unistd.h>
 
 #include "common/alog.h"

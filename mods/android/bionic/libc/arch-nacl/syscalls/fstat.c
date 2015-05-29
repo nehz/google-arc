@@ -36,5 +36,10 @@ int fstat(int fd, struct stat *buf)
   // ARC MOD END UPSTREAM
 }
 // ARC MOD BEGIN
+// Add fstat64. Note contents of struct stat64 and struct stat are
+// binary compatible.
+__strong_alias(fstat64, fstat);
+// ARC MOD END
+// ARC MOD BEGIN
 // Remove fxstat handling.
 // ARC MOD END

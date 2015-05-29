@@ -13,14 +13,17 @@
 {
   # These files comes from NaCl and so have non-Android copyrights.
   "mods/android/bionic/libc/arch-nacl/syscalls/irt_nonsfi.h": ["copyright"],
-  "mods/android/bionic/libc/include/ucontext.h": ["copyright"],
 
   # TODO(crbug.com/408776) Is a mod of an stlport file and needs to be removed out of src/
   "src/ndk_translation/ndk_tests/encoding_test.cc": ["copyright"],
 
-  # Dalvik test does not allow to inject ARC MOD marks inside test expectation.
-  # See also mods/upstream/dalvik-test-007-exceptions.
-  "mods/android/dalvik/tests/007-exceptions/expected.txt": ["analyze_diffs"],
+  # ART test does not allow to inject ARC MOD marks inside test expectation.
+  # See also mods/upstream/art-test-output-race.
+  # TODO(crbug.com/463789): Investigate why output race does not happen in
+  # upstream.
+  "mods/android/art/test/008-exceptions/expected.txt": ["analyze_diffs"],
+  "mods/android/art/test/038-inner-null/expected.txt": ["analyze_diffs"],
+  "mods/android/art/test/054-uncaught/expected.txt": ["analyze_diffs"],
 
   # TODO(lpique) Fix the file and remove the line
   "src/build/arc_team_extension/show_review_counts.js": ["gjslint"],
@@ -43,14 +46,6 @@
   # That file contains large intrinsics table with it's own style.
   "src/ndk_translation/backend/x86_64/intrinsics.cc": ["cpplint"],
 
-  # TODO(crbug.com/406226): Remove these files once ARC is rebasing to L.
-  "third_party/android/bionic-aosp/libc/arch-x86_64/include/machine/fpu.h": ["cpplint"],
-  "third_party/android/bionic-aosp/libc/include/locale.h": ["cpplint"],
-  "third_party/android/bionic-aosp/libc/include/xlocale.h": ["cpplint"],
-  "third_party/android/bionic-aosp/libm/include/fenv.h": ["cpplint"],
-  "third_party/android/bionic-aosp/libm/include/amd64/machine/fenv.h": ["cpplint"],
-  "third_party/android/bionic-aosp/libm/amd64/fenv.c": ["cpplint"],
-
   # Third party files.
   "third_party/examples/san-angeles/jni/importgl.h": ["cpplint"],
   "third_party/examples/replicaisland/tools/ExtractPoints.js": ["gjslint"],
@@ -68,6 +63,28 @@
 
   # chrome_test source.
   "third_party/testing/chrome_test/chrome_test.js": ["gjslint", "analyze_diffs"],
+
+  # TODO(crbug.com/432441): Always compile our code with 64bit long double and
+  # remove this directory.
+  "third_party/android/bionic-kitkat/libm/fpclassify.c": ["copyright"],
+  "third_party/android/bionic-kitkat/libm/i386/_fpmath.h": ["copyright", "cpplint"],
+
+  # Chromium third_party files not copyrighted by Chromium authors.
+  "mods/android/external/chromium_org/third_party/opus/src/celt/arm/celt_pitch_xcorr_arm_gnu.S": ["copyright"],
+  "mods/android/external/chromium_org/third_party/webrtc/modules/audio_processing/aecm/aecm_core_neon_offsets.h": ["copyright"],
+  "mods/android/external/chromium_org/third_party/webrtc/modules/audio_processing/ns/nsx_core_neon_offsets.h": ["copyright"],
+
+  # TODO(crbug.com/430209): L-rebase: Rebase these files.
+  "mods/android_libcommon/common/alog.h": ["analyze_diffs"],
+  "mods/android_libcommon/common/graphics.h": ["analyze_diffs"],
+  "mods/android_libcommon/common/logger.h": ["analyze_diffs"],
+
+  # These two files confuse analyze_diffs.
+  "mods/android/external/chromium_org/third_party/WebKit/Source/platform/heap/asm/SaveRegisters_x86_64.S": ["analyze_diffs"],
+  "mods/android/external/chromium_org/third_party/WebKit/Source/platform/heap/asm/SaveRegisters_x86.S": ["analyze_diffs"],
+
+  # Having ARC MOD confuses this script.
+  "src/build/arc.el": ["analyze_diffs"],
 
   # This is part of the Chrome apps platform downloaded from GitHub:
   # https://github.com/petele/IAPDemo/blob/master/scripts/buy.js

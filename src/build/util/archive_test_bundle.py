@@ -115,8 +115,9 @@ if __name__ == '__main__':
   integration_tests_args = _get_integration_tests_args(parsed_args.jobs)
   assert run_integration_tests.prepare_suites(integration_tests_args)
 
-  # Prepare dalvik.401-perf for perf vm tests.
-  integration_tests_args.include_patterns = ['dalvik.401-perf:*']
+  # Prepare art.901-perf for perf vm tests. The test is marked as a LARGE test.
+  integration_tests_args.include_patterns = ['art.901-perf:*']
+  integration_tests_args.include_large = True
   assert run_integration_tests.prepare_suites(integration_tests_args)
 
   # Archive all the files needed to run integration tests into a zip file.

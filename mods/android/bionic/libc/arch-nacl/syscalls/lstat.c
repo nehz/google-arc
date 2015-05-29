@@ -30,3 +30,8 @@ int lstat(const char *name, struct stat *buf)
 // ARC MOD BEGIN
 // Remove lxstat handling.
 // ARC MOD END
+// ARC MOD BEGIN
+// Add lstat64. Note contents of struct stat64 and struct stat are
+// binary compatible.
+__strong_alias(lstat64, lstat);
+// ARC MOD END

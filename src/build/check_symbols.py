@@ -7,43 +7,11 @@
 # Check if important symbols for NDKs are available.
 
 import logging
-import os
 import subprocess
 import sys
 
 import toolchain
 from build_options import OPTIONS
-
-
-# Be careful when you add a symbol to this list. You must not add
-# symbols which we really need to implement. For example, you should
-# not add a well-known libc symbol which has a man page.
-_WHITELISTS = {
-    # * The libc in the Android NDK (ndk/platforms/android-19/libc.so)
-    #   exports some weird internal symbols probably because it is
-    #   based on an older Bionic code for some reason.
-    # * On the other hand, the libc in recent Android releases
-    #   (e.g. KitKat) does not export these symbols at all.
-    # * Therefore, recent real Android devices always fail to load an
-    #   app's NDK DSO that accidentally uses these internal symbols.
-    # * In summary, whitelisting these symbols here and not having
-    #   them in our Bionic does not cause compatibility issues.
-    'libc.so': [
-        'copy_TM_to_tm',
-        'copy_tm_to_TM',
-        'dlmalloc_walk_free_pages',
-        'dlmalloc_walk_heap',
-        'malloc_debug_init',
-        'res_need_init',
-        'valid_tm_mon',
-        'valid_tm_wday',
-    ],
-    'libm.so': [
-        # Recent Bionic defines this only from libc.so, but old libm.so
-        # seems to have this.
-        'ldexp',
-    ],
-}
 
 
 def get_defined_symbols(filename):
@@ -70,35 +38,18 @@ def main():
 
   android_lib = sys.argv[1]
   arc_lib = sys.argv[2]
-  lib_name = os.path.basename(android_lib)
 
   android_syms = get_defined_symbols(android_lib)
   arc_syms = get_defined_symbols(arc_lib)
 
-  # Explicitly check if ldexp exists in libc.so, as we allow the
-  # absence of ldexp in libm.so. See also the comment for libm.so in
-  # _WHITELISTS.
-  if lib_name == 'libc.so' and 'ldexp' not in arc_syms:
-    logging.error('ldexp must be in libc.so')
-    return 1
-
   missing_syms = set(android_syms - arc_syms)
 
-  whitelist = set(_WHITELISTS.get(lib_name, []))
-
-  unused_whitelist = whitelist - missing_syms
-  if unused_whitelist:
-    logging.error('%s is whitelisted, but it is defined in %s. '
-                  'Update _WHITELISTS' % (whitelist, arc_lib))
-    return 1
-
-  missing_syms -= whitelist
-
-  # Most symbols starting with an underscore are internal symbols,
-  # but the ones starting with '_Z' are mangled C++ symbols.
+  # Ignore symbols starting with two underscores since they are internal ones.
+  # However, we do not ignore symbols starting with one underscore so that the
+  # script can check symbols such as _Zxxx (mangled C++ symbols), _setjmp, and
+  # _longjmp.
   important_missing_syms = [
-      sym for sym in missing_syms
-      if not sym.startswith('_') or sym.startswith('_Z')]
+      sym for sym in missing_syms if not sym.startswith('__')]
 
   if important_missing_syms:
     for sym in sorted(important_missing_syms):

@@ -7,18 +7,29 @@
 
 #include <stdint.h>
 
-#include <common/trace_event_ppapi.h>
-
 #define ARC_TRACE_CATEGORY "ARC"
 #define ARC_MAIN_THREAD_NAME "ArcMain"
 
-// This header sets up macros for use by a fork of an early (and now out of
-// date) version of Chromium's trace_event_internal.h to provide
-// tracing through the PPB_Trace_Event_Dev interface.  The trace event PPAPI
-// also has only the capabilities of that earlier Chromium trace event
-// code, so there is effectively no loss of functionality.
-// TODO(crbug.com/424806): Add support for instant event flags, which are
-// supported in the PPAPI interface but not in trace_event_internal.h.
+namespace arc {
+namespace trace {
+
+void SetThreadName(const char* name);
+const unsigned char* GetCategoryEnabled(const char* category_name);
+void AddTraceEvent(char phase,
+                  const unsigned char* category_enabled,
+                  const char* name,
+                  uint64_t id,
+                  int num_args,
+                  const char** arg_names,
+                  const unsigned char* arg_types,
+                  const uint64_t* arg_values,
+                  unsigned char flags);
+
+}  // namespace trace
+}  // namespace arc
+
+// This header is modified from Chromium's base/debug/trace_event.h to provide
+// tracing through the PPB_Trace_Event_Dev interface.
 
 #define TRACE_EVENT_API_GET_CATEGORY_ENABLED \
     arc::trace::GetCategoryEnabled

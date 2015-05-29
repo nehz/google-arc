@@ -25,11 +25,10 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+
 #include <pathconf.h>
 #include <sys/vfs.h>
 #include <sys/limits.h>
-#include <linux/ext2_fs.h>
-#include <linux/ext3_fs.h>
 #include <errno.h>
 
 /* these may not be defined yet by our headers */
@@ -82,14 +81,12 @@ __filesizebits( struct statfs*  s )
 static long
 __link_max( struct statfs*  s )
 {
-   /* constant values were taken from official kernel headers.
-    * I don't think this justified bringing in <linux/minix_fs.h> et al
-    * into our cleaned-up kernel three
-    */
+    // These constant values were taken from kernel headers.
+    // They're not available in uapi headers.
     static const struct { uint32_t  type; int  max; }  knownMax[] =
     {
-        { EXT2_SUPER_MAGIC, EXT2_LINK_MAX },
-        { EXT3_SUPER_MAGIC, EXT3_LINK_MAX },
+        { EXT2_SUPER_MAGIC, 32000 },
+        { EXT3_SUPER_MAGIC, 32000 },
         { MINIX_SUPER_MAGIC, 250 },
         { MINIX2_SUPER_MAGIC, 65530 },
         { REISERFS_SUPER_MAGIC, 0xffff - 1000 },
@@ -135,6 +132,7 @@ __name_max( struct statfs*  s )
 // ARC MOD BEGIN
 // Introduce new function which is used for pathconf and fpathconf
 // posix translation.
+// TODO(hamaji): Move this to posix_translation.
 long __arc_fs_conf(struct statfs* statfs_buf, int name) {
   // Extra copy is needed to avoid modifying the code below.
   struct statfs buf = *statfs_buf;

@@ -175,7 +175,7 @@ class SuiteRunnerBase(object):
         'xvfb-run', '--auto-servernum',
         # Use 24-bit color depth, as Chrome does not work with 8-bit color
         # depth, which is used in xvfb-run by default.
-        '--server-args', '-screen 0 640x480x24'
+        '--server-args', '-screen 0 1920x1080x24'
     ]
     if output_filename:
       command.extend(['--error-file', os.path.abspath(output_filename)])

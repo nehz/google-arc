@@ -91,9 +91,19 @@ def _run_gdb_for_nacl(args, test_args):
 
   gdb = toolchain.get_tool(build_options.OPTIONS.target(), 'gdb')
   irt = toolchain.get_nacl_irt_core(build_options.OPTIONS.get_target_bitsize())
+
+  # The Bionic loader only provides the base name of each loaded binary in L
+  # for 32-bit platforms due to a compatibility issue.
+  # ARC keeps the behavior and provides full path information for debugging
+  # explicitly. See SEARCH_NAME() in mods/android/bionic/linker/linker.cpp.
+  # DSOs are covered by build_common.get_load_library_path(), but full path
+  # information for test main binary should be specified separately.
+  #
   # Note GDB uses NaCl manifest for arc.nexe so we do not need the library
   # search paths for launch_chrome.
-  solib_paths = [build_common.get_load_library_path()]
+  solib_paths = [build_common.get_load_library_path_for_test(),
+                 build_common.get_load_library_path(),
+                 os.path.dirname(test_args[0])]
 
   args = [
       gdb,

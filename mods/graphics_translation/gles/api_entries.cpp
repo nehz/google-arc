@@ -2239,14 +2239,7 @@ GLES_APIENTRY(void, GetClipPlanexOES, GLenum pname, GLfixed* eqn) {
 // Returns the oldest error code that was reported.
 GLES_APIENTRY(GLenum, GetError) {
   ContextPtr c = GetCurrentGlesContext();
-  if (!c) {
-    // We always return GL_INVALID_OPERATION if the caller did not create
-    // a GLES context. We otherwise silently ignore all other calls, returning
-    // immediately.
-    return GL_INVALID_OPERATION;
-  }
-
-  if (!c->AreChecksEnabled()) {
+  if (!c || !c->AreChecksEnabled()) {
     return GL_NO_ERROR;
   }
 
@@ -3848,6 +3841,11 @@ GLES_APIENTRY(void, ReadPixels, GLint x, GLint y, GLsizei width,
   }
 
   PASS_THROUGH(c, ReadPixels, x, y, width, height, format, type, pixels);
+}
+
+GLES_APIENTRY(void, ReleaseShaderCompiler) {
+  // Since this is only a hint that shader compilations are unlikely to occur,
+  // we can ignore it.
 }
 
 // Configures a renderbuffer.

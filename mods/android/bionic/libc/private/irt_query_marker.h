@@ -19,7 +19,7 @@
 #define _ANDROID_BIONIC_LIBC_PRIVATE_IRT_QUERY_MARKER_H
 
 // The loader or crtbegin pass __nacl_irt_query to the function
-// immediately after this magic value. will We will set this value
+// immediately after this magic value. We will set this value
 // using __attribute__((section)) because __attribute__((constructor))
 // cannot be used for variables. See bionic/linker/linker.h for why we
 // need to pass __nacl_irt_query in this way.

@@ -15,12 +15,12 @@
    fun:main
 }
 {
-   # TODO(crbug.com/404987): As wo do not run global destructors,
+   # TODO(crbug.com/404987): As we do not run global destructors,
    # system properties will not be freed.
    bionic_system_property_is_not_freed
    Memcheck:Leak
-   fun:malloc
-   fun:map_prop_area_rw
+   fun:calloc
+   fun:_ZL16map_prop_area_rwv
    fun:__system_property_area_init
    ...
 }
@@ -33,6 +33,41 @@
    fun:malloc
    fun:setenv
    fun:setenv
+   ...
+}
+{
+   # The Bionic clearenv test leaks a copy of the environment.
+   bionic_clearenv_test_is_not_freed
+   Memcheck:Leak
+   fun:malloc
+   fun:strdup
+   fun:_ZN20unistd_clearenv_Test8TestBodyEv
+   ...
+}
+{
+   # TODO(crbug.com/376666): Currently, our IRT thread implementation
+   # leaks glibc's pthread struct.
+   bare_metal_thread_leak_for_gprecise
+   Memcheck:Leak
+   fun:calloc
+   ...
+   fun:_dl_allocate_tls
+   fun:pthread_create@@GLIBC_2.1
+   fun:_ZN12_GLOBAL__N_122nacl_irt_thread_createEPFvvEPvS2_
+   fun:__nacl_clone
+   fun:pthread_create
+   ...
+}
+{
+   # TODO(crbug.com/376666): Currently, our IRT thread implementation
+   # leaks glibc's pthread struct.
+   bare_metal_thread_leak_for_gtrusty
+   Memcheck:Leak
+   fun:calloc
+   ...
+   fun:_ZN12_GLOBAL__N_122nacl_irt_thread_createEPFvvEPvS2_
+   fun:__nacl_clone
+   fun:pthread_create
    ...
 }
 {
@@ -111,8 +146,6 @@
    # plugin_load_test leak.
    ctors_leak_in_some_modules
    Memcheck:Leak
-   fun:malloc
-   fun:_Znwj
    ...
    # This should be dlopen.
    obj:*/runnable-ld.so
@@ -163,6 +196,40 @@
    fun:clone
 }
 {
+   # TODO(crbug.com/414569): L-Rebase: There is nothing suggesting an illegal
+   # read at this location. Suppressing it just to make the tree green.
+   mkdtemp_lmp
+   Memcheck:Value4
+   fun:mktemp_internal
+   fun:mkdtemp
+   ...
+}
+{
+   # TODO(crbug.com/414569): L-Rebase: There is nothing suggesting an illegal
+   # read at this location. Suppressing it just to make the tree green.
+   mkstemp_lmp
+   Memcheck:Value4
+   fun:mktemp_internal
+   fun:mkstemp
+   ...
+}
+{
+   # TODO(crbug.com/374380): L-Rebase: This is grabbing a c_str() out of a
+   # std::string. Should not be happening and in fact does not reproduce
+   # when running in trusty. This should go away once we migrate the bots.
+   invalid_read_in_precise
+   Memcheck:Addr8
+   fun:strchr
+   fun:_ZL12load_libraryPKciPK17android_dlextinfo
+   fun:_ZL21find_library_internalPKciPK17android_dlextinfo
+   fun:_ZL12find_libraryPKciPK17android_dlextinfo
+   fun:_Z9do_dlopenPKciPK17android_dlextinfo
+   fun:_ZL10dlopen_extPKciPK17android_dlextinfo
+   fun:dlopen
+   fun:_ZN3arc12_GLOBAL__N_116SoExecutableMainEiPKPc
+   ...
+}
+{
    # TODO(hamaji): Check if this failure is OK. If not, file an
    # appropriate NaCl bug.
    nonsfi_loader_set_thread_area
@@ -194,9 +261,24 @@
    nonsfi_loader_thread_leak
    Memcheck:Leak
    fun:malloc
-   fun:nc_allocate_memory_block_mu
+   ...
    fun:pthread_create
+   # in nonsfi_loader
    fun:thread_create
+   # in Bionic
+   fun:__nacl_clone
+   ...
+}
+{
+   sse_strchr_in_runnable_ld_so
+   Memcheck:Addr8
+   # This is SSE-enabled strchr, which sometimes confuses
+   # valgrind. Valgrind usually replaces strXXX and memXXX, but for
+   # runnable-ld.so, it cannot replace them because it does not
+   # realize the existence of runnable-ld.so. See crbug.com/471154 for
+   # detail.
+   # TODO(hamaji): Stop using assembly code for i686.
+   obj:*/runnable-ld.so
    ...
 }
 {

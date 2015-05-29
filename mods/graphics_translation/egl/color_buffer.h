@@ -44,9 +44,9 @@ class ColorBuffer : public android::RefBase {
   uint32_t Acquire();
   uint32_t Release();
 
-  void* Lock(GLint xoffset, GLint yoffset, GLsizei width, GLsizei height,
-             GLenum format, GLenum type);
-  void Unlock(const void* mem);
+  uint8_t* Lock(GLint xoffset, GLint yoffset, GLsizei width, GLsizei height,
+                GLenum format, GLenum type);
+  void Unlock(const uint8_t* mem);
   void Render();
   void Commit();
 
@@ -59,7 +59,7 @@ class ColorBuffer : public android::RefBase {
   EglImagePtr GetImage() const { return image_; }
   void BindToTexture();
 
-  void ReadPixels(void* dst);
+  void ReadPixels(uint8_t* dst);
 
  protected:
   ~ColorBuffer();
@@ -79,7 +79,7 @@ class ColorBuffer : public android::RefBase {
   GLuint texture_;
   GLuint global_texture_;
   EglImagePtr image_;
-  void* locked_mem_;
+  uint8_t* locked_mem_;
   ContextPtr context_;
 
   // TODO(crbug.com/441910): Figure out if this reference count can be merged

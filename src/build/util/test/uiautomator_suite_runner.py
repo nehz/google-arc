@@ -24,6 +24,12 @@ from util.test import system_mode
 _DEVICE_TMP_PATH = '/data/local/tmp'
 
 
+# Controls how many times the suite runner will poll for the InputDispatcher to
+# become enabled after the suite runner has told the ActivityManager to start
+# the application.
+_MAX_DISPATCHENABLED_POLL_RETRIES = 30
+
+
 class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
   def __init__(self, name, apk_path, jar_path, main_activity,
                base_expectation_map,
@@ -72,7 +78,7 @@ class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
 
   def _push_file_using_adb(self, arc, file_path, directory=_DEVICE_TMP_PATH):
     self._logger.write(
-        'Pushing host file "%s" to device directory "%s".' % (
+        'Pushing host file "%s" to device directory "%s".\n' % (
             file_path, directory))
     arc.run_adb(['push', file_path, directory])
     return os.path.join(directory, os.path.basename(file_path))
@@ -97,7 +103,7 @@ class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
     return arc.run_adb(args)
 
   def run(self, test_methods_to_run):
-    self._logger.write('Running %d uiAutomator tests of suite %s\n' %
+    self._logger.write('Running %d uiautomator tests of suite %s\n' %
                        (len(test_methods_to_run), self._name))
 
     with system_mode.SystemMode(

@@ -308,8 +308,6 @@ def _filter_excluded_libs(vars):
       'libhardware',         # Added as an archive to plugin
       'libharfbuzz_ng',      # Added as an archive to plugin
       'libhwui',             # Added as an archive to plugin (when enabled)
-      'libicui18n',          # Added as an archive to plugin
-      'libicuuc',            # Added as an archive to plugin
       'libinput',            # Added as an archive to plugin
       'libjpeg',             # Added as an archive to plugin (as libjpeg_static)
       'liblog',              # Part of libcommon
@@ -346,19 +344,6 @@ def _filter_for_arm(vars):
     vars.get_ldflags().remove('-Wl,--icf=safe')
 
 
-def _filter_libchromium_net(vars):
-  # Handle libchromium_net. We have to convert libchromium_net to .a and
-  # link it into shared libraries. Note that we cannot link it into the
-  # plugin because of symbol conflicts with libchromium_base.a.
-  assert 'libchromium_net' not in vars.get_static_deps()
-  assert 'libchromium_net' not in vars.get_whole_archive_deps()
-  deps = vars.get_shared_deps()
-  if 'libchromium_net' in deps:
-    deps.remove('libchromium_net')
-    for lib in ['dmg_fp', 'libchromium_net', 'libevent', 'modp_b64']:
-      vars.get_static_deps().append(lib)
-
-
 def _filter_for_when_not_arm(vars):
   # Sources sometimes are explicitly listed with a .arm variant.  Use the
   # non-arm version instead.
@@ -379,7 +364,6 @@ def _filter_all_make_to_ninja(vars):
     return False
   if vars.is_c_library() or vars.is_executable():
     _filter_excluded_libs(vars)
-    _filter_libchromium_net(vars)
 
     if OPTIONS.is_nacl_x86_64():
       _filter_for_nacl_x86_64(vars)
@@ -638,7 +622,9 @@ def generate_ninjas():
   ninja_list.extend(
       _generate_shared_lib_depending_ninjas(ninja_list))
   ninja_list.extend(_generate_dependent_ninjas(ninja_list))
-  ninja_list.append(_generate_top_level_ninja(ninja_list))
+
+  top_level_ninja = _generate_top_level_ninja(ninja_list)
+  ninja_list.append(top_level_ninja)
 
   # Run verification before emitting to files.
   _verify_ninja_generator_list(ninja_list)
@@ -648,6 +634,7 @@ def generate_ninjas():
   timer.start('Emitting ninja scripts', OPTIONS.verbose())
   for ninja in ninja_list:
     ninja.emit()
+  top_level_ninja.emit_depfile()
   timer.done()
 
   if OPTIONS.enable_config_cache():

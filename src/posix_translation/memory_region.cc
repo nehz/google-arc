@@ -85,7 +85,8 @@ bool AdviseVisitor::Visit(const MemoryRegion::PageMapValue& page_map,
                     start_addr,
                     end_addr + 1,
                     GetStreamPathname(page_map.stream).c_str());
-  size_t length = end_addr - start_addr + 1;
+  size_t length = static_cast<const char*>(end_addr) -
+      start_addr + 1;
   int result = page_map.stream->madvise(start_addr, length, advice_);
   if (result)
     errno_ = errno;

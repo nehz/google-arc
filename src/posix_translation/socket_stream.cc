@@ -100,7 +100,7 @@ bool SocketStream::GetOptNameData(int level, int optname, socklen_t* len,
   // We cannot use SIZEOF_AS_SOCKLEN(int) for this as the linter is
   // confused by this and emits two warnings (readability/casting and
   // readability/function).
-  static const socklen_t sizeof_int = sizeof(int);
+  static const socklen_t sizeof_int = sizeof(int);  // NOLINT
   if (level == SOL_SOCKET) {
     switch (optname) {
       case SO_ERROR:

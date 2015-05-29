@@ -34,15 +34,13 @@
 __BEGIN_DECLS
 
 // ARC MOD BEGIN
-// Add x86-64 support.
-#if defined(__x86_64__)
-#define ElfW(type) Elf64_##type
+// NaCl x86-64 is ILP32 but has ELF64 headers.
+#if __LP64__ || (defined(__native_client__) && defined(__x86_64__))
+// ARC MOD END
+#define ElfW(type) Elf64_ ## type
 #else
-// ARC MOD END
-#define ElfW(type) Elf32_##type
-// ARC MOD BEGIN
+#define ElfW(type) Elf32_ ## type
 #endif
-// ARC MOD END
 
 struct dl_phdr_info {
   ElfW(Addr) dlpi_addr;
@@ -51,13 +49,38 @@ struct dl_phdr_info {
   ElfW(Half) dlpi_phnum;
 };
 
+int dl_iterate_phdr(int (*)(struct dl_phdr_info*, size_t, void*), void*);
+
 #ifdef __arm__
 typedef long unsigned int* _Unwind_Ptr;
-_Unwind_Ptr dl_unwind_find_exidx(_Unwind_Ptr pc, int* pcount);
-// ARC MOD BEGIN
+_Unwind_Ptr dl_unwind_find_exidx(_Unwind_Ptr, int*);
 #endif
-int dl_iterate_phdr(int (*cb)(struct dl_phdr_info*, size_t, void*), void*);
-// ARC MOD END
+
+/* Used by the dynamic linker to communicate with the debugger. */
+struct link_map {
+  ElfW(Addr) l_addr;
+  char* l_name;
+  ElfW(Dyn)* l_ld;
+  struct link_map* l_next;
+  struct link_map* l_prev;
+};
+
+/* Used by the dynamic linker to communicate with the debugger. */
+struct r_debug {
+  int32_t r_version;
+  struct link_map* r_map;
+  // ARC MOD BEGIN
+  // GDB expects r_brk and r_ldbase to be 64 bit values on x86-64 NaCl.
+  // See third_party/nacl-glibc/elf/link.h.
+  // ARC MOD END
+  ElfW(Addr) r_brk;
+  enum {
+    RT_CONSISTENT,
+    RT_ADD,
+    RT_DELETE
+  } r_state;
+  ElfW(Addr) r_ldbase;
+};
 
 __END_DECLS
 

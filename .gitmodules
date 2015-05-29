@@ -409,3 +409,96 @@
 [submodule "third_party/android/prebuilts/clang/linux-x86/host/3.6"]
 	path = third_party/android/prebuilts/clang/linux-x86/host/3.6
 	url = https://android.googlesource.com/platform/prebuilts/clang/linux-x86/host/3.6
+[submodule "third_party/android/external/chromium_org__third_party_openmax_dl"]
+	path = third_party/android/external/chromium_org__third_party_openmax_dl
+	url = https://android.googlesource.com/platform/external/chromium_org/third_party/openmax_dl
+[submodule "third_party/android/external/chromium_org__third_party_webrtc"]
+	path = third_party/android/external/chromium_org__third_party_webrtc
+	url = https://android.googlesource.com/platform/external/chromium_org/third_party/webrtc
+[submodule "third_party/android/external/chromium_org__third_party_skia"]
+	path = third_party/android/external/chromium_org__third_party_skia
+	url = https://android.googlesource.com/platform/external/chromium_org/third_party/skia
+[submodule "third_party/android/external/chromium_org__third_party_libvpx"]
+	path = third_party/android/external/chromium_org__third_party_libvpx
+	url = https://android.googlesource.com/platform/external/chromium_org/third_party/libvpx
+[submodule "third_party/android/external/chromium_org__third_party_libyuv"]
+	path = third_party/android/external/chromium_org__third_party_libyuv
+	url = https://android.googlesource.com/platform/external/chromium_org/third_party/libyuv
+[submodule "third_party/android/external/chromium_org__third_party_libsrtp"]
+	path = third_party/android/external/chromium_org__third_party_libsrtp
+	url = https://android.googlesource.com/platform/external/chromium_org/third_party/libsrtp
+[submodule "third_party/android/external/chromium_org__third_party_angle"]
+	path = third_party/android/external/chromium_org__third_party_angle
+	url = https://android.googlesource.com/platform/external/chromium_org/third_party/angle
+[submodule "third_party/android/external/chromium_org__third_party_sfntly_cpp_src"]
+	path = third_party/android/external/chromium_org__third_party_sfntly_cpp_src
+	url = https://android.googlesource.com/platform/external/chromium_org/third_party/sfntly/cpp/src
+[submodule "third_party/android/external/chromium_org__third_party_brotli_src"]
+	path = third_party/android/external/chromium_org__third_party_brotli_src
+	url = https://android.googlesource.com/platform/external/chromium_org/third_party/brotli/src
+[submodule "third_party/android/external/chromium_org__third_party_usrsctp_usrsctplib"]
+	path = third_party/android/external/chromium_org__third_party_usrsctp_usrsctplib
+	url = https://android.googlesource.com/platform/external/chromium_org/third_party/usrsctp/usrsctplib
+[submodule "third_party/android/external/vixl"]
+	path = third_party/android/external/vixl
+	url = https://android.googlesource.com/platform/external/vixl
+[submodule "third_party/android/external/valgrind"]
+	path = third_party/android/external/valgrind
+	url = https://android.googlesource.com/platform/external/valgrind
+[submodule "third_party/android/external/jemalloc"]
+	path = third_party/android/external/jemalloc
+	url = https://android.googlesource.com/platform/external/jemalloc
+[submodule "third_party/android/external/conscrypt"]
+	path = third_party/android/external/conscrypt
+	url = https://android.googlesource.com/platform/external/conscrypt
+[submodule "third_party/android/external/icu"]
+	path = third_party/android/external/icu
+	url = https://android.googlesource.com/platform/external/icu
+[submodule "third_party/android/external/libopus"]
+	path = third_party/android/external/libopus
+	url = https://android.googlesource.com/platform/external/libopus
+[submodule "third_party/android/system/netd"]
+	path = third_party/android/system/netd
+	url = https://android.googlesource.com/platform/system/netd
+[submodule "third_party/android/external/libexif"]
+	path = third_party/android/external/libexif
+	url = https://android.googlesource.com/platform/external/libexif
+[submodule "third_party/android/external/pdfium"]
+	path = third_party/android/external/pdfium
+	url = https://android.googlesource.com/platform/external/pdfium
+[submodule "third_party/android/frameworks/minikin"]
+	path = third_party/android/frameworks/minikin
+	url = https://android.googlesource.com/platform/frameworks/minikin
+[submodule "third_party/android/frameworks/opt/net/ims"]
+	path = third_party/android/frameworks/opt/net/ims
+	url = https://android.googlesource.com/platform/frameworks/opt/net/ims
+[submodule "third_party/android/frameworks/opt/net/ethernet"]
+	path = third_party/android/frameworks/opt/net/ethernet
+	url = https://android.googlesource.com/platform/frameworks/opt/net/ethernet
+[submodule "third_party/android/frameworks/opt/net/wifi"]
+	path = third_party/android/frameworks/opt/net/wifi
+	url = https://android.googlesource.com/platform/frameworks/opt/net/wifi
+[submodule "third_party/android/system/extras"]
+	path = third_party/android/system/extras
+	url = https://android.googlesource.com/platform/system/extras
+[submodule "third_party/android/external/glide"]
+	path = third_party/android/external/glide
+	url = https://android.googlesource.com/platform/external/glide
+[submodule "third_party/android/frameworks/volley"]
+	path = third_party/android/frameworks/volley
+	url = https://android.googlesource.com/platform/frameworks/volley
+[submodule "third_party/android/external/google-fonts/carrois-gothic-sc"]
+	path = third_party/android/external/google-fonts/carrois-gothic-sc
+	url = https://android.googlesource.com/platform/external/google-fonts/carrois-gothic-sc
+[submodule "third_party/android/external/google-fonts/coming-soon"]
+	path = third_party/android/external/google-fonts/coming-soon
+	url = https://android.googlesource.com/platform/external/google-fonts/coming-soon
+[submodule "third_party/android/external/google-fonts/cutive-mono"]
+	path = third_party/android/external/google-fonts/cutive-mono
+	url = https://android.googlesource.com/platform/external/google-fonts/cutive-mono
+[submodule "third_party/android/external/google-fonts/dancing-script"]
+	path = third_party/android/external/google-fonts/dancing-script
+	url = https://android.googlesource.com/platform/external/google-fonts/dancing-script
+[submodule "third_party/android/external/naver-fonts"]
+	path = third_party/android/external/naver-fonts
+	url = https://android.googlesource.com/platform/external/naver-fonts

@@ -75,9 +75,9 @@ void _start(unsigned **info) {
    * the main program because the loader passes the pointer to this
    * region to the main program using TLS_SLOT_BIONIC_PREINIT.
    *
-   * +--------------------------------------+ <- __nacl_linker_init and
-   * | fini                                 |    entry point of main
-   * +--------------------------------------+    program take this pointer.
+   * +--------------------------------------+ <- entry point of main program
+   * | fini                                 |    takes this pointer.
+   * +--------------------------------------+
    * | envc                                 |
    * +--------------------------------------+ <- __linker_init takes this.
    * | argc                                 |
@@ -102,8 +102,8 @@ void _start(unsigned **info) {
    * | __nacl_irt_query                     | |   Fields before here are
    * | AT_BASE                              | +-- filled by this function.
    * | The base address of the loader       |
-   * | AT_PHDR                              | +-- __nacl_linker_init will
-   * | Program header for main program      | |   fill auxv after AT_BASE.
+   * | AT_PHDR                              | +-- load_main_binary will fill
+   * | Program header for main program      | |   auxv after AT_BASE.
    * | AT_PHNUM                             | v
    * | # of program headers in main program |
    * | AT_ENTRY                             |
@@ -147,8 +147,8 @@ void _start(unsigned **info) {
   elfdata[j++] = (unsigned *)irt_query;
   elfdata[j++] = (unsigned *)AT_BASE;
   elfdata[j++] = &__linker_base;
-  /* This field will be updated in __nacl_linker_init in
-   * bionic/linker/linker.cpp. */
+  // This field will be updated in load_main_binary in
+  // bionic/linker/linker.cpp.
 
   elfdata[j++] = (unsigned *)AT_NULL;
   elfdata[j] = NULL;
@@ -156,7 +156,7 @@ void _start(unsigned **info) {
   entry = __linker_init(&elfdata[2]);
 
   if (!elfdata[j]) {
-    static const char kErrorMsg[] = "__nacl_linker_init did not update auxv";
+    static const char kErrorMsg[] = "load_main_binary did not update auxv";
     fail(kErrorMsg, sizeof(kErrorMsg) - 1);
   }
 

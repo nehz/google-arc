@@ -4,8 +4,21 @@
 
 """Build libjnigraphics.so."""
 
-import make_to_ninja
+from make_to_ninja import Filters, MakefileNinjaTranslator
+
+
+def generate_libjnigraphics_ninja(force_static):
+  def _filter(vars):
+    if force_static:
+      Filters.convert_to_static_lib(vars)
+      vars.set_module_name(vars.get_module_name() + '_static')
+    return True
+  MakefileNinjaTranslator(
+      'android/frameworks/base/native/graphics/jni').generate(_filter)
 
 
 def generate_ninjas():
-  make_to_ninja.run('android/frameworks/base/native/graphics/jni')
+  generate_libjnigraphics_ninja(force_static=False)
+  # libwebviewchromium requires a static version of this library since it has an
+  # alternative, _slightly_ different implementation of skia.
+  generate_libjnigraphics_ninja(force_static=True)

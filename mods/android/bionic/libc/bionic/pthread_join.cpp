@@ -29,7 +29,7 @@
 #include <errno.h>
 // ARC MOD BEGIN
 // For __nacl_irt_sched_yield, abort, munmap, and write.
-#if defined(__native_client__) || defined(BARE_METAL_BIONIC)
+#if defined(HAVE_ARC)
 #include <irt_syscalls.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -37,33 +37,64 @@
 #endif
 // ARC MOD END
 
+#include "private/bionic_futex.h"
 #include "pthread_accessor.h"
 
-int pthread_join(pthread_t t, void** ret_val) {
+int pthread_join(pthread_t t, void** return_value) {
   if (t == pthread_self()) {
     return EDEADLK;
   }
 
-  pthread_accessor thread(t);
-  if (thread.get() == NULL) {
+  pid_t tid;
+  volatile int* tid_ptr;
+  {
+    pthread_accessor thread(t);
+    if (thread.get() == NULL) {
       return ESRCH;
+    }
+
+    if ((thread->attr.flags & PTHREAD_ATTR_FLAG_DETACHED) != 0) {
+      return EINVAL;
+    }
+
+    if ((thread->attr.flags & PTHREAD_ATTR_FLAG_JOINED) != 0) {
+      return EINVAL;
+    }
+
+    // Okay, looks like we can signal our intention to join.
+    thread->attr.flags |= PTHREAD_ATTR_FLAG_JOINED;
+    tid = thread->tid;
+    tid_ptr = &thread->tid;
   }
 
-  if (thread->attr.flags & PTHREAD_ATTR_FLAG_DETACHED) {
-    return EINVAL;
+  // We set the PTHREAD_ATTR_FLAG_JOINED flag with the lock held,
+  // so no one is going to remove this thread except us.
+
+  // Wait for the thread to actually exit, if it hasn't already.
+  while (*tid_ptr != 0) {
+    // ARC MOD BEGIN
+    // Use __nacl_irt_sched_yield instead of __futex_wait.
+    // __nacl_irt_thread_exit does not give us a notice with
+    // futex_wait, so we will yield and poll until thread completes.
+    //
+    // Note that nacl-glibc's has similar code in nptl/pthread_join.c
+    // and sysdeps/nacl/lowlevellock.h.
+#if defined(HAVE_ARC)
+    __nacl_irt_sched_yield();
+#else
+    // ARC MOD END
+    __futex_wait(tid_ptr, tid, NULL);
+    // ARC MOD BEGIN
+#endif
+    // ARC MOD END
   }
 
-  if (thread->attr.flags & PTHREAD_ATTR_FLAG_JOINED) {
-    return EINVAL;
-  }
+  // Take the lock again so we can pull the thread's return value
+  // and remove the thread from the list.
+  pthread_accessor thread(t);
 
-  // Signal our intention to join, and wait for the thread to exit.
-  thread->attr.flags |= PTHREAD_ATTR_FLAG_JOINED;
-  while ((thread->attr.flags & PTHREAD_ATTR_FLAG_ZOMBIE) == 0) {
-    pthread_cond_wait(&thread->join_cond, &gThreadListLock);
-  }
-  if (ret_val) {
-    *ret_val = thread->return_value;
+  if (return_value) {
+    *return_value = thread->return_value;
   }
   // ARC MOD BEGIN
   // Unmap stack if PTHREAD_ATTR_FLAG_USER_STACK is not
@@ -71,23 +102,9 @@ int pthread_join(pthread_t t, void** ret_val) {
   // to exit, but we cannot do this on NaCl because the stack should
   // be available when we call __nacl_irt_thread_exit. Instead, we
   // unmap the stack from the thread which calls pthread_join.
-#if defined(__native_client__) || defined(BARE_METAL_BIONIC)
-  if (!(thread->attr.flags & PTHREAD_ATTR_FLAG_USER_STACK) &&
+#if defined(HAVE_ARC)
+  if (!thread->user_allocated_stack() &&
       thread->attr.stack_base) {
-    // Wait until thread->tid becomes zero. NaCl's service runtime
-    // or the Bare Metal loader do this when Bionic code for
-    // |thread| finishes completely so we can safely unmap the
-    // stack.
-    //
-    // Note that nacl-glibc's has similar code in nptl/pthread_join.c
-    // and sysdeps/nacl/lowlevellock.h.
-    volatile pid_t* pkernel_id = &(thread->tid);
-    while (*pkernel_id) {
-      // We cannot use sched_yield because it is not available in
-      // libc_common.
-      __nacl_irt_sched_yield();
-    }
-
     if (munmap(thread->attr.stack_base, thread->attr.stack_size) != 0) {
       static const int kStderrFd = 2;
       static const char kMsg[] = "failed to unmap the stack!\n";
@@ -100,7 +117,7 @@ int pthread_join(pthread_t t, void** ret_val) {
     thread->attr.stack_size = 0;
     thread->tls = NULL;
   }
-#endif  // __native_client__ || BARE_METAL_BIONIC
+#endif  // HAVE_ARC
   // ARC MOD END
 
   _pthread_internal_remove_locked(thread.get());

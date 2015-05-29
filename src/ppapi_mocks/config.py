@@ -11,7 +11,6 @@ import build_common
 import ninja_generator
 import staging
 
-
 _CONTAINER_DIR = 'ppapi_mocks'
 _MY_DIR = 'src/ppapi_mocks'
 
@@ -37,12 +36,11 @@ def _get_ppapi_include_dirs():
 
 def _generate_libppapi_mocks():
   rule_name = 'gen_ppapi_mock'
-  # Set instances to zero since libppapi_mocks is not used by any
-  # shared objects (only test executables) and instances only counts
-  # shared object uses.
+  # libart-gtest depends on libppapi_mocks.
   n = ninja_generator.ArchiveNinjaGenerator('libppapi_mocks',
                                             instances=0,
-                                            enable_clang=True)
+                                            enable_clang=True,
+                                            enable_cxx11=True)
   ppapi_dir = staging.as_staging('chromium-ppapi/ppapi')
   generators_dir = os.path.join(ppapi_dir, 'generators')
   api_dir = os.path.join(ppapi_dir, 'api')

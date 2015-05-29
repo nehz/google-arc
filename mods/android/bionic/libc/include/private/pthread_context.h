@@ -23,13 +23,6 @@
 
 __BEGIN_DECLS
 
-// K-based Android does not have NGREG, but L has.
-#if defined(__arm__)
-#define NGREG    18
-#elif defined(__i386__)
-#define NGREG    19
-#endif
-
 typedef struct __pthread_context_info_t {
     // stack_base and stack_size exclude guard areas.
     void* stack_base;

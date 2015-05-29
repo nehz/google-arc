@@ -44,22 +44,21 @@ _LAUNCH_CHROME_FILE_PATTERNS = ['launch_chrome',
                                 'src/packaging']
 _INTEGRATION_TEST_FILE_PATTERNS = [
     'mods/android/dalvik/tests',
+    'out/data_roots/art.*',
     'out/data_roots/arc.*',
     'out/data_roots/cts.*',
-    'out/data_roots/dalvik.*',
     'out/data_roots/graphics.*',
     'out/data_roots/jstests.*',
     'out/data_roots/ndk.*',
     'out/data_roots/system_mode.*',
-    'out/staging/android/dalvik/tests/*/expected.txt',
-    'out/staging/android/dalvik/tests/*/info.txt',
-    # The following two files are needed only for 401-perf test.
-    'out/staging/android/dalvik/tests/401-perf/README.benchmark',
-    'out/staging/android/dalvik/tests/401-perf/test_cases',
+    'out/staging/android/art/test/*/expected.txt',
+    # The following two files are needed only for 901-perf test.
+    'out/staging/android/art/test/901-perf/README.benchmark',
+    'out/staging/android/art/test/901-perf/test_cases',
     'out/target/%(target)s/integration_tests',
     'out/target/%(target)s/root/system/usr/icu/icudt48l.dat',
-    'out/target/common/dalvik_tests/*/expected.txt',
-    'out/target/common/dalvik_tests/*/test*.jar',
+    'out/target/common/art_tests/*/expected.txt',
+    'out/target/common/art_tests/*/*.jar',
     'out/target/common/integration_test/*',
     # TODO(crbug.com/340594): Avoid checking for APK files when CRX is
     # already generated so that we don't need to send APK to remote,
@@ -75,7 +74,7 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     'run_integration_tests',
     'src/integration_tests',
     'third_party/android-cts/android-cts/repository/plans/CTS.xml',
-    'third_party/android-cts/android-cts/repository/testcases/bionic-unit-tests-cts',  # NOQA
+    'third_party/android-cts/android-cts/repository/testcases/bionic-unit-tests-cts32',  # NOQA
     'third_party/android-cts/android-cts/repository/testcases/*.xml',
     'third_party/android-cts/android-cts/repository/testcases/CtsUiAutomator*',
     # Java files are needed by VMHostTestRunner, which parses java files to
@@ -91,8 +90,11 @@ _UNIT_TEST_FILE_PATTERNS = [
     'out/target/%(target)s/intermediates/stlport_unittest/win32_file_format.tmp',  # NOQA
     'out/target/%(target)s/lib',
     'out/target/%(target)s/posix_translation_fs_images/test_readonly_fs_image.img',  # NOQA
+    'out/target/%(target)s/root/system/framework/art-gtest-*.jar',
+    'out/target/%(target)s/root/system/framework/core-libart.jar',
     # Used by posix_translation_test
     'out/target/%(target)s/runtime/_platform_specific/*/readonly_fs_image.img',  # NOQA
+    'out/target/%(target)s/test',
     'out/target/%(target)s/unittest_info']
 
 # Flags to launch Chrome on remote host.

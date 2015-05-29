@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import make_to_ninja
+from build_options import OPTIONS
 
 
 def generate_ninjas():
@@ -21,6 +22,13 @@ def generate_ninjas():
     if not vars.is_host():
       src.remove('android/system/core/libcutils/android_reboot.c')
     src.remove('android/system/core/libcutils/iosched_policy.c')
+
+    # TODO(crbug.com/462555): L-rebase: enable assembly implementation.
+    # Use C implementation in memory.c for NaCl.
+    if OPTIONS.is_nacl_build():
+      vars.remove_c_or_cxxflag('-DHAVE_MEMSET16')
+      vars.remove_c_or_cxxflag('-DHAVE_MEMSET32')
+      src[:] = [x for x in src if not x.endswith('.S')]
     return True
   make_to_ninja.MakefileNinjaTranslator(
       'android/system/core/libcutils').generate(_filter)
