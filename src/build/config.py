@@ -57,20 +57,25 @@ def _generate_test_framework_ninjas():
   # Build two versions of libgtest and libgmock that are built and linked with
   # STLport or libc++. It is used to build tests that depends on each library.
   _generate_gtest_ninja('libgtest', enable_libcxx=False)
-  gtest_libcxx_instances = 2
+
   if not OPTIONS.run_tests():
     gtest_libcxx_instances = 0
-  elif OPTIONS.is_debug_code_enabled():
+  else:
     # libart-gtest.so, libarttest.so, and libnativebridgetest.so uses
-    # libgtest_libc++.a, and libart-gtest.so is not built with
-    # --disable-debug-code. We should not count libart-gtest.so in with
-    # --notest.
-    gtest_libcxx_instances = 3
-    # libartd.so for host uses libgtest_host.a. Although it is built with
-    # libc++, it is not named libgtest_libc++_host.a by Android.mk.
-    _generate_gtest_ninja('libgtest_host', host=True, enable_libcxx=True)
+    # libgtest_libc++.a. But when --disable-debug-code is specified,
+    # libart-gtest.so is not built.
+    if OPTIONS.is_debug_code_enabled():
+      gtest_libcxx_instances = 3
+    else:
+      gtest_libcxx_instances = 2
   _generate_gtest_ninja('libgtest_libc++',
                         instances=gtest_libcxx_instances, enable_libcxx=True)
+
+  # libartd.so for host uses libgtest_host.a. Although it is built with
+  # libc++, it is not named libgtest_libc++_host.a by Android.mk.
+  if OPTIONS.is_debug_code_enabled():
+    _generate_gtest_ninja('libgtest_host', host=True, enable_libcxx=True)
+
   _generate_gmock_ninja('libgmock', enable_libcxx=False)
   _generate_gmock_ninja('libgmock_libc++', enable_libcxx=True)
 

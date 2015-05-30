@@ -403,6 +403,8 @@ class DelegateOutputHandlerBase(OutputHandler):
 class RedirectOutputHandler(OutputHandler):
   """Output handler to redirect stdout and stderr to sys.stdout and stderr."""
 
+  _NUM_WRITE_RETRIES = 30
+
   def __init__(self, *suppress_patterns):
     """Initializes the redirect output handler.
 
@@ -417,11 +419,31 @@ class RedirectOutputHandler(OutputHandler):
 
   def handle_stdout(self, line):
     if not self._is_suppress_target(line):
-      sys.stdout.write(line)
+      for attempt in range(RedirectOutputHandler._NUM_WRITE_RETRIES):
+        try:
+          sys.stdout.write(line)
+          return
+        except IOError as e:
+          if e.errno == 11:
+            # Retry on resource temporarily unavailable.
+            time.sleep(0.1)
+          else:
+            raise
+      raise Exception('Could not write to sys.stdout')
 
   def handle_stderr(self, line):
     if not self._is_suppress_target(line):
-      sys.stderr.write(line)
+      for attempt in range(RedirectOutputHandler._NUM_WRITE_RETRIES):
+        try:
+          sys.stderr.write(line)
+          return
+        except IOError as e:
+          if e.errno == 11:
+            # Retry on resource temporarily unavailable.
+            time.sleep(0.1)
+          else:
+            raise
+      raise Exception('Could not write to sys.stderr')
 
   def _is_suppress_target(self, line):
     return self._suppress_pattern and self._suppress_pattern.match(line)
