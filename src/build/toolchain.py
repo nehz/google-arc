@@ -302,12 +302,9 @@ def _get_tool_map():
 
   return {
       'host': {
-          # TODO(crbug.com/443760): Change g++-4.8 -> g++ and gcc-4.8 -> gcc
-          # before merging back to master. Requires that our buildbots are
-          # upgraded to Ubuntu 14.04.
-          'cxx': os.getenv('HOSTCXX', 'g++-4.8'),
-          'cc': os.getenv('HOSTCC', 'gcc-4.8'),
-          'ld': os.getenv('HOSTLD', 'g++-4.8'),
+          'cxx': os.getenv('HOSTCXX', 'g++'),
+          'cc': os.getenv('HOSTCC', 'gcc'),
+          'ld': os.getenv('HOSTLD', 'g++'),
           'ar': os.getenv('HOSTAR', 'ar'),
           'nm': os.getenv('HOSTNM', 'nm'),
           'objcopy': os.getenv('HOSTOBJCOPY', 'objcopy'),
