@@ -108,7 +108,7 @@ class _Options(object):
     self._goma_dir = None
     self._system_packages = []
     self._values = {}
-    self.parse([], read_defaults_from_file=False)
+    self.parsed = False
 
   def __getattr__(self, name):
     """Provides getters for values originated from the command line options.
@@ -466,6 +466,8 @@ class _Options(object):
       parser.print_help()
       print '\n', error
       return -1
+
+    self.parsed = True
     return 0
 
   def _check_args(self, args):
@@ -589,4 +591,29 @@ class _Options(object):
   def get_configure_options_file(self):
     return os.path.join('out', 'configure.options')
 
-OPTIONS = _Options()
+  def check_access(self, name):
+    """Called by AccessControlProxy to check attribute access."""
+    if (not self.parsed and
+        name not in ('parse', 'parsed', 'parse_configure_file')):
+      raise AttributeError(
+          'Attempted to access uninitialized OPTIONS values. Please consider '
+          'calling OPTIONS.parse_configure_file() in the very beginning of '
+          'your script.')
+
+
+class _AccessControlProxy(object):
+  """Wraps an arbitrary object to add attribute access check."""
+
+  __slots__ = ['__target', '__check_access']
+
+  def __init__(self, target, check_access):
+    self.__target = target
+    self.__check_access = check_access
+
+  def __getattr__(self, name):
+    self.__check_access(name)
+    return getattr(self.__target, name)
+
+
+_real_options = _Options()
+OPTIONS = _AccessControlProxy(_real_options, _real_options.check_access)

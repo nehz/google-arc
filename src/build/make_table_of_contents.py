@@ -18,6 +18,7 @@ import errno
 import subprocess
 import sys
 
+from build_options import OPTIONS
 import toolchain
 from util import file_util
 
@@ -58,6 +59,8 @@ def should_update_toc_file(toc, output_toc_path):
 
 
 def main(args):
+  OPTIONS.parse_configure_file()
+
   if len(args) != 3:
     return -1
 

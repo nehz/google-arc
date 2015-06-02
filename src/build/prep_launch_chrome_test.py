@@ -7,12 +7,16 @@
 
 import unittest
 
+from build_options import OPTIONS
 import launch_chrome_options
 
 import prep_launch_chrome
 
 
 class PrepLaunchChromeTest(unittest.TestCase):
+
+  def setUp(self):
+    OPTIONS.parse([])
 
   def metadata_from_command_line(self, command):
     args = launch_chrome_options.parse_args(command.split(' '))

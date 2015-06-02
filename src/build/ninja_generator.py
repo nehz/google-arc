@@ -1298,7 +1298,7 @@ class CNinjaGenerator(NinjaGenerator):
     return ('$commonflags ' +
             CNinjaGenerator.get_archasmflags() +
             '-pthread -Wall ' + CNinjaGenerator._get_debug_cflags() +
-            '-DANDROID '
+            '-DANDROID -DANDROID_SMP=1 '
             # GCC sometimes predefines the _FORTIFY_SOURCE macro which is
             # not compatible with our function wrapping system. Undefine
             # the macro to turn off the feature. (crbug.com/226930)
@@ -1411,7 +1411,8 @@ class CNinjaGenerator(NinjaGenerator):
 
   @staticmethod
   def get_hostasmflags():
-    return '-DHAVE_ARC_HOST ' + CNinjaGenerator.get_targetflags()
+    return ('-DHAVE_ARC_HOST -DANDROID_SMP=1 ' +
+            CNinjaGenerator.get_targetflags())
 
   @staticmethod
   def get_hostcflags():

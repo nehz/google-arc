@@ -54,7 +54,9 @@ def _generate_chromium_ppapi_fpabi_shim_ninja():
   # generation and later phases.
   n.rule(rule_name,
          command=('(' + ' '.join(gen_command) + ')' +
-                  ' && touch $out.tmp && mv $out.tmp $out'),
+                  ' && touch $out.tmp && mv $out.tmp $out' +
+                  ' && printf "%s: %s" $out "$in" > $out.d'),
+         depfile='$out.d',
          description=rule_name + ' $out')
 
   idls = n.find_all_files(api_dir, '.idl', use_staging=False)

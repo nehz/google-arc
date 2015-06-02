@@ -7,6 +7,7 @@
 import collections
 import unittest
 
+from build_options import OPTIONS
 from util.test import suite_runner_config
 from util.test.suite_runner import SuiteRunnerBase
 from util.test.suite_runner_config_flags import _ExclusiveFlag
@@ -220,6 +221,9 @@ class SuiteRunConfigIntegrationTests(unittest.TestCase):
           }],
       },
   }))
+
+  def setUp(self):
+    OPTIONS.parse([])
 
   def _make_suite_runner(self, name):
     return SuiteRunnerBase(

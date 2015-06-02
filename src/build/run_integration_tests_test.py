@@ -387,7 +387,8 @@ class _RunIntegrationTestsTestBase(unittest.TestCase):
 # TODO(lpique): Look into making them work without stubbing them out.
 @patch('apk_to_crx.build_crx', _stub_return_none)
 @patch('prep_launch_chrome.update_shell_command', _stub_return_none)
-@patch('build_options.OPTIONS.parse_configure_file', _stub_parse_configure_file)
+@patch('build_options._real_options.parse_configure_file',
+       _stub_parse_configure_file)
 # The unittest files may not be created yet.
 @patch('util.test.unittest_util.get_all_tests', lambda: [])
 class RunIntegrationTestsSlowTest(_RunIntegrationTestsTestBase):
@@ -450,7 +451,8 @@ class RunIntegrationTestsSlowTest(_RunIntegrationTestsTestBase):
 # TODO(lpique): Look into making them work without stubbing them out.
 @patch('apk_to_crx.build_crx', _stub_return_none)
 @patch('prep_launch_chrome.update_shell_command', _stub_return_none)
-@patch('build_options.OPTIONS.parse_configure_file', _stub_parse_configure_file)
+@patch('build_options._real_options.parse_configure_file',
+       _stub_parse_configure_file)
 # The unittest files may not be created yet.
 @patch('util.test.unittest_util.get_all_tests', lambda: [])
 # These tests run faster by limiting the number of tests constructed at startup
