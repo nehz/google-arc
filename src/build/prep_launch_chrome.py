@@ -193,14 +193,21 @@ def prepare_crx_with_raw_args(args):
 def update_shell_command(args):
   """Update the shell command of arc_metadata in the CRX manifest."""
   parsed_args = launch_chrome_options.parse_args(args)
+  shell_command = _generate_shell_command(parsed_args)
+  if not shell_command:
+    return
+  update_arc_metadata({'shell': shell_command},
+                      args)
+
+
+def update_arc_metadata(additional_metadata, args):
+  """Update arc_metadata in the CRX manifest using additional_metadata."""
+  parsed_args = launch_chrome_options.parse_args(args)
   manifest_path = os.path.join(parsed_args.arc_data_dir, 'manifest.json')
   with open(manifest_path) as f:
     manifest = json.load(f)
   arc_metadata = manifest['arc_metadata']
-  shell_command = _generate_shell_command(parsed_args)
-  if not shell_command:
-    return
-  arc_metadata['shell'] = shell_command
+  arc_metadata.update(additional_metadata)
   with open(manifest_path, 'w') as f:
     f.write(apk_to_crx.get_metadata_as_json(manifest))
 

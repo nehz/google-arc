@@ -1187,11 +1187,22 @@ static soinfo* load_library(const char* name, int dlflags, const android_dlextin
     // loader, this is done in __linker_init_post_relocation before
     // soinfo_link_image is called. See the comment for
     // load_main_binary for this difference.
+    // Also we fill _r_debug here to insert somain first.
 #if defined(HAVE_ARC)
     if (!somain) {
       TRACE("[ Setting %s as somain ]", si->name);
       somain = si;
       somain->flags |= FLAG_EXE;
+
+      link_map* map = &(si->link_map_head);
+
+      map->l_addr = 0;
+      map->l_name = reinterpret_cast<char*>(somain->name);
+      map->l_prev = NULL;
+      map->l_next = NULL;
+
+      _r_debug.r_map = map;
+      r_debug_tail = map;
     }
 #endif
     // ARC MOD END
@@ -2993,6 +3004,11 @@ static ElfW(Addr) __linker_init_post_relocation(KernelArgumentBlock& args, ElfW(
     si->flags |= FLAG_EXE;
     link_map* map = &(si->link_map_head);
 
+    // ARC MOD BEGIN
+    // ARC fills _r_debug during load_main_binary above. Since we have already
+    // relocated the main binary, _r_debug now contains some libraries.
+#if !defined(HAVE_ARC)
+    // ARC MOD END
     map->l_addr = 0;
     map->l_name = args.argv[0];
     map->l_prev = NULL;
@@ -3000,6 +3016,9 @@ static ElfW(Addr) __linker_init_post_relocation(KernelArgumentBlock& args, ElfW(
 
     _r_debug.r_map = map;
     r_debug_tail = map;
+    // ARC MOD BEGIN
+#endif
+    // ARC MOD END
 
     // ARC MOD BEGIN
     // We disable debug info related stuff. On NaCl, gdb will interact

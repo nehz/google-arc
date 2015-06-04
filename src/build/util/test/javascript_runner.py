@@ -70,15 +70,16 @@ class JavaScriptTestRunner(suite_runner.SuiteRunnerBase):
     super(JavaScriptTestRunner, self).setUp(test_methods_to_run)
     self._result_parser = result_parser.JavaScriptTestResultParser(
         self.get_scoreboard())
+    additional_metadata = self._get_additional_metadata(test_methods_to_run)
+    args = self.get_launch_chrome_command(
+        self._get_js_test_options(),
+        additional_metadata=additional_metadata)
+    prep_launch_chrome.update_arc_metadata(additional_metadata, args)
 
   def run(self, test_methods_to_run):
     args = self.get_launch_chrome_command(
         self._get_js_test_options(),
         additional_metadata=self._get_additional_metadata(test_methods_to_run))
-    # TODO(crbug.com/492503): I don't want
-    # out/data_roots/jstests.runtime to be deleted, however this would
-    # mean I don't get the test_methods_to_run refreshed with the
-    # latest list and re-run all the tests that passed before.
     args.append('--nocrxbuild')
     try:
       self.run_subprocess(args)
