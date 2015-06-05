@@ -1186,8 +1186,6 @@ class MakeVars:
     # cppflags.
     self._cxxflags = self._get_build_flags(vars_helper, 'CPPFLAGS',
                                            [arch_variant])
-    self._clangflags = self._get_build_flags(vars_helper, 'CLANG_FLAGS',
-                                             [arch_variant])
     self._asmflags = self._get_build_flags(vars_helper, 'ASFLAGS',
                                            [arch_bit_variant])
     self._ldflags = self._get_build_flags(vars_helper, 'LDFLAGS',
@@ -1283,7 +1281,6 @@ class MakeVars:
                       if x not in self._clang_incompatible_flags]
     self._ldlags = [x for x in self._ldflags
                     if x not in self._clang_incompatible_flags]
-    self._cflags.extend(self._clangflags)
 
   def _init_java_library(self, vars_helper):
     """Does initialization for jar Java library."""
@@ -1683,16 +1680,14 @@ class MakeVars:
   def remove_c_or_cxxflag(self, flag):
     """Removes all uses of a given C or C++ flag."""
     self._check_c_library_or_executable()
-    for flags in (self._cflags, self._conlyflags, self._cxxflags,
-                  self._clangflags):
+    for flags in (self._cflags, self._conlyflags, self._cxxflags):
       while flag in flags:
         flags.remove(flag)
 
   def replace_c_or_cxxflag(self, before, after):
     """Replaces all existing flag |before| with |after| in C or C++ flag."""
     self._check_c_library_or_executable()
-    for flags in (self._cflags, self._conlyflags, self._cxxflags,
-                  self._clangflags):
+    for flags in (self._cflags, self._conlyflags, self._cxxflags):
       if before in flags:
         while before in flags:
           flags.remove(before)
@@ -2200,15 +2195,11 @@ def _substitute_android_config_include(vars):
     if not vars.is_host() and OPTIONS.is_arm():
       header_name = '/linux-arm/AndroidConfig.h'
 
-  # TODO(crbug.com/415511): Let make_to_ninja detect clang ready
-  # modules automatically. Once this has been done, we should be able
-  # to set vars._cflags using TARGET_GLOBAL_CLANG_FLAGS when we
-  # initializes MakeVars objects, and remove vars._clangflags. Then,
-  # we need to adjust only vars._cflags here.
-  for flags in [vars._cflags, vars._clangflags]:
-    for i in xrange(len(flags) - 1):
-      if flags[i] == '-include' and flags[i + 1].endswith(header_name):
-        flags[i + 1] = build_common.get_android_config_header(vars.is_host())
+  for i in xrange(len(vars._cflags) - 1):
+    if (vars._cflags[i] == '-include' and
+        vars._cflags[i + 1].endswith(header_name)):
+      vars._cflags[i + 1] = build_common.get_android_config_header(
+          vars.is_host())
 
 
 def _remove_feature_flags(vars):
