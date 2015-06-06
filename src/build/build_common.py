@@ -644,11 +644,6 @@ def get_dex2oat_target_dependent_flags_map():
     flags['compiler-filter'] = 'space'
     flags['small-method-max'] = '30'
     flags['tiny-method-max'] = '10'
-    # TODO(crbug.com/340579): Stop hardcoding this address.  This
-    # address was chosen in the following way:
-    # 256MB (NaCl executable area limit) - 6MB (NaCl IRT) -
-    # 49.25M (page aligned code length for AOT).
-    flags['executable-section-address'] = '0xC7C0000'
   elif OPTIONS.is_arm():
     flags['instruction-set-features'] = 'div'
     flags['instruction-set'] = 'arm'
