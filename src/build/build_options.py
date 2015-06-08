@@ -72,6 +72,7 @@ _JAVA_METHODS_LOGGING = 'java-methods'
 _LIBDVM_DEBUG = 'libdvm-debug'
 _MAKE_TO_NINJA_LOGGING = 'make-to-ninja'
 _MEMORY_USAGE = 'memory-usage'
+_NINJA_GENERATOR_LOGGING = 'ninja-generator'
 _NOTICES_LOGGING = 'notices'
 _POSIX_TRANSLATION_DEBUG = 'posix-translation-debug'
 _VERBOSE_MEMORY_VIEWER = 'verbose-memory-viewer'
@@ -88,6 +89,7 @@ _ALLOWED_LOGGING = [_ANSI_FB_LOGGING,
                     _JAVA_METHODS_LOGGING,
                     _MAKE_TO_NINJA_LOGGING,
                     _MEMORY_USAGE,
+                    _NINJA_GENERATOR_LOGGING,
                     _NOTICES_LOGGING,
                     _POSIX_TRANSLATION_DEBUG,
                     _VERBOSE_MEMORY_VIEWER]
@@ -210,6 +212,9 @@ class _Options(object):
 
   def is_memory_usage_logging(self):
     return _MEMORY_USAGE in self._loggers
+
+  def is_ninja_generator_logging(self):
+    return _NINJA_GENERATOR_LOGGING in self._loggers
 
   def is_notices_logging(self):
     return _NOTICES_LOGGING in self._loggers

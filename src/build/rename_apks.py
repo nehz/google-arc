@@ -11,8 +11,7 @@ import subprocess
 import sys
 
 import toolchain
-
-_AAPT_PATH = toolchain.get_tool('java', 'aapt')
+from build_options import OPTIONS
 
 
 class AnalyzeApk:
@@ -28,7 +27,8 @@ class AnalyzeApk:
 
   def _run_aapt(self):
     apk_path = self._apk_path
-    output = subprocess.check_output([_AAPT_PATH, 'd', 'badging', apk_path])
+    aapt_path = toolchain.get_tool('java', 'aapt')
+    output = subprocess.check_output([aapt_path, 'd', 'badging', apk_path])
     m = self._package_re.search(output)
     if not m:
       sys.exit('Cannot find package in aapt output for ' + apk_path)
@@ -90,6 +90,7 @@ def _rename(opts):
 
 
 def main():
+  OPTIONS.parse_configure_file()
   parser = argparse.ArgumentParser(
       usage=os.path.basename(sys.argv[0]) + ' <options> apks...',
       formatter_class=argparse.RawTextHelpFormatter)

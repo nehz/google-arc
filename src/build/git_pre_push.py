@@ -72,8 +72,9 @@ def _check_prebuilt_chrome_deps(push_files):
   if chrome_deps_file not in push_files:
     return 0
   with open(chrome_deps_file) as f:
-    revision = f.read().strip()
-  if not check_chrome_lkgr.check_all_prebuilt_chrome(revision, True):
+    revision = int(f.read().strip())
+  if not check_chrome_lkgr.has_prebuilt_chrome_for_all_platforms(
+      revision, True):
     print ''
     print 'check_chrome_lkgr.py reports there is no prebuilt chrome binary '
     print 'corresponding to the chrome revision you are trying to submit. '

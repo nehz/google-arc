@@ -616,6 +616,8 @@ def _generate_libm_ninja():
   def _filter(vars):
     if vars.is_shared():
       return False
+    # TODO(crbug.com/457955): Switch to clang.
+    vars.disable_clang()
     make_to_ninja.Filters.convert_to_shared_lib(vars)
     _add_bare_metal_flags_to_make_to_ninja_vars(vars)
     vars.get_cflags().append('-W')
@@ -701,6 +703,8 @@ def _generate_libdl_ninja():
     vars.remove_c_or_cxxflag('-w')
     vars.get_cflags().append('-W')
     vars.get_cflags().append('-Werror')
+    if vars.is_clang_enabled():
+      vars.get_cflags().append('-Wno-unused-parameter')
     vars.get_generator_args()['is_system_library'] = True
     return True
 

@@ -233,7 +233,9 @@ class _InteractivePerfTestLaunchChromeThread(threading.Thread):
 
     This blocks until VRAMPERF line is output by ./launch_chrome.
     """
-    result = self._vrawperf_queue.get()
+    # Queue.get() does not abort on Ctrl-C unless some timeout is set (see:
+    # http://bugs.python.org/issue1360.) We put long (1h) timeout to workaround.
+    result = self._vrawperf_queue.get(True, 60 * 60)
     self._vrawperf_queue.task_done()
     return result
 

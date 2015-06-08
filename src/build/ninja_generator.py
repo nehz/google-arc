@@ -297,10 +297,11 @@ class NinjaGenerator(ninja_syntax.Writer):
 
   def __new__(type, *args, **kargs):
     obj = super(NinjaGenerator, type).__new__(type, *args, **kargs)
-    # Installs the debugingo into the class instance.
-    # [-1] is __new__().
-    # [-2] is the caller of ninja generators.
-    obj._debuginfo = traceback.format_stack()[-2]
+    if OPTIONS.is_ninja_generator_logging():
+      # Installs the debugingo into the class instance.
+      # [-1] is __new__().
+      # [-2] is the caller of ninja generators.
+      obj._debuginfo = traceback.format_stack()[-2]
     return obj
 
   def __init__(self, module_name, ninja_name=None,
@@ -348,8 +349,11 @@ class NinjaGenerator(ninja_syntax.Writer):
     # moved to a newer Ninja.
     self._use_global_scope = use_global_scope
 
-    for line in self._debuginfo.split('\n'):
-      self.comment(line)
+    if OPTIONS.is_ninja_generator_logging():
+      for line in self._debuginfo.split('\n'):
+        self.comment(line)
+      if self._base_path:
+        self.comment('base_path: ' + self._base_path)
 
   @staticmethod
   def emit_common_rules(n):
@@ -1155,6 +1159,8 @@ class CNinjaGenerator(NinjaGenerator):
       archasmflags = (
           # Some external projects like libpixelflinger expect this macro.
           '-D__ARM_HAVE_NEON')
+    elif OPTIONS.is_bare_metal_i686():
+      archasmflags = '-msse2'
     else:
       archasmflags = ''
 
@@ -1768,6 +1774,9 @@ class CNinjaGenerator(NinjaGenerator):
         continue
       module_names.append(module_name)
     return module_names
+
+  def is_clang_enabled(self):
+    return self._enable_clang
 
 
 class RegenDependencyComputer(object):

@@ -111,8 +111,22 @@ def generate_test_ninjas():
   # For avoiding compile failure on sstream_test.cpp and time_facets_test.cpp.
   n.add_cxx_flags('-Wno-uninitialized')
 
-  # For avoiding compile failure on --disable-debug-code.
-  n.add_cxx_flags('-Wno-maybe-uninitialized')
+  if n.is_clang_enabled():
+    # For avoiding compile failure on string_test.cpp.
+    n.add_cxx_flags('-Wno-unused-comparison')
+
+    # For avoiding compile failure on resolve_name.cpp.
+    n.add_cxx_flags('-Wno-unused-function')
+
+    # For avoiding compile failure on fstream_test.cpp and sstream_test.cpp.
+    n.add_cxx_flags('-Wno-unused-private-field')
+
+    # For avoiding compile failure on slist_test.cpp, list_test.cpp and
+    # type_traits_test.cpp.
+    n.add_cxx_flags('-Wno-unused-variable')
+  else:
+    # For avoiding compile failure on --disable-debug-code.
+    n.add_cxx_flags('-Wno-maybe-uninitialized')
 
   # Define STLPORT so that cppunit_proxy.h does not define
   # CPPUNIT_MINI_USE_EXCEPTIONS

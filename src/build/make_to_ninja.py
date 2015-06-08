@@ -103,7 +103,6 @@ _DEFAULT_VARS = [
     'ARCH_ARM_HAVE_32_BYTE_CACHE_LINES',  # for arm
     'ARCH_ARM_HAVE_TLS_REGISTER',
     'ARCH_ARM_USE_NON_NEON_MEMCPY',  # for arm
-    'ARCH_X86_HAVE_SSE2',  # for art
     'ARCH_X86_HAVE_SSE3',  # for art
     'ARCH_X86_HAVE_SSSE3',
     'ARCH_X86_HAVE_SSE4',
@@ -1555,7 +1554,8 @@ class MakeVars:
     #    '{disable|enable}_clang() must be called before modifying ldflags')
 
   def disable_clang(self):
-    assert self._is_clang_enabled
+    if not self._is_clang_enabled:
+      return
     assert self.is_c_library() or self.is_executable()
     self._check_flags_unmodified()
     self._cflags = list(self._gcc_cflags)
@@ -1565,7 +1565,8 @@ class MakeVars:
     self._is_clang_enabled = False
 
   def enable_clang(self):
-    assert not self._is_clang_enabled
+    if self._is_clang_enabled:
+      return
     assert self.is_c_library() or self.is_executable()
     self._check_flags_unmodified()
     self._update_flags_for_clang()
