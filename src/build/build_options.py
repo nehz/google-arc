@@ -317,6 +317,10 @@ class _Options(object):
                         dest='enable_art_aot', help='Disable ART boot image '
                         'and AOT compilation.')
 
+    parser.add_argument('--disable-config-cache', action='store_false',
+                        dest='enable_config_cache',
+                        help='Disable configuration cache.')
+
     parser.add_argument('--disable-debug-info', action='store_true',
                         help='Do not generate debug information. ')
 
@@ -329,6 +333,13 @@ class _Options(object):
     parser.add_argument('--disable-hwui', action='store_true',
                         help='Disable the use of hardware accelerated '
                         'rendering in the Android UI code.')
+
+    parser.add_argument('--disable-method-whitelist', action='store_false',
+                        dest='enable_method_whitelist',
+                        help='Disable method whitelist for boot.oat. '
+                        'This also changes the compiler filter to '
+                        '"everything", which will require adjustments to the '
+                        'executable section address to be able to run.')
 
     parser.add_argument('--enable-aacenc', action='store_true',
                         help='Build libraries to support AAC encoding.')
@@ -350,10 +361,6 @@ class _Options(object):
 
     parser.add_argument('--enable-valgrind', action='store_true',
                         help='Run unit tests under Valgrind.')
-
-    parser.add_argument('--disable-config-cache', action='store_false',
-                        dest='enable_config_cache',
-                        help='Disable configuration cache.')
 
     parser.add_argument('--goma-dir', help='The directory for goma.')
 

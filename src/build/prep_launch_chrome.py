@@ -102,6 +102,7 @@ def _convert_launch_chrome_options_to_external_metadata(parsed_args):
       metadata[metadata_name] = value
 
   if bool(parsed_args.jdb_port or parsed_args.gdb):
+    metadata['disableChildPluginRetry'] = True
     metadata['disableHeartbeat'] = True
     metadata['sleepOnBlur'] = False
 
