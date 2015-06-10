@@ -3978,8 +3978,6 @@ class NaClizeNinjaGenerator(NinjaGenerator):
   _SCRIPT_PATH = staging.as_staging('src/build/naclize_i686.py')
 
   def __init__(self, base_name, **kwargs):
-    # TODO(crbug.com/414569): L-rebase: Revisit here to think how to handle
-    # x86_64 NaClizing.
     assert OPTIONS.is_nacl_i686()
     super(NaClizeNinjaGenerator, self).__init__(
         base_name + '_gen_i686_asm_sources', **kwargs)

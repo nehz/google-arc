@@ -576,12 +576,12 @@ int __wrap_truncate64(const char* pathname, off64_t length) {
   return TruncateImpl(pathname, length);
 }
 
-int __wrap_unlink(const char* pathname) {
+IRT_WRAPPER(unlink, const char* pathname) {
   ARC_STRACE_ENTER("unlink", "\"%s\"", SAFE_CSTR(pathname));
   int result = VirtualFileSystem::GetVirtualFileSystem()->unlink(pathname);
   if (result == -1 && errno != ENOENT)
     ARC_STRACE_ALWAYS_WARN_FAILURE();
-  ARC_STRACE_RETURN(result);
+  ARC_STRACE_RETURN_IRT_WRAPPER(result == 0 ? 0 : errno);
 }
 
 int __wrap_utimes(const char* filename, const struct timeval times[2]) {
@@ -1177,6 +1177,7 @@ void InitializeIRTHooks() {
   DO_WRAP(read);
   DO_WRAP(seek);
   DO_WRAP(stat);
+  DO_WRAP(unlink);
   DO_WRAP(write);
 }
 

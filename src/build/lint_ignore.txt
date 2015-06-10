@@ -76,7 +76,6 @@
 
   # TODO(crbug.com/430209): L-rebase: Rebase these files.
   "mods/android_libcommon/common/alog.h": ["analyze_diffs"],
-  "mods/android_libcommon/common/graphics.h": ["analyze_diffs"],
   "mods/android_libcommon/common/logger.h": ["analyze_diffs"],
 
   # These two files confuse analyze_diffs.

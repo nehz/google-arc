@@ -141,7 +141,6 @@ def get_wrapped_functions():
                        'umount',
                        'umount2',
                        'uname',
-                       'unlink',
                        'utime',
                        'utimes',
                        'vfork',
