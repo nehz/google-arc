@@ -44,13 +44,6 @@ def _get_wrapped_functions_cc(ninja):
       script_name='gen_wrapped_functions_cc.py')
 
 
-def _get_android_static_libraries_cc(ninja):
-  return _get_generated_file(
-      ninja,
-      out_name='android_static_libraries.cc',
-      script_name='gen_android_static_libraries_cc.py')
-
-
 def _get_real_syscall_aliases_s(ninja):
   return _get_generated_file(
       ninja,
@@ -82,7 +75,7 @@ def _generate_libcommon_ninja(
     module_name, instances, enable_libcxx, extra_sources):
   n = ninja_generator.ArchiveNinjaGenerator(module_name,
                                             instances=instances,
-                                            enable_clang=True,
+                                            force_compiler='clang',
                                             enable_cxx11=True,
                                             enable_libcxx=enable_libcxx,
                                             base_path='src/common')
@@ -100,8 +93,7 @@ def _generate_libcommon_ninja(
 
 def _generate_libcommon_ninjas():
   n = ninja_generator.NinjaGenerator('libcommon_gen_sources')
-  extra_sources = [_get_wrapped_functions_cc(n),
-                   _get_android_static_libraries_cc(n)]
+  extra_sources = [_get_wrapped_functions_cc(n)]
   _generate_libcommon_ninja(module_name='libcommon',
                             instances=1,
                             enable_libcxx=False,
@@ -141,7 +133,7 @@ def generate_ninjas():
 
 def generate_test_ninjas():
   n = ninja_generator.TestNinjaGenerator('libcommon_test',
-                                         enable_clang=True,
+                                         force_compiler='clang',
                                          enable_cxx11=True,
                                          base_path='src/common')
   n.build_default_all_test_sources()

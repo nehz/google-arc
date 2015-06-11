@@ -82,7 +82,7 @@ def _generate_libposix_translation():
 
   n = ArchiveNinjaGenerator('libposix_translation_static',
                             # libart-gtest and libposix_translation need this
-                            enable_clang=True,
+                            force_compiler='clang',
                             enable_cxx11=True)
   n.add_compiler_flags(*compiler_flags)
   if OPTIONS.is_posix_translation_debug():
@@ -99,7 +99,7 @@ def _generate_libposix_translation():
   n.build_default(all_files).archive()
 
   n = SharedObjectNinjaGenerator('libposix_translation',
-                                 is_system_library=True, enable_clang=True,
+                                 is_system_library=True, force_compiler='clang',
                                  enable_cxx11=True)
   n.add_library_deps('libc.so', 'libm.so', 'libdl.so', 'libstlport.so')
   n.add_whole_archive_deps('libposix_translation_static.a')
@@ -187,7 +187,7 @@ def generate_test_ninjas():
   n = ninja_generator.PpapiTestNinjaGenerator(
       'posix_translation_test',
       base_path='src/posix_translation',
-      enable_clang=True,
+      force_compiler='clang',
       enable_cxx11=True)
   # Build a rootfs image for tests.
   rule_name = 'gen_test_fs_image'

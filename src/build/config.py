@@ -32,7 +32,7 @@ _ANDROID_SYSTEM_IMAGE_DIR = ('ndk/platforms/android-%d' %
 def _generate_gtest_ninja(name, instances=0, enable_libcxx=False, host=False):
   n = ArchiveNinjaGenerator(name, base_path='googletest/src',
                             instances=instances,
-                            enable_clang=True,
+                            force_compiler='clang',
                             enable_cxx11=True,
                             enable_libcxx=enable_libcxx,
                             host=host)
@@ -45,7 +45,7 @@ def _generate_gtest_ninja(name, instances=0, enable_libcxx=False, host=False):
 def _generate_gmock_ninja(name, enable_libcxx=False):
   n = ArchiveNinjaGenerator(name, base_path='testing/gmock/src',
                             instances=0,  # Not used by shared objects
-                            enable_clang=True,
+                            force_compiler='clang',
                             enable_cxx11=True,
                             enable_libcxx=enable_libcxx)
   n.add_include_paths(staging.as_staging('testing/gmock'),

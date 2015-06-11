@@ -1102,7 +1102,7 @@ def _generate_runnable_ld_ninja():
                                          base_path='android/bionic/linker',
                                          install_path='/lib',
                                          is_system_library=True,
-                                         enable_clang=True,
+                                         force_compiler='clang',
                                          enable_cxx11=True)
   _add_runnable_ld_cflags(n)
 
@@ -1198,7 +1198,7 @@ def _generate_bionic_tests():
     return
   n = ninja_generator.TestNinjaGenerator('bionic_test',
                                          base_path='android/bionic/tests',
-                                         enable_clang=True,
+                                         force_compiler='clang',
                                          enable_cxx11=True)
   _add_bare_metal_flags_to_ninja_generator(n)
 

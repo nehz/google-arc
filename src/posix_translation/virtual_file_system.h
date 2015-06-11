@@ -228,7 +228,6 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   // See WaitUntil() in time_util.{h,cc} for more details.
   bool WaitUntil(const base::TimeTicks& time_limit);
 
-  void Signal();
   void Broadcast();
 
   // Return true if the file system initialization on the browser side has

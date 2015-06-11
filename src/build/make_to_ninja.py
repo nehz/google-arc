@@ -1230,6 +1230,10 @@ class MakeVars:
     self._whole_archive_deps = vars_helper.get_optional_list(
         'LOCAL_WHOLE_STATIC_LIBRARIES', [arch_variant, arch_bit_variant])
     self._shared_deps = vars_helper.get_optional_list('LOCAL_SHARED_LIBRARIES')
+    # liblog can be linked by LOCAL_LDFLAGS instead of LOCAL_SHARED_LIBRARIES.
+    if '-llog' in self._ldflags:
+      self._ldflags.remove('-llog')
+      self._shared_deps.append('liblog')
     self._addld_deps = []
 
     self._implicit_deps = [os.path.join(self._path, x) for x in local_sources
@@ -1259,7 +1263,8 @@ class MakeVars:
       self._is_clang_enabled = False
       self._is_cxx11_enabled = False
     self._is_clang_linker_enabled = False
-    self._is_libcxx_enabled = ('-D_USING_LIBCXX' in self._cflags)
+    self._is_libcxx_enabled = (
+        '-D_USING_LIBCXX' in self._cflags or 'libc++' in self._shared_deps)
 
     if (self.is_target_executable() and
         'tests' in vars_helper.get_optional_list('LOCAL_MODULE_TAGS')):
@@ -1548,10 +1553,8 @@ class MakeVars:
         '{disable|enable}_clang() must be called before modifying conlyflags')
     assert self._cxxflags == self._orig_cxxflags, (
         '{disable|enable}_clang() must be called before modifying cxxflags')
-    # TODO(crbug.com/414569): L-rebase: Figure out why this assert
-    # fails in libnativehelper for -t ba.
-    # assert self._ldflags == self._orig_ldflags, (
-    #    '{disable|enable}_clang() must be called before modifying ldflags')
+    assert self._ldflags == self._orig_ldflags, (
+        '{disable|enable}_clang() must be called before modifying ldflags')
 
   def disable_clang(self):
     if not self._is_clang_enabled:
@@ -1900,7 +1903,7 @@ def _generate_c_ninja(vars, out_lib_deps):
 
   extra_args['enable_logtag_emission'] = vars.is_logtag_emission_enabled()
   extra_args['extra_notices'] = vars.get_extra_notices()
-  extra_args['enable_clang'] = vars.is_clang_enabled()
+  extra_args['force_compiler'] = 'clang' if vars.is_clang_enabled() else 'gcc'
   extra_args['enable_cxx11'] = vars.is_cxx11_enabled()
   extra_args['notices_only'] = vars.is_notices()
   extra_args['enable_libcxx'] = vars._is_libcxx_enabled
@@ -2251,12 +2254,16 @@ def _adjust_arm_flags(vars):
   vars.remove_c_or_cxxflag('-march=armv7-a')  # we use -mcpu= instead.
   vars.remove_c_or_cxxflag('-mfpu=vfpv3-d16')  # we use -mfpu=neon instead.
 
-  if OPTIONS.is_bare_metal_build():
-    # Overwrite -marm flag set in ninja_generator.py if LOCAL_ARM_MODE is set
-    # in Android.mk.
-    local_arm_mode = vars.get_optional_raw_var('LOCAL_ARM_MODE', None)
-    if local_arm_mode:
-      vars.get_cflags().append('-m' + local_arm_mode)
+  # Overwrite -marm flag set in ninja_generator.py if LOCAL_ARM_MODE is set
+  # in Android.mk.
+  local_arm_mode = vars.get_optional_raw_var('LOCAL_ARM_MODE', None)
+  if local_arm_mode:
+    vars.get_cflags().append('-m' + local_arm_mode)
+
+  # third_party/android/build/core/combo/TARGET_linux-arm.mk adds
+  # this gold-only option for ARM. TODO(http://crbug.com/239870)
+  while '-Wl,--icf=safe' in vars.get_ldflags():
+    vars.get_ldflags().remove('-Wl,--icf=safe')
 
 
 def _adjust_target_nacl_common_flags(vars):
@@ -2678,10 +2685,6 @@ class MakefileNinjaTranslator:
 
 def run(path):
   MakefileNinjaTranslator(path).generate(Filters.exclude_executables)
-
-
-def run_for_static(path):
-  MakefileNinjaTranslator(path).generate(Filters.convert_to_static_lib)
 
 
 def run_for_c(path):

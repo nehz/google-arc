@@ -927,11 +927,15 @@ class NinjaGenerator(ninja_syntax.Writer):
 
 
 class CNinjaGenerator(NinjaGenerator):
-  """Encapsulates ninja file generation for C and C++ files."""
+  """Encapsulates ninja file generation for C and C++ files.
+
+  Valid values for |force_compiler| are None, 'gcc' and 'clang'. None implies
+  the module is compiled with the default compiler on the platform.
+  """
 
   def __init__(self, module_name, ninja_name=None, enable_logtag_emission=True,
-               gl_flags=False, enable_clang=False, enable_cxx11=False,
-               enable_libcxx=False,
+               gl_flags=False, force_compiler=None,
+               enable_cxx11=False, enable_libcxx=False,
                **kwargs):
     super(CNinjaGenerator, self).__init__(module_name, ninja_name, **kwargs)
     # This is set here instead of TopLevelNinjaGenerator because the ldflags
@@ -966,8 +970,10 @@ class CNinjaGenerator(NinjaGenerator):
       self.add_compiler_flags('-D_USING_LIBCXX')
     if gl_flags:
       self.emit_gl_common_flags()
-    self._enable_clang = (enable_clang and
-                          toolchain.has_clang(OPTIONS.target(), self._is_host))
+
+    assert force_compiler in (None, 'gcc', 'clang')
+    self._enable_clang = (force_compiler == 'clang')
+
     if enable_cxx11:
       # TODO(crbug.com/487964): Enable C++11 by default.
       self.add_cxx_flags('-std=gnu++11')
@@ -1547,13 +1553,12 @@ class CNinjaGenerator(NinjaGenerator):
     n.emit_compiler_rule('cc', target, flag_name='cflags',
                          extra_flags=extra_flags + ['$gccflags'],
                          compiler_includes='gccsystemincludes')
-    if toolchain.has_clang(target):
-      n.emit_compiler_rule('clangxx', target, flag_name='cxxflags',
-                           extra_flags=extra_flags + ['$clangxxflags'],
-                           compiler_includes='clangsystemincludes')
-      n.emit_compiler_rule('clang', target, flag_name='cflags',
-                           extra_flags=extra_flags + ['$clangflags'],
-                           compiler_includes='clangsystemincludes')
+    n.emit_compiler_rule('clangxx', target, flag_name='cxxflags',
+                         extra_flags=extra_flags + ['$clangxxflags'],
+                         compiler_includes='clangsystemincludes')
+    n.emit_compiler_rule('clang', target, flag_name='cflags',
+                         extra_flags=extra_flags + ['$clangflags'],
+                         compiler_includes='clangsystemincludes')
     n.emit_compiler_rule('asm_with_preprocessing', target, flag_name='asmflags',
                          extra_flags=extra_flags + ['$gccflags'])
     n.emit_compiler_rule('asm', target, flag_name='asmflags',
@@ -1629,10 +1634,9 @@ class CNinjaGenerator(NinjaGenerator):
     n.variable('gccflags', ' '.join(CNinjaGenerator._get_gccflags()))
     n.variable('gxxflags',
                '$gccflags ' + ' '.join(CNinjaGenerator._get_gxxflags()))
-    if toolchain.has_clang(OPTIONS.target()):
-      n.variable('clangflags', ' '.join(CNinjaGenerator._get_clangflags()))
-      n.variable('clangxxflags',
-                 '$clangflags ' + ' '.join(CNinjaGenerator._get_clangxxflags()))
+    n.variable('clangflags', ' '.join(CNinjaGenerator._get_clangflags()))
+    n.variable('clangxxflags',
+               '$clangflags ' + ' '.join(CNinjaGenerator._get_clangxxflags()))
 
     CNinjaGenerator.emit_target_rules_(n)
     CNinjaGenerator.emit_host_rules_(n)
@@ -1989,9 +1993,17 @@ class ArchiveNinjaGenerator(CNinjaGenerator):
     # is believed to be safe.
     # We can not create the white list automatically since STLport headers
     # are visible by default without any additional search paths.
-    white_list = ['libcommon_real_syscall_aliases', 'libcompiler_rt',
-                  'libcutils', 'libppapi_mocks', 'libutils_static',
-                  'libz', 'libziparchive', 'libziparchive-host']
+    white_list = [
+        'libcommon_real_syscall_aliases',
+        'libcompiler_rt',
+        'libcutils',
+        'libcutils_static',
+        'libppapi_mocks',
+        'libutils_static',
+        'libz',
+        'libz_static',
+        'libziparchive',
+        'libziparchive-host']
 
     for ninja in all_ninja_list:
       # Check if each module depends only on modules that use the same STL
@@ -2346,6 +2358,9 @@ class NoticeNinjaGenerator(NinjaGenerator):
     # a package that was not licensed with these.
     while queue:
       module_name = queue.pop(0)
+      assert module_name in module_to_ninja_map, (
+          '"%s" depended by "%s" directly or indirectly is not defined.' %
+          (module_name, n._module_name))
       included_ninja = module_to_ninja_map[module_name]
       included_notices = included_ninja._notices
       if OPTIONS.is_notices_logging():

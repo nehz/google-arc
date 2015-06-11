@@ -527,12 +527,3 @@ def get_clang_version(target):
   while len(version) < 3:
     version.append(0)
   return version
-
-
-def has_clang(target, is_host=False):
-  if is_host:
-    target = 'host'
-  tools = _get_tool_map()[target]
-  result = 'clang' in tools
-  assert result == ('clangxx' in tools)
-  return result

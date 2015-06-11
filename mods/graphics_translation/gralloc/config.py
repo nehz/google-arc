@@ -8,7 +8,7 @@ from ninja_generator import ArchiveNinjaGenerator
 
 def _generate_lib_ninja():
   n = ArchiveNinjaGenerator('libgralloc',
-                            enable_clang=True,
+                            force_compiler='clang',
                             enable_cxx11=True,
                             base_path='graphics_translation/gralloc')
   n.add_compiler_flags('-Werror')
@@ -27,7 +27,7 @@ def _generate_lib_ninja():
 
 def _generate_so_ninja():
   n = SharedObjectNinjaGenerator('gralloc.arc', install_path='/lib/hw',
-                                 enable_clang=True,
+                                 force_compiler='clang',
                                  enable_cxx11=True,
                                  base_path='graphics_translation/gralloc')
 

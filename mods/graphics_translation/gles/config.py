@@ -77,7 +77,7 @@ def _generate_pass_through_code(n):
 
 def generate_ninjas():
   n = ArchiveNinjaGenerator('libgles',
-                            enable_clang=True, enable_cxx11=True,
+                            force_compiler='clang', enable_cxx11=True,
                             base_path='graphics_translation/gles')
   n.add_compiler_flags('-Werror')
   n.add_notice_sources(['mods/graphics_translation/NOTICE'])

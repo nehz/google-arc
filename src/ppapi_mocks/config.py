@@ -39,7 +39,7 @@ def _generate_libppapi_mocks():
   # libart-gtest depends on libppapi_mocks.
   n = ninja_generator.ArchiveNinjaGenerator('libppapi_mocks',
                                             instances=0,
-                                            enable_clang=True,
+                                            force_compiler='clang',
                                             enable_cxx11=True)
   ppapi_dir = staging.as_staging('chromium-ppapi/ppapi')
   generators_dir = os.path.join(ppapi_dir, 'generators')

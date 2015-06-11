@@ -39,7 +39,7 @@ def _generate_chromium_base_ninja_common(module_name, instances, enable_libcxx):
   # plugin.
   n = ninja_generator.ArchiveNinjaGenerator(
       module_name, base_path=base_path, instances=instances,
-      enable_clang=True, enable_cxx11=True, enable_libcxx=enable_libcxx)
+      force_compiler='clang', enable_cxx11=True, enable_libcxx=enable_libcxx)
   n.add_compiler_flags('-fvisibility=hidden')  # for libposix_translation.so
   _add_chromium_base_compiler_flags(n)
 
@@ -150,7 +150,7 @@ def _generate_chromium_base_test_ninja():
   base_path = 'android/external/chromium_org'
   n = ninja_generator.TestNinjaGenerator('libchromium_base_test',
                                          base_path=base_path,
-                                         enable_clang=True,
+                                         force_compiler='clang',
                                          enable_cxx11=True)
   _add_chromium_base_compiler_flags(n)
 

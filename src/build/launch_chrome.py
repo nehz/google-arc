@@ -293,6 +293,13 @@ def _compute_chrome_plugin_params(parsed_args):
   if OPTIONS.is_bare_metal_build():
     params.append('--enable-nacl-nonsfi-mode')
 
+    # TODO(hidehiko,elijahtaylor,khmel): Enable newlib on -t=bi, too, after
+    # Chrome roll. There is a crash issue pending Chrome roll will fix
+    # (crbug.com/496378), but due to performance regression, the Chrome roll
+    # has not happened yet (crbug.com/499138).
+    if OPTIONS.is_arm():
+      params.append('--use-nacl-helper-nonsfi')
+
   return params
 
 

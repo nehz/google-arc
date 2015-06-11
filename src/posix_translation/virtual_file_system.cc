@@ -1933,11 +1933,6 @@ bool VirtualFileSystem::WaitUntil(const base::TimeTicks& time_limit) {
   return internal::WaitUntil(&cond_, time_limit);
 }
 
-void VirtualFileSystem::Signal() {
-  mutex_.AssertAcquired();
-  cond_.Signal();
-}
-
 void VirtualFileSystem::Broadcast() {
   mutex_.AssertAcquired();
   cond_.Broadcast();
