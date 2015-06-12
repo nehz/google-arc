@@ -1993,17 +1993,9 @@ class ArchiveNinjaGenerator(CNinjaGenerator):
     # is believed to be safe.
     # We can not create the white list automatically since STLport headers
     # are visible by default without any additional search paths.
-    white_list = [
-        'libcommon_real_syscall_aliases',
-        'libcompiler_rt',
-        'libcutils',
-        'libcutils_static',
-        'libppapi_mocks',
-        'libutils_static',
-        'libz',
-        'libz_static',
-        'libziparchive',
-        'libziparchive-host']
+    white_list = ['libcommon_real_syscall_aliases', 'libcompiler_rt',
+                  'libcutils', 'libppapi_mocks', 'libutils_static',
+                  'libz', 'libziparchive', 'libziparchive-host']
 
     for ninja in all_ninja_list:
       # Check if each module depends only on modules that use the same STL
@@ -2358,9 +2350,6 @@ class NoticeNinjaGenerator(NinjaGenerator):
     # a package that was not licensed with these.
     while queue:
       module_name = queue.pop(0)
-      assert module_name in module_to_ninja_map, (
-          '"%s" depended by "%s" directly or indirectly is not defined.' %
-          (module_name, n._module_name))
       included_ninja = module_to_ninja_map[module_name]
       included_notices = included_ninja._notices
       if OPTIONS.is_notices_logging():

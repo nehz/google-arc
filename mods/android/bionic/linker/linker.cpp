@@ -1197,7 +1197,7 @@ static soinfo* load_library(const char* name, int dlflags, const android_dlextin
       link_map* map = &(si->link_map_head);
 
       map->l_addr = 0;
-      map->l_name = reinterpret_cast<char*>(somain->name);
+      map->l_name = const_cast<char*>(name);
       map->l_prev = NULL;
       map->l_next = NULL;
 

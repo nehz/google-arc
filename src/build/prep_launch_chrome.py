@@ -20,6 +20,7 @@ import build_common
 import launch_chrome_options
 
 from build_options import OPTIONS
+from metadata import manager as metadata_manager
 from util import file_util
 
 _DOGFOOD_METADATA_PATH = 'third_party/examples/apk/dogfood.meta'
@@ -77,29 +78,28 @@ def _generate_shell_command(parsed_args):
 def _convert_launch_chrome_options_to_external_metadata(parsed_args):
   metadata = parsed_args.additional_metadata
 
-  arg_to_metadata = (('disable_auto_back_button', 'disableAutoBackButton'),
-                     ('enable_adb', 'enableAdb'),
-                     ('enable_arc_strace', 'enableArcStrace'),
+  # TODO(451677): Remove this after all metadata has been converted over.
+  arg_to_metadata = (('enable_arc_strace', 'enableArcStrace'),
                      ('enable_compositor', 'enableCompositor'),
-                     ('enable_external_directory', 'enableExternalDirectory'),
                      ('enable_synthesize_touch_events_on_click',
                       'enableSynthesizeTouchEventsOnClick'),
                      ('disable_gl_fixed_attribs', 'disableGlFixedAttribs'),
-                     ('form_factor', 'formFactor'),
                      ('javatracestartup', 'javaTraceStartup'),
                      ('jdb_port', 'jdbPort'),
                      ('log_load_progress', 'logLoadProgress'),
                      ('minimum_launch_delay', 'minimumLaunchDelay'),
                      ('ndk_abi', 'ndkAbi'),
-                     ('orientation', 'orientation'),
-                     ('resize', 'resize'),
-                     ('stderr_log', 'stderrLog'),
                      ('sleep_on_blur', 'sleepOnBlur'))
 
   for arg_name, metadata_name in arg_to_metadata:
     value = getattr(parsed_args, arg_name, None)
     if value is not None:
       metadata[metadata_name] = value
+
+  for definition in metadata_manager.get_metadata_definitions():
+    value = getattr(parsed_args, definition.python_name, None)
+    if value is not None:
+      metadata[definition.name] = value
 
   if bool(parsed_args.jdb_port or parsed_args.gdb):
     metadata['disableChildPluginRetry'] = True

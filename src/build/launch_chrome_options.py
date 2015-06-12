@@ -6,6 +6,7 @@
 # prep_launch_script.py.
 
 import argparse
+from functools import partial
 import json
 import os
 import re
@@ -13,25 +14,10 @@ import sys
 
 from build_common import get_arc_welder_unpacked_dir
 from build_options import OPTIONS
+import metadata.manager
 from ninja_generator import ApkFromSdkNinjaGenerator
 from util import launch_chrome_util
 from util import remote_executor
-
-# The values in _ALLOWED_* must be synchronized with _ALLOWED_VALUES in
-# src/packaging/runtime/common.js.
-_ALLOWED_FORMFACTORS = ['maximized', 'phone', 'tablet']
-
-_ALLOWED_FORMFACTOR_MAPPING = {'m': 'maximized', 'p': 'phone', 't': 'tablet'}
-
-_ALLOWED_NDK_ABIS = ['armeabi', 'armeabi-v7a', 'x86']
-
-_ALLOWED_ORIENTATIONS = ['landscape', 'portrait']
-
-_ALLOWED_ORIENTATION_MAPPING = {'l': 'landscape', 'p': 'portrait'}
-
-_ALLOWED_RESIZES = ['disabled', 'reconfigure', 'scale']
-
-_ALLOWED_STDERR_LOGS = ['V', 'D', 'I', 'W', 'E', 'F', 'S']
 
 _DATA_ROOTS_PATH = os.path.join('out', 'data_roots')
 
@@ -81,14 +67,6 @@ def _validate_mode_settings(parser, args):
       parser.error('driveby mode works only with NaCl build')
 
 
-def _parse_formfactor(value):
-  if value in _ALLOWED_FORMFACTORS:
-    return value
-  elif value in _ALLOWED_FORMFACTOR_MAPPING.keys():
-    return _ALLOWED_FORMFACTOR_MAPPING[value]
-  raise argparse.ArgumentError('Invalid form-factor')
-
-
 def _parse_gdb_targets(value):
   known_targets = ('plugin', 'gpu', 'renderer', 'browser')
   targets = []
@@ -98,14 +76,6 @@ def _parse_gdb_targets(value):
     else:
       print 'discarding unknown gdb target:', t
   return targets
-
-
-def _parse_orientation(value):
-  if value in _ALLOWED_ORIENTATIONS:
-    return value
-  elif value in _ALLOWED_ORIENTATION_MAPPING.keys():
-    return _ALLOWED_ORIENTATION_MAPPING[value]
-  raise argparse.ArgumentError('Invalid orientation')
 
 
 def _validate_perftest_settings(parser, args):
@@ -235,6 +205,52 @@ def _set_default_args(args):
     args.stderr_log = 'W'
 
 
+def _add_parser_arguments_for_metadata(parser):
+  def convert_short_options_to_long(metadata_definition, value):
+    if metadata_definition.short_value_mapping:
+      mapping = metadata_definition.short_value_mapping
+      if value in mapping:
+        return mapping[value]
+    return value
+
+  group = parser.add_argument_group('Manifest metadata (auto-generated)')
+  metadata_definitions = metadata.manager.get_metadata_definitions()
+
+  for definition in metadata_definitions:
+    argument_names = ['--' + definition.command_argument_name]
+    if definition.short_option_name:
+      argument_names.append('-' + definition.short_option_name)
+
+    default = definition.default_value
+    metadata_type = type(default)
+
+    additional_params = {}
+    if metadata_type is bool:
+      action = 'store_true'
+      if default is True:
+        action = 'store_false'
+      additional_params['action'] = action
+    elif metadata_type is unicode:
+      additional_params.update({
+          'choices': definition.allowed_values,
+          'type': partial(convert_short_options_to_long, definition)
+      })
+    elif metadata_type is int:
+      additional_params.update({
+          'choices': definition.allowed_values,
+          'type': int
+      })
+    else:
+      raise Exception('Unknown metdata type: ' + str(metadata_type))
+
+    group.add_argument(
+        *argument_names,
+        dest=definition.python_name,
+        default=None,
+        help=definition.help,
+        **additional_params)
+
+
 def parse_args(argv):
   parser = argparse.ArgumentParser(
       prog='launch_chrome.py',
@@ -361,11 +377,6 @@ Native Client Debugging
                       'run_integration_tests to isolate each test. '
                       'The basename of APK will be used if not specified.')
 
-  parser.add_argument('--disable-auto-back-button',
-                      action='store_true', default=None,
-                      help='Disables automatic enabling/disabling of the '
-                      'back button based on the Activity stack.')
-
   parser.add_argument('--disable-compositor', action='store_false',
                       dest='enable_compositor', default=None,
                       help='Enable the pepper compositor.')
@@ -385,9 +396,6 @@ Native Client Debugging
   parser.add_argument('--dogfood-metadata', '-D', action='store_true',
                       help='Use dogfood metadata settings to start this app')
 
-  parser.add_argument('--enable-adb', action='store_true', default=None,
-                      help='Enable adb support')
-
   parser.add_argument('--enable-arc-strace', action='store_true',
                       default=None,
                       help='Enable builtin strace-like tracer of ARC '
@@ -399,10 +407,6 @@ Native Client Debugging
   parser.add_argument('--enable-nacl-list-mappings', action='store_true',
                       help='Enable the nacl_list_mappings call.')
 
-  parser.add_argument('--enable-external-directory', action='store_true',
-                      default=None,
-                      help='Enable the external directory mounting.')
-
   parser.add_argument('--enable-synthesize-touch-events-on-click',
                       action='store_true', default=None,
                       help='Synthesize touch events from mouse clicks and '
@@ -410,10 +414,6 @@ Native Client Debugging
 
   parser.add_argument('--enable-osmesa', action='store_true', default=None,
                       help='Enable GL emulation with OSMesa.')
-
-  parser.add_argument('--form-factor', '-f', choices=_ALLOWED_FORMFACTORS,
-                      type=_parse_formfactor, default=None,
-                      help='Set desired form factor in manifest.')
 
   parser.add_argument('--gdb', metavar='<targets>', default=[],
                       type=_parse_gdb_targets,
@@ -487,11 +487,6 @@ Native Client Debugging
                       'be copied from the remote host but symbols in '
                       'nacl_helper may not be available.')
 
-  parser.add_argument('--ndk-abi', metavar='<armeabi-v7a/armeabi>',
-                      choices=_ALLOWED_NDK_ABIS,
-                      help='Set ABI for NDK libraries. By default we search '
-                      'for armeabi-v7a library and fall back to armeabi.')
-
   parser.add_argument('--nocrxbuild', dest='build_crx', action='store_false',
                       help='Do not to rebuild the crx - just use what is '
                       'already there.')
@@ -508,18 +503,11 @@ Native Client Debugging
                       help='The patch expansion file, e.g. '
                       'patch.123.com.example.app.obb.')
 
-  parser.add_argument('--orientation', '-o', choices=_ALLOWED_ORIENTATIONS,
-                      type=_parse_orientation,
-                      help='Set desired orientation in manifest.')
-
   parser.add_argument('--perfstartup', type=int, metavar='<N>',
                       help='Launch with perf and collect data for the first '
                       '<N> seconds. Plugin will be killed after this timeout.')
 
   parser.add_argument('--lang', help='Set language for the Chrome')
-
-  parser.add_argument('--resize', choices=_ALLOWED_RESIZES, default=None,
-                      help='Controls the behavior of app/window resizing.')
 
   # TODO(crbug.com/254164): Get rid of the fake ATF test concept used
   # by NDK tests currently.
@@ -534,12 +522,6 @@ Native Client Debugging
   parser.add_argument('--run-test-packages', metavar='<packages>',
                       help='Used by atftest to specify which test packages to '
                       'run.')
-
-  parser.add_argument('--stderr-log', choices=_ALLOWED_STDERR_LOGS,
-                      default=None,
-                      help='Minimum console log priority. In order of most to '
-                      'least output: Verbose, Debug, Info, Warning, Error, '
-                      'Fatal, Silent. Defaults to warning.')
 
   parser.add_argument('--silent', '-s', action='store_true',
                       help='Sets the default filter spec to silent.')
@@ -585,6 +567,8 @@ Native Client Debugging
                       help='Show verbose logging')
 
   remote_executor.add_remote_arguments(parser)
+
+  _add_parser_arguments_for_metadata(parser)
 
   # We do not support '--use-high-dpi=yes/no' here since as of today Chrome's
   # device scale setting is almost always 1.0 at this point except on Pixel

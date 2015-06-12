@@ -906,7 +906,7 @@ void TCPSocket::OnWrite(int32_t result) {
 
   if (result < 0 || (size_t)result > write_buf_.size()) {
     // Write error.
-    ALOGI("TCPSocket::OnWrite: close socket %d", fd_);
+    ALOGI("TCPSocket::OnWrite: write error on %d, result: %d", fd_, result);
     MarkAsErrorLocked(EIO);  // TODO(crbug.com/358932): Pick correct error.
     sys->Broadcast();
     return;

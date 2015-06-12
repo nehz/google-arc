@@ -551,7 +551,7 @@ void UDPSocket::OnWrite(int32_t result) {
   write_sent_ = false;
   if (result < 0) {
     // Write error.
-    ALOGI("TCPSocket::OnWrite: close socket %d", fd_);
+    ALOGI("UDPSocket::OnWrite: write error on %d, result: %d", fd_, result);
   } else {
     // We do not expect partial write. Sent data may be truncated in PPAPI
     // layer if it is too large, but the limit size is currently much bigger

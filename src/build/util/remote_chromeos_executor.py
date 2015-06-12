@@ -44,12 +44,8 @@ _REMOTE_NACL_HELPER_BINARY = '/opt/google/chrome/nacl_helper'
 _CRYPTOHOME = '/usr/sbin/cryptohome'
 
 _UNNEEDED_PARAM_PREFIXES = (
-    '--ash-default-wallpaper',
-    '--ash-guest-wallpaper',
-    '--device-management-url',
     '--enterprise',
     '--ppapi-flash',
-    '--register-pepper-plugins',
     '--system-developer-mode',
     '--vmodule')
 

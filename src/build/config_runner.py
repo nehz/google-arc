@@ -284,14 +284,43 @@ def _get_cache_file_path(config_name, entry_point):
 
 def _filter_excluded_libs(vars):
   excluded_libs = [
-      'libhardware_legacy',  # Not built
-      # TODO(crbug.com/336316): Build graphics translation as DSO. Currently
-      # it is linked statically to arc.nexe, so such dependencies are removed.
-      'libEGL',              # Provided by libegl.a from graphics translation
-      'libGLESv1_CM',        # Provided by libgles.a from graphics translation
+      'libandroid',          # Added as an archive to plugin
+      'libandroid_runtime',  # Added as an archive to plugin
+      'libaudioutils',       # Converted to an archive
+      'libbinder',           # Added as an archive to plugin
+      'libcamera_client',    # Added as an archive to plugin
+      'libcamera_metadata',  # Added as an archive to plugin
+      'libcutils',           # Added as an archive to plugin
+      'libcorkscrew',        # Added as an archive to plugin
+      'libcrypto',           # Added as an archive to plugin
+      'libcrypto_static',    # Added as an archive to plugin
+      'libdl',               # Provided in Bionic replacement
+      'libdvm',              # Added as an archive to plugin
+      'libEGL',              # Added as an archive to plugin
+      'libeffects',          # Added as an archive to plugin
+      'libemoji',            # Added as an archive to plugin
+      'libETC1',             # Added as an archive to plugin
+      'libexpat',            # Added as an archive to plugin
+      'libexpat_static',     # Added as an archive to plugin
+      'libGLESv1_CM',        # Added as an archive to plugin
       'libGLESv2',           # Not built
+      'libgui',              # Converted to an archive
+      'libhardware',         # Added as an archive to plugin
+      'libharfbuzz_ng',      # Added as an archive to plugin
+      'libhwui',             # Added as an archive to plugin (when enabled)
+      'libinput',            # Added as an archive to plugin
+      'libjpeg',             # Added as an archive to plugin (as libjpeg_static)
+      'liblog',              # Part of libcommon
+      'libmedia',            # Converted to an archive
+      'libskia',             # Added as an archive to plugin
+      'libsonivox',          # Added as an archive to plugin
+      'libsqlite',           # Added as an archive to plugin
+      'libssl',              # Added as an archive to plugin
+      'libssl_static',       # Added as an archive to plugin
       'libstlport',          # Trying to avoid in favor of GLIBC
-      'libsync']             # FD sync is not supported
+      'libsync',             # FD sync is not supported
+      'libui',               # Added as an archive to plugin
+      'libz']                # Added as an archive to plugin
 
   deps = vars.get_shared_deps()
   deps[:] = [x for x in deps if x not in excluded_libs]

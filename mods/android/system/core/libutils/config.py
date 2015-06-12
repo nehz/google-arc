@@ -18,7 +18,7 @@ def _generate_libutils_arc_tests_ninja():
   n.add_compiler_flags('-Werror')
   library_deps = ['libchromium_base.a',  # for libcommon.a etc.
                   'libcommon.a',
-                  'libcutils_static.a',
+                  'libcutils.a',
                   'libgccdemangle_static.a',
                   'libpluginhandle.a',
                   'libunwind_static.a',

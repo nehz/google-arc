@@ -1101,6 +1101,31 @@ def _get_prebuilt_install_type_and_path(vars):
   return prebuilt_for_host, prebuilt_install_path
 
 
+class Flags:
+  """Holds compiler flags to make compiler switch easier."""
+
+  def __init__(self, cflags, conlyflags, cxxflags, ldflags):
+    # TODO(tzik): Add asmflags.
+    self.cflags = list(cflags)
+    self.conlyflags = list(conlyflags)
+    self.cxxflags = list(cxxflags)
+    self.ldflags = list(ldflags)
+
+  @staticmethod
+  def get_flaglist_names():
+    return ['cflags', 'conlyflags', 'cxxflags', 'ldflags']
+
+  def get_flaglists(self):
+    return [self.cflags, self.conlyflags, self.cxxflags, self.ldflags]
+
+  def clone(self):
+    return Flags(*self.get_flaglists())
+
+  def remove(self, *args):
+    for flaglist in self.get_flaglists():
+      flaglist[:] = filter(lambda flag: flag not in args, flaglist)
+
+
 class MakeVars:
   """Encapsulates variables from Android make file."""
 
@@ -1177,18 +1202,19 @@ class MakeVars:
       arch_variant = 'x86'
       arch_bit_variant = '32'
 
-    self._cflags = self._get_build_flags(vars_helper, 'CFLAGS',
-                                         [arch_variant, arch_bit_variant])
-    self._conlyflags = self._get_build_flags(vars_helper, 'CONLYFLAGS',
-                                             [arch_variant])
-    # For consistency with NinjaGenerator, call it cxxflags rather than
-    # cppflags.
-    self._cxxflags = self._get_build_flags(vars_helper, 'CPPFLAGS',
-                                           [arch_variant])
     self._asmflags = self._get_build_flags(vars_helper, 'ASFLAGS',
                                            [arch_bit_variant])
-    self._ldflags = self._get_build_flags(vars_helper, 'LDFLAGS',
-                                          [arch_variant, arch_bit_variant])
+    cflags = self._get_build_flags(vars_helper, 'CFLAGS',
+                                   [arch_variant, arch_bit_variant])
+    conlyflags = self._get_build_flags(vars_helper, 'CONLYFLAGS',
+                                       [arch_variant])
+    # For consistency with NinjaGenerator, call it cxxflags rather than
+    # cppflags.
+    cxxflags = self._get_build_flags(vars_helper, 'CPPFLAGS',
+                                     [arch_variant])
+    ldflags = self._get_build_flags(vars_helper, 'LDFLAGS',
+                                    [arch_variant, arch_bit_variant])
+    self._flags = Flags(cflags, conlyflags, cxxflags, ldflags)
 
     self._includes = vars_helper.get_optional_list(
         'LOCAL_C_INCLUDES', [arch_variant])
@@ -1230,10 +1256,6 @@ class MakeVars:
     self._whole_archive_deps = vars_helper.get_optional_list(
         'LOCAL_WHOLE_STATIC_LIBRARIES', [arch_variant, arch_bit_variant])
     self._shared_deps = vars_helper.get_optional_list('LOCAL_SHARED_LIBRARIES')
-    # liblog can be linked by LOCAL_LDFLAGS instead of LOCAL_SHARED_LIBRARIES.
-    if '-llog' in self._ldflags:
-      self._ldflags.remove('-llog')
-      self._shared_deps.append('liblog')
     self._addld_deps = []
 
     self._implicit_deps = [os.path.join(self._path, x) for x in local_sources
@@ -1263,8 +1285,7 @@ class MakeVars:
       self._is_clang_enabled = False
       self._is_cxx11_enabled = False
     self._is_clang_linker_enabled = False
-    self._is_libcxx_enabled = (
-        '-D_USING_LIBCXX' in self._cflags or 'libc++' in self._shared_deps)
+    self._is_libcxx_enabled = ('-D_USING_LIBCXX' in self._flags.cflags)
 
     if (self.is_target_executable() and
         'tests' in vars_helper.get_optional_list('LOCAL_MODULE_TAGS')):
@@ -1277,14 +1298,7 @@ class MakeVars:
   def _update_flags_for_clang(self):
     # Remove flags that are not supported by clang.
     # See also build/core/clang/{HOST|TARGET}_<arch>.mk.
-    self._cflags = [x for x in self._cflags
-                    if x not in self._clang_incompatible_flags]
-    self._conlyflags = [x for x in self._conlyflags
-                        if x not in self._clang_incompatible_flags]
-    self._cxxflags = [x for x in self._cxxflags
-                      if x not in self._clang_incompatible_flags]
-    self._ldlags = [x for x in self._ldflags
-                    if x not in self._clang_incompatible_flags]
+    self._flags.remove(*self._clang_incompatible_flags)
 
   def _init_java_library(self, vars_helper):
     """Does initialization for jar Java library."""
@@ -1547,24 +1561,21 @@ class MakeVars:
     return self._is_clang_linker_enabled
 
   def _check_flags_unmodified(self):
-    assert self._cflags == self._orig_cflags, (
-        '{disable|enable}_clang() must be called before modifying cflags')
-    assert self._conlyflags == self._orig_conlyflags, (
-        '{disable|enable}_clang() must be called before modifying conlyflags')
-    assert self._cxxflags == self._orig_cxxflags, (
-        '{disable|enable}_clang() must be called before modifying cxxflags')
-    assert self._ldflags == self._orig_ldflags, (
-        '{disable|enable}_clang() must be called before modifying ldflags')
+    orig_flags = self._orig_flags
+    flags = self._flags
+
+    for name, orig, cur in zip(Flags.get_flaglist_names(),
+                               orig_flags.get_flaglists(),
+                               flags.get_flaglists()):
+      assert cur == orig, (
+          '{disable|enable}_clang() must be called before modifying %s' % name)
 
   def disable_clang(self):
     if not self._is_clang_enabled:
       return
     assert self.is_c_library() or self.is_executable()
     self._check_flags_unmodified()
-    self._cflags = list(self._gcc_cflags)
-    self._conlyflags = list(self._gcc_conlyflags)
-    self._cxxflags = list(self._gcc_cxxflags)
-    self._ldflags = list(self._gcc_ldflags)
+    self._flags = self._gcc_flags.clone()
     self._is_clang_enabled = False
 
   def enable_clang(self):
@@ -1604,15 +1615,15 @@ class MakeVars:
 
   def get_cflags(self):
     self._check_c_library_or_executable()
-    return self._cflags
+    return self._flags.cflags
 
   def get_conlyflags(self):
     self._check_c_library_or_executable()
-    return self._conlyflags
+    return self._flags.conlyflags
 
   def get_cxxflags(self):
     self._check_c_library_or_executable()
-    return self._cxxflags
+    return self._flags.cxxflags
 
   def get_asmflags(self):
     self._check_c_library_or_executable()
@@ -1620,7 +1631,7 @@ class MakeVars:
 
   def get_ldflags(self):
     self._check_c_library_or_executable()
-    return self._ldflags
+    return self._flags.ldflags
 
   def get_includes(self):
     self._check_c_library_or_executable()
@@ -1684,14 +1695,16 @@ class MakeVars:
   def remove_c_or_cxxflag(self, flag):
     """Removes all uses of a given C or C++ flag."""
     self._check_c_library_or_executable()
-    for flags in (self._cflags, self._conlyflags, self._cxxflags):
+    for flags in (self._flags.cflags, self._flags.conlyflags,
+                  self._flags.cxxflags):
       while flag in flags:
         flags.remove(flag)
 
   def replace_c_or_cxxflag(self, before, after):
     """Replaces all existing flag |before| with |after| in C or C++ flag."""
     self._check_c_library_or_executable()
-    for flags in (self._cflags, self._conlyflags, self._cxxflags):
+    for flags in (self._flags.cflags, self._flags.conlyflags,
+                  self._flags.cxxflags):
       if before in flags:
         while before in flags:
           flags.remove(before)
@@ -2199,11 +2212,10 @@ def _substitute_android_config_include(vars):
     if not vars.is_host() and OPTIONS.is_arm():
       header_name = '/linux-arm/AndroidConfig.h'
 
-  for i in xrange(len(vars._cflags) - 1):
-    if (vars._cflags[i] == '-include' and
-        vars._cflags[i + 1].endswith(header_name)):
-      vars._cflags[i + 1] = build_common.get_android_config_header(
-          vars.is_host())
+  cflags = vars._flags.cflags
+  for i in xrange(len(cflags) - 1):
+    if (cflags[i] == '-include' and cflags[i + 1].endswith(header_name)):
+      cflags[i + 1] = build_common.get_android_config_header(vars.is_host())
 
 
 def _remove_feature_flags(vars):
@@ -2267,28 +2279,23 @@ def _adjust_arm_flags(vars):
 
 
 def _adjust_target_nacl_common_flags(vars):
-  if not vars.is_clang_enabled():
-    # Remove options that NaCl gcc does not recognize.
-    vars.remove_c_or_cxxflag('-fno-canonical-system-headers')
-    # Replace -std=gnu11, -std=gnu++11, and -std=c++11 flags with -std=gnu0x,
-    # -std=gnu++0x, and -std=c++0x.
-    replace_map = {
-        '-std=gnu11': '-std=gnu0x',
-        '-std=gnu++11': '-std=gnu++0x',
-        '-std=c++11': '-std=c++0x'
-    }
-    for before, after in replace_map.iteritems():
-      vars.replace_c_or_cxxflag(before, after)
-  else:
-    # Remove options that NaCl clang does not recognize.
-    vars.remove_c_or_cxxflag('-no-canonical-prefixes')
+  # Remove options that nacl-gcc and nacl-clang does not recognize.
+  vars.remove_c_or_cxxflag('-fno-canonical-system-headers')
+  # Replace -std=gnu11, -std=gnu++11, and -std=c++11 flags with -std=gnu0x,
+  # -std=gnu++0x, and -std=c++0x.
+  # TODO(tzik): This adjustment is for nacl-gcc, which should not be done here.
+  # Add a separate function to adjust flags for nacl-gcc.
+  replace_map = {
+      '-std=gnu11': '-std=gnu0x',
+      '-std=gnu++11': '-std=gnu++0x',
+      '-std=c++11': '-std=c++0x'
+  }
+  for before, after in replace_map.iteritems():
+    vars.replace_c_or_cxxflag(before, after)
 
 
 def _adjust_target_nacl_i686_flags(vars):
   _adjust_target_nacl_common_flags(vars)
-  if vars.is_clang_enabled():
-    # Remove options that NaCl clang does not recognize.
-    vars.remove_c_or_cxxflag('-march=i686')
 
 
 def _adjust_target_nacl_x86_64_flags(vars):
@@ -2401,20 +2408,14 @@ def _clean_c_library_vars(vars):
     sources[i] = file
 
   # Save flags that may be restored by disable_clang().
-  vars._gcc_cflags = list(vars._cflags)
-  vars._gcc_conlyflags = list(vars._conlyflags)
-  vars._gcc_cxxflags = list(vars._cxxflags)
-  vars._gcc_ldflags = list(vars._ldflags)
+  vars._gcc_flags = vars._flags.clone()
 
   if vars.is_clang_enabled():
     vars._update_flags_for_clang()
 
   # Keep the original cflags to make sure cflags is not modified
   # before vars.disable_clang() is called.
-  vars._orig_cflags = list(vars._cflags)
-  vars._orig_conlyflags = list(vars._conlyflags)
-  vars._orig_cxxflags = list(vars._cxxflags)
-  vars._orig_ldflags = list(vars._ldflags)
+  vars._orig_flags = vars._flags.clone()
 
 
 def _clean_package_vars(vars):
@@ -2685,6 +2686,10 @@ class MakefileNinjaTranslator:
 
 def run(path):
   MakefileNinjaTranslator(path).generate(Filters.exclude_executables)
+
+
+def run_for_static(path):
+  MakefileNinjaTranslator(path).generate(Filters.convert_to_static_lib)
 
 
 def run_for_c(path):

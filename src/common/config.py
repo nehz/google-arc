@@ -44,6 +44,13 @@ def _get_wrapped_functions_cc(ninja):
       script_name='gen_wrapped_functions_cc.py')
 
 
+def _get_android_static_libraries_cc(ninja):
+  return _get_generated_file(
+      ninja,
+      out_name='android_static_libraries.cc',
+      script_name='gen_android_static_libraries_cc.py')
+
+
 def _get_real_syscall_aliases_s(ninja):
   return _get_generated_file(
       ninja,
@@ -93,7 +100,8 @@ def _generate_libcommon_ninja(
 
 def _generate_libcommon_ninjas():
   n = ninja_generator.NinjaGenerator('libcommon_gen_sources')
-  extra_sources = [_get_wrapped_functions_cc(n)]
+  extra_sources = [_get_wrapped_functions_cc(n),
+                   _get_android_static_libraries_cc(n)]
   _generate_libcommon_ninja(module_name='libcommon',
                             instances=1,
                             enable_libcxx=False,

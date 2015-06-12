@@ -1,0 +1,84 @@
+[
+  {
+    "name": "allowEmptyActivityStack",
+    "defaultValue": false,
+    "help": "Stop ARC from quiting if the ActivityStack becomes empty.",
+    "developerOnly": true,
+    "noPlugin": true
+  },
+  {
+    "name": "disableAutoBackButton",
+    "defaultValue": false,
+    "help": "Disables automatic enabling/disabling of the back button based on the Activity stack.",
+    "developerOnly": true,
+    "noPlugin": true
+  },
+  {
+    "name": "disableHeartbeat",
+    "defaultValue": false,
+    "help": "Disable the watchdog that will otherwise detect a runtime hang when the system is stopped.",
+    "developerOnly": true,
+    "noPlugin": true
+  },
+  {
+    "name": "enableAdb",
+    "defaultValue": false,
+    "help": "Start adbd allowing adb clients to connect.",
+    "developerOnly": true
+  },
+  {
+    "name": "enableExternalDirectory",
+    "defaultValue": false,
+    "help": "Chrome will prompt the user to give the app access to a system directory."
+  },
+  {
+    "name": "formFactor",
+    "defaultValue": "phone",
+    "allowedValues": ["fullscreen", "maximized", "phone", "tablet"],
+    "shortOptionName": "f",
+    "shortValueMapping": {
+      "m": "maximized",
+      "p": "phone",
+      "t": "tablet"
+    },
+    "help": "Determines the dimentions of the application window as well as the sf.lcd_density property.",
+    "noPlugin": true
+  },
+  {
+    "name": "fpsLimit",
+    "defaultValue": 60,
+    "allowedValues": [1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60],
+    "help": "Limit the maximum frames per second the app's screen will repaint."
+  },
+  {
+    "name": "ndkAbi",
+    "defaultValue": "",
+    "allowedValues": ["", "armeabi", "armeabi-v7a", "x86"],
+    "help": "Set ABI for NDK libraries. By default we search for armeabi-v7a library and fall back to armeabi"
+  },
+  {
+    "name": "orientation",
+    "defaultValue": "portrait",
+    "allowedValues": ["landscape", "portrait"],
+    "shortOptionName": "o",
+    "shortValueMapping": {
+      "l": "landscape",
+      "p": "portrait"
+    },
+    "help": "Set the orientation of the window.",
+    "noPlugin": true
+  },
+  {
+    "name": "resize",
+    "defaultValue": "disabled",
+    "allowedValues": ["disabled", "reconfigure", "scale"],
+    "help": "Controls the behavior of app/window resizing.",
+    "noPlugin": true
+  },
+  {
+    "name": "stderrLog",
+    "defaultValue": "S",
+    "allowedValues": ["V", "D", "I", "W", "E", "F", "S"],
+    "help": "Minimum console log priority. In order of most to least output: Verbose, Debug, Info, Warning, Error, Fatal, Silent. Defaults to warning."
+  }
+]

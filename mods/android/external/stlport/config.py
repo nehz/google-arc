@@ -62,6 +62,8 @@ _EXCLUDE_TESTS = [
 
 def generate_ninjas():
   def _filter(vars):
+    if vars.is_static():
+      return False
     # Android uses two different C++ libraries: bionic's libstdc++ (instead of
     # GCC's libstdc++) and clang's libc++ (only for ART and a few other
     # libraries). STLport does not have compiler dependent functions (functions
@@ -79,19 +81,18 @@ def generate_ninjas():
     # This is necessary to use atomic operations in bionic. 1 indicates
     # compilation for symmetric multi-processor (0 for uniprocessor).
     vars.get_cflags().append('-DANDROID_SMP=1')
-    if vars.is_shared():
-      # This is for not emitting syscall wrappers.
-      vars.get_shared_deps().extend(['libc', 'libm'])
-      # Note: libstlport.so must be a system library because other system
-      # libraries such as libchromium_ppapi.so and libposix_translation.so
-      # depend on it. We already have some ARC MODs against STLPort to make
-      # it work without --wrap, and the cost of maintaining the MODs seems
-      # very low because STLPort is not under active development anymore.
-      vars.get_generator_args()['is_system_library'] = True
-      # TODO(crbug.com/364344): Once Renderscript is built from source, this
-      # canned install can be removed.
-      if not build_common.use_ndk_direct_execution():
-        vars.set_canned(True)
+    # This is for not emitting syscall wrappers.
+    vars.get_shared_deps().extend(['libc', 'libm'])
+    # Note: libstlport.so must be a system library because other system
+    # libraries such as libchromium_ppapi.so and libposix_translation.so
+    # depend on it. We already have some ARC MODs against STLPort to make
+    # it work without --wrap, and the cost of maintaining the MODs seems
+    # very low because STLPort is not under active development anymore.
+    vars.get_generator_args()['is_system_library'] = True
+    # TODO(crbug.com/364344): Once Renderscript is built from source, this
+    # canned install can be removed.
+    if not build_common.use_ndk_direct_execution():
+      vars.set_canned(True)
     return True
   MakefileNinjaTranslator(_STLPORT_ROOT).generate(_filter)
 

@@ -134,13 +134,6 @@ def _get_ssh_control_path():
   return os.path.join(_get_temp_dir(), _TEMP_SSH_CONTROL_PATH)
 
 
-def _create_file_list(files):
-  file_list = file_util.create_tempfile_deleted_at_exit()
-  with open(file_list.name, 'w') as f:
-    f.write('\n'.join(files))
-  return file_list
-
-
 def get_remote_binaries_dir():
   """Gets a directory for storing remote binaries like nacl_helper."""
   path = os.path.join(_get_temp_dir(), _TEMP_REMOTE_BINARIES_DIR)
@@ -197,7 +190,7 @@ class RemoteExecutor(object):
       remote_file_pattern = '{%s}' % remote_file_pattern
     scp.append('%s@%s:%s' % (self._user, self._remote, remote_file_pattern))
     scp.append(local_dir)
-    run_command(scp)
+    _run_command(subprocess.check_call, scp)
 
   def set_enable_pseudo_tty(self, enabled):
     original_value = self._enable_pseudo_tty
@@ -236,8 +229,6 @@ class RemoteExecutor(object):
       pattern_list.extend(['--include', path])
     pattern_list.extend(['--exclude', '*'])
 
-    rsh = ' '.join(['ssh'] + self._build_shared_ssh_command_options())
-    rsync = ['rsync', '-e', rsh]
     rsync_options = [
         # The remote files need to be writable and executable by chronos. This
         # option sets read, write, and execute permissions to all users.
@@ -249,7 +240,9 @@ class RemoteExecutor(object):
         '--perms',
         '--progress',
         '--recursive',
-        '--times']
+        '--rsh=' + ' '.join(['ssh'] + self._build_shared_ssh_command_options()),
+        '--times',
+    ]
     dest = '%s@%s:%s' % (self._user, self._remote, remote_dst)
     # Checks both whether to enable debug info and the existence of the stripped
     # directory because build bots using test bundle may use the configure
@@ -257,41 +250,44 @@ class RemoteExecutor(object):
     # stripped directory.
     if (not OPTIONS.is_debug_info_enabled() or
         not os.path.exists(build_common.get_stripped_dir())):
-      cmd = rsync + pattern_list + ['.', dest] + rsync_options
-      run_command(cmd)
+      _run_command(subprocess.check_call,
+                   ['rsync'] + pattern_list + ['.', dest] + rsync_options)
       return
 
     # When debug info is enabled, copy the corresponding stripped binaries if
     # available to save the disk space on ChromeOS.
-    cmd = rsync + pattern_list + ['.', dest] + rsync_options + ['--list-only']
-    list_output = subprocess.check_output(cmd).splitlines()
-    paths = [line.rsplit(' ', 1)[-1] for line in list_output[1:]]
+    list_output = _run_command(
+        subprocess.check_output,
+        ['rsync'] + pattern_list + ['.', dest] + rsync_options +
+        ['--list-only'])
+    paths = [line.rsplit(' ', 1)[-1] for line in list_output.splitlines()[1:]]
 
     stripped_binaries, others = self._split_stripped_binaries(paths)
 
-    # Write the files list into a file because the list is too large to pass as
-    # the command line arguments.
-    other_list = _create_file_list(others)
-    cmd = rsync + ['--files-from=' + other_list.name, '.', dest] + rsync_options
-    run_command(cmd)
+    # Send the file list via stdin.
+    logging.debug('rsync others: %s', ', '.join(others))
+    _run_command(_check_call_with_input,
+                 ['rsync', '--files-from=-', '.', dest] + rsync_options,
+                 input='\n'.join(others))
 
-    dest_stripped = os.path.join(dest, build_common.get_build_dir())
+    logging.debug('rsync stripped binaries: %s', ', '.join(stripped_binaries))
+    dest_build = os.path.join(dest, build_common.get_build_dir())
     # rsync results in error if the parent directory of the destination
     # directory does not exist, so ensure it exists.
-    self.run('mkdir -p ' + dest_stripped.rsplit(':', 1)[-1])
-    stripped_bynary_list = _create_file_list(stripped_binaries)
-    cmd = rsync + ['--files-from=' + stripped_bynary_list.name,
-                   build_common.get_stripped_dir(),
-                   dest_stripped] + rsync_options
-    run_command(cmd)
+    self.run('mkdir -p ' + dest_build.rsplit(':', 1)[-1])
+    _run_command(_check_call_with_input,
+                 ['rsync', '--files-from=-', build_common.get_stripped_dir(),
+                  dest_build] + rsync_options,
+                 input='\n'.join(stripped_binaries))
 
   def run(self, cmd, ignore_failure=False, cwd=None):
     """Runs the command on remote host via ssh command."""
     if cwd is None:
       cwd = self.get_remote_arc_root()
     cmd = 'cd %s && %s' % (cwd, cmd)
-    return run_command(self._build_ssh_command(cmd),
-                       ignore_failure=ignore_failure)
+    return _run_command(
+        subprocess.call if ignore_failure else subprocess.check_call,
+        self._build_ssh_command(cmd))
 
   def run_commands(self, commands, cwd=None):
     return self.run(' && '.join(commands), cwd)
@@ -317,9 +313,8 @@ class RemoteExecutor(object):
 
   def run_command_for_output(self, cmd):
     """Runs the command on remote host and returns stdout as a string."""
-    full_cmd = self._build_ssh_command(cmd)
-    logging.info('%s', logging_util.format_commandline(cmd))
-    return subprocess.check_output(full_cmd)
+    return _run_command(subprocess.check_output,
+                        self._build_ssh_command(cmd))
 
   def _build_shared_command_options(self, port_option='-p'):
     """Returns command options shared among ssh and scp."""
@@ -391,10 +386,34 @@ class RemoteExecutor(object):
     return stripped_binaries, others
 
 
-def run_command(cmd, ignore_failure=False):
-  logging.info('%s', logging_util.format_commandline(cmd))
-  call_func = subprocess.call if ignore_failure else subprocess.check_call
-  return call_func(cmd)
+def _get_command(*args, **kwargs):
+  """Returns command line from Popen's arguments."""
+  command = kwargs.get('args')
+  if command is not None:
+    return command
+  return args[0]
+
+
+def _check_call_with_input(*args, **kwargs):
+  """Works as subprocess.check_call(), but can send to it |input| via stdin."""
+  if 'input' not in kwargs:
+    return subprocess.check_call(*args, **kwargs)
+
+  if 'stdin' in kwargs:
+    raise ValueError('stdin and input are not allowed at once.')
+  inputdata = kwargs.pop('input')
+  process = subprocess.Popen(stdin=subprocess.PIPE, *args, **kwargs)
+  process.communicate(inputdata)
+  retcode = process.poll()
+  if retcode:
+    raise subprocess.CalledProcessError(retcode, _get_command(*args, **kwargs))
+  return 0
+
+
+def _run_command(func, *args, **kwargs):
+  logging.info(
+      '%s', logging_util.format_commandline(_get_command(*args, **kwargs)))
+  return func(*args, **kwargs)
 
 
 def run_command_with_filter(cmd, output_handler):

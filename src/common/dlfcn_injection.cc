@@ -14,6 +14,7 @@
 #include "base/containers/hash_tables.h"
 #include "base/strings/string_split.h"
 #include "common/alog.h"
+#include "common/android_static_libraries.h"
 #include "common/ndk_support/mmap.h"
 #include "common/ndk_support/syscall.h"
 #include "common/wrapped_functions.h"
@@ -59,13 +60,13 @@ void InitDlfcnInjection() {
       LOG_ALWAYS_FATAL("Duplicated symbol: %s", p->name);
   }
 
-  // TODO(crbug.com/336316): Build graphics translation as DSO. Currently
-  // it is linked statically to arc.nexe, so we need special handling of related
-  // DSOs.
   g_android_library_names = new LibraryNameSet();
-  g_android_library_names->insert("libEGL.so");
-  g_android_library_names->insert("libGLESv1_CM.so");
-  g_android_library_names->insert("libGLESv2.so");
+  for (const char** p = kAndroidStaticLibraries; *p; p++) {
+    // Append ".so" as their shared object versions will be queried.
+    const char* kSoSuffix = ".so";
+    if (!g_android_library_names->insert(std::string(*p) + kSoSuffix).second)
+      LOG_ALWAYS_FATAL("Duplicated library name: %s", *p);
+  }
 
 #if !defined(__native_client__)
   // Redirect syscall() libc calls to posix_translation when necessary.
