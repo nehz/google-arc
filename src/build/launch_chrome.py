@@ -562,12 +562,14 @@ def _select_output_handler(parsed_args, stats, chrome_process, **kwargs):
 
   handler = output_handler.CrashAddressFilter(handler)
 
-  if parsed_args.jdb_port:
-    handler = jdb_util.JdbHandlerAdapter(
-        handler, parsed_args.jdb_port, parsed_args.jdb_type)
-
   if not platform_util.is_running_on_remote_host():
+    # Filters that need to run on local host.
+    # See remote_executor_util.run_with_filter
     handler = minidump_filter.MinidumpFilter(handler)
+
+    if parsed_args.jdb_port:
+      handler = jdb_util.JdbHandlerAdapter(
+          handler, parsed_args.jdb_port, parsed_args.jdb_type)
 
   if parsed_args.chrome_flakiness_retry:
     handler = output_handler.ChromeFlakinessHandler(handler, chrome_process)

@@ -21,6 +21,7 @@ from build_options import OPTIONS
 from util import concurrent_subprocess
 from util import file_util
 from util import gdb_util
+from util import jdb_util
 from util import logging_util
 from util.minidump_filter import MinidumpFilter
 from util.test import unittest_util
@@ -97,7 +98,7 @@ _UNIT_TEST_FILE_PATTERNS = [
     'out/target/%(target)s/test',
     'out/target/%(target)s/unittest_info']
 
-# Flags to launch Chrome on remote host.
+# Flags to remove when launching Chrome on remote host.
 _REMOTE_FLAGS = ['--nacl-helper-binary', '--remote', '--ssh-key']
 
 
@@ -144,7 +145,8 @@ def get_remote_binaries_dir():
 class RemoteExecutor(object):
   def __init__(self, user, remote, remote_env=None, ssh_key=None,
                enable_pseudo_tty=False, attach_nacl_gdb_type=None,
-               nacl_helper_binary=None, arc_dir_name=None):
+               nacl_helper_binary=None, arc_dir_name=None,
+               jdb_port=None, jdb_type=None):
     self._user = user
     self._remote_env = remote_env or {}
     if not ssh_key:
@@ -161,6 +163,8 @@ class RemoteExecutor(object):
     self._attach_nacl_gdb_type = attach_nacl_gdb_type
     self._nacl_helper_binary = nacl_helper_binary
     self._arc_dir_name = arc_dir_name or 'arc'
+    self._jdb_port = jdb_port
+    self._jdb_type = jdb_type
     if ':' in remote:
       self._remote, self._port = remote.split(':')
     else:
@@ -280,6 +284,17 @@ class RemoteExecutor(object):
                   dest_build] + rsync_options,
                  input='\n'.join(stripped_binaries))
 
+  def port_forward(self, port):
+    """Uses ssh to forward a remote port to local port so that remote service
+    listening to localhost only can be reached."""
+    return _run_command(
+        subprocess.call,
+        self._build_ssh_command(
+            # Something that waits until connection is established and
+            # terminates.
+            "sleep 3",
+            extra_options=['-L', '{port}:localhost:{port}'.format(port=port)]))
+
   def run(self, cmd, ignore_failure=False, cwd=None):
     """Runs the command on remote host via ssh command."""
     if cwd is None:
@@ -307,7 +322,9 @@ class RemoteExecutor(object):
             handler, self._nacl_helper_binary,
             self._attach_nacl_gdb_type, host=self._remote,
             ssh_options=self.get_ssh_options())
-
+    if self._jdb_type and self._jdb_port:
+      handler = jdb_util.JdbHandlerAdapter(
+          handler, self._jdb_port, self._jdb_type, self)
     return run_command_with_filter(self._build_ssh_command(cmd),
                                    output_handler=handler)
 
@@ -342,9 +359,10 @@ class RemoteExecutor(object):
     result.append('-t' if self._enable_pseudo_tty else '-T')
     return result
 
-  def _build_ssh_command(self, cmd):
+  def _build_ssh_command(self, cmd, extra_options=[]):
     ssh_cmd = (['ssh', '%s@%s' % (self._user, self._remote)] +
-               self._build_shared_ssh_command_options() + ['--', cmd])
+               self._build_shared_ssh_command_options() +
+               extra_options + ['--', cmd])
     return ssh_cmd
 
   def _build_rsync_include_pattern_list(self, path_list):

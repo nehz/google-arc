@@ -33,16 +33,20 @@ class JdbHandlerAdapter(concurrent_subprocess.DelegateOutputHandlerBase):
   _WAITING_JDB_CONNECTION_PATTERN = re.compile(
       r'Hello ARC, start jdb please at port (\d+)')
 
-  def __init__(self, base_handler, jdb_port, jdb_type):
+  def __init__(self, base_handler, jdb_port, jdb_type, remote_executor=None):
     super(JdbHandlerAdapter, self).__init__(base_handler)
     self._jdb_port = jdb_port
     self._jdb_type = jdb_type
+    self._remote_executor = remote_executor
 
   def handle_stderr(self, line):
     super(JdbHandlerAdapter, self).handle_stderr(line)
 
     if not JdbHandlerAdapter._WAITING_JDB_CONNECTION_PATTERN.search(line):
       return
+
+    if self._remote_executor:
+      self._remote_executor.port_forward(self._jdb_port)
 
     if self._jdb_type == 'emacsclient':
       self._start_emacsclient_jdb()
@@ -59,6 +63,7 @@ class JdbHandlerAdapter(concurrent_subprocess.DelegateOutputHandlerBase):
       ])
     command = [
         'emacsclient', '-e',
-        '(jdb "jdb -attach localhost:%d -sourcepath%s")' %
-        (self._jdb_port, ':'.join(source_paths))]
+        '(jdb "jdb -attach localhost:{port} -sourcepath{path}")'.format(
+            port=self._jdb_port,
+            path=':'.join(source_paths))]
     subprocess.Popen(command)

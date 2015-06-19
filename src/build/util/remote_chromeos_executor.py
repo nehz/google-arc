@@ -72,12 +72,13 @@ def _get_exec_patterns():
 
 def _create_remote_executor(parsed_args, enable_pseudo_tty=False,
                             attach_nacl_gdb_type=None, nacl_helper_binary=None,
-                            arc_dir_name=None):
+                            arc_dir_name=None, jdb_port=None, jdb_type=None):
   return remote_executor_util.RemoteExecutor(
       'root', parsed_args.remote, remote_env=_REMOTE_ENV,
       ssh_key=parsed_args.ssh_key, enable_pseudo_tty=enable_pseudo_tty,
       attach_nacl_gdb_type=attach_nacl_gdb_type,
-      nacl_helper_binary=nacl_helper_binary, arc_dir_name=arc_dir_name)
+      nacl_helper_binary=nacl_helper_binary, arc_dir_name=arc_dir_name,
+      jdb_port=jdb_port, jdb_type=jdb_type)
 
 
 def _get_param_name(param):
@@ -208,6 +209,8 @@ def launch_remote_chrome(parsed_args, argv):
     attach_nacl_gdb_type = None
     nacl_helper_binary = None
     need_copy_nacl_helper_binary = False
+    jdb_port = None
+    jdb_type = None
 
     if 'plugin' in parsed_args.gdb:
       attach_nacl_gdb_type = parsed_args.gdb_type
@@ -221,10 +224,15 @@ def launch_remote_chrome(parsed_args, argv):
               os.path.basename(_REMOTE_NACL_HELPER_BINARY))
           need_copy_nacl_helper_binary = True
 
+    if 'jdb_port' in vars(parsed_args) and 'jdb_type' in vars(parsed_args):
+      jdb_port = parsed_args.jdb_port
+      jdb_type = parsed_args.jdb_type
+
     executor = _create_remote_executor(
         parsed_args, attach_nacl_gdb_type=attach_nacl_gdb_type,
         nacl_helper_binary=nacl_helper_binary,
-        arc_dir_name=parsed_args.remote_arc_dir_name)
+        arc_dir_name=parsed_args.remote_arc_dir_name,
+        jdb_port=jdb_port, jdb_type=jdb_type)
 
     copied_files = remote_executor_util.get_launch_chrome_files_and_directories(
         parsed_args)
