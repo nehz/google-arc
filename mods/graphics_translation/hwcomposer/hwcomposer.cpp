@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cutils/properties.h>
 #include <gralloc/gralloc.h>
 #include <hardware/hwcomposer.h>
 #include <utils/Errors.h>
@@ -91,18 +90,6 @@ static FloatRect MakeFloatRect(const hwc_frect_t& in) {
 static Rect MakeRect(const hwc_rect_t& in) {
   const Rect r = { in.left, in.top, in.right, in.bottom };
   return r;
-}
-
-static int GetDisplayDensity() {
-  // TODO(crbug.com/459280): Get this information from the RenderParams.
-  char property[PROPERTY_VALUE_MAX];
-  int density = 120;
-  if (property_get("ro.sf.lcd_density", property, NULL)) {
-    density = atoi(property);
-  } else {
-    ALOGE("hwcomposer: could not read lcd_density");
-  }
-  return 1000 * density;
 }
 
 static void UpdateLayer(Layer* layer, hwc_layer_1_t* hw_layer) {
@@ -294,15 +281,12 @@ static int hwc_get_display_attributes(hwc_composer_device_1* dev,
   arc::PluginHandle handle;
   arc::RendererInterface::RenderParams params;
   handle.GetRenderer()->GetRenderParams(&params);
-  const int density = GetDisplayDensity();
 
   hwc_context_t* context = reinterpret_cast<hwc_context_t*>(dev);
   while (*attributes != HWC_DISPLAY_NO_ATTRIBUTE) {
     switch (*attributes) {
       case HWC_DISPLAY_VSYNC_PERIOD:
-        // TODO(crbug.com/459280): Get this information from the RenderParams.
-        *values =
-            static_cast<int32_t>(1e9 / arc::Options::GetInstance()->fps_limit);;
+        *values = params.vsync_period;
         break;
       case HWC_DISPLAY_WIDTH:
         *values = params.width;
@@ -311,10 +295,10 @@ static int hwc_get_display_attributes(hwc_composer_device_1* dev,
         *values = params.height;
         break;
       case HWC_DISPLAY_DPI_X:
-        *values = density;
+        *values = 1000 * params.display_density;
         break;
       case HWC_DISPLAY_DPI_Y:
-        *values = density;
+        *values = 1000 * params.display_density;
         break;
       default:
         ALOGE("Unknown attribute value 0x%02x", *attributes);

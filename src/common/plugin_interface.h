@@ -118,6 +118,8 @@ class RendererInterface {
     RenderParams()
         : width(0),
           height(0),
+          display_density(0),
+          vsync_period(0),
           device_render_to_view_pixels(0.f),
           crx_render_to_view_pixels(0.f) {
     }
@@ -126,6 +128,10 @@ class RendererInterface {
     int width;
     // Width of display in actual pixels.
     int height;
+    // Device display density.
+    int display_density;
+    // Vsync period.
+    int vsync_period;
     // Device scale from device independent pixels to actual pixels.
     float device_render_to_view_pixels;
     // Like crx_render_to_view_pixels, controls the size of the

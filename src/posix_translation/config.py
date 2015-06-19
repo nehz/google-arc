@@ -237,7 +237,8 @@ def generate_test_ninjas():
   # Setting instance count is zero because usage count verifier doesn't check
   # the reference from test executable. See verify_usage_counts in
   # ninja_generator.py
-  n = ArchiveNinjaGenerator('mock_posix_translation', instances=0)
+  n = ArchiveNinjaGenerator('mock_posix_translation', instances=0,
+                            force_compiler='clang', enable_cxx11=True)
   n.add_libchromium_base_compile_flags()
   n.add_compiler_flags('-Werror')
   all_files = ['src/posix_translation/test_util/mock_virtual_file_system.cc']

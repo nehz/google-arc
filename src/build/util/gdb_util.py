@@ -201,7 +201,8 @@ Then, set breakpoints as you like and start debugging by
 def _launch_nacl_gdb(gdb_type, nacl_irt_path, host, port):
   if host is None:
     host = ''
-  nmf = os.path.join(build_common.get_runtime_out_dir(), 'arc.nmf')
+  nmf = os.path.join(build_common.get_runtime_out_dir(),
+                     'arc_' + OPTIONS.target() + '.nmf')
   assert os.path.exists(nmf), (
       nmf + ' not found, you will have a bad time debugging')
 

@@ -105,11 +105,10 @@ int GetDeviceAttribute(DeviceAttrib attrib) {
       return params.width;
     case kDeviceHeight:
       return params.height;
-    // TODO(crbug.com/441927): Figure out if these values are correct.
     case kDeviceDpi:
-      return 72;
+      return params.display_density;
     case kDeviceFps:
-      return 60;
+      return params.vsync_period;
   }
   LOG_ALWAYS_FATAL("Unknown attrib: %d", attrib);
   return 0;

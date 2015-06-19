@@ -478,7 +478,7 @@ class NinjaGenerator(ninja_syntax.Writer):
     if OPTIONS.is_bare_metal_build() or target == 'host':
       # We intentionally do not set --thread flag of gold. This
       # feature seems to be flaky for us. See crbug.com/366358
-      flags.extend(['-Bthird_party/gold', '-fuse-ld=gold'])
+      flags.extend(['-fuse-ld=gold'])
     if target == 'host':
       flags.extend(['-lpthread', '-ldl', '-lrt'])
     else:
@@ -976,7 +976,11 @@ class CNinjaGenerator(NinjaGenerator):
 
     if enable_cxx11:
       # TODO(crbug.com/487964): Enable C++11 by default.
+      gcc_version = toolchain.get_gcc_version(
+          'host' if self._is_host else OPTIONS.target())
+      assert self._enable_clang or gcc_version >= [4, 7, 0]
       self.add_cxx_flags('-std=gnu++11')
+
     # We need 4-byte alignment to pass host function pointers to arm code.
     if (not self._is_host and not OPTIONS.is_nacl_build() and
         not self._enable_clang):
@@ -2383,7 +2387,9 @@ class NoticeNinjaGenerator(NinjaGenerator):
              n._module_name, notices.get_most_restrictive_license_kind()))
       notices.add_notices(included_notices)
       queue.extend(included_ninja.get_included_module_names())
-    notice_files = list(notices.get_notice_files())
+    # Note: We sort the notices file list so the generated output is consistent,
+    # and diff_ninjas can be used.
+    notice_files = sorted(notices.get_notice_files())
     assert notice_files, 'Ninja %s has no associated NOTICE' % n._ninja_name
     notices_install_path = n.get_notices_install_path()
     notice_path = os.path.join(notice_files_dir, notices_install_path)

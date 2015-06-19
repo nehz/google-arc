@@ -124,7 +124,7 @@ def _validate_debug_modes(parser, args):
     debug_modes.append('gdb')
   if args.perfstartup:
     debug_modes.append('perfstartup')
-  if args.javatracestartup:
+  if args.java_trace_startup:
     debug_modes.append('javatracestartup')
   if args.tracestartup:
     debug_modes.append('tracestartup')
@@ -377,14 +377,6 @@ Native Client Debugging
                       'run_integration_tests to isolate each test. '
                       'The basename of APK will be used if not specified.')
 
-  parser.add_argument('--disable-compositor', action='store_false',
-                      dest='enable_compositor', default=None,
-                      help='Enable the pepper compositor.')
-
-  parser.add_argument('--disable-gl-fixed-attribs', action='store_true',
-                      default=None,
-                      help='Disable support for GL_FIXED attributes.')
-
   parser.add_argument('--disable-nacl-sandbox', action='store_true',
                       help='Disable NaCl sandbox.')
 
@@ -396,21 +388,11 @@ Native Client Debugging
   parser.add_argument('--dogfood-metadata', '-D', action='store_true',
                       help='Use dogfood metadata settings to start this app')
 
-  parser.add_argument('--enable-arc-strace', action='store_true',
-                      default=None,
-                      help='Enable builtin strace-like tracer of ARC '
-                      '(output to --arc-strace-output).')
-
   parser.add_argument('--enable-fake-video-source', action='store_true',
                       help='Enable a fake video source for testing')
 
   parser.add_argument('--enable-nacl-list-mappings', action='store_true',
                       help='Enable the nacl_list_mappings call.')
-
-  parser.add_argument('--enable-synthesize-touch-events-on-click',
-                      action='store_true', default=None,
-                      help='Synthesize touch events from mouse clicks and '
-                      'drags.')
 
   parser.add_argument('--enable-osmesa', action='store_true', default=None,
                       help='Enable GL emulation with OSMesa.')
@@ -439,11 +421,6 @@ Native Client Debugging
                       'plugin page <N> times and prints average stats. '
                       'Starts counting after warmup iterations.')
 
-  parser.add_argument('--javatracestartup', type=int, metavar='<N>',
-                      help='Start the Java VM with '
-                      'android.os.debug.startMethodTracing and collect data '
-                      'for the first <N> seconds.')
-
   parser.add_argument('--jdb', dest='jdb_port', action='store_const',
                       default=None, const=8000,
                       help='Wait for a JDWP compliant debugger (such as jdb '
@@ -461,24 +438,9 @@ Native Client Debugging
                       'and it will be automatically connected to debugger. '
                       'Implies --jdb.')
 
-  parser.add_argument('--jdb-port', dest='jdb_port', metavar='<port>',
-                      type=int, default=8000,
-                      help='Port to use for the JDWP debugger. The default is '
-                      '8000. Implies --jdb.')
-
   parser.add_argument('--logcat', dest='logcat', metavar='[filterspecs]',
                       type=str, nargs='+', default=None,
                       help='Execute adb logcat with given filtersepcs.')
-
-  parser.add_argument('--log-load-progress', action='store_true', default=None,
-                      help='Log asset and class accesses')
-
-  parser.add_argument('--minimum-launch-delay', type=int, default=None,
-                      metavar='<T>',
-                      help='Specifies delay in milliseconds for launching the '
-                      'app. If set, chrome.app.runtime.onLaunched handler '
-                      'does not create a window for the app until the '
-                      'specified time passes.')
 
   parser.add_argument('--nacl-helper-binary', metavar='<path>',
                       help='The path to nacl_helper binary. This option is '
@@ -535,11 +497,6 @@ Native Client Debugging
                       help='Works with atftest, system and perftest commands '
                       'only.  Specifies timeout for running test in seconds. '
                       'Default is ' + str(_DEFAULT_TIMEOUT) + ' sec.')
-
-  parser.add_argument('--disable-sleep-on-blur', action='store_false',
-                      default=None, dest='sleep_on_blur',
-                      help='Track app window focus and stop updating screen '
-                      'if the app is not focused.')
 
   parser.add_argument('--tracestartup', type=int, metavar='<N>',
                       help='Trace from browser startup (the first <N> '

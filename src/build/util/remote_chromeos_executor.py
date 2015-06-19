@@ -6,6 +6,7 @@
 # device.
 
 import atexit
+import errno
 import os
 import re
 import subprocess
@@ -160,7 +161,11 @@ def _setup_remote_profile(executor, user):
 
 
 def _restore_remote_processes(executor):
-  print 'Restarting remote UI...'
+  try:
+    print 'Restarting remote UI...'
+  except IOError:
+    # Still try to restart the remote UI even if stdout has closed.
+    pass
   # Allow session_manager to restart Chrome and do restart.
   executor.run('rm -f %s %s && restart ui' % (_DISABLE_CHROME_RESTART_FILE,
                                               _CHROME_COMMAND_LINE_FILE))
@@ -296,14 +301,26 @@ def extend_chrome_params(parsed_args, params):
     # screen, which is the default ash host window size on Chrome OS. In order
     # to workaround this issue, show the ash host window in the size 1 pixel
     # wider than the original screen size.
+    # Newer Chromebooks run without X and don't need this workaround.
     # TODO(crbug.com/314050): Remove the workaround once the upstream issue is
-    # fixed.
-    output = subprocess.check_output(['xdpyinfo', '-display', ':0.0'])
-    m = re.search(r'dimensions: +([0-9]+)x([0-9]+) pixels', output)
-    if not m:
-      raise Exception('Cannot get the screen size')
-    width, height = int(m.group(1)) + 1, int(m.group(2))
-    params.append('--ash-host-window-bounds=0+0-%dx%d' % (width, height))
+    # fixed, or all supported Chromebooks stop using X.
+
+    try:
+      output = subprocess.check_output(['xdpyinfo', '-display', ':0.0'])
+      m = re.search(r'dimensions: +([0-9]+)x([0-9]+) pixels', output)
+      if not m:
+        raise Exception('Cannot get the screen size')
+      width, height = int(m.group(1)) + 1, int(m.group(2))
+      params.append('--ash-host-window-bounds=0+0-%dx%d' % (width, height))
+    except OSError as e:
+      # Ignore the error on missing xdpyinfo assuming the Chromebook runs
+      # without X.
+      if e.errno != errno.ENOENT:
+        raise
+    except subprocess.CalledProcessError:
+      # Ignore the error on calling xdpyinfo assuming the Chromebook runs
+      # without X.
+      pass
 
   assert os.path.exists(_CHROME_COMMAND_LINE_FILE), (
       '%s does not exist.' % _CHROME_COMMAND_LINE_FILE)

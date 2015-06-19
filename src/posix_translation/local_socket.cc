@@ -17,14 +17,16 @@
 
 namespace posix_translation {
 
+// 224K is the default SO_SNDBUF/SO_RCVBUF in the linux kernel.
+static const int kBufferSize = 224*1024;
+
 LocalSocket::LocalSocket(int oflag, int socket_type,
                          StreamDir stream_dir)
     : SocketStream(AF_UNIX, oflag), socket_type_(socket_type),
       connect_state_(SOCKET_NEW), stream_dir_(stream_dir),
       connection_backlog_(0) {
-  // 224K is the default SO_SNDBUF/SO_RCVBUF in the linux kernel.
   if (socket_type == SOCK_STREAM && stream_dir != WRITE_ONLY)
-    buffer_.set_capacity(224*1024);
+    buffer_.set_capacity(kBufferSize);
   my_cred_.pid = arc::ProcessEmulator::GetPid();
   my_cred_.uid = arc::ProcessEmulator::GetUid();
   my_cred_.gid = my_cred_.uid;
@@ -324,6 +326,7 @@ int LocalSocket::recvmsg(struct msghdr* msg, int flags) {
     }
   }
 
+  msg->msg_flags = 0;
   ssize_t bytes_read = 0;
   if (socket_type_ == SOCK_STREAM) {
     if (buffer_.size() > 0) {
@@ -352,7 +355,10 @@ int LocalSocket::recvmsg(struct msghdr* msg, int flags) {
   }
 
   // If no bytes are read in recvmsg, control messages are not returned either.
-  if (bytes_read > 0 && !cmsg_fd_queue_.empty()) {
+  if (bytes_read <= 0 || cmsg_fd_queue_.empty()) {
+    // Set this output parameter to indicate there are no control messages.
+    msg->msg_controllen = 0;
+  } else {
     std::vector<int>& fds = cmsg_fd_queue_.front();
 
     socklen_t cmsg_len = CMSG_LEN(fds.size() * sizeof(int));  // NOLINT
@@ -367,12 +373,15 @@ int LocalSocket::recvmsg(struct msghdr* msg, int flags) {
       msg->msg_flags |= MSG_CTRUNC;
     }
 
-    if (msg->msg_controllen) {
+    if (CMSG_SPACE(cmsg_len) > msg->msg_controllen) {
+      msg->msg_controllen = 0;
+    } else {
       struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg);
       cmsg->cmsg_level = SOL_SOCKET;
       cmsg->cmsg_type = SCM_RIGHTS;
       cmsg->cmsg_len = cmsg_len;
       memcpy(CMSG_DATA(cmsg), &fds[0], fds.size() * sizeof(int));  // NOLINT
+      msg->msg_controllen = CMSG_SPACE(cmsg_len);
     }
     cmsg_fd_queue_.pop_front();
   }
@@ -457,33 +466,96 @@ int LocalSocket::ioctl(int request, va_list ap) {
 }
 
 bool LocalSocket::IsSelectReadReady() const {
-  if (socket_type_ == SOCK_STREAM)
-    return buffer_.size() > 0 || !peer_;
-  else
-    return !queue_.empty();
+  return (GetPollEvents() & (POLLIN | POLLHUP | POLLERR)) != 0;
 }
 
 bool LocalSocket::IsSelectWriteReady() const {
-  if (stream_dir_ == READ_ONLY || peer_ == NULL)
-    return false;
-  return peer_->CanWrite();
+  return (GetPollEvents() & (POLLOUT | POLLERR)) != 0;
 }
 
 bool LocalSocket::IsSelectExceptionReady() const {
-  return !peer_;
+  // exceptfds are actually out-of-band data, which we do not support.
+  return false;
 }
 
 int16_t LocalSocket::GetPollEvents() const {
-  // Currently we use IsSelect*Ready() family temporarily (and wrongly).
-  // TODO(crbug.com/359400): Fix the implementation.
-  return ((IsSelectReadReady() ? POLLIN : 0) |
-          (IsSelectWriteReady() ? POLLOUT : 0) |
-          (IsSelectExceptionReady() ? POLLERR : 0));
+  // Note: Today we support socket_type_ != SOCK_STREAM only for socketpair.
+  // Thus, socket_type_ != SOCK_STREAM implies
+  // connect_state_ == SOCKET_CONNECTED.
+  switch (connect_state_) {
+    case SOCKET_NEW:
+      return POLLOUT | POLLHUP;
+    case SOCKET_CONNECTING:
+      // TODO(crbug.com/470853): Get rid of this state.
+      return 0;
+    case SOCKET_CONNECTED:
+      // WRITE_ONLY/READ_ONLY are used only for pipes, where we need special
+      // care.
+      if (stream_dir_ == READ_ONLY) {
+        // For a read pipe whose peer was closed, POLLIN is set only if there is
+        // remaining data, in contrast to stream sockets where POLLIN is always
+        // set.
+        return
+            (buffer_.size() > 0 ? POLLIN : 0) | (peer_ == NULL ? POLLHUP : 0);
+      } else if (stream_dir_ == WRITE_ONLY) {
+        // For a write pipe whose peer was closed, POLLERR is always set.
+        // TODO(crbug.com/359400): On Linux, POLLOUT can be NOT set if the pipe
+        // buffer was full at the time the peer was closed.
+        if (peer_ == NULL) {
+          return POLLOUT | POLLERR;
+        }
+        return peer_->buffer_.size() < peer_->buffer_.capacity() ? POLLOUT : 0;
+      } else {
+        int16_t events = 0;
+        if (CanRead()) {
+          events |= POLLIN;
+        }
+        if (CanWrite()) {
+          events |= POLLOUT;
+        }
+        if ((socket_type_ == SOCK_STREAM || socket_type_ == SOCK_SEQPACKET) &&
+            peer_ == NULL) {
+          events |= POLLHUP;
+        }
+        // TODO(crbug.com/359400): Set POLLERR under some conditions. On Linux,
+        // the bit can be set when the peer was closed before the written data
+        // was read.
+        return events;
+      }
+    case SOCKET_LISTENING:
+      if (!connection_queue_.empty()) {
+        return POLLIN | POLLOUT;
+      }
+      return POLLOUT;
+    default:
+      LOG_ALWAYS_FATAL("Must not reach here");
+  }
+}
+
+bool LocalSocket::CanRead() const {
+  ALOG_ASSERT(stream_dir_ == READ_WRITE);
+  // If the peer has been closed, whether the socket is readable depends on
+  // socket type.
+  if ((socket_type_ == SOCK_STREAM || socket_type_ == SOCK_SEQPACKET) &&
+      peer_ == NULL) {
+    return true;
+  }
+  if (socket_type_ == SOCK_STREAM) {
+    return buffer_.size() > 0;
+  }
+  return !queue_.empty();
 }
 
 bool LocalSocket::CanWrite() const {
-  if (socket_type_ == SOCK_STREAM)
-    return buffer_.size() < buffer_.capacity();
+  ALOG_ASSERT(stream_dir_ == READ_WRITE);
+  // If the peer has been closed, the socket is always writable.
+  if (peer_ == NULL) {
+    return true;
+  }
+  if (socket_type_ == SOCK_STREAM) {
+    return peer_->buffer_.size() < peer_->buffer_.capacity();
+  }
+  // Our packet-based sockets have unlimited buffer.
   return true;
 }
 

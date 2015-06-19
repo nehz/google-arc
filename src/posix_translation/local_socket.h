@@ -38,7 +38,6 @@ class LocalSocket : public SocketStream {
     SOCKET_CONNECTING,
     SOCKET_CONNECTED,
     SOCKET_LISTENING,
-    SOCKET_ERROR,
   };
 
   LocalSocket(int oflag, int socket_type, StreamDir stream_dir);
@@ -95,6 +94,7 @@ class LocalSocket : public SocketStream {
   typedef std::deque<std::vector<int> > ControlMessageFDQueue;
   typedef std::deque<std::vector<char> > MessageQueue;
 
+  bool CanRead() const;
   bool CanWrite() const;
   int HandleSendmsgLocked(const struct msghdr* msg);
   bool HandleConnectLocked(LocalSocket* listening);

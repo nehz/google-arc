@@ -12,14 +12,16 @@ import unittest
 
 class MakeToNinjaUnittest(unittest.TestCase):
   def testFlagsRemove(self):
+    asmflags = ['asmflags']
     cflags = ['cflags']
     conlyflags = ['conlyflags']
     cxxflags = ['cxxflags']
     ldflags = ['ldflags']
 
-    flags = make_to_ninja.Flags(cflags, conlyflags, cxxflags, ldflags)
+    flags = make_to_ninja.Flags(asmflags, cflags, conlyflags, cxxflags, ldflags)
 
     # Ensure that the instance holds flags in the right member.
+    self.assertEquals(asmflags, flags.asmflags)
     self.assertEquals(cflags, flags.cflags)
     self.assertEquals(conlyflags, flags.conlyflags)
     self.assertEquals(cxxflags, flags.cxxflags)
@@ -30,6 +32,12 @@ class MakeToNinjaUnittest(unittest.TestCase):
     flags.remove('cflags')
     self.assertEquals([], flags.cflags)
     self.assertEquals(['cflags'], cflags)
+
+
+  def testFlagsHasFlag(self):
+    flags = make_to_ninja.Flags([], ['abc'], [], [], [])
+    self.assertTrue(flags.has_flag('abc'))
+    self.assertFalse(flags.has_flag('cba'))
 
 
 if __name__ == '__main__':

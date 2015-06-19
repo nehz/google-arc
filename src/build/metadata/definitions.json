@@ -14,11 +14,29 @@
     "noPlugin": true
   },
   {
+    "name": "disableChildPluginRetry",
+    "defaultValue": false,
+    "help": "Disable child plugin's on failure retry logic.",
+    "developerOnly": true,
+    "noPlugin": true
+  },
+  {
+    "name": "disableGlFixedAttribs",
+    "defaultValue": false,
+    "help": "Do not support GL_FIXED type attributes which can improve app performance."
+  },
+  {
     "name": "disableHeartbeat",
     "defaultValue": false,
     "help": "Disable the watchdog that will otherwise detect a runtime hang when the system is stopped.",
     "developerOnly": true,
     "noPlugin": true
+  },
+  {
+    "name": "enableArcStrace",
+    "defaultValue": false,
+    "help": "Enable builtin strace-like tracer of ARC (output to --arc-strace-output).",
+    "developerOnly": true
   },
   {
     "name": "enableAdb",
@@ -27,9 +45,32 @@
     "developerOnly": true
   },
   {
+    "name": "enableCompositor",
+    "defaultValue": true,
+    "commandArugmentName": "disable-compositor",
+    "help": "Enable the pepper compositor."
+  },
+  {
+    "name": "enableGlErrorCheck",
+    "defaultValue": false,
+    "help": "Enable glGet and glCheck functions which may slow down performance of the application.",
+    "developerOnly": true
+  },
+  {
     "name": "enableExternalDirectory",
     "defaultValue": false,
     "help": "Chrome will prompt the user to give the app access to a system directory."
+  },
+  {
+    "name": "enableSynthesizeTouchEventsOnClick",
+    "defaultValue": false,
+    "help": "Synthesize touch events from mouse clicks and drags."
+  },
+  {
+    "name": "enableSynthesizeTouchEventsOnWheel",
+    "defaultValue": true,
+    "commandArugmentName": "disable-synthesize-touch-events-on-wheel",
+    "help": "Do not translate mouse wheel events to touch events."
   },
   {
     "name": "formFactor",
@@ -37,6 +78,7 @@
     "allowedValues": ["fullscreen", "maximized", "phone", "tablet"],
     "shortOptionName": "f",
     "shortValueMapping": {
+      "f": "fullscreen",
       "m": "maximized",
       "p": "phone",
       "t": "tablet"
@@ -51,10 +93,32 @@
     "help": "Limit the maximum frames per second the app's screen will repaint."
   },
   {
+    "name": "javaTraceStartup",
+    "defaultValue": 0,
+    "help": "Start the Java VM with android.os.debug.startMethodTracing and collect data for the first <N> seconds.",
+    "developerOnly": true
+  },
+  {
+    "name": "jdbPort",
+    "defaultValue": 0,
+    "help": "Port to use for the JDWP debugger. Implies --jdb."
+  },
+  {
+    "name": "logLoadProgress",
+    "defaultValue": false,
+    "help": "Log asset and class accesses."
+  },
+  {
+    "name": "minimumLaunchDelay",
+    "defaultValue": 0,
+    "help": "Specifies delay in milliseconds for launching the app. If set, chrome.app.runtime.onLaunched handler does not create a window for the app until the specified time passes.",
+    "noPlugin": true
+  },
+  {
     "name": "ndkAbi",
     "defaultValue": "",
     "allowedValues": ["", "armeabi", "armeabi-v7a", "x86"],
-    "help": "Set ABI for NDK libraries. By default we search for armeabi-v7a library and fall back to armeabi"
+    "help": "Set ABI for NDK libraries. By default we search for armeabi-v7a library and fall back to armeabi."
   },
   {
     "name": "orientation",
@@ -74,6 +138,12 @@
     "allowedValues": ["disabled", "reconfigure", "scale"],
     "help": "Controls the behavior of app/window resizing.",
     "noPlugin": true
+  },
+  {
+    "name": "sleepOnBlur",
+    "defaultValue": true,
+    "commandArugmentName": "disable-sleep-on-blur",
+    "help": "Disable the automatic suspension of the app when focus is lost."
   },
   {
     "name": "stderrLog",

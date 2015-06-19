@@ -58,11 +58,11 @@ _REPORT_COLOR_FOR_SUITE_EXPECTATION = {
 }
 
 
-def get_all_suite_runners(on_bot, use_gpu):
+def get_all_suite_runners(on_bot, use_gpu, remote_host_type):
   """Gets all the suites defined in the various config.py files."""
   sys.path.insert(0, 'src')
   result = suite_runner_config.load_from_suite_definitions(
-      _DEFINITIONS_ROOT, _EXPECTATIONS_ROOT, on_bot, use_gpu)
+      _DEFINITIONS_ROOT, _EXPECTATIONS_ROOT, on_bot, use_gpu, remote_host_type)
 
   if OPTIONS.internal_apks_source_is_internal():
     gms_core_definition_root = 'internal'
@@ -71,7 +71,7 @@ def get_all_suite_runners(on_bot, use_gpu):
   result += suite_runner_config.load_from_suite_definitions(
       os.path.join(gms_core_definition_root, 'integration_tests/definitions'),
       os.path.join(gms_core_definition_root, 'integration_tests/expectations'),
-      on_bot, use_gpu)
+      on_bot, use_gpu, remote_host_type)
 
   # Check name duplication.
   counter = collections.Counter(runner.name for runner in result)
@@ -168,7 +168,8 @@ def _select_tests_to_run(all_suite_runners, args):
 
 
 def _get_test_driver_list(args):
-  all_suite_runners = get_all_suite_runners(args.buildbot, not args.use_xvfb)
+  all_suite_runners = get_all_suite_runners(
+      args.buildbot, not args.use_xvfb, args.remote_host_type)
   return _select_tests_to_run(all_suite_runners, args)
 
 
@@ -267,7 +268,8 @@ def prepare_suites(args):
 
 
 def pretty_print_tests(args):
-  all_suite_runners = get_all_suite_runners(args.buildbot, not args.use_xvfb)
+  all_suite_runners = get_all_suite_runners(
+      args.buildbot, not args.use_xvfb, args.remote_host_type)
   test_list_filter = test_filter.TestListFilter(
       include_pattern_list=args.include_patterns,
       exclude_pattern_list=args.exclude_patterns)

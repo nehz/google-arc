@@ -754,11 +754,7 @@ class BionicFundamentalTest(object):
                             get_nacl_text_segment_address())
     if OPTIONS.is_bare_metal_build():
       execflags = '-pie'
-      # Goobuntu's linker emits RWX pages for small PIEs. Use gold
-      # instead. We cannot specify -fuse-ld=gold. As we are building
-      # executables directly from .c files, the -fuse-ld flag will be
-      # passed to cc1 and it does not recognize this flag.
-      ldflags += ' -Bthird_party/gold'
+      ldflags += ' -fuse-ld=gold'
     else:
       # This is mainly for ARM. See src/build/ninja_generator.py for detail.
       execflags = '-Wl,-Ttext-segment=' + text_segment_address

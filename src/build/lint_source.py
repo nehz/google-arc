@@ -269,8 +269,8 @@ class TestConfigLinter(CommandLineLinterBase):
       'USE_GPU',
       'USE_NDK_DIRECT_EXECUTION',
 
-      # TODO(crbug.com/437406): Remove these values.
-      'platform_util',
+      # Platform information of the machine on which the test runs.
+      'ON_CYGWIN', 'ON_MAC', 'ON_CHROMEOS',
   ]
 
   # These are not the test config files.

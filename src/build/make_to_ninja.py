@@ -1104,8 +1104,8 @@ def _get_prebuilt_install_type_and_path(vars):
 class Flags:
   """Holds compiler flags to make compiler switch easier."""
 
-  def __init__(self, cflags, conlyflags, cxxflags, ldflags):
-    # TODO(tzik): Add asmflags.
+  def __init__(self, asmflags, cflags, conlyflags, cxxflags, ldflags):
+    self.asmflags = list(asmflags)
     self.cflags = list(cflags)
     self.conlyflags = list(conlyflags)
     self.cxxflags = list(cxxflags)
@@ -1113,10 +1113,11 @@ class Flags:
 
   @staticmethod
   def get_flaglist_names():
-    return ['cflags', 'conlyflags', 'cxxflags', 'ldflags']
+    return ['asmflags', 'cflags', 'conlyflags', 'cxxflags', 'ldflags']
 
   def get_flaglists(self):
-    return [self.cflags, self.conlyflags, self.cxxflags, self.ldflags]
+    return [self.asmflags, self.cflags, self.conlyflags, self.cxxflags,
+            self.ldflags]
 
   def clone(self):
     return Flags(*self.get_flaglists())
@@ -1124,6 +1125,9 @@ class Flags:
   def remove(self, *args):
     for flaglist in self.get_flaglists():
       flaglist[:] = filter(lambda flag: flag not in args, flaglist)
+
+  def has_flag(self, flag):
+    return any([flag in flaglist for flaglist in self.get_flaglists()])
 
 
 class MakeVars:
@@ -1202,8 +1206,8 @@ class MakeVars:
       arch_variant = 'x86'
       arch_bit_variant = '32'
 
-    self._asmflags = self._get_build_flags(vars_helper, 'ASFLAGS',
-                                           [arch_bit_variant])
+    asmflags = self._get_build_flags(vars_helper, 'ASFLAGS',
+                                     [arch_bit_variant])
     cflags = self._get_build_flags(vars_helper, 'CFLAGS',
                                    [arch_variant, arch_bit_variant])
     conlyflags = self._get_build_flags(vars_helper, 'CONLYFLAGS',
@@ -1214,7 +1218,7 @@ class MakeVars:
                                      [arch_variant])
     ldflags = self._get_build_flags(vars_helper, 'LDFLAGS',
                                     [arch_variant, arch_bit_variant])
-    self._flags = Flags(cflags, conlyflags, cxxflags, ldflags)
+    self._flags = Flags(asmflags, cflags, conlyflags, cxxflags, ldflags)
 
     self._includes = vars_helper.get_optional_list(
         'LOCAL_C_INCLUDES', [arch_variant])
@@ -1627,7 +1631,7 @@ class MakeVars:
 
   def get_asmflags(self):
     self._check_c_library_or_executable()
-    return self._asmflags
+    return self._flags.asmflags
 
   def get_ldflags(self):
     self._check_c_library_or_executable()
@@ -2310,6 +2314,21 @@ def _adjust_target_nacl_x86_64_flags(vars):
     vars.get_asmflags().remove('-march=i686')
 
 
+def _adjust_lang_flags(vars):
+  """Remove C or C++ specific flags from flag lists, and normalize them to where
+  they should be. So that C++ flags don't get specified to C compiler and vice
+  versa."""
+  for flag in ['-std=gnu0x', '-std=c0x', '-std=gnu11', '-std=c11']:
+    if vars._flags.has_flag(flag):
+      vars._flags.remove(flag)
+      vars._flags.conlyflags.append(flag)
+
+  for flag in ['-std=gnu++0x', '-std=c++0x', '-std=gnu++11', '-std=c++11']:
+    if vars._flags.has_flag(flag):
+      vars._flags.remove(flag)
+      vars._flags.cxxflags.append(flag)
+
+
 def _adjust_flags(vars):
   if vars.is_host():
     vars.get_cflags().append('-DHAVE_ARC_HOST')
@@ -2323,6 +2342,7 @@ def _adjust_flags(vars):
 
   _substitute_android_config_include(vars)
   _remove_feature_flags(vars)
+  _adjust_lang_flags(vars)
 
   if not vars.is_host():
     if OPTIONS.is_nacl_i686():

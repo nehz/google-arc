@@ -51,11 +51,11 @@
   (interactive)
   (write-file (arc--get-mods buffer-file-name)))
 
-(defun arc-insert-l-rebase-bug ()
-  "Insert a bug message at current position."
-  (interactive)
+(defun arc-insert-bug (n)
+  "Insert a bug comment at current position."
+  (interactive "nBug ID: ")
   (comment-indent)
-  (insert "TODO(crbug.com/414569): L-rebase:"))
+  (insert (concat "TODO(crbug.com/" (number-to-string n) "): ")))
 
 ;; Make Arc run_integration_tests run better, use like:
 ;; (add-to-list
@@ -65,12 +65,34 @@
   "Remove the escape to position."
       (replace-regexp-in-string "\\[[0-9]+[GK]" "\r" output))
 
-(defun arc-insert-mod-comment ()
+(defun arc-insert-mod-comment (useful-comment)
   "Insert a arc mod comment message."
-  (interactive)
+  (interactive "MComment: ")
   (let* ((beginning-point (point)))
     (insert (concat "\n"
                     "ARC MOD BEGIN\n"
-                    "useful comment\n"
+                    useful-comment "\n"
                     "ARC MOD END\n"))
     (comment-region beginning-point (point))))
+
+(defun arc-insert-mod-with-file (filename)
+  "Insert a arc mod with fork file."
+  (interactive (list (read-file-name "fork file name: "
+                                     (concat (arc--topdir) "mods/fork/"))))
+  (let* ((beginning-point (point)))
+    (insert (concat "\n"
+                    "ARC MOD BEGIN " (file-name-nondirectory filename) "\n"
+                    "ARC MOD END\n"))
+    (comment-region beginning-point (point))
+    (find-file-other-window filename)))
+
+(defun arc-insert-mod-upstream (filename)
+  "Insert a arc mod with upstream file."
+  (interactive (list (read-file-name "upstream file name: "
+                                     (concat (arc--topdir) "mods/upstream/"))))
+  (let* ((beginning-point (point)))
+    (insert (concat "\n"
+                    "ARC MOD BEGIN UPSTREAM " (file-name-nondirectory filename) "\n"
+                    "ARC MOD END UPSTREAM\n"))
+    (comment-region beginning-point (point))
+    (find-file-other-window filename)))

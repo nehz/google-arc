@@ -11,7 +11,6 @@ import sys
 
 import build_common
 from build_options import OPTIONS
-from util import platform_util
 from util.test import suite_runner_config_flags as flags
 
 # For use in the suite configuration files, to identify a default configuration
@@ -219,7 +218,7 @@ def _evaluate_suite_test_expectations(raw_dict):
   return result
 
 
-def _read_test_config(path, on_bot, use_gpu):
+def _read_test_config(path, on_bot, use_gpu, remote_host_type):
   """Reads the file, and eval() it with the test config context."""
   if not os.path.exists(path):
     return {}
@@ -245,11 +244,12 @@ def _read_test_config(path, on_bot, use_gpu):
       'USE_GPU': use_gpu,
       'USE_NDK_DIRECT_EXECUTION': build_common.use_ndk_direct_execution(),
 
-      # TODO(crbug.com/437406): Currently we use platform_util directly,
-      # but this is not proper way, because, on remote execution, we want
-      # to get test config on remote, rather than host's.
-      # We should set up remote's eval context.
-      'platform_util': platform_util,
+      # Platform information of the machine on which the test runs for
+      # remote execution. If it is not the remote execution, all variables
+      # below will be False.
+      'ON_CYGWIN': remote_host_type == 'cygwin',
+      'ON_MAC': remote_host_type == 'mac',
+      'ON_CHROMEOS': remote_host_type == 'chromeos',
   }
 
   try:
@@ -295,10 +295,11 @@ def make_suite_run_configs(raw_config):
 # TODO(crbug.com/384028): The class will eventually eliminate the need for
 # make_suite_run_configs and default_run_configuration above.
 class SuiteExpectationsLoader(object):
-  def __init__(self, base_path, on_bot, use_gpu):
+  def __init__(self, base_path, on_bot, use_gpu, remote_host_type):
     self._base_path = base_path
     self._on_bot = on_bot
     self._use_gpu = use_gpu
+    self._remote_host_type = remote_host_type
     self._cache = {}
 
   def get(self, suite_name):
@@ -310,7 +311,7 @@ class SuiteExpectationsLoader(object):
       if config is None:
         raw_config = _read_test_config(
             os.path.join(self._base_path, partial_name),
-            self._on_bot, self._use_gpu)
+            self._on_bot, self._use_gpu, self._remote_host_type)
         config = _evaluate(raw_config, defaults=parent_config)
         self._cache[partial_name] = config
       parent_config = config
@@ -329,16 +330,16 @@ def get_suite_definitions_module(suite_filename):
 def load_from_suite_definitions(definitions_base_path,
                                 expectations_base_path,
                                 on_bot,
-                                use_gpu):
+                                use_gpu,
+                                remote_host_type):
   """Loads all the suite definitions from a given path.
 
   |definitions_base_path| gives the path to the python files to load.
   |expectations_base_path| gives the path to the expectation files to load,
   which are matched up with each suite automatically.
   """
-
   expectations_loader = SuiteExpectationsLoader(
-      expectations_base_path, on_bot, use_gpu)
+      expectations_base_path, on_bot, use_gpu, remote_host_type)
   runners = []
 
   definition_files = glob.glob(os.path.join(definitions_base_path, '*.py'))

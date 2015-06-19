@@ -14,6 +14,7 @@ class MetadataDefinition:
   def __init__(self, jsonDict):
     self.name = jsonDict['name']
     self.default_value = jsonDict['defaultValue']
+    self._command_argument_name = jsonDict.get('commandArugmentName', None)
     self.allowed_values = jsonDict.get('allowedValues', None)
     self.short_option_name = jsonDict.get('shortOptionName', None)
     self.short_value_mapping = jsonDict.get('shortValueMapping', None)
@@ -24,7 +25,10 @@ class MetadataDefinition:
 
   @property
   def command_argument_name(self):
-    return re.sub('([A-Z])', r'-\1', self.name).lower()
+    if self._command_argument_name:
+      return self._command_argument_name
+    else:
+      return re.sub('([A-Z])', r'-\1', self.name).lower()
 
   @property
   def python_name(self):

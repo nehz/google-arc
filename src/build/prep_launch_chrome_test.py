@@ -20,8 +20,10 @@ class PrepLaunchChromeTest(unittest.TestCase):
 
   def metadata_from_command_line(self, command):
     args = launch_chrome_options.parse_args(command.split(' '))
-    return (prep_launch_chrome.
-            _convert_launch_chrome_options_to_external_metadata(args))
+    metadata = (prep_launch_chrome.
+                _convert_launch_chrome_options_to_external_metadata(args))
+    del metadata['targetOverride']
+    return metadata
 
   def test_command_line_flags_to_external_metadata(self):
     metadata = self.metadata_from_command_line('./launch_chrome.py run -D')

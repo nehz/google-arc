@@ -111,6 +111,7 @@ class _Options(object):
     self._system_packages = []
     self._values = {}
     self.parsed = False
+    self._warned_uninitialized_access = False
 
   def __getattr__(self, name):
     """Provides getters for values originated from the command line options.
@@ -597,8 +598,8 @@ class _Options(object):
     if os.path.exists(options_file):
       with open(options_file) as f:
         self.parse(f.read().split())
-    elif input_file:
-      raise IOError('File ' + input_file + ' does not exist.')
+    else:
+      raise IOError('File ' + options_file + ' does not exist.')
 
   def get_configure_options_file(self):
     return os.path.join('out', 'configure.options')
@@ -606,11 +607,17 @@ class _Options(object):
   def check_access(self, name):
     """Called by AccessControlProxy to check attribute access."""
     if (not self.parsed and
-        name not in ('parse', 'parsed', 'parse_configure_file')):
-      raise AttributeError(
+        name not in ('parse', 'parsed', 'parse_configure_file') and
+        not self._warned_uninitialized_access):
+      # TODO(crbug.com/501170): Abort on uninitialized access instead of just
+      # showing warnings once the bug is resolved.
+      print (
           'Attempted to access uninitialized OPTIONS values. Please consider '
           'calling OPTIONS.parse_configure_file() in the very beginning of '
           'your script.')
+      print '@@@STEP_TEXT@Uninitialized access to OPTIONS found@@@'
+      print '@@@STEP_WARNINGS@@@'
+      self._warned_uninitialized_access = True
 
 
 class _AccessControlProxy(object):

@@ -110,6 +110,30 @@ def maybe_detect_remote_host_type(parsed_args):
   So, all parsers using add_remote_arguments() defined above need to call
   this function just after its parse_known_args() family.
   """
+  if platform_util.is_running_on_remote_host():
+    # On remote machine, we expect --remote flag is removed.
+    assert parsed_args.remote is None, (
+        'Found --remote flag, but the script runs on the remote machine.')
+
+    # Detect the remote_host_type of the machine, and fix up or verify
+    # the parsed flag.
+    if platform_util.is_running_on_cygwin():
+      remote_host_type = 'cygwin'
+    elif platform_util.is_running_on_mac():
+      remote_host_type = 'mac'
+    elif platform_util.is_running_on_chromeos():
+      remote_host_type = 'chromeos'
+    else:
+      raise Exception('Unknown platform')
+
+    if parsed_args.remote_host_type is None:
+      parsed_args.remote_host_type = remote_host_type
+    assert parsed_args.remote_host_type == remote_host_type, (
+        '--remote_host_type is mismatching: "%s" vs "%s"' % (
+            parsed_args.remote_host_type, remote_host_type))
+    return
+
+  # Hereafter, this runs on the host machine.
   if parsed_args.remote_host_type or not parsed_args.remote:
     # If --remote-host-type is already set, or it is not --remote execution,
     # we do nothing.

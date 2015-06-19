@@ -447,10 +447,6 @@ def handle_stash(parsed_args):
   rules_text = """
   # No git repo.
   - .git/
-  # Referred from third_party/android-sdk/ below.
-  + /cache/android-sdk.*
-  - /cache/*
-  + /cache/
   # Artifacts for the target arch and common.
   + /{out}/target/{target}/runtime/
   + /{out}/target/{target}/unittest_info/
@@ -467,6 +463,13 @@ def handle_stash(parsed_args):
   # aapt etc.
   + /third_party/android-sdk/
   # ninja etc.
+  + /third_party/tools/ninja/
+  + /third_party/tools/crosutils/mod_for_test_scripts/ssh_keys/
+  - /third_party/tools/crosutils/mod_for_test_scripts/*
+  + /third_party/tools/crosutils/mod_for_test_scripts/
+  - /third_party/tools/crosutils/*
+  + /third_party/tools/crosutils/
+  - /third_party/tools/*
   + /third_party/tools/
   - /third_party/*
   + /third_party/
@@ -482,7 +485,7 @@ def handle_stash(parsed_args):
     if line and not line.startswith('#'):
       rules.append(line)
 
-  args = ['rsync', '-a', '--delete', '--delete-excluded']
+  args = ['rsync', '-a', '--delete', '--delete-excluded', '--copy-links']
   if parsed_args.verbose:
     args.append('-v')
   args.extend(['--filter=%s' % rule for rule in rules])
