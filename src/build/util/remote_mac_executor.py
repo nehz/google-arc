@@ -13,8 +13,7 @@ def launch_remote_chrome(parsed_args, argv):
   executor = remote_executor_util.create_remote_executor(parsed_args)
   try:
     executor.rsync(
-        remote_executor_util.get_launch_chrome_files_and_directories(
-            parsed_args),
+        remote_executor_util.get_launch_chrome_deps(parsed_args),
         executor.get_remote_arc_root())
     command = ' '.join(
         ['cd', executor.get_remote_arc_root(), '&&',
@@ -34,7 +33,7 @@ def run_remote_integration_tests(parsed_args, argv,
       parsed_args, enable_pseudo_tty=parsed_args.ansi)
   try:
     executor.rsync(
-        remote_executor_util.get_integration_test_files_and_directories() +
+        remote_executor_util.get_integration_test_deps() +
         configs_for_integration_tests,
         executor.get_remote_arc_root())
 

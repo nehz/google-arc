@@ -198,9 +198,7 @@ Then, set breakpoints as you like and start debugging by
 ''' % command_file.name
 
 
-def _launch_nacl_gdb(gdb_type, nacl_irt_path, host, port):
-  if host is None:
-    host = ''
+def _launch_nacl_gdb(gdb_type, nacl_irt_path, port):
   nmf = os.path.join(build_common.get_runtime_out_dir(),
                      'arc_' + OPTIONS.target() + '.nmf')
   assert os.path.exists(nmf), (
@@ -212,7 +210,7 @@ def _launch_nacl_gdb(gdb_type, nacl_irt_path, host, port):
   gdb_args = ['-ex', 'nacl-manifest %s' % nmf]
   if nacl_irt_path:
     gdb_args.extend(['-ex', 'nacl-irt %s' % nacl_irt_path])
-  gdb_args.extend(['-ex', 'target remote %s:%s' % (host, port),
+  gdb_args.extend(['-ex', 'target remote %s:%s' % (_LOCAL_HOST, port),
                    build_common.get_bionic_runnable_ld_so()])
   _launch_plugin_gdb(gdb_args, gdb_type)
 
@@ -252,17 +250,15 @@ def _get_bare_metal_gdb_init_commands(plugin_pid, remote_address, ssh_options):
 
 def _attach_bare_metal_gdb(
     remote_address, plugin_pid, ssh_options, nacl_helper_binary, gdb_type):
-  """Attaches to the gdbserver running on |remote_host|.
+  """Attaches to the gdbserver, running locally or port-forwarded.
 
-  To conntect the server running on the local host, |remote_address| should
-  be set to None, rather than '127.0.0.1' or 'localhost'. Otherwise it tries to
-  re-login by ssh command as 'root' user.
+  If |remote_address| is set, it is used for ssh.
   """
   gdb_port = _get_bare_metal_gdb_port(plugin_pid)
 
   # Before launching 'gdb', we wait for that the target port is opened.
   _wait_by_busy_loop(
-      lambda: _is_remote_port_open(remote_address or _LOCAL_HOST, gdb_port))
+      lambda: _is_remote_port_open(_LOCAL_HOST, gdb_port))
 
   gdb_args = []
   if nacl_helper_binary:
@@ -272,9 +268,11 @@ def _attach_bare_metal_gdb(
     gdb_args.extend(['-ex', 'set solib-search-path %s' % os.path.dirname(
         nacl_helper_binary)])
   gdb_args.extend([
-      '-ex', 'target remote %s:%d' % (remote_address or _LOCAL_HOST, gdb_port)])
+      '-ex', 'target remote %s:%d' % (_LOCAL_HOST, gdb_port)])
   gdb_args.extend(_get_bare_metal_gdb_init_commands(
-      plugin_pid, remote_address, ssh_options))
+      plugin_pid,
+      remote_address=remote_address,
+      ssh_options=ssh_options))
   _launch_plugin_gdb(gdb_args, gdb_type)
 
 
@@ -289,7 +287,6 @@ def _launch_bare_metal_gdbserver(plugin_pid, is_child_plugin):
   command = ['gdbserver', '--attach', ':%d' % gdb_port, str(plugin_pid)]
 
   if platform_util.is_running_on_chromeos():
-    _accept_tcp_connection_on_chromeos(gdb_port)
     gdb_process = _popen_with_sudo_on_chromeos(command)
   else:
     gdb_process = subprocess.Popen(command)
@@ -309,22 +306,6 @@ def _check_call_with_sudo_on_chromeos(command):
   retcode = p.wait()
   if retcode:
     raise subprocess.CalledProcessError(retcode, ' '.join(command))
-
-
-def _accept_tcp_connection_on_chromeos(port):
-  # Accept incoming TCP connection to the port GDB uses.
-  _check_call_with_sudo_on_chromeos(
-      ['/sbin/iptables', '-A', 'INPUT', '-p', 'tcp',
-       '--dport', str(port), '-j', 'ACCEPT'])
-  # SFI NaCl's helper process listens at 127.0.0.1 rather than
-  # 0.0.0.0, so we cannot connect to the GDB stub from the host
-  # machine. To allow connections from the host machine, we redirect
-  # eth0 to 127.0.0.1 by iptables.
-  _check_call_with_sudo_on_chromeos(
-      ['/bin/sh', '-c', 'echo 1 >/proc/sys/net/ipv4/conf/all/route_localnet'])
-  _check_call_with_sudo_on_chromeos(
-      ['/sbin/iptables', '-A', 'PREROUTING', '-t', 'nat', '-p', 'tcp',
-       '--dport', str(port), '-j', 'DNAT', '--to', '127.0.0.1:%d' % port])
 
 
 def create_or_remove_bare_metal_gdb_lock_dir(gdb_target_list):
@@ -400,11 +381,12 @@ class GdbHandlerAdapter(concurrent_subprocess.DelegateOutputHandlerBase):
 class NaClGdbHandlerAdapter(concurrent_subprocess.DelegateOutputHandlerBase):
   _START_DEBUG_STUB_PATTERN = re.compile(r'debug stub on port (\d+)')
 
-  def __init__(self, base_handler, nacl_irt_path, gdb_type, host=None):
+  def __init__(
+      self, base_handler, nacl_irt_path, gdb_type, remote_executor=None):
     super(NaClGdbHandlerAdapter, self).__init__(base_handler)
     self._nacl_irt_path = nacl_irt_path
     self._gdb_type = gdb_type
-    self._host = host
+    self._remote_executor = remote_executor
 
   def handle_stderr(self, line):
     super(NaClGdbHandlerAdapter, self).handle_stderr(line)
@@ -416,11 +398,11 @@ class NaClGdbHandlerAdapter(concurrent_subprocess.DelegateOutputHandlerBase):
     port = int(match.group(1))
     # Note that, for remote debugging, NaClGdbHandlerAdapter will run in
     # both local and remote machine.
-    if platform_util.is_running_on_chromeos():
-      _accept_tcp_connection_on_chromeos(port)
-    else:
+    if not platform_util.is_running_on_chromeos():
       logging.info('Found debug stub on port (%d)' % port)
-      _launch_nacl_gdb(self._gdb_type, self._nacl_irt_path, self._host, port)
+      if self._remote_executor:
+        self._remote_executor.port_forward(port)
+      _launch_nacl_gdb(self._gdb_type, self._nacl_irt_path, port)
 
 
 class BareMetalGdbHandlerAdapter(
@@ -430,13 +412,14 @@ class BareMetalGdbHandlerAdapter(
   _WAITING_GDB_PATTERN = re.compile(r'linker: waiting for gdb \((\d+)\)')
 
   def __init__(self, base_handler, nacl_helper_path, gdb_type, host=None,
-               ssh_options=None):
+               ssh_options=None, remote_executor=None):
     super(BareMetalGdbHandlerAdapter, self).__init__(base_handler)
     self._nacl_helper_path = nacl_helper_path
     self._gdb_type = gdb_type
     self._host = host
     self._ssh_options = ssh_options
     self._next_is_child_plugin = False
+    self._remote_executor = remote_executor
 
   def handle_stderr(self, line):
     super(BareMetalGdbHandlerAdapter, self).handle_stderr(line)
@@ -447,7 +430,7 @@ class BareMetalGdbHandlerAdapter(
 
     plugin_pid = int(match.group(1))
 
-    # Note that, for remote debugging, NaClGdbHandlerAdapter will run in
+    # Note that, for remote debugging, BareMetalGdbHandlerAdapter will run in
     # both local and remote machine.
     if platform_util.is_running_on_chromeos():
       _launch_bare_metal_gdbserver(plugin_pid, self._next_is_child_plugin)
@@ -455,7 +438,9 @@ class BareMetalGdbHandlerAdapter(
       logging.info('Found new %s plugin process %d',
                    'child' if self._next_is_child_plugin else 'main',
                    plugin_pid)
-      if not self._host:
+      if self._remote_executor:
+        self._remote_executor.port_forward(_get_bare_metal_gdb_port(plugin_pid))
+      else:
         _launch_bare_metal_gdbserver(plugin_pid, self._next_is_child_plugin)
       _attach_bare_metal_gdb(
           self._host, plugin_pid, self._ssh_options, self._nacl_helper_path,

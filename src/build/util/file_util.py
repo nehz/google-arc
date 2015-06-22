@@ -5,6 +5,8 @@
 import atexit
 import cStringIO
 import errno
+import glob as _glob  # To avoid conflict with glob() defined in this module.
+import itertools
 import logging
 import os
 import shutil
@@ -130,3 +132,19 @@ def inflate_zip(content, dest_dir):
       logging.info('  inflating: %s', info.filename)
       archive.extract(info, path=dest_dir)
     logging.info('Done.')
+
+
+def glob(*patterns):
+  """Expands the glob pattern.
+
+  Unlike glob.glob(), this takes an abitrary number of arguments.
+
+  Args:
+     patterns: glob pattern.
+
+  Return:
+     A List of glob'ed paths. All glob'ed paths are merged, uniqued and then
+     sorted.
+  """
+  return sorted(set(itertools.chain.from_iterable(
+      _glob.iglob(pattern) for pattern in patterns)))

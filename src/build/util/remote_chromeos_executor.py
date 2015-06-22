@@ -52,22 +52,8 @@ _UNNEEDED_PARAM_PREFIXES = (
 
 
 _EXEC_PATTERNS = [
-    'out/target/%(target)s/bin',
+    '{out}/target/{target}/bin',
 ]
-
-
-# On ChromeOS most files are copied to the directories that are mounted with
-# noexec option, but the files that match the patterns returned by this function
-# are copied to the directory mounted without noexec option so that executables
-# can be executed directly for testing
-def _get_exec_patterns():
-  exec_patterns = _EXEC_PATTERNS
-  exec_patterns += unittest_util.get_nacl_tools()
-  exec_patterns += [toolchain.get_adb_path_for_chromeos()]
-  copied_tests = [test for test in unittest_util.get_all_tests()
-                  if not unittest_util.is_bionic_fundamental_test(test)]
-  exec_patterns += unittest_util.get_test_executables(copied_tests)
-  return remote_executor_util.expand_target_and_glob(exec_patterns)
 
 
 def _create_remote_executor(parsed_args, enable_pseudo_tty=False,
@@ -107,11 +93,29 @@ def _is_param_set(checked_param, params):
 
 def _setup_remote_arc_root(executor, copied_files):
   # Copy specified files to the remote host.
-  exec_patterns = _get_exec_patterns()
-  executor.rsync(list(set(copied_files) - set(exec_patterns)),
+  exec_paths = _get_exec_paths()
+  executor.rsync(list(set(copied_files) - set(exec_paths)),
                  executor.get_remote_arc_root())
-  executor.rsync(exec_patterns,
+  executor.rsync(exec_paths,
                  build_common.get_chromeos_arc_root_without_noexec())
+
+
+def _get_exec_paths():
+  """Returns the list of paths for executable files and directories.
+
+  On ChromeOS, most files are copied to the directories that are mounted with
+  noexec option, but the files in the list returned by this function, or
+  contained in a directory in the list, are copied to the directory mounted
+  without noexec option, so that executables can be executed directly for
+  testing.
+  """
+  return sorted(
+      [build_common.expand_path_placeholder(path) for path in _EXEC_PATTERNS] +
+      [toolchain.get_adb_path_for_chromeos()] +
+      unittest_util.get_nacl_tools() +
+      unittest_util.get_test_executables(
+          test for test in unittest_util.get_all_tests()
+          if not unittest_util.is_bionic_fundamental_test(test)))
 
 
 def _setup_remote_processes(executor):
@@ -234,8 +238,7 @@ def launch_remote_chrome(parsed_args, argv):
         arc_dir_name=parsed_args.remote_arc_dir_name,
         jdb_port=jdb_port, jdb_type=jdb_type)
 
-    copied_files = remote_executor_util.get_launch_chrome_files_and_directories(
-        parsed_args)
+    copied_files = remote_executor_util.get_launch_chrome_deps(parsed_args)
     _setup_remote_environment(parsed_args, executor, copied_files)
 
     if need_copy_nacl_helper_binary:
@@ -362,8 +365,7 @@ def _is_param_needed(param):
 
 
 def run_remote_unittest(parsed_args):
-  copied_files = remote_executor_util.get_unit_test_files_and_directories(
-      parsed_args)
+  copied_files = remote_executor_util.get_unittest_deps(parsed_args)
   try:
     executor = _create_remote_executor(parsed_args)
     _setup_remote_environment(parsed_args, executor, copied_files)
@@ -371,7 +373,7 @@ def run_remote_unittest(parsed_args):
     verbose = ['--verbose'] if parsed_args.verbose else []
     command = ' '.join(
         [executor.get_remote_env(), 'python',
-         remote_executor_util.RUN_UNIT_TEST] + verbose +
+         remote_executor_util.RUN_UNITTEST] + verbose +
         parsed_args.tests)
     executor.run(command)
     return 0
@@ -385,7 +387,7 @@ def run_remote_integration_tests(parsed_args, argv,
     executor = _create_remote_executor(
         parsed_args, enable_pseudo_tty=parsed_args.ansi)
     copied_files = (
-        remote_executor_util.get_integration_test_files_and_directories() +
+        remote_executor_util.get_integration_test_deps() +
         configs_for_integration_tests)
     _setup_remote_environment(parsed_args, executor, copied_files)
     command = ' '.join(

@@ -1282,11 +1282,13 @@ class MakeVars:
     # warning for it.
     self._clang_incompatible_flags.append('-finline-functions')
 
+    # Use nacl-clang by default on NaCl build even when the module does not
+    # explicitly declare it, since nacl-gcc is deprecated.
     if vars_helper.get_optional('LOCAL_CLANG') == 'true':
       self._is_clang_enabled = True
       self._is_cxx11_enabled = True
     else:
-      self._is_clang_enabled = False
+      self._is_clang_enabled = OPTIONS.is_nacl_build() and not self.is_host()
       self._is_cxx11_enabled = False
     self._is_clang_linker_enabled = False
     self._is_libcxx_enabled = ('-D_USING_LIBCXX' in self._flags.cflags)

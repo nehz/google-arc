@@ -972,7 +972,10 @@ class CNinjaGenerator(NinjaGenerator):
       self.emit_gl_common_flags()
 
     assert force_compiler in (None, 'gcc', 'clang')
-    self._enable_clang = (force_compiler == 'clang')
+    if force_compiler is None:
+      self._enable_clang = not self._is_host and OPTIONS.is_nacl_build()
+    else:
+      self._enable_clang = (force_compiler == 'clang')
 
     if enable_cxx11:
       # TODO(crbug.com/487964): Enable C++11 by default.
@@ -1464,8 +1467,7 @@ class CNinjaGenerator(NinjaGenerator):
     if OPTIONS.is_bare_metal_i686():
       flags.append('-mincoming-stack-boundary=2')
     if OPTIONS.is_arm():
-      flags.extend(['-mthumb-interwork', '-mfpu=neon-vfpv4', '-Wno-psabi',
-                    '-Wa,-mimplicit-it=thumb'])
+      flags.extend(['-mthumb-interwork', '-mfpu=neon-vfpv4', '-Wno-psabi'])
     if OPTIONS.is_nacl_i686():
       # For historical reasons by default x86-32 NaCl produces code for quite
       # exotic CPU: 80386 with SSE instructions (but without SSE2!).

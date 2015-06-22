@@ -7,7 +7,6 @@
 # Windows (Cygwin), and Mac.
 
 import atexit
-import glob
 import logging
 import os
 import pipes
@@ -26,52 +25,58 @@ from util import logging_util
 from util.minidump_filter import MinidumpFilter
 from util.test import unittest_util
 
-RUN_UNIT_TEST = 'src/build/run_unittest.py'
+RUN_UNITTEST = 'src/build/run_unittest.py'
 SYNC_ADB = 'src/build/sync_adb.py'
 SYNC_CHROME = 'src/build/sync_chrome.py'
 SYNC_ANDROID_SDK_BUILD_TOOLS = 'src/build/sync_android_sdk_build_tools.py'
 
-_TEST_SSH_KEY = ('third_party/tools/crosutils/mod_for_test_scripts/ssh_keys/'
-                 'testing_rsa')
+_TEST_SSH_KEY = (
+    'third_party/tools/crosutils/mod_for_test_scripts/ssh_keys/testing_rsa')
 
-# Following lists contain files or directories to be copied to the remote host.
-_COMMON_FILE_PATTERNS = ['out/configure.options',
-                         'src/build',
-                         'third_party/tools/ninja/misc',
-                         _TEST_SSH_KEY]
-_LAUNCH_CHROME_FILE_PATTERNS = ['launch_chrome',
-                                'out/target/%(target)s/runtime',
-                                build_common.get_arc_welder_unpacked_dir(),
-                                'src/packaging']
-_INTEGRATION_TEST_FILE_PATTERNS = [
+# Following lists contain glob patterns with place holders (see also
+# build_common.expand_path_placeholder()) of files or directories to be copied
+# to the remote host.
+_COMMON_GLOB_TEMPLATE_LIST = [
+    '{out}/configure.options',
+    'src/build',
+    'third_party/tools/ninja/misc',
+    _TEST_SSH_KEY,
+]
+_LAUNCH_CHROME_GLOB_TEMPLATE_LIST = [
+    'launch_chrome',
+    '{out}/target/{target}/runtime',
+    build_common.ARC_WELDER_UNPACKED_DIR,
+    'src/packaging',
+]
+_INTEGRATION_TEST_GLOB_TEMPLATE_LIST = [
     'mods/android/dalvik/tests',
-    'out/data_roots/art.*',
-    'out/data_roots/arc.*',
-    'out/data_roots/cts.*',
-    'out/data_roots/graphics.*',
-    'out/data_roots/jstests.*',
-    'out/data_roots/ndk.*',
-    'out/data_roots/system_mode.*',
-    'out/staging/android/art/test/*/expected.txt',
+    '{out}/data_roots/art.*',
+    '{out}/data_roots/arc.*',
+    '{out}/data_roots/cts.*',
+    '{out}/data_roots/graphics.*',
+    '{out}/data_roots/jstests.*',
+    '{out}/data_roots/ndk.*',
+    '{out}/data_roots/system_mode.*',
+    '{out}/staging/android/art/test/*/expected.txt',
     # The following two files are needed only for 901-perf test.
-    'out/staging/android/art/test/901-perf/README.benchmark',
-    'out/staging/android/art/test/901-perf/test_cases',
-    'out/target/%(target)s/integration_tests',
-    'out/target/%(target)s/root/system/usr/icu/icudt48l.dat',
-    'out/target/common/art_tests/*/expected.txt',
-    'out/target/common/art_tests/*/*.jar',
-    'out/target/common/integration_test/*',
+    '{out}/staging/android/art/test/901-perf/README.benchmark',
+    '{out}/staging/android/art/test/901-perf/test_cases',
+    '{out}/target/{target}/integration_tests',
+    '{out}/target/{target}/root/system/usr/icu/icudt48l.dat',
+    '{out}/target/common/art_tests/*/expected.txt',
+    '{out}/target/common/art_tests/*/*.jar',
+    '{out}/target/common/integration_test/*',
     # TODO(crbug.com/340594): Avoid checking for APK files when CRX is
     # already generated so that we don't need to send APK to remote,
     # for package.apk, HelloAndroid.apk, glowhockey.apk, and
     # perf_tests_codec.apk
-    'out/target/common/obj/APPS/HelloAndroid_intermediates/HelloAndroid.apk',
-    'out/target/common/obj/APPS/ndk_translation_tests_intermediates/work/libs/*',  # NOQA
-    'out/target/common/obj/APPS/perf_tests_codec_intermediates/perf_tests_codec.apk',  # NOQA
-    'out/target/common/obj/JAVA_LIBRARIES/uiautomator.*/javalib.jar',
-    'out/target/common/vmHostTests',
-    'out/third_party_apks/*',
-    'out/tools/apk_to_crx.py',
+    '{out}/target/common/obj/APPS/HelloAndroid_intermediates/HelloAndroid.apk',
+    '{out}/target/common/obj/APPS/ndk_translation_tests_intermediates/work/libs/*',  # NOQA
+    '{out}/target/common/obj/APPS/perf_tests_codec_intermediates/perf_tests_codec.apk',  # NOQA
+    '{out}/target/common/obj/JAVA_LIBRARIES/uiautomator.*/javalib.jar',
+    '{out}/target/common/vmHostTests',
+    '{out}/third_party_apks/*',
+    '{out}/tools/apk_to_crx.py',
     'run_integration_tests',
     'src/integration_tests',
     'third_party/android-cts/android-cts/repository/plans/CTS.xml',
@@ -84,23 +89,24 @@ _INTEGRATION_TEST_FILE_PATTERNS = [
     'third_party/android/cts/tools/vm-tests-tf/src/dot/junit/opcodes/*/*.java',
     'third_party/android/cts/tools/vm-tests-tf/src/dot/junit/verify/*/*.java',
     'third_party/examples/apk/*/*.apk',
-    'third_party/ndk/sources/cxx-stl/stlport/libs/armeabi-v7a/libstlport_shared.so']  # NOQA
-_UNIT_TEST_FILE_PATTERNS = [
+    'third_party/ndk/sources/cxx-stl/stlport/libs/armeabi-v7a/libstlport_shared.so',  # NOQA
+]
+_UNITTEST_GLOB_TEMPLATE_LIST = [
     # These two files are used by stlport_unittest
-    'out/target/%(target)s/intermediates/stlport_unittest/test_file.txt',  # NOQA
-    'out/target/%(target)s/intermediates/stlport_unittest/win32_file_format.tmp',  # NOQA
-    'out/target/%(target)s/lib',
-    'out/target/%(target)s/posix_translation_fs_images/test_readonly_fs_image.img',  # NOQA
-    'out/target/%(target)s/root/system/framework/art-gtest-*.jar',
-    'out/target/%(target)s/root/system/framework/core-libart.jar',
+    '{out}/target/{target}/intermediates/stlport_unittest/test_file.txt',
+    '{out}/target/{target}/intermediates/stlport_unittest/win32_file_format.tmp',  # NOQA
+    '{out}/target/{target}/lib',
+    '{out}/target/{target}/posix_translation_fs_images/test_readonly_fs_image.img',  # NOQA
+    '{out}/target/{target}/root/system/framework/art-gtest-*.jar',
+    '{out}/target/{target}/root/system/framework/core-libart.jar',
     # Used by posix_translation_test
-    'out/target/%(target)s/runtime/_platform_specific/*/readonly_fs_image.img',  # NOQA
-    'out/target/%(target)s/test',
-    'out/target/%(target)s/unittest_info']
+    '{out}/target/{target}/runtime/_platform_specific/*/readonly_fs_image.img',  # NOQA
+    '{out}/target/{target}/test',
+    '{out}/target/{target}/unittest_info'
+]
 
 # Flags to remove when launching Chrome on remote host.
 _REMOTE_FLAGS = ['--nacl-helper-binary', '--remote', '--ssh-key']
-
 
 _TEMP_DIR = None
 _TEMP_KEY = 'temp_arc_key'
@@ -316,12 +322,14 @@ class RemoteExecutor(object):
     if self._attach_nacl_gdb_type:
       if OPTIONS.is_nacl_build():
         handler = gdb_util.NaClGdbHandlerAdapter(
-            handler, None, self._attach_nacl_gdb_type, host=self._remote)
+            handler, None, self._attach_nacl_gdb_type,
+            remote_executor=self)
       elif OPTIONS.is_bare_metal_build():
         handler = gdb_util.BareMetalGdbHandlerAdapter(
             handler, self._nacl_helper_binary,
             self._attach_nacl_gdb_type, host=self._remote,
-            ssh_options=self.get_ssh_options())
+            ssh_options=self.get_ssh_options(),
+            remote_executor=self)
     if self._jdb_type and self._jdb_port:
       handler = jdb_util.JdbHandlerAdapter(
           handler, self._jdb_port, self._jdb_type, self)
@@ -472,48 +480,52 @@ def create_remote_executor(parsed_args, remote_env=None,
                         enable_pseudo_tty=enable_pseudo_tty)
 
 
-def get_launch_chrome_files_and_directories(parsed_args):
-  patterns = (_COMMON_FILE_PATTERNS +
-              _LAUNCH_CHROME_FILE_PATTERNS +
-              [parsed_args.arc_data_dir])
-  return expand_target_and_glob(patterns)
+def get_launch_chrome_deps(parsed_args):
+  """Returns a list of paths needed to run ./launch_chrome.
 
-
-def get_integration_test_files_and_directories():
-  all_unittest_executables = unittest_util.get_test_executables(
-      unittest_util.get_all_tests())
-  patterns = (_COMMON_FILE_PATTERNS +
-              _LAUNCH_CHROME_FILE_PATTERNS +
-              _INTEGRATION_TEST_FILE_PATTERNS +
-              _UNIT_TEST_FILE_PATTERNS +
-              unittest_util.get_nacl_tools() +
-              all_unittest_executables +
-              [toolchain.get_adb_path_for_chromeos()])
-  return expand_target_and_glob(patterns)
-
-
-def get_unit_test_files_and_directories(parsed_args):
-  patterns = (_COMMON_FILE_PATTERNS +
-              _UNIT_TEST_FILE_PATTERNS +
-              unittest_util.get_nacl_tools() +
-              unittest_util.get_test_executables(parsed_args.tests))
-  return expand_target_and_glob(patterns)
-
-
-def expand_target_and_glob(file_patterns):
-  """Expands %(target)s and glob pattern in |file_patterns|.
-
-  NOTE: This function just expands %(target)s and glob pattern and does NOT
-  convert a directory path into a list of files under the directory.
+  The returned path may be a directory. In that case, all its descendents are
+  needed.
   """
-  format_args = {
-      'target': build_common.get_target_dir_name()
-  }
-  file_patterns = [pattern % format_args for pattern in file_patterns]
-  paths = []
-  for pattern in file_patterns:
-    paths += glob.glob(pattern)
-  return paths
+  glob_template_list = (
+      _COMMON_GLOB_TEMPLATE_LIST + _LAUNCH_CHROME_GLOB_TEMPLATE_LIST)
+  patterns = (
+      map(build_common.expand_path_placeholder, glob_template_list) +
+      [parsed_args.arc_data_dir])
+  return file_util.glob(*patterns)
+
+
+def get_integration_test_deps():
+  """Returns a list of paths needed to run ./run_integration_tests.
+
+  The returned path may be a directory. In that case, all its descendants are
+  needed.
+  """
+  # Note: integration test depends on ./launch_chrome. Also, we run unittests
+  # as a part of integration test on ChromeOS.
+  glob_template_list = (
+      _COMMON_GLOB_TEMPLATE_LIST + _LAUNCH_CHROME_GLOB_TEMPLATE_LIST +
+      _INTEGRATION_TEST_GLOB_TEMPLATE_LIST + _UNITTEST_GLOB_TEMPLATE_LIST)
+  patterns = (
+      map(build_common.expand_path_placeholder, glob_template_list) +
+      [toolchain.get_adb_path_for_chromeos()] +
+      unittest_util.get_nacl_tools() +
+      unittest_util.get_test_executables(unittest_util.get_all_tests()))
+  return file_util.glob(*patterns)
+
+
+def get_unittest_deps(parsed_args):
+  """Returns a list of paths needed to run unittests.
+
+  The returned path may be a directory. In that case, all its descendants are
+  needed.
+  """
+  glob_template_list = (
+      _COMMON_GLOB_TEMPLATE_LIST + _UNITTEST_GLOB_TEMPLATE_LIST)
+  patterns = (
+      map(build_common.expand_path_placeholder, glob_template_list) +
+      unittest_util.get_nacl_tools() +
+      unittest_util.get_test_executables(parsed_args.tests))
+  return file_util.glob(*patterns)
 
 
 def _detect_remote_host_type_from_uname_output(str):

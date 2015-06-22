@@ -23,7 +23,14 @@ import dependency_inspection
 from build_options import OPTIONS
 from util import platform_util
 
+# Following paths are relative to ARC root directory.
 OUT_DIR = 'out'
+TARGET_COMMON_DIR = os.path.join(OUT_DIR, 'target', 'common')
+ARC_WELDER_OUTPUT_DIR = os.path.join(TARGET_COMMON_DIR, 'arc_welder')
+ARC_WELDER_UNPACKED_DIR = os.path.join(
+    ARC_WELDER_OUTPUT_DIR, 'arc_welder_unpacked')
+
+
 # When running Python unittest set up by PythonTestNinjaGenerator, this file
 # is loaded as out/staging/src/build/build_common.py. Use os.path.realpath
 # so that get_arc_root() always returns the real ARC root directory.
@@ -352,11 +359,11 @@ def get_build_path_for_gen_test_template(test_name):
 
 
 def get_arc_welder_output_dir():
-  return os.path.join(get_target_common_dir(), 'arc_welder')
+  return ARC_WELDER_OUTPUT_DIR
 
 
 def get_arc_welder_unpacked_dir():
-  return os.path.join(get_arc_welder_output_dir(), 'arc_welder_unpacked')
+  return ARC_WELDER_UNPACKED_DIR
 
 
 def get_build_tag(commit='HEAD'):
@@ -544,7 +551,7 @@ def get_host_common_dir():
 
 
 def get_target_common_dir():
-  return os.path.join(OUT_DIR, 'target', 'common')
+  return TARGET_COMMON_DIR
 
 
 def get_notice_files_dir():
@@ -591,6 +598,16 @@ def get_integration_test_list_path(module_name):
 def get_all_integration_test_lists_path():
   return os.path.join(
       get_integration_test_list_dir(), 'ALL_TEST_LISTS.txt')
+
+
+def expand_path_placeholder(path):
+  """Returns the path whose replacement fields are filled properly.
+
+  Following replacement fields are supported.
+  - '{out}': filled with OUT_DIR.
+  - '{target}': filled with get_target_dir_name().
+  """
+  return path.format(out=OUT_DIR, target=get_target_dir_name())
 
 
 def get_test_output_handler(use_crash_analyzer=False):
