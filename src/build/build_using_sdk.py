@@ -22,7 +22,8 @@ _SDK_PATH = build_common.get_android_sdk_path()
 _TOOLS_ROOT = os.path.join(_ARC_ROOT, 'third_party', 'tools')
 
 
-def _build_apk(source_path, use_ndk, build_path, install_apk, debug, verbose):
+def _build_apk(source_path, use_ndk, use_clang, build_path,
+               install_apk, debug, verbose):
   if not os.path.isdir(_SDK_PATH):
     raise Exception('Missing SDK path: ' + str(_SDK_PATH))
 
@@ -63,6 +64,8 @@ def _build_apk(source_path, use_ndk, build_path, install_apk, debug, verbose):
     extras = []
     if verbose:
        extras.append('V=1')
+    if use_clang:
+      extras.append('NDK_TOOLCHAIN_VERSION=clang')
     subprocess.check_call([os.path.join(_NDK_PATH, 'ndk-build'),
                            '-j', '16', '-l', '16',
                            'ARC_ROOT=' + _ARC_ROOT] + extras,
@@ -89,6 +92,7 @@ def main():
   parser.add_argument('--sdk', metavar='<path>')
   parser.add_argument('--source_path', metavar='<path>', required='True')
   parser.add_argument('--use_ndk', action='store_true')
+  parser.add_argument('--use_clang', action='store_true')
   parser.add_argument('--verbose', '-v', action='store_true')
   args = parser.parse_args()
 
@@ -105,8 +109,8 @@ def main():
   source_path = os.path.abspath(args.source_path)
 
   try:
-    _build_apk(source_path, args.use_ndk, build_path, install_apk,
-               args.debug, args.verbose)
+    _build_apk(source_path, args.use_ndk, args.use_clang, build_path,
+               install_apk, args.debug, args.verbose)
   except Exception, e:
     print str(e)
     return 1

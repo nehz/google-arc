@@ -134,6 +134,31 @@ def inflate_zip(content, dest_dir):
     logging.info('Done.')
 
 
+def walk_ancestor(path):
+  """Yields the |path|'s ancestor paths.
+
+  For example, if |path| is "a/b/c/d/e", this function will yield;
+  - a/b/c/d/e
+  - a/b/c/d
+  - a/b/c
+  - a/b
+  - a
+
+  Args:
+      path: a path to be traversed. Absolute path is not supported.
+          Normalized path must not start with '../'.
+
+  Yields: |path|'s ancestor paths.
+  """
+  assert not path.startswith('/'), 'Absolute path is not supported: ' + path
+  normpath = os.path.normpath(path)
+  assert normpath != '..' and not normpath.startswith('../'), (
+      'Normalized path must not start with ../: ' + path)
+  while normpath:
+    yield normpath
+    normpath = os.path.dirname(normpath)
+
+
 def glob(*patterns):
   """Expands the glob pattern.
 

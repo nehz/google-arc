@@ -94,8 +94,8 @@ def _is_param_set(checked_param, params):
 def _setup_remote_arc_root(executor, copied_files):
   # Copy specified files to the remote host.
   exec_paths = _get_exec_paths()
-  executor.rsync(list(set(copied_files) - set(exec_paths)),
-                 executor.get_remote_arc_root())
+  executor.rsync(
+      copied_files, executor.get_remote_arc_root(), exclude_paths=exec_paths)
   executor.rsync(exec_paths,
                  build_common.get_chromeos_arc_root_without_noexec())
 

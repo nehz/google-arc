@@ -7,6 +7,7 @@
 # Windows (Cygwin), and Mac.
 
 import atexit
+import itertools
 import logging
 import os
 import pipes
@@ -224,21 +225,37 @@ class RemoteExecutor(object):
     """Returns the list of options used for ssh in the runner."""
     return self._build_shared_ssh_command_options()
 
-  def rsync(self, local_src, remote_dst):
-    """Runs rsync command to copy files to remote host."""
-    # For rsync, the order of pattern is important.
-    # First, add exclude patterns to ignore common editor temporary files, and
-    # .pyc files.
-    # Second, add all paths to be copied.
-    # Finally, add exclude '*', in order not to copy any other files.
-    pattern_list = []
-    for pattern in build_common.COMMON_EDITOR_TMP_FILE_PATTERNS:
-      pattern_list.extend(['--exclude', pattern])
-    pattern_list.extend(['--exclude', '*.pyc'])
-    for path in self._build_rsync_include_pattern_list(local_src):
-      pattern_list.extend(['--include', path])
-    pattern_list.extend(['--exclude', '*'])
+  def rsync(self, source_paths, remote_dest_root, exclude_paths=None):
+    """Runs rsync command to copy files to remote host.
 
+    Sends |source_paths| to |remote_dest_root| directory in the remote machine.
+    |exclude_paths| can be used to exclude files or directories from the
+    sending list.
+    The files which are under |remote_dest_root| but not in the sending list
+    will be deleted.
+
+    Note:
+    - Known editor temporary files would never be sent.
+    - .pyc files in remote machine will *not* be deleted.
+    - If debug info is enabled and therer is a corresponding stripped binary,
+      the stripped binary will be sent, instead of original (unstripped)
+      binary.
+    - Files newly created in the remote machine will be deleted. Specifically,
+      if a file in the host machine is deleted, the corresponding file in the
+      remote machine is also deleted after the rsync.
+
+    Args:
+        source_paths: a list of paths to be sent. Each path can be a file or
+            a directory. If the path is directory, all files under the
+            directory will be sent.
+        remote_dest_root: the path to the destination directory in the
+            remote machine.
+        exclude_paths: an optional list of paths to be excluded from the
+            sending path list. Similar to |source_paths|, if a path is
+            directory, all paths under the directory will be excluded.
+    """
+    filter_list = (
+        self._build_rsync_filter_list(source_paths, exclude_paths or []))
     rsync_options = [
         # The remote files need to be writable and executable by chronos. This
         # option sets read, write, and execute permissions to all users.
@@ -246,6 +263,7 @@ class RemoteExecutor(object):
         '--compress',
         '--copy-links',
         '--delete',
+        '--delete-excluded',
         '--inplace',
         '--perms',
         '--progress',
@@ -253,42 +271,152 @@ class RemoteExecutor(object):
         '--rsh=' + ' '.join(['ssh'] + self._build_shared_ssh_command_options()),
         '--times',
     ]
-    dest = '%s@%s:%s' % (self._user, self._remote, remote_dst)
+    dest = '%s@%s:%s' % (self._user, self._remote, remote_dest_root)
     # Checks both whether to enable debug info and the existence of the stripped
     # directory because build bots using test bundle may use the configure
     # option with debug info enabled but binaries are not available in the
     # stripped directory.
-    if (not OPTIONS.is_debug_info_enabled() or
-        not os.path.exists(build_common.get_stripped_dir())):
-      _run_command(subprocess.check_call,
-                   ['rsync'] + pattern_list + ['.', dest] + rsync_options)
-      return
+    unstripped_paths = None
+    if (OPTIONS.is_debug_info_enabled() and
+        os.path.exists(build_common.get_stripped_dir())):
+      # When debug info is enabled, copy the corresponding stripped binaries if
+      # available to save the disk space on ChromeOS.
+      list_output = _run_command(
+          subprocess.check_output,
+          ['rsync'] + filter_list + ['.', dest] + rsync_options +
+          ['--list-only'])
+      paths = [
+          line.rsplit(' ', 1)[-1] for line in list_output.splitlines()[1:]]
+      unstripped_paths = [
+          path for path in paths if self._has_stripped_binary(path)]
 
-    # When debug info is enabled, copy the corresponding stripped binaries if
-    # available to save the disk space on ChromeOS.
-    list_output = _run_command(
-        subprocess.check_output,
-        ['rsync'] + pattern_list + ['.', dest] + rsync_options +
-        ['--list-only'])
-    paths = [line.rsplit(' ', 1)[-1] for line in list_output.splitlines()[1:]]
+      # here, prepend filter rules to "protect" and "exclude" the files which
+      # have the corresponding stripped binary.
+      # Note: the stripped binraies will be sync'ed by the second rsync
+      # command, so it is necessary to "protect" here, too. Otherwise, the
+      # files will be deleted at the first rsync.
+      filter_list = list(itertools.chain.from_iterable(
+          (('--filter', 'P /' + path, '--exclude', '/' + path)
+           for path in unstripped_paths))) + filter_list
 
-    stripped_binaries, others = self._split_stripped_binaries(paths)
+    # Copy files to remote machine.
+    _run_command(subprocess.check_call,
+                 ['rsync'] + filter_list + ['.', dest] + rsync_options)
 
-    # Send the file list via stdin.
-    logging.debug('rsync others: %s', ', '.join(others))
-    _run_command(_check_call_with_input,
-                 ['rsync', '--files-from=-', '.', dest] + rsync_options,
-                 input='\n'.join(others))
+    if unstripped_paths:
+      # Copy strippted binaries to the build/ directory in the remote machine
+      # directly.
+      stripped_binary_relative_paths = [
+          os.path.relpath(path, build_common.get_build_dir())
+          for path in unstripped_paths]
 
-    logging.debug('rsync stripped binaries: %s', ', '.join(stripped_binaries))
-    dest_build = os.path.join(dest, build_common.get_build_dir())
-    # rsync results in error if the parent directory of the destination
-    # directory does not exist, so ensure it exists.
-    self.run('mkdir -p ' + dest_build.rsplit(':', 1)[-1])
-    _run_command(_check_call_with_input,
-                 ['rsync', '--files-from=-', build_common.get_stripped_dir(),
-                  dest_build] + rsync_options,
-                 input='\n'.join(stripped_binaries))
+      logging.debug('rsync stripped_binaries: %s', ', '.join(unstripped_paths))
+      dest_build = os.path.join(dest, build_common.get_build_dir())
+      # rsync results in error if the parent directory of the destination
+      # directory does not exist, so ensure it exists.
+      self.run('mkdir -p ' + dest_build.rsplit(':', 1)[-1])
+      _run_command(_check_call_with_input,
+                   ['rsync', '--files-from=-', build_common.get_stripped_dir(),
+                    dest_build] + rsync_options,
+                   input='\n'.join(stripped_binary_relative_paths))
+
+  def _build_rsync_filter_list(self, source_paths, exclude_paths):
+    """Builds rsync's filter options to send |source_paths|.
+
+    Builds a list of command line arguments for rsync's filter option
+    to send |source_paths| excluding |exclude_paths|.
+    The rsync's filter is a bit complicated.
+
+    Note:
+    - The order of the rule is important. Earlier rule is stronger than
+      rest.
+    - In the rule, paths beginning with '/' matches with the paths relative
+      to the copy source directory, otherwise it matches any component.
+      For example, assuming the copy source directory is "source",
+      "*.pyc" matches any files (or directories) whose name ends with .pyc,
+      such as "source/test.pyc", "source/dir1/test.pyc", "source/dir2/main.pyc"
+      and so on.
+    - rsync traverses the paths recursively from top to bottom, and checks
+      filters for each path. So, if a file needs to be sent, all its ancestors
+      must be included.
+      E.g., if a/b/c/d needs to be sent;
+      --inlucde /a --include /a/b --include /a/b/c --include /a/b/c/d
+      must be set.
+    - If a directory path matches with the include pattern, all its descendants
+      will be sent. So, in above case, /a/*, /a/b/*, /a/b/c* and all their
+      descendants will be also sent. To avoid such a situation, this function
+      also adds;
+      --exclude /a/* --exclude /a/b/* --exclude /a/b/c/* --exclude /*
+      after include rules (as weaker rules).
+
+    Args:
+        source_paths: a list of paths for files and directories to be sent.
+            Please see rsync()'s docstring for more details.
+        exclude_paths: a list of paths for files and directories to be
+            excluded from the list of sending paths.
+
+    Returns: a list of filter command line arguments for rsync.
+    """
+    result = []
+
+    # 1) exclude all known editor temporary files and .pyc files.
+    # Note that, to keep .pyc files generated in the remote machine, protect
+    # then at first, otherwise these are removed every rsync execution.
+    # If we update a '.py' file, the corresponding '.pyc' file should be
+    # re-generated on execution automatically in remote host side.
+    result.extend(['--filter', 'P *.pyc'])
+    result.extend(itertools.chain.from_iterable(
+        ('--exclude', pattern) for pattern in (
+            build_common.COMMON_EDITOR_TMP_FILE_PATTERNS + ['*.pyc'])))
+
+    # 2) append all exclude paths.
+    result.extend(itertools.chain.from_iterable(
+        ('--exclude', '/' + path) for path in sorted(set(exclude_paths))))
+
+    # 3) append source paths as follows;
+    # 3-1) Remove "redundant" paths. Here "redundant" means paths whose
+    #    anscestor is contained in the include paths.
+    # 3-2) Then, append remaining paths and their anscestors. See docstring
+    #    for more details why anscestors are needed.
+    # 3-3) Finally, exclude unnecessary files and directories.
+    #    Note: the "redundant" paths are removed at 1), so we can assume that
+    #    all paths here are leaves.
+    source_paths = set(source_paths)
+
+    # 3-1) Remove redundant paths.
+    redundant_paths = []
+    for path in source_paths:
+      for dirpath in itertools.islice(file_util.walk_ancestor(path), 1, None):
+        if dirpath in source_paths:
+          redundant_paths.append(path)
+          break
+    for path in redundant_paths:
+      source_paths.discard(path)
+
+    # 3-2) Build --include arguments.
+    include_paths = set(itertools.chain.from_iterable(
+        file_util.walk_ancestor(path) for path in source_paths))
+    result.extend(itertools.chain.from_iterable(
+        ('--include', '/' + path) for path in sorted(include_paths)))
+
+    # 3-3) Exclude unnecessary files.
+    result.extend(itertools.chain.from_iterable(
+        ('--exclude', '/%s/*' % path)
+        for path in sorted(include_paths - source_paths)))
+    result.extend(('--exclude', '/*'))
+
+    return result
+
+  def _has_stripped_binary(self, path):
+    """Returns True if a stripped binary corresponding to |path| is found."""
+    relpath = os.path.relpath(path, build_common.get_build_dir())
+    if relpath.startswith('../'):
+      # The given file is not under build directory.
+      return False
+
+    # Returns True if there is a stripped file corresponding to the |path|.
+    return os.path.isfile(
+        os.path.join(build_common.get_stripped_dir(), relpath))
 
   def port_forward(self, port):
     """Uses ssh to forward a remote port to local port so that remote service
@@ -372,44 +500,6 @@ class RemoteExecutor(object):
                self._build_shared_ssh_command_options() +
                extra_options + ['--', cmd])
     return ssh_cmd
-
-  def _build_rsync_include_pattern_list(self, path_list):
-    pattern_set = set()
-    for path in path_list:
-      if os.path.isdir(path):
-        # For directory, adds all files under the directory.
-        pattern_set.add(os.path.join(path, '**'))
-
-      # It is necessary to add all parent directories, otherwise some parent
-      # directory won't be created and the files wouldn't be copied.
-      while path:
-        pattern_set.add(path)
-        path = os.path.dirname(path)
-
-    return sorted(pattern_set)
-
-  def _split_stripped_binaries(self, paths):
-    """Separates the paths for which stripped binaries are available.
-
-    Returns a tuple (stripped, others).
-    |stripped| includes the paths for which stripped binaries exist in the
-    stripped directory. The path is converted to the relative path from the
-    build directory for later use.
-    |others| includes the remaining paths and paths are not converted.
-    """
-    all_stripped_binaries = set(build_common.find_all_files(
-        build_common.get_stripped_dir(), relative=True, use_staging=False))
-    stripped_binaries = []
-    others = []
-    for path in paths:
-      if os.path.isdir(path):
-        continue
-      relpath = os.path.relpath(path, build_common.get_build_dir())
-      if relpath in all_stripped_binaries:
-        stripped_binaries.append(relpath)
-      else:
-        others.append(path)
-    return stripped_binaries, others
 
 
 def _get_command(*args, **kwargs):

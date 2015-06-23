@@ -3577,7 +3577,7 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
   """Builds an APK using the Android SDK directly."""
 
   def __init__(self, module_name, base_path=None, install_path=None,
-               use_ndk=False, use_gtest=False, **kwargs):
+               use_ndk=False, use_clang=False, use_gtest=False, **kwargs):
     super(ApkFromSdkNinjaGenerator, self).__init__(
         module_name,
         ninja_name=module_name + '_apk',
@@ -3588,6 +3588,7 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
           ApkFromSdkNinjaGenerator.get_install_path_for_module(module_name)
     self._install_path = install_path
     self._use_ndk = use_ndk
+    self._use_clang = use_clang
 
     # If use_gtest is set, some dependencies to use gtest are automatically
     # added to the build. See also build_default_all_sources() below.
@@ -3644,6 +3645,8 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
     args = ''
     if self._use_ndk:
       args = '--use_ndk'
+    if self._use_clang:
+      args += ' --use_clang'
 
     variables = {
         'build_path': build_path,
