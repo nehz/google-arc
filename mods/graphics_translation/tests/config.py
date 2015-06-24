@@ -69,7 +69,7 @@ def _generate_integration_test_ninja():
                   'graphics_translation/tests/util'],
       suffixes=['.cpp', '.h'],
       include_tests=True,
-      include_subdirectories=False)
+      recursive=False)
 
   # Additional source code dependencies to outside of
   # graphics_translation/tests.

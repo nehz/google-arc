@@ -562,6 +562,11 @@ def get_target_configure_options_file(target=None):
   return os.path.join(get_build_dir(target), 'configure.options')
 
 
+def get_generated_metadata_js_file():
+  return os.path.join(get_target_common_dir(),
+                      'packaging_gen_sources/metadata.js')
+
+
 def get_temp_dir():
   return os.path.join(OUT_DIR, 'tmp')
 
@@ -763,9 +768,9 @@ def _build_matcher(exclude_filenames, include_tests, include_suffixes,
   return factory.build_matcher()
 
 
-def _enumerate_files(base_path, include_subdirectories):
+def _enumerate_files(base_path, recursive):
   for root, dirs, files in os.walk(base_path, followlinks=True):
-    if not include_subdirectories:
+    if not recursive:
       dirs[:] = []
     for one_file in files:
       yield os.path.join(root, one_file)
@@ -779,51 +784,75 @@ def _maybe_join(root, path):
   return path if root is None else os.path.join(root, path)
 
 
-def _generate_all_files(base_paths, matcher, root, relative,
-                        include_subdirectories):
+def find_all_files(base_paths, suffixes=None, include_tests=False,
+                   use_staging=True, exclude=None, filenames=None,
+                   recursive=True):
+  """Find all files under given set of base_paths matching criteria.
+
+  Args:
+      base_paths: A list of paths to search. For example ['src/'] to include
+          files under the 'src' directory.
+      suffixes: (Optional) A list of suffixes to match. For example ['.cpp'] to
+          only match C++ files with that extension. The default is to match any
+          suffix.
+      include_tests: (Optional) Set this to true to include them, for example
+          when building a unit test module. The default is to exclude tests.
+      use_staging: (Optional) The most common use case of this function is to
+          find files under the staging directory. Set this to False to instead
+          look for files outside it.
+      exclude: (Optional) A list of suffixes or paths to exclude. For example
+          ['/test/', '_test.c'] excludes any files inside a directory named
+          test, or any file that ends with the suffix '_test.c'. The default is
+          to not exclude any match this way.
+      filenames: (Optional) A list of filenames to restrict the match to,
+         regardless of path. For example ['foo.c'] will match files foo/foo.c
+         and foo/bar/foo.c if those are encountered by the search. The default
+         is to not restrict the matching this way.
+      recursive: (Optional) The default is to search and try to match files in
+          all subdirectories found from each base_path. Set this to false to
+          restrict the search to just the named directories.
+
+  Returns:
+      A list of files, matching the criteria specified by the arguments.
+
+      Matching is done by applying any exclusion rules first, and then applying
+      any inclusion rules to select what files to return.
+
+      Each file will be prefixed by the base path under which it was found. For
+      example, with the call find_all_files(['foo/'], 'suffixes=['.c']), the
+      output might be foo/bar.c when bar.c is found under foo/.
+
+  Notes:
+      For the most common use case where the default of use_staging=True, the
+      base_paths are expected to be valid relative paths in the staging
+      directory, and the output list of files will also be relative paths to
+      files there.
+
+      If this code is being used to more generally find files, then the caller
+      is responsible for passing use_staging=False.
+
+      Also, if this function is called while a config.py is running, it records
+      the base_paths as dependencies of the config.py so they build files are
+      properly regenerated on change.
+  """
+  matcher = _build_matcher(exclude, include_tests, suffixes, filenames)
+  root = None
+  if use_staging:
+    root = os.path.join(get_arc_root(), get_staging_root())
   listing_roots = [_maybe_join(root, base_path)
                    for base_path in as_list(base_paths)]
   if listing_roots:
     dependency_inspection.add_file_listing(
-        listing_roots, matcher, root, include_subdirectories)
+        listing_roots, matcher, root, recursive)
 
+  result = []
   for listing_root in listing_roots:
-    result_root = listing_root if relative else root
-
-    for file_path in _enumerate_files(listing_root, include_subdirectories):
-      if matcher.match(_maybe_relpath(file_path, root)):
-        yield _maybe_relpath(file_path, result_root)
-
-
-def find_all_files(base_paths, suffixes=None, include_tests=False,
-                   use_staging=True, exclude=None, relative=False,
-                   filenames=None, include_subdirectories=True):
-  """Find all files under given set of base_paths matching criteria.
-
-  If include_tests is set, any file that matches the pattern of a
-  test is included, otherwise it is skipped.  The pattern of a test
-  is either:
-    a) basename matching *_test.*
-    b) path containing a "tests" directory
-  If suffixes is set, only files matching the suffix list are returned.
-  If filenames is set, only filenames matching that list are returned.
-  If exclude is set, only filenames not matching that list are returned.
-
-  If relative is True, the returned paths will be relative to the base path they
-  were found under.
-
-  If use_staging is True, the input base paths will be mapped to the staging
-  directory, and the files found there will be returned.
-  """
-
+    for file_path in _enumerate_files(listing_root, recursive):
+      result_path = _maybe_relpath(file_path, root)
+      if matcher.match(result_path):
+        result.append(result_path)
   # For debugging/diffing purposes, sort the file list.
-  return sorted(_generate_all_files(
-      base_paths,
-      matcher=_build_matcher(exclude, include_tests,
-                             suffixes, filenames),
-      root=get_staging_root() if use_staging else None,
-      relative=relative,
-      include_subdirectories=include_subdirectories))
+  return sorted(result)
 
 
 def _get_ninja_jobs_argument():

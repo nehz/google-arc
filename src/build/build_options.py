@@ -99,8 +99,6 @@ _ALLOWED_WARNING_LEVEL = ['all',
                           'yes',  # all except -Wunused-*.
                           'no']
 
-_DEFAULT_ARGUMENT_FILE = '.configure'
-
 
 class _Options(object):
 
@@ -292,7 +290,7 @@ class _Options(object):
       args.regen_build_prop = True
     return args
 
-  def parse(self, args, read_defaults_from_file=True):
+  def parse(self, args):
     parser = argparse.ArgumentParser(
         usage=os.path.basename(sys.argv[0]) + ' <options>',
         epilog=_Options._help_epilog(),
@@ -431,12 +429,6 @@ class _Options(object):
     download_package_util_flags.add_extra_flags(parser)
 
     parsed_args = None
-    # If a _DEFAULT_ARGUMENT_FILE file exists, assume it contains default
-    # options to use, and read them from it.
-    if read_defaults_from_file and os.path.exists(_DEFAULT_ARGUMENT_FILE):
-      print 'Reading default options from ./.configure'
-      with open(_DEFAULT_ARGUMENT_FILE) as defaults:
-        parsed_args = parser.parse_args(defaults.read().splitlines())
     # Note we override any options in the .configure file with options passed on
     # the command line.
     parsed_args = parser.parse_args(args, parsed_args)
