@@ -15,6 +15,14 @@ def check_and_perform_updates(cache_base_path, cache_history_size,
       cache_history_size=cache_history_size
   ).check_and_perform_update()
 
+  # Downloads the x86 CTS suite.
+  download_package_util.BasicCachedPackage(
+      'src/build/DEPS.android-cts-x86',
+      'third_party/android-cts-x86',
+      cache_base_path=cache_base_path,
+      cache_history_size=cache_history_size
+  ).check_and_perform_update()
+
   if include_media:
     # Approx 1Gb of data specific to the media tests.
     download_package_util.BasicCachedPackage(
