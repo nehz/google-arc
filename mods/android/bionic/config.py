@@ -616,8 +616,6 @@ def _generate_libm_ninja():
   def _filter(vars):
     if vars.is_shared():
       return False
-    # TODO(crbug.com/457955): Switch to clang.
-    vars.disable_clang()
     make_to_ninja.Filters.convert_to_shared_lib(vars)
     _add_bare_metal_flags_to_make_to_ninja_vars(vars)
     vars.get_cflags().append('-W')
@@ -1224,6 +1222,8 @@ def _generate_bionic_tests():
                        '-I' + staging.as_staging('android/bionic/libc'))
   # Match bionic/tests/Android.mk.
   n.add_cxx_flags('-std=gnu++11')
+  # Suppress deprecation warning in phtread_context_test.cpp.
+  n.add_cxx_flags('-Wno-inline-asm')
   n.add_include_paths('android/system/extras/libpagemap/include')
   n.add_library_deps('libpagemap.a')
   n.add_compiler_flags('-fno-builtin')

@@ -2,5 +2,5 @@
 <manifest>
   <default revision="android-5.0.2_r1"/>
   <project name="platform/external/glide" revision="android-5.0.2_r1-1-gf469545"/>
-  <project name="platform/prebuilts/clang/linux-x86/host/3.6" revision="a56d7bee5ad891f50db27b7ca251b62af24d8656"/>
+  <project name="platform/prebuilts/clang/linux-x86/host/3.6" revision="android-m-preview"/>
 </manifest>

@@ -137,8 +137,8 @@ class _TargetGroups(object):
     self._map = collections.defaultdict(_TargetGroupInfo)
     self._started_emitting = False
     self._allowed = set()
-    self.define_target_group(self.ALL)
     self.define_target_group(self.DEFAULT)
+    self.define_target_group(self.ALL, self.DEFAULT)
 
   def define_target_group(self, target_group, required=None):
     assert set(as_list(required)) <= self._allowed
@@ -435,9 +435,10 @@ class NinjaGenerator(ninja_syntax.Writer):
   @staticmethod
   def _canonicalize_set(target_groups):
     canon = set(as_list(target_groups))
-    canon.add(_TargetGroups.ALL)
-    if len(canon) == 1:
+    if len(canon) == 0:
       canon.add(_TargetGroups.DEFAULT)
+    else:
+      canon.add(_TargetGroups.ALL)
     return canon
 
   def emit(self):
