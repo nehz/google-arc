@@ -11,6 +11,7 @@ import ninja_generator
 import ninja_generator_runner
 import staging
 from build_options import OPTIONS
+from util import python_deps
 
 
 def _add_compile_flags(ninja):
@@ -31,8 +32,7 @@ def _get_generated_file(ninja, out_name, script_name):
 
   out_path = os.path.join(build_common.get_build_dir(), 'common_gen_sources',
                           out_name)
-  implicit = build_common.find_python_dependencies(
-      'src/build', script_path) + [script_path]
+  implicit = python_deps.find_deps(script_path)
   ninja.build(out_path, rule_name, implicit=implicit)
   return out_path
 

@@ -556,6 +556,7 @@ def _generate_top_level_ninja(ninja_list):
 
 def _verify_ninja_generator_list(ninja_list):
   module_name_count_dict = collections.defaultdict(int)
+  output_path_name_count_dict = collections.defaultdict(int)
   archive_ninja_list = []
   shared_ninja_list = []
   exec_ninja_list = []
@@ -565,6 +566,7 @@ def _verify_ninja_generator_list(ninja_list):
     # for the target and the host.
     key = (ninja.get_module_name(), ninja.is_host())
     module_name_count_dict[key] += 1
+    output_path_name_count_dict[ninja.get_ninja_path()] += 1
     if isinstance(ninja, ninja_generator.ArchiveNinjaGenerator):
       archive_ninja_list.append(ninja)
     if isinstance(ninja, ninja_generator.SharedObjectNinjaGenerator):
@@ -575,7 +577,7 @@ def _verify_ninja_generator_list(ninja_list):
       else:
         exec_ninja_list.append(ninja)
 
-  # Make sure there is no duplicated ninja modules.
+  # Make sure there are no duplicated ninja modules.
   duplicated_module_list = [
       item for item in module_name_count_dict.iteritems() if item[1] > 1]
   if duplicated_module_list:
@@ -586,6 +588,16 @@ def _verify_ninja_generator_list(ninja_list):
       errors.append(error)
     raise Exception(
         'Ninja generated multiple times: ' + ', '.join(errors))
+
+  # Make sure there are no duplicated ninja files.
+  duplicated_ninja_paths = [
+      (path, count) for path, count in output_path_name_count_dict.iteritems()
+      if count > 1]
+  if duplicated_ninja_paths:
+    errors = ['%s: %d' % (path, count)
+              for path, count in duplicated_ninja_paths]
+    raise Exception(
+        'Ninja files generated multiple times: ' + ', '.join(errors))
 
   # Make sure for each modules, the expected usage count and actual reference
   # count is same.  The open source repository builds a subset of binaries so
