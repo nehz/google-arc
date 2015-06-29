@@ -314,6 +314,22 @@ def _generate_check_symbols_ninja():
             implicit=[script, staging.as_staging(so_file)])
 
 
+def _generate_expected_driver_times_test():
+  ninja_generator.generate_python_test_ninja(
+      'src/build',
+      python_test='src/build/cts/expected_driver_times_test.py',
+      implicit=[build_common.get_all_integration_test_lists_path(),
+                build_common.get_all_unittest_info_path()])
+
+
+def _generate_run_integration_tests_test():
+  ninja_generator.generate_python_test_ninja(
+      'src/build',
+      python_test='src/build/run_integration_tests_test.py',
+      implicit=[build_common.get_all_integration_test_lists_path(),
+                build_common.get_all_unittest_info_path()])
+
+
 def generate_ninjas():
   ninja_generator_runner.request_run_in_parallel(
       _generate_breakpad_ninja,
@@ -328,15 +344,13 @@ def generate_test_ninjas():
   if not open_source.is_open_source_repo():
     # expected_driver_times_test.py and run_integration_tests_test.py have extra
     # implicit dependencies, so generate the ninja for them separately.
-    test_list_paths = [build_common.get_all_integration_test_lists_path(),
-                       build_common.get_all_unittest_info_path()]
-    implicit_map = dict.fromkeys(
-        ['src/build/cts/expected_driver_times_test.py',
-         'src/build/run_integration_tests_test.py'],
-        test_list_paths)
+    ninja_generator_runner.request_run_in_parallel(
+        _generate_expected_driver_times_test)
+    ninja_generator_runner.request_run_in_parallel(
+        _generate_run_integration_tests_test)
     ninja_generator.generate_python_test_ninjas_for_path(
         'src/build',
-        implicit_map=implicit_map,
-        exclude='perf_test.py')
+        exclude=['cts/expected_driver_times_test.py',
+                 'run_integration_tests_test.py'])
   ninja_generator_runner.request_run_in_parallel(
       _generate_lint_test_ninjas)

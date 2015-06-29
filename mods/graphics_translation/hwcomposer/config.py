@@ -24,4 +24,5 @@ def generate_ninjas():
   n.add_include_paths('mods/graphics_translation')
   sources = ['graphics_translation/hwcomposer/hwcomposer.cpp']
   n.build_default(sources, base_path='mods')
+  n.add_library_deps('libcutils.so')
   n.link()

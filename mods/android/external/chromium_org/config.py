@@ -98,10 +98,8 @@ def _filter_ldflags_for_libwebviewchromium(vars):
   # without errors, which is what we want so they are resolved at runtime.
   vars.get_ldflags().remove('-Wl,--no-undefined')
 
-  # libjnigraphics will be statically compiled to avoid warnings due to private
-  # skia symbols.
-  vars.get_shared_deps().remove('libjnigraphics')
-  vars.get_static_deps().append('libjnigraphics_static')
+  # TODO(crbug.com/489972): Suppress warnings caused by hidden skia symbols.
+  vars.get_ldflags().remove('-Wl,--fatal-warnings')
 
   for idx, flag in enumerate(vars.get_ldflags()):
     if 'android_exports.lst' in flag:
@@ -117,6 +115,8 @@ def _filter_ldflags_for_libwebviewchromium(vars):
 
 
 def _filter_deps_for_libwebviewchromium(vars, skip):
+  # Link android/external/libvpx instead of one from chromium_org.
+  vars.get_static_deps().append('libvpx')
   for s in skip:
     vars.get_static_deps().remove(s)
 
@@ -176,6 +176,25 @@ def _filter_sources_for_openssl(vars):
     # are for i686 or x86_64.
     sources[:] = filter(lambda s: not s.endswith('.S') and '/asm/' not in s,
                         sources)
+    # Build C implementations instead.
+    replacement_sources = [
+        'aes/aes_cbc.c',
+        'aes/aes_core.c',
+        'bn/bn_asm.c',
+        'mem_clr.c']
+    if OPTIONS.is_i686():
+      replacement_sources.extend([
+          'bf/bf_enc.c',
+          'des/des_enc.c',
+          'des/fcrypt_b.c'])
+    if OPTIONS.is_x86_64():
+      replacement_sources.extend([
+          'rc4/rc4_enc.c',
+          'rc4/rc4_skey.c'])
+    for s in replacement_sources:
+      sources.append(
+          'android/external/chromium_org/third_party/openssl/openssl/crypto/'
+          + s)
     if OPTIONS.is_x86_64():
       # Replace the sources that does not seem to work under NaCl x86_64.
       # Especially chacha_vec.c includes code that assumes the bit size of
@@ -238,30 +257,30 @@ def _get_chromium_modules_to_skip(vars):
 
 
 def _filter_target_modules(vars):
-    skip = _get_chromium_modules_to_skip(vars)
-    module_name = vars.get_module_name()
-    if module_name in skip:
-      return False
-    if module_name in _SEEN_MODULES:
-      return False
-    _SEEN_MODULES[module_name] = True
-    if module_name == 'libwebviewchromium':
-      _filter_deps_for_libwebviewchromium(vars, skip)
-      _filter_ldflags_for_libwebviewchromium(vars)
-    elif module_name.startswith('v8_tools_gyp_'):
-      _filter_params_for_v8(vars)
-    elif module_name == 'third_party_harfbuzz_ng_harfbuzz_ng_gyp':
-      build_common.filter_params_for_harfbuzz(vars)
-    elif module_name == 'third_party_openssl_openssl_gyp':
-      _filter_sources_for_openssl(vars)
-    elif module_name == 'third_party_opus_opus_gyp':
-      _filter_sources_for_opus(vars)
-    elif (module_name ==
-          'third_party_WebKit_Source_platform_blink_heap_asm_stubs_gyp'):
-      _filter_sources_for_webkit_asm(vars)
-    _filter_cflags_for_chromium_org(vars)
-    _filter_sources_for_chromium_org(vars)
-    return True
+  skip = _get_chromium_modules_to_skip(vars)
+  module_name = vars.get_module_name()
+  if module_name in skip:
+    return False
+  if module_name in _SEEN_MODULES:
+    return False
+  _SEEN_MODULES[module_name] = True
+  if module_name == 'libwebviewchromium':
+    _filter_deps_for_libwebviewchromium(vars, skip)
+    _filter_ldflags_for_libwebviewchromium(vars)
+  elif module_name.startswith('v8_tools_gyp_'):
+    _filter_params_for_v8(vars)
+  elif module_name == 'third_party_harfbuzz_ng_harfbuzz_ng_gyp':
+    build_common.filter_params_for_harfbuzz(vars)
+  elif module_name == 'third_party_openssl_openssl_gyp':
+    _filter_sources_for_openssl(vars)
+  elif module_name == 'third_party_opus_opus_gyp':
+    _filter_sources_for_opus(vars)
+  elif (module_name ==
+        'third_party_WebKit_Source_platform_blink_heap_asm_stubs_gyp'):
+    _filter_sources_for_webkit_asm(vars)
+  _filter_cflags_for_chromium_org(vars)
+  _filter_sources_for_chromium_org(vars)
+  return True
 
 
 # This is the ninja that generates libwebviewchromium.

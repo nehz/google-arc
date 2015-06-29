@@ -284,43 +284,14 @@ def _get_cache_file_path(config_name, entry_point):
 
 def _filter_excluded_libs(vars):
   excluded_libs = [
-      'libandroid',          # Added as an archive to plugin
-      'libandroid_runtime',  # Added as an archive to plugin
-      'libaudioutils',       # Converted to an archive
-      'libbinder',           # Added as an archive to plugin
-      'libcamera_client',    # Added as an archive to plugin
-      'libcamera_metadata',  # Added as an archive to plugin
-      'libcutils',           # Added as an archive to plugin
-      'libcorkscrew',        # Added as an archive to plugin
-      'libcrypto',           # Added as an archive to plugin
-      'libcrypto_static',    # Added as an archive to plugin
-      'libdl',               # Provided in Bionic replacement
-      'libdvm',              # Added as an archive to plugin
-      'libEGL',              # Added as an archive to plugin
-      'libeffects',          # Added as an archive to plugin
-      'libemoji',            # Added as an archive to plugin
-      'libETC1',             # Added as an archive to plugin
-      'libexpat',            # Added as an archive to plugin
-      'libexpat_static',     # Added as an archive to plugin
-      'libGLESv1_CM',        # Added as an archive to plugin
+      'libhardware_legacy',  # Not built
+      # TODO(crbug.com/336316): Build graphics translation as DSO. Currently
+      # it is linked statically to arc.nexe, so such dependencies are removed.
+      'libEGL',              # Provided by libegl.a from graphics translation
+      'libGLESv1_CM',        # Provided by libgles.a from graphics translation
       'libGLESv2',           # Not built
-      'libgui',              # Converted to an archive
-      'libhardware',         # Added as an archive to plugin
-      'libharfbuzz_ng',      # Added as an archive to plugin
-      'libhwui',             # Added as an archive to plugin (when enabled)
-      'libinput',            # Added as an archive to plugin
-      'libjpeg',             # Added as an archive to plugin (as libjpeg_static)
-      'liblog',              # Part of libcommon
-      'libmedia',            # Converted to an archive
-      'libskia',             # Added as an archive to plugin
-      'libsonivox',          # Added as an archive to plugin
-      'libsqlite',           # Added as an archive to plugin
-      'libssl',              # Added as an archive to plugin
-      'libssl_static',       # Added as an archive to plugin
       'libstlport',          # Trying to avoid in favor of GLIBC
-      'libsync',             # FD sync is not supported
-      'libui',               # Added as an archive to plugin
-      'libz']                # Added as an archive to plugin
+      'libsync']             # FD sync is not supported
 
   deps = vars.get_shared_deps()
   deps[:] = [x for x in deps if x not in excluded_libs]
@@ -556,7 +527,6 @@ def _generate_top_level_ninja(ninja_list):
 
 def _verify_ninja_generator_list(ninja_list):
   module_name_count_dict = collections.defaultdict(int)
-  output_path_name_count_dict = collections.defaultdict(int)
   archive_ninja_list = []
   shared_ninja_list = []
   exec_ninja_list = []
@@ -566,7 +536,6 @@ def _verify_ninja_generator_list(ninja_list):
     # for the target and the host.
     key = (ninja.get_module_name(), ninja.is_host())
     module_name_count_dict[key] += 1
-    output_path_name_count_dict[ninja.get_ninja_path()] += 1
     if isinstance(ninja, ninja_generator.ArchiveNinjaGenerator):
       archive_ninja_list.append(ninja)
     if isinstance(ninja, ninja_generator.SharedObjectNinjaGenerator):
@@ -577,7 +546,7 @@ def _verify_ninja_generator_list(ninja_list):
       else:
         exec_ninja_list.append(ninja)
 
-  # Make sure there are no duplicated ninja modules.
+  # Make sure there is no duplicated ninja modules.
   duplicated_module_list = [
       item for item in module_name_count_dict.iteritems() if item[1] > 1]
   if duplicated_module_list:
@@ -588,16 +557,6 @@ def _verify_ninja_generator_list(ninja_list):
       errors.append(error)
     raise Exception(
         'Ninja generated multiple times: ' + ', '.join(errors))
-
-  # Make sure there are no duplicated ninja files.
-  duplicated_ninja_paths = [
-      (path, count) for path, count in output_path_name_count_dict.iteritems()
-      if count > 1]
-  if duplicated_ninja_paths:
-    errors = ['%s: %d' % (path, count)
-              for path, count in duplicated_ninja_paths]
-    raise Exception(
-        'Ninja files generated multiple times: ' + ', '.join(errors))
 
   # Make sure for each modules, the expected usage count and actual reference
   # count is same.  The open source repository builds a subset of binaries so

@@ -11,7 +11,6 @@ import ninja_generator
 import ninja_generator_runner
 import staging
 from build_options import OPTIONS
-from util import python_deps
 
 
 def _add_compile_flags(ninja):
@@ -32,7 +31,8 @@ def _get_generated_file(ninja, out_name, script_name):
 
   out_path = os.path.join(build_common.get_build_dir(), 'common_gen_sources',
                           out_name)
-  implicit = python_deps.find_deps(script_path)
+  implicit = build_common.find_python_dependencies(
+      'src/build', script_path) + [script_path]
   ninja.build(out_path, rule_name, implicit=implicit)
   return out_path
 
@@ -42,13 +42,6 @@ def _get_wrapped_functions_cc(ninja):
       ninja,
       out_name='wrapped_functions.cc',
       script_name='gen_wrapped_functions_cc.py')
-
-
-def _get_android_static_libraries_cc(ninja):
-  return _get_generated_file(
-      ninja,
-      out_name='android_static_libraries.cc',
-      script_name='gen_android_static_libraries_cc.py')
 
 
 def _get_real_syscall_aliases_s(ninja):
@@ -100,8 +93,7 @@ def _generate_libcommon_ninja(
 
 def _generate_libcommon_ninjas():
   n = ninja_generator.NinjaGenerator('libcommon_gen_sources')
-  extra_sources = [_get_wrapped_functions_cc(n),
-                   _get_android_static_libraries_cc(n)]
+  extra_sources = [_get_wrapped_functions_cc(n)]
   _generate_libcommon_ninja(module_name='libcommon',
                             instances=1,
                             enable_libcxx=False,

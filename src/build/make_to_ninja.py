@@ -1260,6 +1260,10 @@ class MakeVars:
     self._whole_archive_deps = vars_helper.get_optional_list(
         'LOCAL_WHOLE_STATIC_LIBRARIES', [arch_variant, arch_bit_variant])
     self._shared_deps = vars_helper.get_optional_list('LOCAL_SHARED_LIBRARIES')
+    # liblog can be linked by LOCAL_LDFLAGS instead of LOCAL_SHARED_LIBRARIES.
+    if '-llog' in self._flags.ldflags:
+      self._flags.ldflags.remove('-llog')
+      self._shared_deps.append('liblog')
     self._addld_deps = []
 
     self._implicit_deps = [os.path.join(self._path, x) for x in local_sources
@@ -1291,7 +1295,9 @@ class MakeVars:
       self._is_clang_enabled = OPTIONS.is_nacl_build() and not self.is_host()
       self._is_cxx11_enabled = False
     self._is_clang_linker_enabled = False
-    self._is_libcxx_enabled = ('-D_USING_LIBCXX' in self._flags.cflags)
+    self._is_libcxx_enabled = (
+        '-D_USING_LIBCXX' in self._flags.cflags or
+        'libc++' in self._shared_deps)
 
     if (self.is_target_executable() and
         'tests' in vars_helper.get_optional_list('LOCAL_MODULE_TAGS')):
@@ -2708,10 +2714,6 @@ class MakefileNinjaTranslator:
 
 def run(path):
   MakefileNinjaTranslator(path).generate(Filters.exclude_executables)
-
-
-def run_for_static(path):
-  MakefileNinjaTranslator(path).generate(Filters.convert_to_static_lib)
 
 
 def run_for_c(path):

@@ -30,7 +30,6 @@ from build_options import OPTIONS
 from ninja_generator_runner import request_run_in_parallel
 from notices import Notices
 from util import file_util
-from util import python_deps
 from util.test import unittest_util
 
 # Pull in ninja_syntax from our tools/ninja directory.
@@ -312,10 +311,6 @@ class NinjaGenerator(ninja_syntax.Writer):
                use_global_scope=False):
     if ninja_name is None:
       ninja_name = module_name
-      # Ensure the base ninja filename is only made of alphanumeric characters
-      # or a short list of other allowed characters. Convert anything else into
-      # an underscore.
-      ninja_name = re.sub(r'[^\w\-+_.]', '_', ninja_name)
     self._module_name = module_name
     self._ninja_name = ninja_name
     self._is_host = host
@@ -467,9 +462,6 @@ class NinjaGenerator(ninja_syntax.Writer):
 
   def get_build_path(self, name):
     return os.path.join(self.get_intermediates_dir(), name)
-
-  def get_ninja_path(self):
-    return self._ninja_path
 
   @staticmethod
   def _add_bionic_stdlibs(flags, is_so, is_system_library):
@@ -773,9 +765,9 @@ class NinjaGenerator(ninja_syntax.Writer):
     rebuild. This check is for avoiding such incorrect implicit dependencies
     on files in third party directories.
     """
-    # It is valid for lint and python test rules to have implicit dependencies
-    # on third party paths.
-    if rule in ('lint', 'run_python_test'):
+    # It is valid for lint rule to have implicit dependencies on third party
+    # paths.
+    if rule == 'lint':
       return
     # The list of paths for which implicit dependency check is skipped.
     implicit_check_skip_patterns = (
@@ -2008,9 +2000,17 @@ class ArchiveNinjaGenerator(CNinjaGenerator):
     # is believed to be safe.
     # We can not create the white list automatically since STLport headers
     # are visible by default without any additional search paths.
-    white_list = ['libcommon_real_syscall_aliases', 'libcompiler_rt',
-                  'libcutils', 'libppapi_mocks', 'libutils_static',
-                  'libz', 'libziparchive', 'libziparchive-host']
+    white_list = [
+        'libcommon_real_syscall_aliases',
+        'libcompiler_rt',
+        'libcutils',
+        'libcutils_static',
+        'libppapi_mocks',
+        'libutils_static',
+        'libz',
+        'libz_static',
+        'libziparchive',
+        'libziparchive-host']
 
     for ninja in all_ninja_list:
       # Check if each module depends only on modules that use the same STL
@@ -2365,6 +2365,9 @@ class NoticeNinjaGenerator(NinjaGenerator):
     # a package that was not licensed with these.
     while queue:
       module_name = queue.pop(0)
+      assert module_name in module_to_ninja_map, (
+          '"%s" depended by "%s" directly or indirectly is not defined.' %
+          (module_name, n._module_name))
       included_ninja = module_to_ninja_map[module_name]
       included_notices = included_ninja._notices
       if OPTIONS.is_notices_logging():
@@ -3962,79 +3965,38 @@ class AaptNinjaGenerator(NinjaGenerator):
 
 class PythonTestNinjaGenerator(NinjaGenerator):
   """Implements a python unittest runner generator."""
-
-  # ARC has its main package of Python code here.
-  _ARC_PYTHON_PATH = 'src/build'
-
-  _TEST_PYTHONPATH = [
-      'src/build',
-      'src/packaging',
-      'third_party/tools/depot_tools',
-      'third_party/tools/python_mock'
-  ]
+  def __init__(self, module_name, **kwargs):
+    super(PythonTestNinjaGenerator, self).__init__(module_name, **kwargs)
 
   @staticmethod
   def emit_common_rules(n):
-    # We run the test using the -m option to get consistent behavior with
-    # imports. If we ran it with "python $in", the path to the file would be
-    # automatically added to sys.path, when normally that path may not be in it.
+    # Running the test this way is a little awkward in that we are not really
+    # interested in searching for tests matching a pattern, but it does what we
+    # want.
     n.rule('run_python_test',
-           ('PYTHONPATH=%s python -m unittest discover --verbose $test_path '
-            '$test_name $base_run_path %s' % (
-                ':'.join(PythonTestNinjaGenerator._TEST_PYTHONPATH),
-                build_common.get_test_output_handler())),
+           ('PYTHONPATH='
+            'src/build:src/packaging:src:third_party/tools/python_mock '
+            'python -m unittest discover --verbose '
+            '$test_path $test_name $top_path' +
+            build_common.get_test_output_handler()),
            description='run_python_test $in')
 
-  def run(self, python_test, implicit=None):
-    """Runs a single Python test.
+  def run(self, top_path, unit_test_module, implicit_dependencies=None):
+    """Runs a single test from a larger package.
 
-    The Python module dependencies of the test are discovered automatically (at
-    configure time) by examining the tree of imports it makes.
-
-    Args:
-        python_test: The path to the test file, such as
-            'src/build/util/some_util_test.py'.
-        implicit: An additional list of implicit dependencies for this test, so
-            that it is run if any of them are changed.
-    """
-
-    # Get the list of Python files that are imported, excluding files from
-    # outside the ARC directories.
-    python_dependencies = python_deps.find_deps(
-        python_test, python_path=PythonTestNinjaGenerator._TEST_PYTHONPATH)
-
-    # The Python test file is included in the returned list. Remove it since we
-    # are interested in the implicit dependencies, and the test is an
-    # explicit dependency.
-    python_dependencies.remove(python_test)
-
-    # Add the discovered python dependencies to the list of dependencies.
-    implicit = build_common.as_list(implicit) + python_dependencies
-
-    # Generate an output file that holds the results (and so it can be updated
-    # by the build system when dirty).
-    results_file = os.path.join(
-        build_common.get_target_common_dir(), 'test_results',
-        self._ninja_name + '.results')
-
-    # To run the test cleanly, we have to specify the base run path, as well as
-    # the relative name of the module in that path. For ARC, any test under
-    # _ARC_PYTHON_PATH is treated as part of the main python package rooted
-    # there. Otherwise we treat files outside that path as a local package
-    # rooted at the containing directory.
-    if python_test.startswith(PythonTestNinjaGenerator._ARC_PYTHON_PATH + '/'):
-      base_run_path = PythonTestNinjaGenerator._ARC_PYTHON_PATH
-    else:
-      base_run_path = os.path.dirname(python_test)
-
-    test_path, test_name = os.path.split(python_test)
-    variables = {'base_run_path': base_run_path, 'test_name': test_name,
-                 'test_path': test_path}
-
-    # Write out the build rule.
-    return self.build(
-        results_file, 'run_python_test', inputs=python_test,
-        implicit=sorted(implicit), variables=variables, use_staging=False)
+    'top_path' identifies the path to the top or root of the package source
+    code. 'unit_test_module' is the full path the unit test to run."""
+    top_path = staging.as_staging(top_path)
+    unit_test_module = staging.as_staging(unit_test_module)
+    results_file = os.path.join(build_common.get_target_common_dir(),
+                                'test_results',
+                                self.get_module_name() + '.results')
+    test_path, test_name = os.path.split(unit_test_module)
+    return self.build(results_file, 'run_python_test',
+                      inputs=[unit_test_module],
+                      implicit=implicit_dependencies,
+                      variables=dict(test_path=test_path, test_name=test_name,
+                                     top_path=top_path))
 
 
 class NaClizeNinjaGenerator(NinjaGenerator):
@@ -4083,30 +4045,24 @@ class NaClizeNinjaGenerator(NinjaGenerator):
            description='naclize_i686 $out')
 
 
-def _generate_python_test_ninja_for_test(python_test, implicit_map):
-  PythonTestNinjaGenerator(python_test).run(
-      python_test, implicit_map.get(python_test, []))
+def generate_python_test_ninja(top_path, python_test, implicit=None):
+  if implicit is None:
+    implicit = []
+  ninja_name = os.path.splitext(python_test)[0].replace('/', '_')
+  n = PythonTestNinjaGenerator(ninja_name)
+  implicit_dependencies = \
+      build_common.find_python_dependencies(top_path, python_test)
+  implicit_dependencies.extend(implicit)
+  n.run(top_path, python_test, implicit_dependencies=implicit_dependencies)
 
 
-def generate_python_test_ninjas_for_path(base_path, exclude=None,
-                                         implicit_map=None):
-  """Generates ninja files for all Python tests found under the indicated path.
-
-  The Python module dependencies of each test are discovered automatically (at
-  configure time) by examining the tree of imports it makes.
-
-  Args:
-      base_path: The base path to find all Python tests under.
-      exclude: (Optional) A list of files to exclude.
-      implicit_map: (Optional) A mapping of test paths to extra dependencies for
-          that test.
-  """
-  implicit_map = as_dict(implicit_map)
+def generate_python_test_ninjas_for_path(top_path, use_staging=True,
+                                         exclude=None):
   python_tests = build_common.find_all_files(
-      base_path, suffixes='_test.py', include_tests=True, exclude=exclude,
-      use_staging=False)
+      top_path, suffixes='_test.py', include_tests=True,
+      use_staging=use_staging, exclude=exclude)
   request_run_in_parallel(
-      *[(_generate_python_test_ninja_for_test, python_test, implicit_map)
+      *[(generate_python_test_ninja, top_path, python_test)
         for python_test in python_tests])
 
 
