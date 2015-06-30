@@ -97,34 +97,21 @@ __LIBC_HIDDEN__ void print_int(long v) {
   print_str(stringify_int(v, buf + sizeof(buf) - 1));
 }
 
-static char* stringify_hex(long v, char* p) {
-  int is_negative = 0;
+static char* stringify_hex(unsigned long v, char* p) {
   int c;
   *p = '\0';
-  if (v < 0) {
-    if (v == LONG_MIN) {
-      --p;
-      *p = '0';
-      // This heavily depends on C99's division.
-      v /= 16;
-    }
-    v = -v;
-    is_negative = 1;
-  }
   do {
     --p;
     c = v % 16;
-    *p = c < 10 ? c + '0' : c - 10 + 'A';
+    *p = c < 10 ? c + '0' : c - 10 + 'a';
     v /= 16;
   } while (v);
   *--p = 'x';
   *--p = '0';
-  if (is_negative)
-    *--p = '-';
   return p;
 }
 
-__LIBC_HIDDEN__ void print_hex(long v) {
+__LIBC_HIDDEN__ void print_hex(unsigned long v) {
   char buf[32];
   print_str(stringify_hex(v, buf + sizeof(buf) - 1));
 }
@@ -160,7 +147,7 @@ __LIBC_HIDDEN__ void print_format(const char* fmt, ...) {
         cur_p = stringify_int(va_arg(ap, long), cur_buf + sizeof(cur_buf) - 1);
         break;
       case 'x':
-        cur_p = stringify_hex(va_arg(ap, long), cur_buf + sizeof(cur_buf) - 1);
+        cur_p = stringify_hex(va_arg(ap, unsigned long), cur_buf + sizeof(cur_buf) - 1);
         break;
       case 's':
         cur_p = va_arg(ap, char*);

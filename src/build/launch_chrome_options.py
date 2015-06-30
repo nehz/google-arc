@@ -29,8 +29,6 @@ _SYSTEM_CRX_NAME = 'system_mode.default'
 def _parse_barewords(args, parsed_args):
   for i in range(0, len(args)):
     if re.match('.*\.apk', args[i]):
-      if parsed_args.mode == 'driveby' and parsed_args.apk_path_list:
-        raise Exception('More than one apk given in driveby mode')
       parsed_args.apk_path_list.append(args[i])
     else:
       raise Exception('Unrecognized arg "%s"' % args[i])
@@ -55,16 +53,10 @@ def _parse_mode_arguments(remaining_args, parsed_args):
   if parsed_args.mode == 'arcwelder':
     parsed_args.build_crx = False
     parsed_args.arc_data_dir = os.path.join(get_arc_welder_unpacked_dir())
-  elif parsed_args.mode != 'driveby':
+  else:
     parsed_args.arc_data_dir = _get_arc_data_dir(parsed_args)
 
   return True
-
-
-def _validate_mode_settings(parser, args):
-  if args.mode == 'driveby':
-    if not OPTIONS.is_nacl_build():
-      parser.error('driveby mode works only with NaCl build')
 
 
 def _parse_gdb_targets(value):
@@ -272,11 +264,6 @@ def parse_args(argv):
       the exit code of the script process will be set according to whether it
       passed or failed.
 
-  driveby [path-to-apk or url-to-apk]
-      Start Chrome with an Android APK in drive by mode.
-
-      If no APKs are given, the HelloAndroid.apk is used by default.
-
   run [path-to-apk]*
       Start Chrome with one or more Android APKs. Only the last one listed has
       its default activity launched.
@@ -308,8 +295,8 @@ Native Client Debugging
 """, formatter_class=argparse.RawTextHelpFormatter)
 
   parser.add_argument('mode',
-                      choices=('arcwelder', 'atftest', 'driveby', 'run',
-                               'system', 'perftest'),
+                      choices=('arcwelder', 'atftest', 'run', 'system',
+                               'perftest'),
                       help=argparse.SUPPRESS)
 
   parser.add_argument('--additional-android-permissions',
@@ -547,7 +534,6 @@ Native Client Debugging
     parser.print_help()
     sys.exit(1)
 
-  _validate_mode_settings(parser, args)
   _validate_perftest_settings(parser, args)
   _validate_system_settings(parser, args)
   _validate_debug_modes(parser, args)

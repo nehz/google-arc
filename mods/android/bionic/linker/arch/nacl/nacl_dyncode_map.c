@@ -52,7 +52,7 @@ int nacl_dyncode_map (int fd, void *dest, size_t offset, size_t size)
     } else {
       print_format("nacl_dyncode_map: mmap(%x) failed with %d. "
                    "Falling back to the slow path (crbug.com/360277)\n",
-                   (long)dest, errno);
+                   (unsigned long)dest, errno);
       // ARC MOD END
     }
   }

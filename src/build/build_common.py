@@ -527,13 +527,6 @@ def get_runtime_build_stamp():
   return os.path.join(get_runtime_out_dir(), 'BUILD_STAMP')
 
 
-def get_handler_dir():
-  # Load handler extension from src tree, because chromium can not load
-  # extension with symbolic links in it.
-  # TODO(penghuang): copy arc_handler to out/ during building.
-  return 'src/packaging/arc_handler'
-
-
 def get_runtime_version():
   runtime_tag = subprocess.check_output(
       ['git', 'describe', '--first-parent', '--abbrev=0',

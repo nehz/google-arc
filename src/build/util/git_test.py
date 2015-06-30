@@ -22,8 +22,8 @@ class TestUtilGit(unittest.TestCase):
 
   def test_exclusion_gitignore_matching(self):
     self.assertTrue(self._ignore_checker.matches('out/foo.cc'))
-    self.assertTrue(self._ignore_checker.matches(
-                    'foo/bar/out/file/foo.cc'))
+    self.assertFalse(self._ignore_checker.matches(
+                     'foo/bar/out/file/foo.cc'))
     self.assertFalse(self._ignore_checker.matches(
                      'mods/android/dalvik/vm/mterp/out/foo.cc'))
 

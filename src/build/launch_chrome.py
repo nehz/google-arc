@@ -13,7 +13,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import urlparse
 
 import build_common
 import launch_chrome_options
@@ -178,15 +177,12 @@ def _run_chrome_iterations(parsed_args):
 
 def _check_apk_existence(parsed_args):
   for apk_path in parsed_args.apk_path_list:
-    is_file = (parsed_args.mode != 'driveby' or
-               urlparse.urlparse(apk_path).scheme == '')
-    if is_file and not os.path.exists(apk_path):
+    if not os.path.exists(apk_path):
       raise Exception('APK does not exist:' + apk_path)
 
 
 def _check_crx_existence(parsed_args):
   if (not parsed_args.build_crx and
-      parsed_args.mode != 'driveby' and
       not os.path.exists(parsed_args.arc_data_dir)):
     raise Exception('--nocrxbuild is used but CRX does not exist in %s.\n'
                     'Try launching chrome without --nocrxbuild in order to '
@@ -259,12 +255,9 @@ def main():
   if not platform_util.is_running_on_remote_host():
     _check_apk_existence(parsed_args)
 
-  # Do not build crx for drive by mode.
-  # TODO(crbug.com/326724): Transfer args to metadata in driveby mode.
-  if parsed_args.mode != 'driveby':
-    if not platform_util.is_running_on_remote_host():
-      prep_launch_chrome.prepare_crx(parsed_args)
-    prep_launch_chrome.remove_crx_at_exit_if_needed(parsed_args)
+  if not platform_util.is_running_on_remote_host():
+    prep_launch_chrome.prepare_crx(parsed_args)
+  prep_launch_chrome.remove_crx_at_exit_if_needed(parsed_args)
 
   if parsed_args.remote:
     remote_executor.launch_remote_chrome(parsed_args, sys.argv[1:])
@@ -278,10 +271,9 @@ def main():
 
 def _compute_chrome_plugin_params(parsed_args):
   params = []
-  extensions = [
-      remote_executor.resolve_path(build_common.get_runtime_out_dir()),
-      remote_executor.resolve_path(build_common.get_handler_dir())]
-  params.append('--load-extension=' + ','.join(extensions))
+  params.append(
+      '--load-extension=' +
+      remote_executor.resolve_path(build_common.get_runtime_out_dir()))
 
   # Do not use user defined data directory if user name for remote host is
   # provided. The mounted cryptohome directory is used instead.
@@ -499,12 +491,9 @@ def _compute_chrome_params(parsed_args):
   params.extend(_compute_chrome_diagnostic_params(parsed_args))
   remote_executor.maybe_extend_remote_host_chrome_params(parsed_args, params)
 
-  if parsed_args.mode == 'driveby':
-    params.append(remote_executor.resolve_path(parsed_args.apk_path_list[0]))
-  else:
-    params.append(
-        '--load-and-launch-app=' +
-        remote_executor.resolve_path(parsed_args.arc_data_dir))
+  params.append(
+      '--load-and-launch-app=' +
+      remote_executor.resolve_path(parsed_args.arc_data_dir))
 
   # This prevents Chrome to add icon to Gnome panel, which current leaks memory.
   # See http://crbug.com/341724 for details.
