@@ -48,7 +48,8 @@ _PERF_LINE_RE = re.compile(
     r'PERF=boot:(?P<total>\d+)ms \(preEmbed:(?P<pre_embed_time>\d+)ms \+ '
     r'pluginLoad:(?P<plugin_load_time>\d+)ms \+ '
     r'onResume:(?P<on_resume_time>\d+)ms\),\n'
-    r'     virt:(?P<virt_mem>\d+)MB, res:(?P<res_mem>\d+)MB, runs:\d+',
+    r'     virt:(?P<virt_mem>\d+)MB, res:(?P<res_mem>\d+)MB, '
+    r'pdirt:(?P<pdirt_mem>\d+)MB, runs:\d+',
     re.MULTILINE)
 _WARM_UP_RE = re.compile(
     r'WARM-UP (?P<first_boot_total>\d+) '
@@ -191,7 +192,8 @@ class PerfDriver(BaseDriver):
     })
     _queue_data(self._args, 'mem_usage', 'MB', {
         'virt_mem' + suffix: data['virt_mem'],
-        'res_mem' + suffix: data['res_mem']
+        'res_mem' + suffix: data['res_mem'],
+        'pdirt_mem' + suffix: data['pdirt_mem']
     })
 
 

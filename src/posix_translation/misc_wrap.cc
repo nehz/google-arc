@@ -26,6 +26,7 @@
 #include "common/backtrace.h"
 #include "common/danger.h"
 #include "common/export.h"
+#include "common/logd_write.h"
 #include "common/plugin_handle.h"
 #include "common/process_emulator.h"
 #include "common/thread_priorities.h"
@@ -191,6 +192,11 @@ void __wrap_abort() {
 // and _exit().
 void __wrap_exit(int status) {
   ARC_STRACE_ENTER("exit", "%d", status);
+
+  // Annotate crash signature if we ever exit with exit() so that it
+  // is distinguishable from normal crash.
+  arc::MaybeAddCrashExtraInformation(arc::ReportableForAllUsers,
+                                     "sig", "exit() called");
   // We do not use mutex lock here since stored |g_exit_status| is read from
   // the same thread inside exit() through atexit() functions chain.
   g_exit_status = status;

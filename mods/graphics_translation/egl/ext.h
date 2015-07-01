@@ -22,4 +22,8 @@
 // arc::ContextGPU backing the EGL context.
 #define EGL_ARC_UNDERLYING_CONTEXT   0x7fff0001
 
+// Used to handle situation when external Chrome graphics contexts are lost.
+EGLAPI EGLBoolean EGLAPIENTRY eglContextsLostARC(EGLDisplay dpy);
+EGLAPI EGLBoolean EGLAPIENTRY eglContextsRestoredARC(EGLDisplay dpy);
+
 #endif  // GRAPHICS_TRANSLATION_EGL_EXT_H_

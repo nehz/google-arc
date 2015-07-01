@@ -1113,17 +1113,29 @@ PointerContext::PointerContext(GlesContext* context)
 }
 
 PointerContext::~PointerContext() {
-  GLuint buffers[2] = { array_buffer_, element_array_buffer_ };
-  PASS_THROUGH(context_, DeleteBuffers, 2, buffers);
+  Release();
 }
 
 void PointerContext::Init(int num_pointers) {
+  LOG_ALWAYS_FATAL_IF(array_buffer_ != 0);
+
   pointers_.resize(num_pointers);
 
   GLuint buffers[2];
   PASS_THROUGH(context_, GenBuffers, 2, buffers);
   array_buffer_ = buffers[0];
   element_array_buffer_ = buffers[1];
+}
+
+void PointerContext::Release() {
+  if (array_buffer_) {
+    GLuint buffers[2] = { array_buffer_, element_array_buffer_ };
+    PASS_THROUGH(context_, DeleteBuffers, 2, buffers);
+    array_buffer_ = 0;
+    element_array_buffer_ = 0;
+    array_buffer_size_ = 0;
+    element_array_buffer_size_ = 0;
+  }
 }
 
 void PointerContext::EnableArray(GLuint index) {

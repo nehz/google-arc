@@ -11,7 +11,8 @@ _RAW_STAT_VARS = ['pre_plugin_time_ms',
                   'plugin_load_time_ms',
                   'on_resume_time_ms',
                   'app_virt_mem',
-                  'app_res_mem']
+                  'app_res_mem',
+                  'app_pdirt_mem']
 _DERIVED_STAT_VARS = ['boot_time_ms']
 _ALL_STAT_VARS = _RAW_STAT_VARS + _DERIVED_STAT_VARS
 
@@ -79,11 +80,12 @@ def print_aggregated_stats(stats_list):
   # Note: since each value is the median for each data set, they are not
   # guaranteed to add up.
   print ('\nPERF=boot:%dms (preEmbed:%dms + pluginLoad:%dms + onResume:%dms),'
-         '\n     virt:%dMB, res:%dMB, runs:%d\n' % (
+         '\n     virt:%dMB, res:%dMB, pdirt:%dMB, runs:%d\n' % (
              aggregated_stats['boot_time_ms'][0],
              aggregated_stats['pre_embed_time_ms'][0],
              aggregated_stats['plugin_load_time_ms'][0],
              aggregated_stats['on_resume_time_ms'][0],
              aggregated_stats['app_virt_mem'][0],
              aggregated_stats['app_res_mem'][0],
+             aggregated_stats['app_pdirt_mem'][0],
              len(stat_list)))

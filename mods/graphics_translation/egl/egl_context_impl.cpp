@@ -107,6 +107,14 @@ EglContextImpl::EglContextImpl(EGLDisplay dpy, EGLConfig cfg,
 }
 
 EglContextImpl::~EglContextImpl() {
+  Release();
+}
+
+void EglContextImpl::Release() {
+  if (!native_context_) {
+      return;
+  }
+
   // Cleanup share group and GLES context while advertising this context
   // as destroying gles context. This is needed for some destructors that use
   // pass through.

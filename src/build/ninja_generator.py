@@ -2830,11 +2830,6 @@ class JavaNinjaGenerator(NinjaGenerator):
     n.rule('eventlogtags',
            '$java-event-log-tags -o $out $in /dev/null',
            description='eventlogtag $out')
-    n.rule('dex_preopt',
-           ('rm -f $out; '
-            'BOOTCLASSPATH=$bootclasspath '
-            '$dexopt --preopt $in $out "$dexflags" $warning_grep'),
-           description='dex_preopt $out')
     n.rule('dex2oat',
            ('rm -f $out; '
             '$dex2oat $dex2oatflags $warning_grep'),

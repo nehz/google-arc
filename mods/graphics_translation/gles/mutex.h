@@ -54,7 +54,13 @@ class Mutex {
   };
 
  private:
+  friend class Cond;
+
   pthread_mutex_t mutex_;
+
+  pthread_mutex_t& GetUnderlyingMutex() {
+      return mutex_;
+  }
 
   Mutex(const Mutex& rhs);
   Mutex& operator=(const Mutex& rhs);

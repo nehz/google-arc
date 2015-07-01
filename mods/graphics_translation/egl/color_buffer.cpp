@@ -107,14 +107,42 @@ ColorBuffer::ColorBuffer(EGLDisplay dpy, GLuint width, GLuint height,
     texture_(0),
     global_texture_(0),
     locked_mem_(NULL),
+    context_(NULL),
     refcount_(1) {
   EglDisplayImpl* d = EglDisplayImpl::GetDisplay(dpy);
   key_ = d->GetColorBuffers().GenerateKey();
+  if (d->IsValidLocked()) {
+    CreateTextureLocked();
+  }
+}
+
+ColorBuffer::~ColorBuffer() {
+  EglDisplayImpl* d = EglDisplayImpl::GetDisplay(display_);
+  d->Lock();
+  DeleteTextureLocked();
+  d->Unlock();
+}
+
+void ColorBuffer::DeleteTextureLocked() {
+  if (!texture_) {
+    return;
+  }
+
+  LOG_ALWAYS_FATAL_IF(locked_mem_);
+  glDeleteTextures(1, &texture_);
+  image_ = NULL;
+  texture_ = 0;
+}
+
+void ColorBuffer::CreateTextureLocked() {
+  if (texture_) {
+    return;
+  }
 
   glGenTextures(1, &texture_);
   glBindTexture(GL_TEXTURE_2D, texture_);
-  glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format,
-               type, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, format_, width_, height_, 0, format_,
+               type_, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -126,12 +154,6 @@ ColorBuffer::ColorBuffer(EGLDisplay dpy, GLuint width, GLuint height,
   LOG_ALWAYS_FATAL_IF(image_ == NULL, "Could not create draw Image.");
 }
 
-ColorBuffer::~ColorBuffer() {
-  EglDisplayImpl* d = EglDisplayImpl::GetDisplay(display_);
-  d->Lock();
-  glDeleteTextures(1, &texture_);
-  d->Unlock();
-}
 
 uint8_t* ColorBuffer::Lock(GLint xoffset, GLint yoffset, GLsizei width,
                            GLsizei height, GLenum format, GLenum type) {
@@ -145,6 +167,13 @@ uint8_t* ColorBuffer::Lock(GLint xoffset, GLint yoffset, GLsizei width,
       d->Unlock();
       return NULL;
     }
+
+    if (!d->IsValidLocked()) {
+      ALOGE("ColorBuffer was invalidated. Cannot lock at this time.");
+      d->Unlock();
+      return NULL;
+    }
+
     LOG_ALWAYS_FATAL_IF(format != format_,
                         "format(%s) != format_(%s)",
                         GetEnumString(format), GetEnumString(format_));
@@ -156,6 +185,9 @@ uint8_t* ColorBuffer::Lock(GLint xoffset, GLint yoffset, GLsizei width,
         glMapTexSubImage2DCHROMIUM(GL_TEXTURE_2D, 0, xoffset, yoffset,
                                    width, height, format, type,
                                    GL_WRITE_ONLY_OES));
+    if (locked_mem_) {
+      d->OnColorBufferAcquiredLocked();
+    }
     d->Unlock();
   }
   return locked_mem_;
@@ -178,6 +210,7 @@ void ColorBuffer::Unlock(const uint8_t* mem) {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glUnmapTexSubImage2DCHROMIUM(locked_mem_);
     locked_mem_ = NULL;
+    d->OnColorBufferReleasedLocked();
     d->Unlock();
   }
 }

@@ -68,13 +68,25 @@ def _is_descendent_of_pid(pid, ancestor):
   return False
 
 
+def _get_private_dirty_pages_in_mb(pid):
+  with open('/proc/%d/smaps' % pid) as f:
+    smaps = f.read()
+  total = 0
+  for m in re.findall(r'Private_Dirty:\s*(\d+)\s*kB', smaps):
+    total += int(m)
+  return float(total) / 1024
+
+
 def _get_app_mem_info(pid):
-  """Returns a pair (res, virt) showing the process memory usage in MB."""
+  """Returns a dictionary showing the process memory usage in MB."""
   stat = _get_process_stat_line(pid).split()
-  res = float(stat[23]) * 4096 / 1024 / 1024
-  # On NaCl, hide uselessly and confusingly big vsize due to memory mapping.
-  virt = 0 if OPTIONS.is_nacl_build() else float(stat[22]) / 1024 / 1024
-  return (res, virt)
+  mem = {
+      'res': float(stat[23]) * 4096 / 1024 / 1024,
+      # On NaCl, hide uselessly and confusingly big vsize due to memory mapping.
+      'virt': 0 if OPTIONS.is_nacl_build() else float(stat[22]) / 1024 / 1024,
+      'pdirt': _get_private_dirty_pages_in_mb(pid),
+  }
+  return mem
 
 
 def _find_nacl_helper_pids(chrome_pid):
@@ -88,7 +100,7 @@ def _find_nacl_helper_pids(chrome_pid):
 
 
 def _get_nacl_arc_process_memory(chrome_pid):
-  """Returns (res, virt) pair of the ARC nacl_helper process."""
+  """Returns a memory usage dictionary of the ARC nacl_helper process."""
   # Take some extreme measures to get the memory usage of nacl_helper.
   # From the untrusted code we cannot know the amount of memory used,
   # we cannot even know what our process' pid is.  So we search for all the
@@ -104,13 +116,11 @@ def _get_nacl_arc_process_memory(chrome_pid):
   # There are 2 nacl_helpers in NaCl, 3 in BareMetal.
   if len(pids) not in (2, 3):
     return None
-  res, virt = max([_get_app_mem_info(pid) for pid in pids])
-  if virt:
-    sys.stderr.write(
-        'NaCl ARC process memory: resident %dMB, virtual %dMB\n' % (res, virt))
-  else:
-    sys.stderr.write('NaCl ARC process memory: resident %dMB\n' % res)
-  return (res, virt)
+  mem = max((_get_app_mem_info(pid) for pid in pids), key=lambda e: e['res'])
+  sys.stderr.write(
+      'NaCl ARC process memory: %s\n' %
+      ', '.join('%s %dMB' % (key, value) for key, value in sorted(mem.items())))
+  return mem
 
 
 class AtfTestHandler(concurrent_subprocess.OutputHandler):
@@ -296,8 +306,10 @@ class PerfTestHandler(concurrent_subprocess.OutputHandler):
       if platform_util.is_running_on_linux():
         app_mem = _get_nacl_arc_process_memory(self.chrome_process.pid)
         if app_mem:
-          self.stats.app_res_mem = self.stats.app_res_mem or app_mem[0]
-          self.stats.app_virt_mem = self.stats.app_virt_mem or app_mem[1]
+          self.stats.app_res_mem = self.stats.app_res_mem or app_mem['res']
+          self.stats.app_virt_mem = self.stats.app_virt_mem or app_mem['virt']
+          self.stats.app_pdirt_mem = (
+              self.stats.app_pdirt_mem or app_mem['pdirt'])
       sys.stderr.write(dash_line + '\n')
 
       self.resumed_time = time.time()
@@ -331,6 +343,7 @@ class PerfTestHandler(concurrent_subprocess.OutputHandler):
     self.stats.on_resume_time_ms = int(float(match.group('on_resume')) * 1000)
     self.stats.app_virt_mem = int(match.group('virt_mem'))
     self.stats.app_res_mem = int(match.group('res_mem'))
+    self.stats.app_pdirt_mem = 0
     return True
 
   def _finish(self):

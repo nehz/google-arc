@@ -564,6 +564,7 @@ EGLBoolean eglDestroyContext(EGLDisplay dpy, EGLContext ctx) {
     SetError(EGL_BAD_DISPLAY);
     return EGL_FALSE;
   }
+
   ContextPtr context = display->GetContexts().Get(ctx);
   if (context == NULL) {
     return EGL_BAD_CONTEXT;
@@ -572,6 +573,9 @@ EGLBoolean eglDestroyContext(EGLDisplay dpy, EGLContext ctx) {
   if (GetContext() == context) {
     display->MakeCurrent(EGL_NO_CONTEXT, EGL_NO_SURFACE, EGL_NO_SURFACE);
   }
+
+  context->Release();
+
   display->GetContexts().Unregister(ctx);
   return EGL_TRUE;
 }
@@ -958,6 +962,32 @@ EGLint eglDupNativeFenceFDANDROID(EGLDisplay dpy, EGLSyncKHR sync) {
   return 0;
 }
 
+EGLBoolean eglContextsLostARC(EGLDisplay dpy) {
+  EGL_API_ENTRY("%p", dpy);
+  EglDisplayImpl* display = EglDisplayImpl::GetDisplay(dpy);
+  if (display == NULL) {
+    SetError(EGL_BAD_DISPLAY);
+    return EGL_FALSE;
+  }
+
+  display->OnGraphicsContextsLost();
+
+  return EGL_TRUE;
+}
+
+EGLBoolean eglContextsRestoredARC(EGLDisplay dpy) {
+    EGL_API_ENTRY("%p", dpy);
+    EglDisplayImpl* display = EglDisplayImpl::GetDisplay(dpy);
+    if (display == NULL) {
+      SetError(EGL_BAD_DISPLAY);
+      return EGL_FALSE;
+    }
+
+    display->OnGraphicsContextsRestored();
+
+    return EGL_TRUE;
+}
+
 // Return the EGL function specified by the name.
 __eglMustCastToProperFunctionPointerType eglGetProcAddress(const char* name) {
 #define LOOKUP_EGL_FUNCTION(_fn)                                           \
@@ -1008,6 +1038,8 @@ __eglMustCastToProperFunctionPointerType eglGetProcAddress(const char* name) {
   LOOKUP_EGL_FUNCTION(eglClientWaitSyncKHR);
   LOOKUP_EGL_FUNCTION(eglGetSyncAttribKHR);
   LOOKUP_EGL_FUNCTION(eglPresentationTimeANDROID);
+  LOOKUP_EGL_FUNCTION(eglContextsLostARC);
+  LOOKUP_EGL_FUNCTION(eglContextsRestoredARC);
 #undef LOOKUP_EGL_FUNCTION
   return NULL;
 }

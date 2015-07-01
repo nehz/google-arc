@@ -45,6 +45,8 @@ EglDisplayImpl* EglDisplayImpl::GetDisplay(EGLDisplay dpy) {
 
 EglDisplayImpl::EglDisplayImpl()
   : initialized_(false),
+    invalidated_(false),
+    color_buffers_locked_(0),
     global_context_(NULL),
     window_(NULL) {
   ConfigsList configs;
@@ -244,6 +246,73 @@ bool EglDisplayImpl::Unlock() {
   UnbindLocked();
   lock_.Unlock();
   return true;
+}
+
+void EglDisplayImpl::OnColorBufferAcquiredLocked() {
+  ++color_buffers_locked_;
+}
+
+void EglDisplayImpl::OnColorBufferReleasedLocked() {
+  --color_buffers_locked_;
+  LOG_ALWAYS_FATAL_IF(color_buffers_locked_ < 0);
+  if (!color_buffers_locked_) {
+    cond_no_locked_buffers_.Signal();
+  }
+}
+
+void EglDisplayImpl::OnGraphicsContextsLost() {
+  lock_.Lock();
+
+  LOG_ALWAYS_FATAL_IF(invalidated_);
+  invalidated_ = true;
+
+  while (color_buffers_locked_) {
+    cond_no_locked_buffers_.Wait(lock_);
+  }
+
+  BindLocked();
+
+  LOG_ALWAYS_FATAL_IF(!invalidated_);
+
+  // color_buffers_ is not locked by display lock.
+  ColorBufferRegistry::ObjectList color_buffers =
+      color_buffers_.GetAllObjects();
+  for (ColorBufferRegistry::ObjectList::const_iterator iter =
+      color_buffers.begin(); iter != color_buffers.end(); ++iter) {
+    (*iter)->DeleteTextureLocked();
+  }
+
+  ContextRegistry::ObjectList contexts = contexts_.GetAllObjects();
+  for (ContextRegistry::ObjectList::const_iterator iter_context =
+       contexts.begin(); iter_context != contexts.end(); ++iter_context) {
+    (*iter_context)->GetGlesContext()->Invalidate();
+  }
+
+  UnbindLocked();
+  lock_.Unlock();
+}
+
+void EglDisplayImpl::OnGraphicsContextsRestored() {
+  Lock();
+
+  LOG_ALWAYS_FATAL_IF(!invalidated_);
+  LOG_ALWAYS_FATAL_IF(color_buffers_locked_);
+  invalidated_ = false;
+
+  ColorBufferRegistry::ObjectList color_buffers =
+      color_buffers_.GetAllObjects();
+  for (ColorBufferRegistry::ObjectList::const_iterator iter =
+      color_buffers.begin(); iter != color_buffers.end(); ++iter) {
+    (*iter)->CreateTextureLocked();
+  }
+
+  ContextRegistry::ObjectList contexts = contexts_.GetAllObjects();
+  for (ContextRegistry::ObjectList::const_iterator iter_context =
+       contexts.begin(); iter_context != contexts.end(); ++iter_context) {
+    (*iter_context)->GetGlesContext()->Restore();
+  }
+
+  Unlock();
 }
 
 void EglDisplayImpl::BindLocked() {

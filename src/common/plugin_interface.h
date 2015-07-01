@@ -103,11 +103,20 @@ class CompositorInterface {
 };
 
 // Opaque type of GPU context pointers.
-struct ContextGPU;
+struct ContextGPU {
+  virtual ~ContextGPU() {}
 
-class ResizeObserver {
+  virtual void* ToNative() = 0;
+  virtual void Lock() = 0;
+  virtual void Unlock() = 0;
+};
+
+class GraphicsObserver {
  public:
-  virtual void OnResize(int width, int height) = 0;
+  virtual void OnGraphicsResize(int width, int height) {}
+
+  virtual void OnGraphicsContextsLost() {}
+  virtual void OnGraphicsContextsRestored() {}
 };
 
 class RendererInterface {
@@ -164,9 +173,9 @@ class RendererInterface {
 
   virtual CompositorInterface* GetCompositor() = 0;
 
-  virtual void AddResizeObserver(ResizeObserver* observer) = 0;
+  virtual void AddGraphicsObserver(GraphicsObserver* observer) = 0;
 
-  virtual void RemoveResizeObserver(ResizeObserver* observer) = 0;
+  virtual void RemoveGraphicsObserver(GraphicsObserver* observer) = 0;
 
   virtual ContextGPU* CreateContext(const Attributes& attribs,
                                     ContextGPU* shared_context) = 0;
@@ -176,6 +185,9 @@ class RendererInterface {
   virtual bool SwapBuffers(ContextGPU* context) = 0;
 
   virtual void DestroyContext(ContextGPU* context) = 0;
+
+  // Used for test purpose from org.chromium.arc.Debug
+  virtual void ForceContextsLost() = 0;
 };
 
 class AudioOutPollDataCallback {

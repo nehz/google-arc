@@ -601,6 +601,7 @@ def handle_compare(parsed_args):
   _print_metric('  onResume', 'on_resume_time_ms', 'ms')
   _print_metric('virt', 'app_virt_mem', 'MB')
   _print_metric('res', 'app_res_mem', 'MB')
+  _print_metric('pdirt', 'app_pdirt_mem', 'MB')
 
   print '     (see go/arcipt for how to interpret these numbers)'
 

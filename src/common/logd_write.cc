@@ -77,6 +77,14 @@ void RegisterCrashCallback(AddCrashExtraInformationFunction function) {
   g_add_crash_extra_information = function;
 }
 
+void MaybeAddCrashExtraInformation(
+    int crash_log_message_kind,
+    const char* field_name,
+    const char* message) {
+  if (g_add_crash_extra_information)
+    g_add_crash_extra_information(
+        arc::CrashLogMessageKind(crash_log_message_kind), field_name, message);
+}
 
 void SetLogWriter(LogWriter writer) {
   ScopedPthreadMutexLocker lock(&g_mutex);
@@ -227,10 +235,9 @@ void __android_log_assert(const char* cond, const char* tag,
                             ARC_LOG_FATAL,
                             tag,
                             msg);
-  if (g_add_crash_extra_information != NULL)
-    g_add_crash_extra_information(arc::ReportableOnlyForTesters,
-                                  kLogMessage,
-                                  msg.c_str());
+  MaybeAddCrashExtraInformation(arc::ReportableOnlyForTesters,
+                                kLogMessage,
+                                msg.c_str());
 
   va_end(arguments);
 
@@ -247,10 +254,9 @@ void __android_log_vassert(const char* cond, const char* tag,
                             ARC_LOG_FATAL,
                             tag,
                             msg);
-  if (g_add_crash_extra_information != NULL)
-    g_add_crash_extra_information(arc::ReportableOnlyForTesters,
-                                  kLogMessage,
-                                  msg.c_str());
+  MaybeAddCrashExtraInformation(arc::ReportableOnlyForTesters,
+                                kLogMessage,
+                                msg.c_str());
 
   // Trap.
   abort();
@@ -271,10 +277,9 @@ void __android_log_assert_with_source(const char* cond, const char* tag,
                             msg);
   va_end(arguments);
 
-  if (g_add_crash_extra_information != NULL)
-    g_add_crash_extra_information(arc::ReportableOnlyForTesters,
-                                  kLogMessage,
-                                  msg.c_str());
+  MaybeAddCrashExtraInformation(arc::ReportableOnlyForTesters,
+                                kLogMessage,
+                                msg.c_str());
 
   // Trap.
   abort();
@@ -296,10 +301,9 @@ void __android_log_assert_with_source_and_add_to_crash_report(
                             msg);
   va_end(arguments);
 
-  if (g_add_crash_extra_information != NULL)
-    g_add_crash_extra_information(arc::ReportableForAllUsers,
-                                  kLogMessage,
-                                  msg.c_str());
+  MaybeAddCrashExtraInformation(arc::ReportableForAllUsers,
+                                kLogMessage,
+                                msg.c_str());
 
   // Trap.
   abort();

@@ -18,6 +18,7 @@
 
 #include <unistd.h>
 #include <map>
+#include <vector>
 #include "graphics_translation/gles/mutex.h"
 
 // A simple class used to "own" objects whose lifetimes are managed by the
@@ -83,6 +84,17 @@ class ObjectRegistry {
     Mutex::Autolock mutex(&lock_);
     const typename Objects::iterator iter = objects_.find(key);
     return iter != objects_.end() ? iter->second.object_ : Object();
+  }
+
+  typedef std::vector<Object> ObjectList;
+  ObjectList GetAllObjects() {
+    Mutex::Autolock mutex(&lock_);
+    ObjectList objects;
+    for (typename Objects::const_iterator iter = objects_.begin();
+        iter != objects_.end(); ++iter) {
+      objects.push_back(iter->second.object_);
+    }
+    return objects;
   }
 
  private:

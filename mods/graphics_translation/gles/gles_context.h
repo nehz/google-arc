@@ -110,6 +110,9 @@ class GlesContext {
   // DrawTex function
   void DrawTex(GLfloat x, GLfloat y, GLfloat z, GLfloat width, GLfloat height);
 
+  void Invalidate();
+  void Restore();
+
   // Classes to handle specific contexts.
   UniformContext uniform_context_;
   TextureContext texture_context_;

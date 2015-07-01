@@ -67,6 +67,9 @@ class EglContextImpl : public android::RefBase {
   bool BindImageToTexture(EglImagePtr image);
   bool BindImageToRenderbuffer(EglImagePtr image);
 
+  // Finally release context. No call for this context is expected after.
+  void Release();
+
   const EGLDisplay display;
   const EGLConfig config;
 

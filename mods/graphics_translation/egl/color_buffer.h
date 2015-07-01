@@ -61,6 +61,9 @@ class ColorBuffer : public android::RefBase {
 
   void ReadPixels(uint8_t* dst);
 
+  void CreateTextureLocked();
+  void DeleteTextureLocked();
+
  protected:
   ~ColorBuffer();
 

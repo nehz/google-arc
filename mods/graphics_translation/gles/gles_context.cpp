@@ -108,6 +108,17 @@ GlesContext::~GlesContext() {
 }
 
 void GlesContext::OnMakeCurrent() {
+    Restore();
+}
+
+void GlesContext::Invalidate() {
+  if (initialized_) {
+    pointer_context_.Release();
+    initialized_ = false;
+  }
+}
+
+void GlesContext::Restore() {
   if (initialized_) {
     return;
   }

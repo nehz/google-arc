@@ -104,6 +104,7 @@ typedef int32_t PP_Resource;
 #include "${HEADER}"
 #include "common/alog.h"
 #include "common/trace_event.h"
+#include "common/plugin_interface.h"
 #include "graphics_translation/gles/debug.h"
 #include "graphics_translation/gles/gles_context.h"
 #include "graphics_translation/gles/mutex.h"
@@ -111,18 +112,31 @@ typedef int32_t PP_Resource;
 #include "ppapi/cpp/graphics_3d.h"
 #include "ppapi/c/ppb_opengles2.h"
 
-static Mutex s_pass_through_lock;
+class ContextAutoLock {
+ public:
+  ContextAutoLock(arc::ContextGPU* context) : context_(context) {
+    context_->Lock();
+  }
+
+  ~ContextAutoLock() {
+    context_->Unlock();
+  }
+
+ private:
+  arc::ContextGPU* context_;
+};
 
 """.lstrip())
 
   _FUNCTION_TEMPLATE = string.Template("""
 ${SIGNATURE} {
-  pp::Graphics3D* _graphics = static_cast<pp::Graphics3D*>(c->Impl());
+  arc::ContextGPU* context = static_cast<arc::ContextGPU*>(c->Impl());
+  ContextAutoLock lock(context);
+  pp::Graphics3D* _graphics = static_cast<pp::Graphics3D*>(context->ToNative());
   const PepperApis* pepper_apis =
       static_cast<const PepperApis*>(c->Apis());
   const ${INTERFACE}* _api =
       static_cast<const ${INTERFACE}*>(pepper_apis->${API});
-  Mutex::Autolock mutex(&s_pass_through_lock);
 #ifdef ENABLE_PASSTHROUGH_LOGGING
   ALOGI("${NAME}Call(${LOG_ARGUMENTS_FORMAT_STRING})"${LOG_ARGUMENTS});
 #endif

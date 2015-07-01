@@ -23,6 +23,7 @@
 #include "graphics_translation/egl/egl_context_impl.h"
 #include "graphics_translation/egl/egl_surface_impl.h"
 #include "graphics_translation/egl/object_registry.h"
+#include "graphics_translation/gles/cond.h"
 #include "graphics_translation/gles/mutex.h"
 
 class EglConfigImpl;
@@ -63,6 +64,14 @@ class EglDisplayImpl {
   // Swap the main NativeWindow object.  Must be called after LockWindow().
   void SwapBuffersLocked();
 
+  void OnGraphicsContextsLost();
+  void OnGraphicsContextsRestored();
+
+  void OnColorBufferAcquiredLocked();
+  void OnColorBufferReleasedLocked();
+
+  bool IsValidLocked() const { return !invalidated_; }
+
   // Restore the saved context.
   bool Unlock();
 
@@ -98,13 +107,16 @@ class EglDisplayImpl {
   static EglDisplayImpl* default_display_;
 
   Mutex lock_;
+  Cond cond_no_locked_buffers_;
   bool initialized_;
+  bool invalidated_;
 
   // EGL objects.
   ConfigSet configs_;
   ContextRegistry contexts_;
   SurfaceRegistry surfaces_;
   ColorBufferRegistry color_buffers_;
+  int color_buffers_locked_;
 
   // The global context will be used for the main window.  It is also shared
   // with all others contexts that are created.

@@ -522,6 +522,7 @@ class PointerContext {
   ~PointerContext();
 
   void Init(int num_pointers);
+  void Release();
 
   void EnableArray(GLuint index);
   void DisableArray(GLuint index);
