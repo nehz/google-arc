@@ -380,10 +380,6 @@ def _filter_libc_bionic(vars):
   if OPTIONS.is_arm():
     sources.extend(
         ['android/bionic/libc/arch-arm/bionic/setjmp.S'])
-  if OPTIONS.is_bare_metal_i686():
-    # We use __fpclassifyl in KitKat since upstream no longer supports
-    # 80bit long double.
-    sources.append('android/bionic-kitkat/libm/fpclassify.c')
   return True
 
 
@@ -1190,9 +1186,13 @@ def _generate_bionic_tests():
     # bionic_test depends on some extra libs like libpagemap.a which have not
     # been opensourced.
     return
+  # To use 64bit long double instead of usual 80bit long double under BMM x86,
+  # we need to use gcc supporting -mlong-double-64.
+  # See mods/fork/bionic-long-double for more details.
+  compiler = 'gcc' if OPTIONS.is_bare_metal_i686() else 'clang'
   n = ninja_generator.TestNinjaGenerator('bionic_test',
                                          base_path='android/bionic/tests',
-                                         force_compiler='clang',
+                                         force_compiler=compiler,
                                          enable_cxx11=True)
   _add_bare_metal_flags_to_ninja_generator(n)
 

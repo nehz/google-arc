@@ -34,15 +34,10 @@ TEST(primitive_size, pointer) {
 }
 
 TEST(primitive_size, long_double) {
-  // TODO(crbug.com/432441): Use 64-bit long-double even on Bare Metal
-  // i686. See mods/fork/bionic-long-double for more detail.
-#if defined(BARE_METAL_BIONIC) && defined(__i386__)
-  EXPECT_EQ(12, static_cast<int>(sizeof(long double)));
-  EXPECT_EQ(64, LDBL_MANT_DIG);
-#else
+  // On Android, long double is always 64bit.
+  // See mods/fork/bionic-long-double for more details.
   EXPECT_EQ(8, static_cast<int>(sizeof(long double)));
   EXPECT_EQ(53, LDBL_MANT_DIG);
-#endif
 }
 
 TEST(primitive_size, elfw_addr) {

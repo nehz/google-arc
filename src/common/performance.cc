@@ -67,12 +67,12 @@ void Performance::Print(const char* description) {
   int resident_bytes = 0;
   GetMemoryUsage(&virtual_bytes, &resident_bytes);
   std::string message = base::StringPrintf(
-      "%.03fs + %.03fs = %.03fs (+%dM virt, +%dM res): %s\n",
+      "%.03fs + %.03fs = %.03fs (+%.1fM virt, +%.1fM res): %s\n",
       TimeDiffSecond(app_launch_time_, plugin_start_time_),
       TimeDiffSecond(plugin_start_time_, TickToTime(now)),
       TimeDiffSecond(app_launch_time_, TickToTime(now)),
-      (virtual_bytes - start_virtual_bytes_) / 1024 / 1024,
-      (resident_bytes - start_resident_bytes_) / 1024 / 1024,
+      static_cast<double>(virtual_bytes - start_virtual_bytes_) / 1024 / 1024,
+      static_cast<double>(resident_bytes - start_resident_bytes_) / 1024 / 1024,
       description);
   if (arc::Options::GetInstance()->GetMinStderrLogPriority() <=
       ARC_LOG_WARN) {

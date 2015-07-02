@@ -7,6 +7,12 @@
     "noPlugin": true
   },
   {
+    "name": "saveLogsToFile",
+    "defaultValue": false,
+    "help": "Save console output to HTML5 files so they can be recovered after a crash.",
+    "developerOnly": true
+  },
+  {
     "name": "disableAutoBackButton",
     "defaultValue": false,
     "help": "Disables automatic enabling/disabling of the back button based on the Activity stack.",

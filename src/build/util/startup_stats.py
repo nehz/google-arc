@@ -80,7 +80,7 @@ def print_aggregated_stats(stats_list):
   # Note: since each value is the median for each data set, they are not
   # guaranteed to add up.
   print ('\nPERF=boot:%dms (preEmbed:%dms + pluginLoad:%dms + onResume:%dms),'
-         '\n     virt:%dMB, res:%dMB, pdirt:%dMB, runs:%d\n' % (
+         '\n     virt:%.1fMB, res:%.1fMB, pdirt:%.1fMB, runs:%d\n' % (
              aggregated_stats['boot_time_ms'][0],
              aggregated_stats['pre_embed_time_ms'][0],
              aggregated_stats['plugin_load_time_ms'][0],

@@ -87,6 +87,7 @@ void Options::Reset() {
   min_stderr_log_priority_ = ARC_LOG_ERROR;
   android_density_dpi = 0;
   can_rotate = false;
+  save_logs_to_file = false;
   java_trace_startup = "0";
 }
 

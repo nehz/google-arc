@@ -135,6 +135,9 @@ class FileStream : public base::RefCounted<FileStream> {
   virtual size_t GetSize() const;
   virtual std::string GetAuxInfo() const;
 
+  // A debug-only version of write used for saving stdout/stderr logs to disk.
+  virtual void debug_write(const void* buf, size_t count) {}
+
   // A non-virtual wrapper around write() and PwriteImpl().
   ssize_t pwrite(const void* buf, size_t count, off64_t offset);
 

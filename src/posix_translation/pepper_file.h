@@ -102,6 +102,7 @@ class PepperFile : public FileStream {
 
   virtual ssize_t read(void* buf, size_t count) OVERRIDE;
   virtual ssize_t write(const void* buf, size_t count) OVERRIDE;
+  virtual void debug_write(const void* buf, size_t count) OVERRIDE;
   virtual off64_t lseek(off64_t offset, int whence) OVERRIDE;
   virtual int fdatasync() OVERRIDE;
   virtual int fstat(struct stat* out) OVERRIDE;

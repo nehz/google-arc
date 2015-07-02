@@ -350,9 +350,6 @@ TYPED_TEST_F(MemoryRegionTypedTest, TestAddStreamByAddr) {
   } while (false)
 
 // Tests if RemoveStreamByAddr removes one or more memory regions correctly.
-// TODO(crbug.com/439879): L-rebase: Revive this unit test. Somehow clang++
-// crashes on compiling this code on ARM for optimized build.
-#if !defined(__arm__)
 TYPED_TEST_F(MemoryRegionTypedTest, TestRemoveStreamByAddr) {
   static const size_t kSize = sizeof(TypeParam);
   struct TestAddresses {
@@ -953,7 +950,6 @@ TYPED_TEST_F(MemoryRegionTypedTest, TestRemoveStreamByAddr) {
   EXPECT_EQ(kSize * 3, stream3->last_munmap_length);
   EXPECT_EQ(0U, GetAddrMapSize());
 }
-#endif
 
 // Tests if ModifyStreamByAddr modifies one or more memory regions properly.
 TYPED_TEST_F(MemoryRegionTypedTest, TestModifyStreamByAddr) {

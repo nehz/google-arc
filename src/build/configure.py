@@ -305,6 +305,26 @@ def _update_arc_version_file():
     stamp.update()
 
 
+def _set_up_internal_repo():
+  if OPTIONS.internal_apks_source() == 'internal':
+    # Check if internal/third_party/{gms-core, google-contacts-sync-adapter}/
+    # checkout, which requires manual sync for now, is consistent with
+    # internal/build/DEPS.*.xml.
+    subprocess.check_call('src/build/check_arc_int.py')
+
+  # Create a symlink to the integration_test definition directory, either in the
+  # internal repository checkout or in the downloaded archive.
+  # It is used to determe the definitions loaded in run_integration_tests.py
+  # without relying on OPTIONS. Otherwise, run_integration_tests_test may fail
+  # due to the mismatch between the expectations and the actual test apk since
+  # it always runs under the default OPTIONS.
+  if OPTIONS.internal_apks_source_is_internal():
+    test_dir = 'internal/integration_tests'
+  else:
+    test_dir = 'out/internal-apks/integration_tests'
+  file_util.create_link('out/internal-apks-integration-tests', test_dir, True)
+
+
 def main():
   # Disable line buffering
   sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
@@ -323,11 +343,7 @@ def main():
   adb_target = 'linux-arm' if OPTIONS.is_arm() else 'linux-x86_64'
   sync_adb.run(adb_target)
 
-  if OPTIONS.internal_apks_source() == 'internal':
-    # Check if internal/third_party/{gms-core, google-contacts-sync-adapter}/
-    # checkout, which requires manual sync for now, is consistent with
-    # internal/build/DEPS.*.xml.
-    subprocess.check_call('src/build/check_arc_int.py')
+  _set_up_internal_repo()
 
   _gclient_sync_third_party()
   _check_javac_version()

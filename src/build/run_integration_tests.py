@@ -64,13 +64,9 @@ def get_all_suite_runners(on_bot, use_gpu, remote_host_type):
   result = suite_runner_config.load_from_suite_definitions(
       _DEFINITIONS_ROOT, _EXPECTATIONS_ROOT, on_bot, use_gpu, remote_host_type)
 
-  if OPTIONS.internal_apks_source_is_internal():
-    gms_core_definition_root = 'internal'
-  else:
-    gms_core_definition_root = 'out/internal-apks'
   result += suite_runner_config.load_from_suite_definitions(
-      os.path.join(gms_core_definition_root, 'integration_tests/definitions'),
-      os.path.join(gms_core_definition_root, 'integration_tests/expectations'),
+      'out/internal-apks-integration-tests/definitions',
+      'out/internal-apks-integration-tests/expectations',
       on_bot, use_gpu, remote_host_type)
 
   # Check name duplication.

@@ -48,8 +48,8 @@ _PERF_LINE_RE = re.compile(
     r'PERF=boot:(?P<total>\d+)ms \(preEmbed:(?P<pre_embed_time>\d+)ms \+ '
     r'pluginLoad:(?P<plugin_load_time>\d+)ms \+ '
     r'onResume:(?P<on_resume_time>\d+)ms\),\n'
-    r'     virt:(?P<virt_mem>\d+)MB, res:(?P<res_mem>\d+)MB, '
-    r'pdirt:(?P<pdirt_mem>\d+)MB, runs:\d+',
+    r'     virt:(?P<virt_mem>[\d.]+)MB, res:(?P<res_mem>[\d.]+)MB, '
+    r'pdirt:(?P<pdirt_mem>[\d.]+)MB, runs:\d+',
     re.MULTILINE)
 _WARM_UP_RE = re.compile(
     r'WARM-UP (?P<first_boot_total>\d+) '
@@ -75,7 +75,7 @@ def _queue_data(args, label, unit, data):
   dashboard_submit.queue_data(label, unit, data)
   print label
   for key, value in data.iteritems():
-    print '  %s : %d %s' % (key, value, unit)
+    print '  %s : %s %s' % (key, value, unit)
 
 
 def _prepare_integration_tests_args(min_deadline):
@@ -138,9 +138,12 @@ class BaseDriver(object):
       return None
     data.update(match.groupdict())
 
-    # Convert from string to int
-    for k, v in data.iteritems():
-      data[k] = int(v)
+    # Convert from string to int/float
+    for k, v in data.items():
+      if k.endswith('_mem'):
+        data[k] = float(v)
+      else:
+        data[k] = int(v)
 
     return data
 

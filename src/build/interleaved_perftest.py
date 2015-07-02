@@ -554,10 +554,16 @@ def handle_compare(parsed_args):
     ctrl_perfs = collections.defaultdict(list)
     expt_perfs = collections.defaultdict(list)
 
+    def do_ctrl():
+      merge_perfs(ctrl_perfs, ctrl_runner.run())
+
+    def do_expt():
+      merge_perfs(expt_perfs, expt_runner.run())
+
     for iteration in xrange(parsed_args.iterations):
       print '*** iteration %d/%d ***' % (iteration + 1, parsed_args.iterations)
-      merge_perfs(ctrl_perfs, ctrl_runner.run())
-      merge_perfs(expt_perfs, expt_runner.run())
+      for do in random.sample((do_ctrl, do_expt), 2):
+        do()
 
   print
   print 'VRAWPERF_CTRL=%r' % dict(ctrl_perfs)  # Convert from defaultdict.
@@ -571,7 +577,14 @@ def handle_compare(parsed_args):
     print '     configure_opts=%s (vs. %s)' % (expt_options, ctrl_options)
   print '     launch_chrome_opts=%s' % ' '.join(parsed_args.launch_chrome_opt)
 
-  def _print_metric(prefix, key, unit):
+  def _print_metric(prefix, key, unit, frac_digits=0):
+    def format_frac(k, sign=False):
+      format_string = '%'
+      if sign:
+        format_string += '+'
+      format_string += '.%d' % frac_digits
+      format_string += 'f'
+      return (format_string % k) + unit
     ctrl_sample = ctrl_perfs[key]
     expt_sample = expt_perfs[key]
     ctrl_median = statistics.compute_median(ctrl_sample)
@@ -581,27 +594,27 @@ def handle_compare(parsed_args):
             ctrl_sample, expt_sample,
             statistics.compute_median,
             parsed_args.confidence_level))
-    if diff_estimate_upper < -0.5:
+    if diff_estimate_upper < 0:
       significance = '[--]'
-    elif diff_estimate_lower > +0.5:
+    elif diff_estimate_lower > 0:
       significance = '[++]'
     else:
       significance = '[not sgfnt.]'
-    print '     %s: ctrl=%.0f%s, expt=%.0f%s, diffCI=(%+.0f%s,%+.0f%s) %s' % (
+    print '     %s: ctrl=%s, expt=%s, diffCI=(%s,%s) %s' % (
         prefix,
-        ctrl_median, unit,
-        expt_median, unit,
-        diff_estimate_lower, unit,
-        diff_estimate_upper, unit,
+        format_frac(ctrl_median),
+        format_frac(expt_median),
+        format_frac(diff_estimate_lower, sign=True),
+        format_frac(diff_estimate_upper, sign=True),
         significance)
 
   _print_metric('boot', 'boot_time_ms', 'ms')
   _print_metric('  preEmbed', 'pre_embed_time_ms', 'ms')
   _print_metric('  pluginLoad', 'plugin_load_time_ms', 'ms')
   _print_metric('  onResume', 'on_resume_time_ms', 'ms')
-  _print_metric('virt', 'app_virt_mem', 'MB')
-  _print_metric('res', 'app_res_mem', 'MB')
-  _print_metric('pdirt', 'app_pdirt_mem', 'MB')
+  _print_metric('virt', 'app_virt_mem', 'MB', frac_digits=1)
+  _print_metric('res', 'app_res_mem', 'MB', frac_digits=1)
+  _print_metric('pdirt', 'app_pdirt_mem', 'MB', frac_digits=1)
 
   print '     (see go/arcipt for how to interpret these numbers)'
 

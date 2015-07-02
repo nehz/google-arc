@@ -84,7 +84,7 @@ _INTEGRATION_TEST_GLOB_TEMPLATE_LIST = [
     'third_party/android-cts/android-cts/repository/testcases/bionic-unit-tests-cts32',  # NOQA
     'third_party/android-cts/android-cts/repository/testcases/*.xml',
     'third_party/android-cts/android-cts/repository/testcases/CtsUiAutomator*',
-    'third_party/android-cts-x86/android-cts/repository/testcases/bionic-unit-tests-cts.xml',  # NOQA
+    'third_party/android-cts-x86/android-cts/repository/testcases/*.xml',
     'third_party/android-cts-x86/android-cts/repository/testcases/bionic-unit-tests-cts32',  # NOQA
     # Java files are needed by VMHostTestRunner, which parses java files to
     # obtain the information of the test methods at testing time.

@@ -32,6 +32,7 @@
 #include "common/arc_strace.h"
 #include "common/alog.h"
 #include "common/file_util.h"
+#include "common/options.h"
 #include "common/process_emulator.h"
 #include "common/trace_event.h"
 #include "posix_translation/address_util.h"
@@ -44,6 +45,7 @@
 #include "posix_translation/mount_point_manager.h"
 #include "posix_translation/passthrough.h"
 #include "posix_translation/path_util.h"
+#include "posix_translation/pepper_file.h"
 #include "posix_translation/process_environment.h"
 #include "posix_translation/tcp_socket.h"
 #include "posix_translation/time_util.h"
@@ -146,6 +148,12 @@ VirtualFileSystem::VirtualFileSystem(
       abort_on_unexpected_memory_maps_(true) {
   ALOG_ASSERT(!file_system_);
   file_system_ = this;
+  if (arc::Options::GetInstance()->save_logs_to_file) {
+    debug_fds_[STDOUT_FILENO] =
+        FileDescNamePair(kInvalidFileNo, "/data/arc_stdout.txt");
+    debug_fds_[STDERR_FILENO] =
+        FileDescNamePair(kInvalidFileNo, "/data/arc_stderr.txt");
+  }
 }
 
 VirtualFileSystem::~VirtualFileSystem() {
@@ -158,6 +166,10 @@ VirtualFileSystem* VirtualFileSystem::GetVirtualFileSystem() {
   // VirtualFileSystem instance at any time.
   ALOG_ASSERT(GetVirtualFileSystemInterface() == file_system_);
   return file_system_;
+}
+
+bool VirtualFileSystem::IsInitialized() {
+  return file_system_ != NULL;
 }
 
 FileSystemHandler* VirtualFileSystem::GetFileSystemHandler(
@@ -579,6 +591,49 @@ ssize_t VirtualFileSystem::write(int fd, const void* buf, size_t count) {
     return stream->write(buf, count);
   errno = EBADF;
   return -1;
+}
+
+void VirtualFileSystem::DebugWriteLocked(int fd, const void* buf,
+                                         size_t count) {
+  if (!browser_ready_) {
+    return;
+  }
+  auto iter = debug_fds_.find(fd);
+  if (iter == debug_fds_.end()) {
+    return;
+  }
+
+  // We delay this check until here because this function is sometimes called
+  // without the lock held before the browser is ready.  Furthermore, this
+  // function is called from a critical code path and so the check is delayed
+  // until absolutely necessary.
+  mutex_.AssertAcquired();
+
+  FileDescNamePair& debug_fd = iter->second;
+
+  scoped_refptr<FileStream> stream;
+  if (debug_fd.fd_ == kInvalidFileNo) {
+    debug_fd.fd_ = GetFirstUnusedDescriptorLocked();
+    if (debug_fd.fd_ >= 0) {
+      PermissionInfo permission;
+      FileSystemHandler* handler = GetFileSystemHandlerLocked(debug_fd.name_,
+                                                              &permission);
+      if (handler) {
+        static const mode_t kDefaultUserFilePermission = 0600;
+        stream = handler->open(debug_fd.fd_, debug_fd.name_, O_CREAT | O_RDWR,
+                               kDefaultUserFilePermission);
+        if (stream) {
+          stream->set_permission(permission);
+          fd_to_stream_->AddFileStream(debug_fd.fd_, stream);
+        }
+      }
+    }
+  } else {
+    stream = fd_to_stream_->GetStream(debug_fd.fd_);
+  }
+  if (stream) {
+    stream->debug_write(buf, count);
+  }
 }
 
 int VirtualFileSystem::readv(int fd, const struct iovec* iov, int count) {

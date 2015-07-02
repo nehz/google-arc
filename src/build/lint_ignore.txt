@@ -64,11 +64,6 @@
   # chrome_test source.
   "third_party/testing/chrome_test/chrome_test.js": ["gjslint", "analyze_diffs"],
 
-  # TODO(crbug.com/432441): Always compile our code with 64bit long double and
-  # remove this directory.
-  "third_party/android/bionic-kitkat/libm/fpclassify.c": ["copyright"],
-  "third_party/android/bionic-kitkat/libm/i386/_fpmath.h": ["copyright", "cpplint"],
-
   # Chromium third_party files not copyrighted by Chromium authors.
   "mods/android/external/chromium_org/third_party/opus/src/celt/arm/celt_pitch_xcorr_arm_gnu.S": ["copyright"],
   "mods/android/external/chromium_org/third_party/webrtc/modules/audio_processing/aecm/aecm_core_neon_offsets.h": ["copyright"],

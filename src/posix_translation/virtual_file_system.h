@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <utime.h>
 
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -55,6 +56,7 @@ class ProcessEnvironment;
 class ReadonlyFileHandler;
 
 const ino_t kBadInode = -1;
+const int kInvalidFileNo = -1;
 
 // Returns the current VirtualFileSystemInterface instance used by
 // libposix_translation.
@@ -84,6 +86,8 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   // This function is not exported because it's intended to be called only
   // inside posix_translation.
   static VirtualFileSystem* GetVirtualFileSystem();
+
+  static bool IsInitialized();
 
   // Implements file system functions.
   int accept(int sockfd, sockaddr* addr, socklen_t* addrlen);
@@ -253,6 +257,8 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   void ReassignInodeLocked(const std::string& oldpath,
                            const std::string& newpath);
 
+  void DebugWriteLocked(int fd, const void* buf, size_t count);
+
   int AddFileStreamLocked(scoped_refptr<FileStream> stream);
   bool CloseLocked(int fd);
   int DupLocked(int fd, int newfd);
@@ -288,6 +294,14 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
     SELECT_READY_READ,
     SELECT_READY_WRITE,
     SELECT_READY_EXCEPTION
+  };
+
+  struct FileDescNamePair {
+    FileDescNamePair() : fd_(kInvalidFileNo) {}
+    FileDescNamePair(int fd, const char* name) :
+      fd_(fd), name_(name) {}
+    int fd_;
+    std::string name_;
   };
 
   friend class FileSystemTestCommon;
@@ -367,6 +381,7 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   HostResolver host_resolver_;
 
   bool abort_on_unexpected_memory_maps_;  // For unit testing.
+  std::map<int, FileDescNamePair> debug_fds_;
 
   DISALLOW_COPY_AND_ASSIGN(VirtualFileSystem);
 };

@@ -1467,6 +1467,10 @@ class CNinjaGenerator(NinjaGenerator):
     # measured, and consider removing this flag.
     if OPTIONS.is_bare_metal_i686():
       flags.append('-mincoming-stack-boundary=2')
+      # Usually long double is 80bit under BMM x86, but we need to force it to
+      # 64bit. Unfortunately this flag is not supported by clang yet.
+      # See mods/fork/bionic-long-double for more details.
+      flags.append('-mlong-double-64')
     if OPTIONS.is_arm():
       flags.extend(['-mthumb-interwork', '-mfpu=neon-vfpv4', '-Wno-psabi'])
     if OPTIONS.is_nacl_i686():

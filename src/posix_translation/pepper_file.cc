@@ -991,6 +991,10 @@ ssize_t PepperFile::write(const void* buf, size_t count) {
   return result;
 }
 
+void PepperFile::debug_write(const void* buf, size_t count) {
+  real_write(file_->native_handle(), buf, count);
+}
+
 off64_t PepperFile::lseek(off64_t offset, int whence) {
   return real_lseek64(file_->native_handle(), offset, whence);
 }

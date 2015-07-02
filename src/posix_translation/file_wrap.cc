@@ -1151,6 +1151,9 @@ off64_t real_lseek64(int fd, off64_t offset, int whence) {
 
 ssize_t real_write(int fd, const void* buf, size_t count) {
   ALOG_ASSERT(__nacl_irt_write_real);
+  if (VirtualFileSystem::IsInitialized()) {
+    VirtualFileSystem::GetVirtualFileSystem()->DebugWriteLocked(fd, buf, count);
+  }
   size_t nwrote;
   int result = __nacl_irt_write_real(fd, buf, count, &nwrote);
   if (result) {

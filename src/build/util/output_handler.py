@@ -119,7 +119,8 @@ def _get_nacl_arc_process_memory(chrome_pid):
   mem = max((_get_app_mem_info(pid) for pid in pids), key=lambda e: e['res'])
   sys.stderr.write(
       'NaCl ARC process memory: %s\n' %
-      ', '.join('%s %dMB' % (key, value) for key, value in sorted(mem.items())))
+      ', '.join('%s %.1fMB' % (key, value)
+                for key, value in sorted(mem.items())))
   return mem
 
 
@@ -231,7 +232,7 @@ _PRE_PLUGIN_PERF_MESSAGE_PATTERN = re.compile(
 
 _START_MESSAGE_PATTERN = re.compile(
     r'\d+\.\d+s \+ (?P<on_resume>\d+\.\d+)s = \d+\.\d+s '
-    r'\(\+(?P<virt_mem>\d+)M virt, \+(?P<res_mem>\d+)M res.*\): '
+    r'\(\+(?P<virt_mem>[\d.]+)M virt, \+(?P<res_mem>[\d.]+)M res.*\): '
     r'Activity onResume .*')
 
 
@@ -341,9 +342,9 @@ class PerfTestHandler(concurrent_subprocess.OutputHandler):
       return False
 
     self.stats.on_resume_time_ms = int(float(match.group('on_resume')) * 1000)
-    self.stats.app_virt_mem = int(match.group('virt_mem'))
-    self.stats.app_res_mem = int(match.group('res_mem'))
-    self.stats.app_pdirt_mem = 0
+    self.stats.app_virt_mem = float(match.group('virt_mem'))
+    self.stats.app_res_mem = float(match.group('res_mem'))
+    self.stats.app_pdirt_mem = 0.0
     return True
 
   def _finish(self):

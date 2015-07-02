@@ -80,19 +80,18 @@ def _construct_command(test_info, gtest_filter, gtest_list_tests):
     # Also do not use qemu_arm when running on ARM Chromebook.
     arc_root_without_noexec = \
         build_common.get_chromeos_arc_root_without_noexec()
-    if build_options.OPTIONS.is_arm():
-      variables['qemu_arm'] = ''
+    if build_options.OPTIONS.is_bare_metal_build():
       variables['runner'] = ' '.join(
-          toolchain.get_bare_metal_runner(use_qemu_arm=False,
-                                          bin_dir=arc_root_without_noexec))
+          toolchain.get_bare_metal_runner(bin_dir=arc_root_without_noexec))
       variables['runner_without_test_library'] = ' '.join(
-          toolchain.get_bare_metal_runner(use_qemu_arm=False,
-                                          bin_dir=arc_root_without_noexec,
+          toolchain.get_bare_metal_runner(bin_dir=arc_root_without_noexec,
                                           use_test_library=False))
-      # Update --gtest_filter to re-enable the tests disabled only on qemu.
-      if variables.get('qemu_disabled_tests'):
-        variables['gtest_options'] = unittest_util.build_gtest_options(
-            variables.get('enabled_tests'), variables.get('disabled_tests'))
+      if build_options.OPTIONS.is_arm():
+        variables['qemu_arm'] = ''
+        # Update --gtest_filter to re-enable the tests disabled only on qemu.
+        if variables.get('qemu_disabled_tests'):
+          variables['gtest_options'] = unittest_util.build_gtest_options(
+              variables.get('enabled_tests'), variables.get('disabled_tests'))
     else:
       variables['runner'] = ' '.join(
           toolchain.get_nacl_runner(
