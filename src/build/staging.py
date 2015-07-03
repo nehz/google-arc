@@ -211,7 +211,9 @@ def _get_link_targets(root):
   for dirpath, dirs, fnames in os.walk(root):
     for name in fnames:
       link_path = os.path.join(dirpath, name)
-      if os.path.islink(link_path) and os.path.isfile(link_path):
+      # The target of the symbolic link may have been already removed,
+      # so we must not check os.path.isfile(link_path) here.
+      if os.path.islink(link_path):
         link_target_map[link_path] = os.readlink(link_path)
   return link_target_map
 
@@ -250,7 +252,8 @@ def create_staging():
   if old_staging_links:
     new_staging_links = _get_link_targets(staging_root)
 
-    # Every file under staging is in either one of following two states:
+    # Every file (not directory) under staging is in either one of following
+    # two states:
     #
     #   F. The file itself is a symbolic link to a file under third_party or
     #      mods.
@@ -258,16 +261,23 @@ def create_staging():
     #      third_party. (It is important that we do not create symbolic links to
     #      directories under mods)
     #
-    # Note that a file is in state F if and only if it is in |*_staging_links|
-    # dictionary. Let us say a file falls under "X-Y" case if it was in state X
-    # before re-staging and now in state Y. For all 4 possible cases, we can
-    # check if the actual destination of the file changed or not in the
-    # following way:
+    # Let us say a file falls under "X-Y" case if it was in state X before
+    # re-staging and now in state Y. For all 4 possible cases, we can check if
+    # the actual destination of the file changed or not in the following way:
     #
     #   F-F: We can just compare the target of the link.
     #   F-D, D-F: The target may have changed, but it needs some complicated
     #        computation to check. We treat them as changed to be conservative.
     #   D-D: We can leave it as-is since both point third_party.
+    #
+    # So we want to visit all files in state F either in old staging or new
+    # staging. For this purpose we can iterate through |*_staging_links| as
+    # they contain all files in state F.
+    #
+    # Note that |*_staging_links| may contain directory symbolic links, but
+    # it is okay to visit them too because directory timestamps do not matter.
+    # Actually excluding directory symbolic links from |old_staging_links| is
+    # difficult because link targets might be already removed.
 
     for path in set(list(old_staging_links) + list(new_staging_links)):
       if path in old_staging_links and path in new_staging_links:
