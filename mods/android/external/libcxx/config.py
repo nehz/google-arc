@@ -32,6 +32,9 @@ def generate_ninjas():
     if vars.is_target() and vars.get_module_name() == 'libc++':
       vars.set_canned(True)
 
+    vars.get_whole_archive_deps().remove('libcompiler_rt')
+    vars.get_shared_deps().append('libcompiler_rt')
+
     return True
 
   make_to_ninja.MakefileNinjaTranslator(

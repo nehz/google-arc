@@ -11,9 +11,10 @@ import fnmatch
 import hashlib
 import json
 import logging
-import re
+import multiprocessing
 import os
 import pipes
+import re
 import StringIO
 import sys
 import traceback
@@ -2528,12 +2529,15 @@ class TestNinjaGenerator(ExecNinjaGenerator):
 
   @staticmethod
   def emit_common_rules(n):
+    pool_name = 'unittest_pool'
+    n.pool(pool_name, multiprocessing.cpu_count())
     variables = TestNinjaGenerator._get_toplevel_run_test_variables()
     for key, value in variables.iteritems():
       n.variable(key, value)
     rules = TestNinjaGenerator._get_toplevel_run_test_rules()
     for name, (command, output_handler, description) in rules.iteritems():
-      n.rule(name, '%s %s' % (command, output_handler), description=description)
+      n.rule(name, '%s %s' % (command, output_handler), description=description,
+             pool=pool_name)
 
   def _save_test_info(self, test_path, counter, rule, variables):
     """Save information needed to run unit tests remotely as JSON file."""

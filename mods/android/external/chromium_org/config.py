@@ -296,6 +296,7 @@ def _generate_chromium_org_ninja(group):
 
     vars.enable_clang()
     vars.enable_cxx11()
+    vars.get_shared_deps().append('libcompiler_rt')
 
     # Force optimization since libwebviewchromium.so is too huge to fit in
     # memory space for NaCl debug build. See: http://crbug.com/475268

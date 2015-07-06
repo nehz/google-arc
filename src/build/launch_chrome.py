@@ -385,19 +385,9 @@ def _compute_chrome_debugging_params(parsed_args):
 
 
 def _compute_chrome_diagnostic_params(parsed_args):
-  if OPTIONS.is_nacl_build():
-    opt = '--nacl-loader-cmd-prefix'
-  else:
-    opt = '--ppapi-plugin-launcher'
-
+  params_startwith = []
   params = []
-  # Loading NaCl module gets stuck if --enable-logging=stderr is specified
-  # together with --perfstartup.
-  # TODO(crbug.com/276891): Investigate the root cause of the issue and fix it.
-  if OPTIONS.is_nacl_build() and parsed_args.perfstartup:
-    params.append('--enable-logging')
-  else:
-    params.append('--enable-logging=stderr')
+  params.append('--enable-logging=stderr')
   params.append('--log-level=0')
 
   if parsed_args.tracestartup > 0:
@@ -405,10 +395,11 @@ def _compute_chrome_diagnostic_params(parsed_args):
     params.append('--trace-startup-duration=%d' % parsed_args.tracestartup)
 
   if parsed_args.perfstartup:
-    params.append('%s=timeout -s INT %s %s record -gf -o out/perf.data' %
-                  (opt, parsed_args.perfstartup, _PERF_TOOL))
+    params_startwith.extend([
+        'timeout', '-s', 'INT', str(parsed_args.perfstartup),
+        _PERF_TOOL, 'record', '-g', '-o', 'out/perf.data'])
 
-  return params
+  return (params, params_startwith)
 
 
 def _compute_chrome_performance_test_params(unused_parsed_args):
@@ -488,7 +479,10 @@ def _compute_chrome_params(parsed_args):
   params.extend(_compute_chrome_sandbox_params(parsed_args))
   params.extend(_compute_chrome_graphics_params(parsed_args))
   params.extend(_compute_chrome_debugging_params(parsed_args))
-  params.extend(_compute_chrome_diagnostic_params(parsed_args))
+  diagnostic_params, diagnostic_params_startwith = (
+      _compute_chrome_diagnostic_params(parsed_args))
+  params.extend(diagnostic_params)
+  params = diagnostic_params_startwith + params
   remote_executor.maybe_extend_remote_host_chrome_params(parsed_args, params)
 
   params.append(

@@ -18,6 +18,7 @@ def generate_ninjas():
     module_name = vars.get_module_name()
     if module_name != 'libcompiler_rt':
       return False
+    make_to_ninja.Filters.convert_to_shared_lib(vars)
 
     # compilerrt_abort_impl has unused parameters.
     vars.get_cflags().extend(['-Wno-unused-parameter', '-Werror'])
