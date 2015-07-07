@@ -52,17 +52,6 @@ def main(args):
       r'\1PROVIDE (__init_array = .);\1\2\1PROVIDE (__init_array_end = .);',
       output)
 
-  if re.search(r'OUTPUT_ARCH\(arm\)', output):
-    # sel_ldr_arm refuses to load ELF executable which has multiple
-    # PT_NOTE segments (.note.gnu.build-id and note.NaCl.ABI.arm). To
-    # let the linker emit these two .note sections in a single segment,
-    # we explicitly put .note.NaCl.ABI.arm next to .note.gnu.build-id.
-    # TODO(https://code.google.com/p/nativeclient/issues/detail?id=3675):
-    # Remove this once upstream NaCl fixes this issue.
-    output = re.sub(r'\.note\.gnu\.build-id : { \*\(\.note\.gnu\.build-id\) }',
-                    r'\g<0>\n.note.NaCl.ABI.arm : { *(.note.NaCl.ABI.arm) }',
-                    output)
-
   if re.search(r'OUTPUT_ARCH\(i386:x86-64\)', output):
     # Place a pointer to __get_tls in a fixed address on NaCl
     # x86-64. 0x10020000 is at the beginning of the Bionic loader's

@@ -403,7 +403,7 @@ class DelegateOutputHandlerBase(OutputHandler):
 class RedirectOutputHandler(OutputHandler):
   """Output handler to redirect stdout and stderr to sys.stdout and stderr."""
 
-  _NUM_WRITE_RETRIES = 30
+  _NUM_WRITE_RETRIES = 150
 
   def __init__(self, *suppress_patterns):
     """Initializes the redirect output handler.

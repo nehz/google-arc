@@ -21,10 +21,11 @@ class GmsCoreNinjaGenerator(ApkNinjaGenerator):
 
   APITEST_APK_PATH = os.path.join(_DIST_DIR, 'GmsCoreApiTests.apk')
   APITEST_SETUP_APK_PATH = os.path.join(_DIST_DIR, 'GmsCoreApiTestsSetup.apk')
+  _PROGUARD_MAPPING = 'out/gms-core-build/dist/GmsCore-proguard-mapping.txt'
 
   # Every build artifact of GMS Core for ninja to generate dependencies.
   _ALL_OUTPUTS = [_APK_PATH, _NOTICES_OUTPUT_PATH, APITEST_APK_PATH,
-                  APITEST_SETUP_APK_PATH]
+                  APITEST_SETUP_APK_PATH, _PROGUARD_MAPPING]
 
   def __init__(self, extra_dex2oat_flags):
     super(GmsCoreNinjaGenerator, self).__init__(
