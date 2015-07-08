@@ -307,10 +307,9 @@ def _update_arc_version_file():
 
 def _set_up_internal_repo():
   if OPTIONS.internal_apks_source() == 'internal':
-    # Check if internal/third_party/{gms-core, google-contacts-sync-adapter}/
-    # checkout, which requires manual sync for now, is consistent with
-    # internal/build/DEPS.*.xml.
-    subprocess.check_call('src/build/check_arc_int.py')
+    # Sync internal/third_party/* to internal/build/DEPS.*.  The files needs to
+    # be re-staged and is done in staging.create_staging.
+    subprocess.check_call('src/build/sync_arc_int.py')
 
   # Create a symlink to the integration_test definition directory, either in the
   # internal repository checkout or in the downloaded archive.

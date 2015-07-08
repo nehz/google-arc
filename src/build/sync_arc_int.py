@@ -4,22 +4,21 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 #
-# This script checks if both our code in internal/ and the Android internal
-# checkout in the directory are up to date.
+# This script syncs our code in internal/ to DEPS.arc-int, and the Android
+# internal repos to DEPS.*.xml.
 
 import logging
 import os
 import subprocess
 import sys
-import tempfile
+
 import util.git
+from build_options import OPTIONS
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _ARC_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))
 _ARC_INTERNAL_DIR = os.path.join(_ARC_ROOT, 'internal')
 _DEPS_FILE = os.path.join(_ARC_ROOT, 'src/build/DEPS.arc-int')
-_GMS_CORE_DIR = os.path.join(_ARC_INTERNAL_DIR, 'third_party/gms-core')
-_GMS_CORE_DEPS = os.path.join(_ARC_INTERNAL_DIR, 'build/DEPS.gms.xml')
 
 
 def _get_current_arc_int_revision():
@@ -40,6 +39,9 @@ def sync_repo(target_revision):
 
 
 def run():
+  OPTIONS.parse_configure_file()
+  assert OPTIONS.internal_apks_source() == 'internal'
+
   # Check if internal/ exists. Run git-clone if not.
   if not os.path.isdir(_ARC_INTERNAL_DIR):
     # TODO(tandrii): Move this nacl-x86_64-bionic-internal recipe's botupdate
@@ -61,19 +63,9 @@ def run():
   if target_revision != _get_current_arc_int_revision():
     sync_repo(target_revision)
 
-  # Check if the Android internal code is up to date.
-  xml = tempfile.NamedTemporaryFile(prefix='repo_manifest_output_')
-  # 'repo manifest' does not access the internal Android code repository.
-  subprocess.check_call('repo manifest -o %s -r' % xml.name,
-                        cwd=_GMS_CORE_DIR, shell=True)
+  subprocess.check_call(os.path.join(_ARC_INTERNAL_DIR, 'build/configure.py'))
 
-  result = subprocess.call(['diff', xml.name, _GMS_CORE_DEPS])
-  if result != 0:
-    logging.error('Android internal source code is not up to date.  Please run '
-                  'internal/build/configure.py to update the code.  If you are '
-                  'trying to sync on buildbot, please refer to '
-                  'internal/docs/rebasing.md')
-  return result
+  return 0
 
 
 if __name__ == '__main__':

@@ -91,7 +91,7 @@ def get_configuration_dependencies():
       'src/build/DEPS.ndk',
       'src/build/build_common.py',
       'src/build/build_options.py',
-      'src/build/check_arc_int.py',
+      'src/build/sync_arc_int.py',
       'src/build/config.py',
       'src/build/config_loader.py',
       'src/build/config_runner.py',
