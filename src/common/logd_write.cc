@@ -11,6 +11,7 @@
 #include "common/logd_write.h"
 
 #include <errno.h>
+#include <inttypes.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -39,7 +40,22 @@ static const char priority_char_map[] = {
   ' ',  // ANDROID_LOG_SILENT
 };
 
+#if defined(LOG_THREAD_IDS) || defined(LOG_TIMESTAMPS)
+const int kTagSpacing = 30;
+#else
 const int kTagSpacing = 15;
+#endif
+
+#define LOG_FORMAT_PREFIX_THREAD_ID
+#if defined(LOG_THREAD_IDS) && defined(LOG_TIMESTAMPS)
+#define LOG_FORMAT_PREFIX "[tid % 4d % 7" PRId64 "ms] "
+#elif defined(LOG_THREAD_IDS)
+#define LOG_FORMAT_PREFIX "[tid % 4d] "
+#elif defined(LOG_TIMESTAMPS)
+#define LOG_FORMAT_PREFIX "[% 7" PRId64 "ms] "
+#else
+#define LOG_FORMAT_PREFIX ""
+#endif
 
 namespace {
 
@@ -61,13 +77,42 @@ bool ShouldLog(arc_LogPriority priority) {
   return priority >= Options::GetInstance()->GetMinStderrLogPriority();
 }
 
+#if defined(LOG_TIMESTAMPS)
+pthread_once_t s_base_millis_init = PTHREAD_ONCE_INIT;
+uint64_t s_base_millis;
+
+uint64_t GetNowInMillis() {
+  struct timeval now;
+  gettimeofday(&now, NULL);
+  return now.tv_sec * 1000LL + now.tv_usec / 1000LL;
+}
+
+void InitializeBaseMillis() {
+  s_base_millis = GetNowInMillis();
+}
+
+int64_t GetMillisForLog() {
+  pthread_once(&s_base_millis_init, InitializeBaseMillis);
+  return static_cast<int64_t>(GetNowInMillis() - s_base_millis);
+}
+#endif  // defined(LOG_TIMESTAMPS)
+
 void PrintLog(int prio, const char* tag, const char* msg) {
   if (!tag)
     tag = "";
   int tag_len = strlen(tag);
   int stored_errno = errno;
-  WriteLog(base::StringPrintf("%c/%s:%*s %s\n", priority_char_map[prio], tag,
-      tag_len > kTagSpacing ? 0 : kTagSpacing - tag_len, "", msg));
+  WriteLog(base::StringPrintf(
+      LOG_FORMAT_PREFIX "%c/%s:%*s %s\n",
+#if defined(LOG_THREAD_IDS)
+      gettid(),
+#endif  // defined(LOG_THREAD_IDS)
+#if defined(LOG_TIMESTAMPS)
+      GetMillisForLog(),
+#endif  // defined(LOG_TIMESTAMPS)
+      priority_char_map[prio],
+      tag, tag_len > kTagSpacing ? 0 : kTagSpacing - tag_len, "",
+      msg));
   errno = stored_errno;
 }
 

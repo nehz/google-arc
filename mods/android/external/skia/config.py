@@ -27,6 +27,7 @@ def generate_ninjas():
         # -ffunction-sections with --gc-sections did not solve the problem
         # here.
         vars.get_cflags().append('-O1')
+      vars.get_shared_deps().append('libcompiler_rt')
     return True
 
   MakefileNinjaTranslator('android/external/skia').generate(_filter)

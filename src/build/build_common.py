@@ -9,7 +9,6 @@ import fnmatch
 import functools
 import json
 import logging
-import modulefinder
 import os
 import platform
 import random
@@ -608,6 +607,21 @@ def expand_path_placeholder(path):
   return path.format(out=OUT_DIR, target=get_target_dir_name())
 
 
+def is_abs_path_in_project(path):
+  return path.startswith(_ARC_ROOT + '/')
+
+
+def get_project_relpath(path):
+  """Given an absolute path, returns a project relative path.
+
+  Asserts if the path cannot be converted to a project relative path.
+  """
+  path = os.path.abspath(path)
+  assert is_abs_path_in_project(path), (
+      'Path "%s" is not under project root "%s".' % (path, _ARC_ROOT))
+  return os.path.relpath(path, _ARC_ROOT)
+
+
 def get_test_output_handler(use_crash_analyzer=False):
   analyzer = ''
   # Only Bionic build can be handled by crash_analyzer.
@@ -872,38 +886,6 @@ def run_ninja(args=None, cwd=None):
   res = subprocess.call(cmd, cwd=cwd)
   if res != 0:
     raise RunNinjaException('Ninja error %d' % res, ' '.join(cmd))
-
-
-def find_python_dependencies(package_root_path, module_path):
-  """Returns a filtered list of dependencies of a python script.
-
-  'module_path' is the path to the python module/script to examine.
-
-  'package_root_path' serves to identify the root of the package the module
-  belongs to, and additionally is used to filter the returned dependency list to
-  the list of imported files contained under it.
-
-  Also, if this function is called while a config.py is running, records the
-  resulting python scripts as the dependencies of the config.py.
-  """
-  pythonpath = sys.path[:]
-  if package_root_path not in pythonpath:
-    pythonpath[0:0] = [package_root_path]
-
-  module_dir = os.path.dirname(module_path)
-  if module_dir not in pythonpath:
-    pythonpath[0:0] = [module_dir]
-
-  finder = modulefinder.ModuleFinder(pythonpath)
-  finder.run_script(module_path)
-  dependencies = [module.__file__ for module in finder.modules.itervalues()
-                  if module.__file__]
-
-  result = [path for path in dependencies
-            if (path.startswith(package_root_path) and path != module_path)]
-
-  dependency_inspection.add_files(module_path, *result)
-  return result
 
 
 def get_gsutil_executable():

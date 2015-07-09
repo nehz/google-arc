@@ -33,7 +33,7 @@ class UnittestRunner(suite_runner.SuiteRunnerBase):
 
   def run(self, test_methods_to_run):
     assert test_methods_to_run == [UnittestRunner._TEST_NAME]
-    unittest_name = self._name.replace('unittest.', '', 1)
+    unittest_name = self._name.replace('unittests.', '', 1)
 
     self.run_subprocess_test(
         UnittestRunner._TEST_NAME,

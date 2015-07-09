@@ -15,6 +15,7 @@ from build_options import OPTIONS
 from ninja_generator import ArchiveNinjaGenerator
 from ninja_generator import NinjaGenerator
 from ninja_generator import SharedObjectNinjaGenerator
+from util import python_deps
 
 
 _CREATE_READONLY_FS_IMAGE_SCRIPT = (
@@ -133,8 +134,7 @@ def _generate_libposix_translation_for_test():
   gen_out_path = os.path.join(build_common.get_build_dir(),
                               'posix_translation_gen_sources',
                               'wrap_syscall_aliases.S')
-  gen_implicit_deps = build_common.find_python_dependencies(
-      'src/build', gen_script_path) + [gen_script_path]
+  gen_implicit_deps = python_deps.find_deps(gen_script_path)
   n.build(gen_out_path, gen_rule_name, implicit=gen_implicit_deps)
   # Following deps order is important. art_libc_supplement_for_test.so should
   # be placed before libc.so.

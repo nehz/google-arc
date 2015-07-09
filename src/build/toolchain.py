@@ -20,6 +20,8 @@ _NACL_DEPS_PATH = os.path.join(_SCRIPT_DIR, 'DEPS.naclsdk')
 _NACL_SDK_PATH = os.path.join('third_party', 'nacl_sdk', _PEPPER_VERSION)
 _NACL_TOOLS_PATH = os.path.join(_NACL_SDK_PATH, 'tools')
 _PNACL_BIN_PATH = os.path.join(_NACL_SDK_PATH, 'toolchain/linux_pnacl/bin')
+_PNACL_CLANG_VERSIONS_PATH = \
+    os.path.join(_NACL_SDK_PATH, 'toolchain/linux_pnacl/lib/clang')
 # Don't calculate _PNACL_INCLUDE_DIR here (since it needs filesystem access),
 # do that in get_pnacl_include_dir() instead.
 _PNACL_INCLUDE_DIR = None
@@ -125,22 +127,21 @@ def get_nacl_irt_core(bitsize):
   return get_nacl_tool('irt_core_x86_%d.nexe' % bitsize)
 
 
+def _find_pnacl_include_dir():
+  versions = os.listdir(_PNACL_CLANG_VERSIONS_PATH)
+  assert versions, 'No clang versions found under %s' % \
+      _PNACL_CLANG_VERSIONS_PATH
+  # Get the largest version, taking care to order '10' above '2'
+  # by converting the string into an array of integers.
+  version = max(versions, key=lambda v: [int(x) for x in v.split('.')])
+  return os.path.join(_PNACL_CLANG_VERSIONS_PATH, version, 'include')
+
+
 def get_pnacl_include_dir():
   global _PNACL_INCLUDE_DIR
   # Recalculate _PNACL_INCLUDE_DIR if needed
   if _PNACL_INCLUDE_DIR is None:
-    # In theory there should only ever be one correct directory, but sometimes
-    # there are two (e.g. pepper_41 contains both worksing "3.5.0" directory and
-    # empty and non-working "3.4" directory) so we'll just go from newest to
-    # latest.
-    _PNACL_INCLUDE_DIR = os.path.join(  # PPAPI SDK 43+
-        _NACL_SDK_PATH, 'toolchain/linux_pnacl/lib/clang/3.6.0/include')
-    if not os.path.isdir(_PNACL_INCLUDE_DIR):
-      _PNACL_INCLUDE_DIR = os.path.join(  # PPAPI SDK 41-42
-          _NACL_SDK_PATH, 'toolchain/linux_pnacl/lib/clang/3.5.0/include')
-      if not os.path.isdir(_PNACL_INCLUDE_DIR):
-        _PNACL_INCLUDE_DIR = os.path.join(  # PPAPI SDK 40-
-            _NACL_SDK_PATH, 'toolchain/linux_pnacl/lib/clang/3.4/include')
+    _PNACL_INCLUDE_DIR = _find_pnacl_include_dir()
   return _PNACL_INCLUDE_DIR
 
 

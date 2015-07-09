@@ -70,6 +70,8 @@ _GLES_PASSTHROUGH_LOGGING = 'gles-passthrough'
 _GLES_PASSTHROUGH_TRACING = 'gles-passthrough-tracing'
 _JAVA_METHODS_LOGGING = 'java-methods'
 _LIBDVM_DEBUG = 'libdvm-debug'
+_LOG_THREAD_IDS = 'thread-ids'
+_LOG_TIMESTAMPS = 'timestamps'
 _MAKE_TO_NINJA_LOGGING = 'make-to-ninja'
 _MEMORY_USAGE = 'memory-usage'
 _NINJA_GENERATOR_LOGGING = 'ninja-generator'
@@ -85,8 +87,10 @@ _ALLOWED_LOGGING = [_ANSI_FB_LOGGING,
                     _GLES_API_TRACING,
                     _GLES_PASSTHROUGH_LOGGING,
                     _GLES_PASSTHROUGH_TRACING,
-                    _LIBDVM_DEBUG,
                     _JAVA_METHODS_LOGGING,
+                    _LIBDVM_DEBUG,
+                    _LOG_THREAD_IDS,
+                    _LOG_TIMESTAMPS,
                     _MAKE_TO_NINJA_LOGGING,
                     _MEMORY_USAGE,
                     _NINJA_GENERATOR_LOGGING,
@@ -220,6 +224,12 @@ class _Options(object):
   def is_posix_translation_debug(self):
     return _POSIX_TRANSLATION_DEBUG in self._loggers
 
+  def log_thread_ids(self):
+    return _LOG_THREAD_IDS in self._loggers
+
+  def log_timestamps(self):
+    return _LOG_TIMESTAMPS in self._loggers
+
   def internal_apks_source_is_internal(self):
     return self.internal_apks_source().startswith('internal')
 
@@ -277,6 +287,8 @@ class _Options(object):
         args.logging.extend([
             # TODO(crbug.com/342652): Re-enable _LIBDVM_DEBUG.
             # _LIBDVM_DEBUG,
+            _LOG_THREAD_IDS,
+            _LOG_TIMESTAMPS,
             _MEMORY_USAGE,
             _POSIX_TRANSLATION_DEBUG,
             _VERBOSE_MEMORY_VIEWER
