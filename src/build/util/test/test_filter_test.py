@@ -15,6 +15,8 @@ class TestListFilterTest(unittest.TestCase):
     instance = test_filter.TestListFilter()
     self.assertTrue(instance.should_include('test1'))
     self.assertTrue(instance.should_include('test2'))
+    # Even an empty string should be included by default (corner case)
+    self.assertTrue(instance.should_include(''))
 
   def test_include_pattern_list(self):
     # Check the include_pattern_list behavior.

@@ -5,7 +5,7 @@
 # found in the LICENSE file.
 
 import unittest
-from xml.etree import ElementTree
+from xml.etree import cElementTree
 
 from util.test import extract_test_list
 
@@ -16,7 +16,7 @@ class ExtractTestListTest(unittest.TestCase):
         ['test.package.TestClass1#testMethod1',
          'test.package.TestClass1#testMethod2',
          'test.package.TestClass2#testMethod1'],
-        extract_test_list._extract_test(ElementTree.fromstring('\n'.join([
+        extract_test_list._extract_test(cElementTree.fromstring('\n'.join([
             '<api>',
             '<package name="test.package">',
 

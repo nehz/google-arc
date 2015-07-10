@@ -5,25 +5,41 @@
 """Provides a class to determine if the given test should run or not."""
 
 import fnmatch
+import re
 
 from util.test import suite_runner_config_flags as flags
 
 
-def _match_pattern_list(name, pattern_list):
-  """Returns True if |name| matches to any of patterns in the list."""
-  return any(fnmatch.fnmatch(name, pattern) for pattern in pattern_list)
+def _build_re(pattern_list):
+  """Builds a regular expression string from |pattern_list|.
+
+  The regular expression will match if any of the glob patterns listed match. It
+  can be used to replace:
+
+    any(fnmatch.fnmatch(name, pattern) for pattern in pattern_list)
+
+  with:
+
+    bool(re.match(_build_any_pattern_match_re(pattern_list), name))
+  """
+  # An empty list would match any string, which is not what is intended. Handle
+  # it by using a regular expression which is guaranteed to match nothing.
+  if not pattern_list:
+    return re.compile('(?!)')
+  return re.compile(
+      '|'.join(r'(?:%s)' % fnmatch.translate(pattern)
+               for pattern in pattern_list))
 
 
 class TestListFilter(object):
   def __init__(self, include_pattern_list=None, exclude_pattern_list=None):
-    # Use '*' for include pattern by default, which means, include all
-    # tests by default.
-    self._include_pattern_list = include_pattern_list or ['*']
-    self._exclude_pattern_list = exclude_pattern_list or []
+    # By default we include all test names and exclude none of them.
+    self._include_re = _build_re(include_pattern_list or ['*'])
+    self._exclude_re = _build_re(exclude_pattern_list or [])
 
   def should_include(self, test_name):
-    return (_match_pattern_list(test_name, self._include_pattern_list) and
-            not _match_pattern_list(test_name, self._exclude_pattern_list))
+    return (bool(self._include_re.match(test_name) and
+                 not self._exclude_re.match(test_name)))
 
 
 class TestRunFilter(object):

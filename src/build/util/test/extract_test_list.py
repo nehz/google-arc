@@ -12,7 +12,7 @@ and finds the test methods from them.
 
 import argparse
 import subprocess
-from xml.etree import ElementTree
+from xml.etree import cElementTree
 
 import build_options
 import toolchain
@@ -22,7 +22,7 @@ def _parse_apk(apk_path):
   """Parses the XML meta data of classes.dex in the given .apk file."""
   parsed_data = subprocess.check_output([
       toolchain.get_tool('java', 'dexdump'), apk_path, '-lxml'])
-  return ElementTree.fromstring(parsed_data)
+  return cElementTree.fromstring(parsed_data)
 
 
 def _extract_test(dex_xml):

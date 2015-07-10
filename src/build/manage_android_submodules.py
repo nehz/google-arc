@@ -11,7 +11,7 @@ import os
 import subprocess
 import sys
 import logging
-import xml.etree.ElementTree
+import xml.etree.cElementTree
 
 import util.git
 import util.rebase.state as state
@@ -117,7 +117,7 @@ _ANDROID_BASE_URL = 'https://android.googlesource.com/'
 class _AndroidManifestFile(object):
   """Allows an Android build manifest to be used to specify revisions."""
   def __init__(self, contents):
-    self._document = xml.etree.ElementTree.fromstring(contents)
+    self._document = xml.etree.cElementTree.fromstring(contents)
     default = self._document.find('default')
     self._default = default.get('revision') if default is not None else None
 
