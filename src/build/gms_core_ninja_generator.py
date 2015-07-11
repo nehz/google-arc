@@ -38,9 +38,10 @@ class GmsCoreNinjaGenerator(ApkNinjaGenerator):
     if not OPTIONS.internal_apks_source_is_internal():
       return
 
+    flags = '--eng' if OPTIONS.is_debug_code_enabled() else ''
     build_log = os.path.join('out/gms-core-build/build.log')
-    command = ('internal/build/build.py gms-core > %s 2>&1 || '
-               '(cat %s; exit 1)') % (build_log, build_log)
+    command = ('internal/build/build.py gms-core %s > %s 2>&1 || '
+               '(cat %s; exit 1)') % (flags, build_log, build_log)
 
     if OPTIONS.internal_apks_source() == 'internal-dev':
       # Only for local development.  play-services.apk dependes on jars below to
