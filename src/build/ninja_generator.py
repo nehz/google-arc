@@ -405,7 +405,7 @@ class NinjaGenerator(ninja_syntax.Writer):
     # Rule to make the list of inputs.
     n.rule('make_list',
            command='echo "$in_newline" > $out',
-           description='make a list from $in')
+           description='make_list $out')
 
     # Rule to make the list of external symbols in a shared library.
     # Setting restat to True so that ninja can stop building its dependents

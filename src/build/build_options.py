@@ -489,6 +489,9 @@ class _Options(object):
   def _check_args(self, args):
     if args.enable_valgrind and not self.is_bare_metal_i686():
       return '--enable-valgrind works only on Bare Metal i686 target.'
+    if args.enable_valgrind and args.opt:
+      return ('--enable-valgrind memcheck suppression patterns do not work ' +
+              'with optimized code.')
 
     # Java method logging does not work properly with ART AOT enabled.
     if 'java-methods' in args.logging and args.enable_art_aot:
