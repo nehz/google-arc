@@ -920,6 +920,11 @@ int __wrap_poll(struct pollfd* fds, nfds_t nfds, int timeout) {
   ARC_STRACE_RETURN(result);
 }
 
+IRT_WRAPPER(poll, struct pollfd* fds, nfds_t nfds, int timeout, int* count) {
+  *count = __wrap_poll(fds, nfds, timeout);
+  return *count >= 0 ? 0 : errno;
+}
+
 template <typename OffsetType>
 static ssize_t PreadImpl(int fd, void* buf, size_t count, OffsetType offset) {
   ARC_STRACE_ENTER_FD("pread", "%d, %p, %zu, %lld",
@@ -1165,6 +1170,8 @@ ssize_t real_write(int fd, const void* buf, size_t count) {
 
 namespace posix_translation {
 
+extern void InitializeIRTHooksForSockets();
+
 // The call stack gets complicated when IRT is hooked. See the comment near
 // IRT_WRAPPER(close) for more details.
 void InitializeIRTHooks() {
@@ -1177,11 +1184,14 @@ void InitializeIRTHooks() {
   DO_WRAP(lstat);
   DO_WRAP(mkdir);
   DO_WRAP(open);
+  DO_WRAP(poll);
   DO_WRAP(read);
   DO_WRAP(seek);
   DO_WRAP(stat);
   DO_WRAP(unlink);
   DO_WRAP(write);
+
+  InitializeIRTHooksForSockets();
 }
 
 void InitializeIRTHooksForPosixTranslationTest() {

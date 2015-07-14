@@ -453,7 +453,6 @@ class PluginUtilInterface {
   // RunOnRendererThread.
   virtual void* RunOnRendererThread(ThreadCallbackFunc func, void* arg) = 0;
 
-  virtual void SetTimeZone(const char* timezone) = 0;
   virtual bool IsMainThread() = 0;
   virtual bool IsRendererThread() = 0;
 
@@ -472,7 +471,6 @@ class PluginUtilInterface {
   virtual void HistogramBoolean(const std::string& name, bool value) = 0;
   virtual void HistogramEnumeration(const std::string& name,
                                     int value, int bounds) = 0;
-  virtual bool IsAppInstalledFromWebStore() const = 0;
 
   // Start shut down of environment.
   virtual void ShutDown() = 0;

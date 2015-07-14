@@ -495,17 +495,18 @@ class NinjaGenerator(ninja_syntax.Writer):
       CNinjaGenerator._add_bionic_stdlibs(flags, is_so, is_system_library)
 
   def get_ldflags(self, is_host=False):
-    ldflags = '$commonflags -Wl,-z,noexecstack -pthread%s' % (
-        self._get_debug_ldflags())
-    if not is_host:
-      ldflags += ' -nostdlib'
-    return ldflags
+    ldflags = ['$commonflags', '-Wl,-z,noexecstack']
 
-  def _get_debug_ldflags(self):
-    if OPTIONS.is_debug_info_enabled():
-      return ''
-    else:
-      return ' -Wl,--strip-all'
+    if not OPTIONS.is_debug_info_enabled():
+      ldflags.append('-Wl,--strip-all')
+
+    if not is_host:
+      if not OPTIONS.is_nacl_build():
+        # Clang ignores '-pthread' and warns it's unused when '-nostdlib' is
+        # specified.
+        ldflags.append('-pthread')
+      ldflags.append('-nostdlib')
+    return ' '.join(ldflags)
 
   @staticmethod
   def _get_target_ld_flags(target, is_so=False, is_system_library=False):
@@ -2113,7 +2114,10 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
                        'libposix_translation.so'))
     self.production_shared_library_list = []
     self._link_crtbegin = link_crtbegin
-    self._is_clang_linker_enabled = use_clang_linker
+    if OPTIONS.is_nacl_build() and not self._is_host:
+      self._is_clang_linker_enabled = True
+    else:
+      self._is_clang_linker_enabled = use_clang_linker
     self._is_for_test = is_for_test
 
   @classmethod
@@ -2224,6 +2228,11 @@ class ExecNinjaGenerator(CNinjaGenerator):
     # it this way once that work is upstreamed.
     self._is_system_library = is_system_library
     self._install_path = install_path
+
+    if OPTIONS.is_nacl_build() and not self._is_host:
+      self.add_ld_flags('-dynamic',
+                        '-Wl,-Ttext-segment=' + self._NACL_TEXT_SEGMENT_ADDRESS)
+
     if not is_system_library and not self._is_host:
       if OPTIONS.is_arm():
         # On Bare Metal ARM, we need to expose all symbols in libgcc
@@ -2251,10 +2260,14 @@ class ExecNinjaGenerator(CNinjaGenerator):
         implicit.append(build_common.get_bionic_libc_malloc_debug_leak_so())
     variables = self._add_lib_vars(as_dict(variables))
     bin_path = os.path.join(self._intermediates_dir, self._module_name)
+    if OPTIONS.is_nacl_build() and not self._is_host:
+      rule_prefix = 'clang.'
+    else:
+      rule_prefix = ''
+    rule_body = 'ld_system_library' if self._is_system_library else 'ld'
     intermediate_bin = self.build(
         bin_path,
-        self._get_rule_name(
-            'ld_system_library' if self._is_system_library else 'ld'),
+        self._get_rule_name(rule_prefix + rule_body),
         self._consume_objects(),
         implicit=implicit,
         variables=variables,

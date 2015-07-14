@@ -139,6 +139,9 @@ void ColorBuffer::CreateTextureLocked() {
     return;
   }
 
+  compositor_enabled_ =
+      arc::Options::GetInstance()->GetBool("enable_compositor");
+
   glGenTextures(1, &texture_);
   glBindTexture(GL_TEXTURE_2D, texture_);
   glTexImage2D(GL_TEXTURE_2D, 0, format_, width_, height_, 0, format_,
@@ -247,7 +250,7 @@ void ColorBuffer::Commit() {
   // We do not need flush GL context when compositor is enabled, because
   // the Pepper Compositor API uses CHROMIUM_sync_point extension to sync
   // between GL contexts.
-  if (!arc::Options::GetInstance()->enable_compositor) {
+  if (!compositor_enabled_) {
     glFlush();
   }
 }

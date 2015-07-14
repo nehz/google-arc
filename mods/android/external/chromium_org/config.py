@@ -32,10 +32,13 @@ def _update_flags(vars, cflags_to_add, flags_to_remove):
       vars.get_cflags().remove(flag)
     if flag in vars.get_cxxflags():
       vars.get_cxxflags().remove(flag)
+    if flag in vars.get_ldflags():
+      vars.get_ldflags().remove(flag)
 
 
 def _filter_cflags_for_chromium_org(vars):
   append_cflags = []
+  # TODO(http://crbug.com/509945): Use Gold once it's ready.
   strip_flags = ['-fuse-ld=gold', '-march=pentium4', '-finline-limit=64']
   if OPTIONS.is_arm():
     # ARM clang does not support these flags.

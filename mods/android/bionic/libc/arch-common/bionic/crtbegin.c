@@ -25,10 +25,6 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-// ARC MOD BEGIN
-// This code path is used for ARM. For other architectures,
-// see arch-nacl/bionic/crtbegin.c
-// ARC MOD END
 
 #include "../../bionic/libc_init_common.h"
 #include <stddef.h>
@@ -89,6 +85,10 @@ void _start(unsigned **info) {
 #endif
   __libc_init(raw_args, NULL, &main, &array);
 }
+// ARC MOD BEGIN
+// Inject common symbols and sections to support backtrace.
+#include "crtbegin_common.h"
+// ARC MOD END
 
 #include "__dso_handle.h"
 #include "atexit.h"

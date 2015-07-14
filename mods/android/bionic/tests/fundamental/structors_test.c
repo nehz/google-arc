@@ -24,7 +24,6 @@ static const char* g_actual_calls[99];
 static size_t g_expect_calls_num;
 static const char** g_expect_calls;
 void (*g_test_finished_callback)(int ok);
-static int g_call_exit_in_destructor;
 
 void record_call(const char* name) {
   fprintf(stderr, "in %s()\n", name);
@@ -61,7 +60,6 @@ void register_test_finished_callback(void (*cb)(int ok)) {
 __attribute__((constructor(101)))
 static void init() {
   record_call("init");
-  g_call_exit_in_destructor = getenv("CALL_EXIT_IN_DESTRUCTOR") != NULL;
 }
 
 __attribute__((constructor(102)))
@@ -82,10 +80,6 @@ static void fini() {
 __attribute__((destructor(102)))
 static void fini2() {
   record_call("fini2");
-  if (g_call_exit_in_destructor) {
-    fprintf(stderr, "call exit() in fini2().\n");
-    exit(0);
-  }
 }
 
 __attribute__((destructor))

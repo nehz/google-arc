@@ -34,7 +34,7 @@ _GROUP_PY = 'Python'
 # For the report, statistics will be totaled for all files under these
 # directories.
 _PATH_PREFIX_GROUPS = [
-    'internal/mods/',
+    'internal/',
     'mods/',
     'mods/android/',
     'mods/android/bionic/',
@@ -46,6 +46,8 @@ _PATH_PREFIX_GROUPS = [
 _DEFAULT_LINT_TARGET_DIR_LIST = [
     'canned',
     'mods',
+    'internal/build',
+    'internal/integration_tests',
     'internal/mods',
     'src',
     # TODO(crbug.com/374475): This subtree should be removed from linting.
@@ -221,7 +223,8 @@ class JsLinter(CommandLineLinterBase):
     #      full set of jsdoc tags, including "@public". This is how we can use
     #      them without gjslint complaining.
     return ['src/build/gjslint', '--unix_mode', '--jslint_error=all',
-            '--disable=210,213,217', '--custom_jsdoc_tags=public', path]
+            '--disable=210,213,217', '--custom_jsdoc_tags=public,namespace',
+            path]
 
 
 class PyLinter(CommandLineLinterBase):
@@ -326,6 +329,8 @@ class UpstreamLinter(Linter):
     # mods/upstream directory is not yet included in open source so we cannot
     # run this linter.
     if open_source.is_open_source_repo():
+      return False
+    if os.path.basename(path) == 'OWNERS':
       return False
     return path.startswith(analyze_diffs.UPSTREAM_BASE_PATH)
 

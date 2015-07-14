@@ -1960,6 +1960,11 @@ def _generate_c_ninja(vars, out_lib_deps):
     for ldflag in ldflags_to_remove:
       if ldflag in vars.get_ldflags():
         vars.get_ldflags().remove(ldflag)
+  elif OPTIONS.is_nacl_build():
+    # '-nostdlib' is added in ninja_generator and it's enough to remove
+    # the libraries we have to do.
+    # Clang warns '-nodefaultlibs' is unused if we leave it.
+    vars._flags.remove('-nodefaultlibs')
 
   _add_compiler_flags(n, vars)
 

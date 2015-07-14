@@ -71,17 +71,11 @@ extern "C" void __init_irt_table (void);
 
 #if defined(HAVE_ARC)
 /* See bionic/libc/private/irt_query_marker.h for detail. */
-#if defined(__arm__)
 /* We use 00100, which is less than 00101 for __libc_preinit. Note
  * that GCC emits .init_array.00101 for constructor(101), which is
  * specified for __libc_preinit and old GNU linker (binutils-2.22)
  * cannot compare 100 and 00101 correctly. */
 __attribute__((section(".init_array.00100")))
-#else
-/* This is 65535 - 100. The priority for .ctors will be subtracted
- * from 65535. */
-__attribute__((section(".ctors.65435"), used))
-#endif
 void* __next_func_needs_irt_query = NEXT_CTOR_FUNC_NEEDS_IRT_QUERY_MARKER;
 
 /* This function must be called before other constructors in Bionic.
@@ -90,20 +84,8 @@ void* __next_func_needs_irt_query = NEXT_CTOR_FUNC_NEEDS_IRT_QUERY_MARKER;
  * priority allowed for user programs. For NaCl, we explicitly specify the
  * section name as nacl-clang 3.6 uses .init_array instead of .ctors for
  * __attribute__((constructor)). */
-#if defined(__native_client__)
-static void __libc_preinit(__nacl_irt_query_fn_t irt_query);
-
-/* This is 65535 - 101. The priority for .ctors will be subtracted
- * from 65535. This symbol is intended to place right before
- * __next_func_needs_irt_query defined above. */
-__attribute__((section(".ctors.65434"), used))
-void* __libc_preinit_for_ctors = (void*)&__libc_preinit;
-
-static void __libc_preinit(__nacl_irt_query_fn_t irt_query) {
-#else
 __attribute__((constructor(101)))
 static void __libc_preinit(__nacl_irt_query_fn_t irt_query) {
-#endif
 
 #else
 /* ARC MOD END */

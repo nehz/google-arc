@@ -83,6 +83,20 @@ def _remove_assembly_source(sources):
     sources.remove(asm)
 
 
+def _get_crt_cc():
+  if OPTIONS.is_nacl_build():
+    return toolchain.get_tool(OPTIONS.target(), 'clang')
+  else:
+    return toolchain.get_tool(OPTIONS.target(), 'cc')
+
+
+def _get_crt_cxx():
+  if OPTIONS.is_nacl_build():
+    return toolchain.get_tool(OPTIONS.target(), 'clangxx')
+  else:
+    return toolchain.get_tool(OPTIONS.target(), 'cxx')
+
+
 def _generate_naclized_i686_asm_ninja():
   if not OPTIONS.is_nacl_i686():
     return
@@ -198,10 +212,14 @@ def _filter_libc_common(vars):
       'android/bionic/libc/arch-nacl/syscalls/nacl_stat.c',
       'android/bionic/libc/arch-nacl/syscalls/nacl_timespec.c',
       'android/bionic/libc/arch-nacl/syscalls/nacl_timeval.c',
+      'android/bionic/libc/arch-nacl/syscalls/poll.c',
       'android/bionic/libc/arch-nacl/syscalls/prctl.c',
       'android/bionic/libc/arch-nacl/syscalls/read.c',
+      'android/bionic/libc/arch-nacl/syscalls/recvfrom.c',
       'android/bionic/libc/arch-nacl/syscalls/rmdir.c',
+      'android/bionic/libc/arch-nacl/syscalls/sendto.c',
       'android/bionic/libc/arch-nacl/syscalls/setpriority.c',
+      'android/bionic/libc/arch-nacl/syscalls/socketpair.c',
       'android/bionic/libc/arch-nacl/syscalls/stat.c',
       'android/bionic/libc/arch-nacl/syscalls/unlink.c',
       'android/bionic/libc/arch-nacl/syscalls/write.c',
@@ -750,12 +768,13 @@ class BionicFundamentalTest(object):
       execflags = '-pie'
       ldflags += ' -fuse-ld=gold'
     else:
-      # This is mainly for ARM. See src/build/ninja_generator.py for detail.
-      execflags = '-Wl,-Ttext-segment=' + text_segment_address
+      # This is for nacl-clang. See src/build/ninja_generator.py for detail.
+      execflags = '-dynamic -Wl,-Ttext-segment=' + text_segment_address
+
     self._variables = {
+        'cc': _get_crt_cc(),
+        'cxx': _get_crt_cxx(),
         'name': self._test_binary_name,
-        'cc': toolchain.get_tool(OPTIONS.target(), 'cc'),
-        'cxx': toolchain.get_tool(OPTIONS.target(), 'cxx'),
         'lib_dir': build_common.get_load_library_path(),
         'in_dir': BionicFundamentalTest.get_src_dir(),
         'out_dir': BionicFundamentalTest.get_out_dir(),
@@ -828,15 +847,6 @@ def _generate_bionic_fundamental_test_runners(n):
       # If this passes, dlopen fails properly when there is a missing symbol.
       ('dlopen_error_test', [test_out_dir], [], {})
   ])
-  # Bionic does not restart .fini_array when exit() is called in global
-  # destructors. This works only for environments which use
-  # .fini/.dtors. Currently, Bare Metal uses .fini_array.
-  if OPTIONS.is_nacl_build():
-    # If this passes, exit() in global destructors is working. Note
-    # that Bionic does not continue atexit handlers in an exit call so
-    # we cannot test this case with other structors_tests.
-    tests.append(('dlopen_structors_test-with_exit',
-                  [test_out_dir], [], {'CALL_EXIT_IN_DESTRUCTOR': '1'}))
 
   for test_name, library_paths, test_argv, test_env in tests:
     test_binary_basename = re.sub(r'-.*', '', test_name)
@@ -985,7 +995,7 @@ def _generate_crt_bionic_ninja():
   n.rule(rule_name,
          deps='gcc',
          depfile='$out.d',
-         command=(toolchain.get_tool(OPTIONS.target(), 'cc') +
+         command=(_get_crt_cc() +
                   ' $gccsystemincludes $cflags -W -Werror '
                   ' -I' + staging.as_staging('android/bionic/libc/private') +
                   ' -fPIC -g %s -MD -MF $out.d -c $in -o'
@@ -993,26 +1003,12 @@ def _generate_crt_bionic_ninja():
          description=rule_name + ' $in')
   # crts is a list of tuples whose first element is the source code
   # and the second element is the name of the output object.
-  if OPTIONS.is_arm():
-    crts = [
-        ('android/bionic/libc/arch-common/bionic/crtbegin.c', 'crtbegin.o'),
-        ('android/bionic/libc/arch-common/bionic/crtbegin_so.c', 'crtbeginS.o'),
-        ('android/bionic/libc/arch-common/bionic/crtend.S', 'crtend.o'),
-        ('android/bionic/libc/arch-common/bionic/crtend_so.S', 'crtendS.o'),
-    ]
-  else:
-    # We use arch-nacl directory for x86 mainly because we use GCC
-    # 4.4.3 for x86 NaCl. Recent GCC (>=4.7) uses .init_array and
-    # .fini_array instead of .ctors and .dtors and the upstream code
-    # expects we use recent GCC. We can use crtend.c for both crtend.o
-    # and crtendS.o. Unlike ARM, we do not have .preinit_array,
-    # which is not allowed in shared objects.
-    crts = [
-        ('android/bionic/libc/arch-nacl/bionic/crtbegin.c', 'crtbegin.o'),
-        ('android/bionic/libc/arch-nacl/bionic/crtbegin_so.c', 'crtbeginS.o'),
-        ('android/bionic/libc/arch-nacl/bionic/crtend.c', 'crtend.o'),
-        ('android/bionic/libc/arch-nacl/bionic/crtend.c', 'crtendS.o'),
-    ]
+  crts = [
+      ('android/bionic/libc/arch-common/bionic/crtbegin.c', 'crtbegin.o'),
+      ('android/bionic/libc/arch-common/bionic/crtbegin_so.c', 'crtbeginS.o'),
+      ('android/bionic/libc/arch-common/bionic/crtend.S', 'crtend.o'),
+      ('android/bionic/libc/arch-common/bionic/crtend_so.S', 'crtendS.o'),
+  ]
   for crt_src, crt_o in crts:
     source = staging.as_staging(crt_src)
     crt_o_path = os.path.join(build_common.get_load_library_path(), crt_o)
@@ -1120,8 +1116,9 @@ def _generate_runnable_ld_ninja():
 
   ldflags = n.get_ldflags()
   if OPTIONS.is_nacl_build():
-    ldflags += (' -T ' + linker_script +
-                ' -Wl,-Ttext,' + _LOADER_TEXT_SECTION_START_ADDRESS)
+    ldflags += (' -dynamic' +
+                ' -Wl,-Ttext=' + _LOADER_TEXT_SECTION_START_ADDRESS +
+                ' -Wl,-T ' + linker_script)
   else:
     # We need to use recent linkers for __ehdr_start.
     ldflags += ' -pie'
