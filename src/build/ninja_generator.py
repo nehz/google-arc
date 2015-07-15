@@ -1915,6 +1915,7 @@ class TopLevelNinjaGenerator(NinjaGenerator):
     CNinjaGenerator.emit_common_rules(self)
     JarNinjaGenerator.emit_common_rules(self)
     JavaNinjaGenerator.emit_common_rules(self)
+    JavaScriptNinjaGenerator.emit_common_rules(self)
     NaClizeNinjaGenerator.emit_common_rules(self)
     NinjaGenerator.emit_common_rules(self)
     NoticeNinjaGenerator.emit_common_rules(self)
@@ -4108,6 +4109,27 @@ class NaClizeNinjaGenerator(NinjaGenerator):
            command=(
                'python %s $in > $out' % NaClizeNinjaGenerator._SCRIPT_PATH),
            description='naclize_i686 $out')
+
+
+class JavaScriptNinjaGenerator(NinjaGenerator):
+  """Runs closure compiler to minify the javascript files."""
+
+  _SCRIPT_PATH = 'src/build/minify_js.py'
+
+  @staticmethod
+  def emit_common_rules(n):
+    # Minify and create source mappings for the js files to save loading time.
+    n.rule('minify_js',
+           command=('%s --java-path %s --out $out_min_js --out-map $out_map $in'
+                    % (JavaScriptNinjaGenerator._SCRIPT_PATH,
+                       toolchain.get_tool('java', 'java'))),
+           description='minify_js $in')
+
+  def minify(self, sources, out_min_js):
+    out_map = '%s.map' % out_min_js
+    self.build([out_min_js, out_map], 'minify_js', sources,
+               implicit=[JavaScriptNinjaGenerator._SCRIPT_PATH],
+               variables={'out_min_js': out_min_js, 'out_map': out_map})
 
 
 def _generate_python_test_ninja_for_test(python_test, implicit_map):

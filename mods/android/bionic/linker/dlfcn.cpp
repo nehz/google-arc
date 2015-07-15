@@ -332,25 +332,61 @@ static ElfW(Sym) g_libdl_symtab[] = {
 // a real symbol). (See soinfo_elf_lookup().)
 //
 // Note that adding any new symbols here requires stubbing them out in libdl.
-static unsigned g_libdl_buckets[1] = { 1 };
+// ARC MOD BEGIN bionic-linker-libdl-large-buckets
+// We use large buckets for libdl to reduce hash conflicts. This will be
+// initialized later in init_libdl_buckets(). Make sure the bucket size is
+// a prime.
+static unsigned g_libdl_buckets[1031];
+// ARC MOD END
 #if defined(__arm__)
 // ARC MOD BEGIN
 // Size now varies because __inject_arc_linker_hooks and
 // __dlsym_with_return_address have been added.
-static unsigned g_libdl_chains[] = { 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0 };
+static unsigned g_libdl_chains[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 #elif defined(__native_client__)
 // Size now varies because __inject_arc_linker_hooks,
 // __dlsym_with_return_address, and nacl_dyncode_alloc have been added.
-static unsigned g_libdl_chains[] = { 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0 };
+static unsigned g_libdl_chains[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 // ARC MOD END
 #else
 // ARC MOD BEGIN
 // Size now varies because __inject_arc_linker_hooks and
 // __dlsym_with_return_address have been added.
-static unsigned g_libdl_chains[] = { 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0 };
+static unsigned g_libdl_chains[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 // ARC MOD END
 #endif
 
+// ARC MOD BEGIN bionic-linker-libdl-large-buckets
+// elfhash is copied from linker.cpp.
+static unsigned elfhash(const char* _name) {
+    const unsigned char* name = reinterpret_cast<const unsigned char*>(_name);
+    unsigned h = 0, g;
+
+    while (*name) {
+        h = (h << 4) + *name++;
+        g = h & 0xf0000000;
+        h ^= g;
+        h ^= g >> 24;
+    }
+    return h;
+}
+
+static void init_libdl_buckets() {
+  const int num_buckets = sizeof(g_libdl_buckets) / sizeof(g_libdl_buckets[0]);
+  const int num_symbols = sizeof(g_libdl_symtab) / sizeof(g_libdl_symtab[0]);
+  for (int i = 1; i < num_symbols; ++i) {
+    const char* name = &ANDROID_LIBDL_STRTAB[g_libdl_symtab[i].st_name];
+    int bucket = elfhash(name) % num_buckets;
+    if (g_libdl_buckets[bucket] != 0) {
+      PRINT("FATAL ERROR: hash collision for libdl symtabs."
+            "Consider changing g_libdl_buckets size.");
+      exit(1);
+    }
+    g_libdl_buckets[bucket] = i;
+  }
+}
+
+// ARC MOD END
 // Defined as global because we do not yet have access
 // to synchronization functions __cxa_guard_* needed
 // to define statics inside functions.
@@ -372,6 +408,9 @@ soinfo* get_libdl_info() {
     __libdl_info.symtab = g_libdl_symtab;
     // ARC MOD BEGIN
 #endif
+    // ARC MOD END
+    // ARC MOD BEGIN bionic-linker-libdl-large-buckets
+    init_libdl_buckets();
     // ARC MOD END
     __libdl_info.nbucket = sizeof(g_libdl_buckets)/sizeof(unsigned);
     __libdl_info.nchain = sizeof(g_libdl_chains)/sizeof(unsigned);
