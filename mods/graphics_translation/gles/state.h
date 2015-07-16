@@ -550,8 +550,6 @@ class PointerContext {
   GLuint element_array_buffer_;
   size_t element_array_buffer_size_;
 
-  bool disable_gl_fixed_attribs_;
-
   PointerContext(const PointerContext&);
   PointerContext& operator=(const PointerContext&);
 };

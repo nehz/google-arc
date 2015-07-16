@@ -100,8 +100,6 @@ GlesContext::GlesContext(int32_t id, GlesVersion version, GlesContext* share,
   } else {
     share_group_ = ShareGroupPtr(new ShareGroup(this));
   }
-  checks_enabled_ =
-      arc::Options::GetInstance()->GetBool("enable_gl_error_check");
 }
 
 GlesContext::~GlesContext() {
@@ -356,7 +354,7 @@ GLenum GlesContext::GetGLerror() {
 }
 
 bool GlesContext::AreChecksEnabled() const {
-  return checks_enabled_;
+  return arc::Options::GetInstance()->enable_gl_error_check;
 }
 
 void GlesContext::Flush() {

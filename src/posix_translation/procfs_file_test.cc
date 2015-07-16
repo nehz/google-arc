@@ -9,7 +9,6 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/stringprintf.h"
 #include "common/process_emulator.h"
-#include "common/tests/option_test_helper.h"
 #include "gtest/gtest.h"
 #include "posix_translation/mount_point_manager.h"
 #include "posix_translation/procfs_file.h"
@@ -38,7 +37,6 @@ class ProcfsHandlerTest : public FileSystemTestCommon {
       : num_configured_(kNumConfigured), num_online_(kNumOnline),
         handler_(new ProcfsFileHandler(NULL)) {
     handler_->SetCpuInfoFileTemplate(kHeader, kBody, kFooter);
-    arc::PopulateOptionsForTest();
     arc::ProcessEmulator::ResetForTest();
     arc::ProcessEmulator::AddProcessForTest(201, 1000, "proc_201_1000");
     arc::ProcessEmulator::AddProcessForTest(202, 10001, "proc_202_10001");
