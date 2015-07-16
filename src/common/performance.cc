@@ -24,7 +24,6 @@
 #include "common/alog.h"
 #include "common/memory_state.h"
 #include "common/options.h"
-#include "common/stderr_log_priority.h"
 #include "common/trace_event.h"
 
 namespace arc {
@@ -75,7 +74,8 @@ void Performance::Print(const char* description) {
       static_cast<double>(virtual_bytes - start_virtual_bytes_) / 1024 / 1024,
       static_cast<double>(resident_bytes - start_resident_bytes_) / 1024 / 1024,
       description);
-  if (arc::GetMinStderrLogPriority() <= ARC_LOG_WARN) {
+  if (arc::Options::GetInstance()->GetMinStderrLogPriority() <=
+      ARC_LOG_WARN) {
     fprintf(stderr, "--------------------------------\n");
     fprintf(stderr, "%s", message.c_str());
     fprintf(stderr, "--------------------------------\n");

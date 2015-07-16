@@ -97,6 +97,7 @@ def get_configuration_dependencies():
       'src/build/config_loader.py',
       'src/build/config_runner.py',
       'src/build/download_sdk_and_ndk.py',
+      'src/build/gms_core_ninja_generator.py',
       'src/build/make_to_ninja.py',
       'src/build/ninja_generator.py',
       'src/build/sync_adb.py',
@@ -379,8 +380,7 @@ class NinjaGenerator(ninja_syntax.Writer):
            'rm -f $out; cp $in $out',
            description='install $out')
     n.rule('strip',
-           ('mkdir -p $$(dirname out) && %s $in -o $out' %
-            toolchain.get_tool(OPTIONS.target(), 'strip')),
+           '%s $in -o $out' % toolchain.get_tool(OPTIONS.target(), 'strip'),
            description='strip $out')
     n.rule('mkdir_empty',
            'mkdir -p $out && touch $out',

@@ -3,87 +3,80 @@
     "name": "allowEmptyActivityStack",
     "defaultValue": false,
     "help": "Stop ARC from quiting if the ActivityStack becomes empty.",
-    "developerOnly": true
+    "developerOnly": true,
+    "noPlugin": true
   },
   {
     "name": "saveLogsToFile",
     "defaultValue": false,
     "help": "Save console output to HTML5 files so they can be recovered after a crash.",
-    "developerOnly": true,
-    "plugin": true,
-    "childPlugin": true
+    "developerOnly": true
   },
   {
     "name": "disableAutoBackButton",
     "defaultValue": false,
     "help": "Disables automatic enabling/disabling of the back button based on the Activity stack.",
-    "developerOnly": true
+    "developerOnly": true,
+    "noPlugin": true
   },
   {
     "name": "disableChildPluginRetry",
     "defaultValue": false,
     "help": "Disable child plugin's on failure retry logic.",
-    "developerOnly": true
+    "developerOnly": true,
+    "noPlugin": true
   },
   {
     "name": "disableGlFixedAttribs",
     "defaultValue": false,
-    "help": "Do not support GL_FIXED type attributes which can improve app performance.",
-    "plugin": true
+    "help": "Do not support GL_FIXED type attributes which can improve app performance."
   },
   {
     "name": "disableHeartbeat",
     "defaultValue": false,
     "help": "Disable the watchdog that will otherwise detect a runtime hang when the system is stopped.",
-    "developerOnly": true
+    "developerOnly": true,
+    "noPlugin": true
   },
   {
     "name": "enableArcStrace",
     "defaultValue": false,
     "help": "Enable builtin strace-like tracer of ARC (output to --arc-strace-output).",
-    "developerOnly": true,
-    "plugin": true,
-    "childPlugin": true
+    "developerOnly": true
   },
   {
     "name": "enableAdb",
     "defaultValue": false,
     "help": "Start adbd allowing adb clients to connect.",
-    "developerOnly": true,
-    "plugin": true
+    "developerOnly": true
   },
   {
     "name": "enableCompositor",
     "defaultValue": true,
     "commandArugmentName": "disable-compositor",
-    "help": "Enable the pepper compositor.",
-    "plugin": true
+    "help": "Enable the pepper compositor."
   },
   {
     "name": "enableGlErrorCheck",
     "defaultValue": false,
     "help": "Enable glGet and glCheck functions which may slow down performance of the application.",
-    "developerOnly": true,
-    "plugin": true
+    "developerOnly": true
   },
   {
     "name": "enableExternalDirectory",
     "defaultValue": false,
-    "help": "Chrome will prompt the user to give the app access to a system directory.",
-    "plugin": true
+    "help": "Chrome will prompt the user to give the app access to a system directory."
   },
   {
     "name": "enableSynthesizeTouchEventsOnClick",
     "defaultValue": false,
-    "help": "Synthesize touch events from mouse clicks and drags.",
-    "plugin": true
+    "help": "Synthesize touch events from mouse clicks and drags."
   },
   {
     "name": "enableSynthesizeTouchEventsOnWheel",
     "defaultValue": true,
-    "help": "Do not translate mouse wheel events to touch events.",
     "commandArugmentName": "disable-synthesize-touch-events-on-wheel",
-    "plugin": true
+    "help": "Do not translate mouse wheel events to touch events."
   },
   {
     "name": "formFactor",
@@ -96,48 +89,42 @@
       "p": "phone",
       "t": "tablet"
     },
-    "help": "Determines the dimentions of the application window as well as the sf.lcd_density property."
+    "help": "Determines the dimentions of the application window as well as the sf.lcd_density property.",
+    "noPlugin": true
   },
   {
     "name": "fpsLimit",
     "defaultValue": 60,
     "allowedValues": [1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60],
-    "help": "Limit the maximum frames per second the app's screen will repaint.",
-    "plugin": true,
-    "notes": "The maximum rate (in frames per second) in which the SwapBuffers can be called. This should only be used for GPU-heavy applications that are either extremely janky or generate an uncomfortable amount of heat. Defaults to/ 60, which means unlimited."
+    "help": "Limit the maximum frames per second the app's screen will repaint."
   },
   {
     "name": "javaTraceStartup",
     "defaultValue": 0,
     "help": "Start the Java VM with android.os.debug.startMethodTracing and collect data for the first <N> seconds.",
-    "developerOnly": true,
-    "plugin": true
+    "developerOnly": true
   },
   {
     "name": "jdbPort",
     "defaultValue": 0,
-    "help": "Port to use for the JDWP debugger. Implies --jdb.",
-    "plugin": true,
-    "notes": "0 indicates no debugging."
+    "help": "Port to use for the JDWP debugger. Implies --jdb."
   },
   {
     "name": "logLoadProgress",
     "defaultValue": false,
-    "help": "Log asset and class accesses.",
-    "plugin": true,
-    "notes": "TODO(crbug.com/505146) Remove this metadata and code"
+    "help": "Log asset and class accesses."
   },
   {
     "name": "minimumLaunchDelay",
     "defaultValue": 0,
-    "help": "Specifies delay in milliseconds for launching the app. If set, chrome.app.runtime.onLaunched handler does not create a window for the app until the specified time passes."
+    "help": "Specifies delay in milliseconds for launching the app. If set, chrome.app.runtime.onLaunched handler does not create a window for the app until the specified time passes.",
+    "noPlugin": true
   },
   {
     "name": "ndkAbi",
     "defaultValue": "",
     "allowedValues": ["", "armeabi", "armeabi-v7a", "x86"],
-    "help": "Set ABI for NDK libraries. By default we search for armeabi-v7a library and fall back to armeabi.",
-    "plugin": true
+    "help": "Set ABI for NDK libraries. By default we search for armeabi-v7a library and fall back to armeabi."
   },
   {
     "name": "orientation",
@@ -148,28 +135,26 @@
       "l": "landscape",
       "p": "portrait"
     },
-    "help": "Set the orientation of the window."
+    "help": "Set the orientation of the window.",
+    "noPlugin": true
   },
   {
     "name": "resize",
     "defaultValue": "disabled",
     "allowedValues": ["disabled", "reconfigure", "scale"],
     "help": "Controls the behavior of app/window resizing.",
-    "plugin": true
+    "noPlugin": true
   },
   {
     "name": "sleepOnBlur",
     "defaultValue": true,
     "commandArugmentName": "disable-sleep-on-blur",
-    "help": "Disable the automatic suspension of the app when focus is lost.",
-    "plugin": true
+    "help": "Disable the automatic suspension of the app when focus is lost."
   },
   {
     "name": "stderrLog",
     "defaultValue": "S",
     "allowedValues": ["V", "D", "I", "W", "E", "F", "S"],
-    "help": "Minimum console log priority. In order of most to least output: Verbose, Debug, Info, Warning, Error, Fatal, Silent. Defaults to warning.",
-    "plugin": true,
-    "childPlugin": true
+    "help": "Minimum console log priority. In order of most to least output: Verbose, Debug, Info, Warning, Error, Fatal, Silent. Defaults to warning."
   }
 ]

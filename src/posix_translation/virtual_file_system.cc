@@ -148,7 +148,7 @@ VirtualFileSystem::VirtualFileSystem(
       abort_on_unexpected_memory_maps_(true) {
   ALOG_ASSERT(!file_system_);
   file_system_ = this;
-  if (arc::Options::GetInstance()->GetBool("save_logs_to_file")) {
+  if (arc::Options::GetInstance()->save_logs_to_file) {
     debug_fds_[STDOUT_FILENO] =
         FileDescNamePair(kInvalidFileNo, "/data/arc_stdout.txt");
     debug_fds_[STDERR_FILENO] =

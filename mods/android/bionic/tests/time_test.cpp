@@ -58,7 +58,23 @@ TEST(time, gmtime_no_stack_overflow_14313703) {
   pthread_attr_t attributes;
   ASSERT_EQ(0, pthread_attr_init(&attributes));
 #if defined(__BIONIC__)
+  /* ARC MOD BEGIN */
+  // This is a regression test to make sure that tzload does not use excessive
+  // amounts of stack space. Unfortunately, in ARC the stack still overflows
+  // since:
+  // * We set up a minimal |environ| which does not include "TZ".
+  // * The test calls |setenv|. Since "TZ" is not present, it calls |realloc|.
+  // * At least two of the jemalloc functions involved in |realloc| use up ~4k
+  //   each (possibly due to assert macro expansion), overflowing the 8k stack.
+  // In ARC, request twice as much memory to avoid this issue.
+#if defined(HAVE_ARC)
+  ASSERT_EQ(0, pthread_attr_setstacksize(&attributes, PTHREAD_STACK_MIN * 2));
+#else
+  /* ARC MOD END */
   ASSERT_EQ(0, pthread_attr_setstacksize(&attributes, PTHREAD_STACK_MIN));
+  /* ARC MOD BEGIN */
+#endif
+  /* ARC MOD END */
 #else
   // PTHREAD_STACK_MIN not currently in the host GCC sysroot.
   ASSERT_EQ(0, pthread_attr_setstacksize(&attributes, 4 * getpagesize()));

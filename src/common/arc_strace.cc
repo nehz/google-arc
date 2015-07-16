@@ -708,7 +708,7 @@ std::string GetStraceEnterFdString(const char* name, const char* format, ...) {
 
 void StraceInit(const std::string& plugin_type_prefix) {
   ALOG_ASSERT(!g_arc_strace);
-  if (Options::GetInstance()->GetBool("enable_arc_strace")) {
+  if (Options::GetInstance()->enable_arc_strace) {
     g_arc_strace_enabled = true;
     // Note these global variables will be never freed.
     g_arc_strace = new ArcStrace();

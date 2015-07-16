@@ -4,16 +4,49 @@
 
 #include "common/options.h"
 
+#include <ctype.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "base/memory/singleton.h"
-#include "base/strings/string_number_conversions.h"
-#include "base/strings/string_split.h"
+#include "base/strings/stringprintf.h"
 #include "common/alog.h"
 
 namespace arc {
 
+static const int kInversePriorityCharMap[] = {
+  ARC_LOG_SILENT,   // A
+  ARC_LOG_SILENT,   // B
+  ARC_LOG_SILENT,   // C
+  ARC_LOG_DEBUG,    // D
+  ARC_LOG_ERROR,    // E
+  ARC_LOG_FATAL,    // F
+  ARC_LOG_SILENT,   // G
+  ARC_LOG_SILENT,   // H
+  ARC_LOG_INFO,     // I
+  ARC_LOG_SILENT,   // J
+  ARC_LOG_SILENT,   // K
+  ARC_LOG_SILENT,   // L
+  ARC_LOG_SILENT,   // M
+  ARC_LOG_SILENT,   // N
+  ARC_LOG_SILENT,   // O
+  ARC_LOG_SILENT,   // P
+  ARC_LOG_SILENT,   // Q
+  ARC_LOG_SILENT,   // R
+  ARC_LOG_SILENT,   // S
+  ARC_LOG_SILENT,   // T
+  ARC_LOG_SILENT,   // U
+  ARC_LOG_VERBOSE,  // V
+  ARC_LOG_WARN,     // W
+  ARC_LOG_SILENT,   // X
+  ARC_LOG_SILENT,   // Y
+  ARC_LOG_SILENT,   // Z
+};
+
 Options::Options() {
+  Reset();
 }
 
 Options::~Options() {
@@ -24,61 +57,55 @@ Options* Options::GetInstance() {
   return Singleton<Options, LeakySingletonTraits<Options> >::get();
 }
 
-void Options::Put(const std::string& name, const std::string& value) {
-  options_map_[name] = value;
+// static
+bool Options::ParseBoolean(const char* str) {
+    return !strcmp(str, "true");
 }
 
-std::string Options::GetString(const std::string& name) const {
-  std::map<std::string, std::string>::const_iterator iter =
-      options_map_.find(name);
-  LOG_ALWAYS_FATAL_IF(iter == options_map_.end(),
-                      "Option has not been set: %s", name.c_str());
-  return iter->second;
+void Options::Reset() {
+  app_height = 0;
+  app_width = 0;
+  command.clear();
+  country.clear();
+  enable_adb = false;
+  enable_arc_strace = false;
+  enable_compositor = true;
+  enable_gl_error_check = false;
+  disable_gl_fixed_attribs = false;
+  enable_mount_external_directory = false;
+  fps_limit = 60;
+  has_touchscreen = false;
+  jdwp_port = 0;
+  language.clear();
+  log_load_progress = false;
+  ndk_abi.clear();
+  package_name.clear();
+  use_play_services.clear();
+  use_google_contacts_sync_adapter = false;
+  user_email.clear();
+  track_focus = true;
+  min_stderr_log_priority_ = ARC_LOG_ERROR;
+  android_density_dpi = 0;
+  can_rotate = false;
+  save_logs_to_file = false;
+  java_trace_startup = "0";
 }
 
+inline static bool IsValidPriorityChar(char c) {
+  return 'A' <= c && c <= 'Z';
+}
 
-std::string Options::GetString(const std::string& name,
-                               const std::string& default_value) const {
-  std::map<std::string, std::string>::const_iterator iter =
-      options_map_.find(name);
-  if (iter == options_map_.end()) {
-    return default_value;
+inline int GetPriorityFromChar(char priority_char) {
+  if (!IsValidPriorityChar(priority_char)) {
+    return ARC_LOG_SILENT;
+  } else {
+    return kInversePriorityCharMap[priority_char - 'A'];
   }
-  return iter->second;
 }
 
-std::vector<std::string> Options::GetStringVector(
-      const std::string& name) const {
-  std::vector<std::string> strings;
-  base::SplitString(GetString(name), '\1', &strings);
-  return strings;
-}
-
-bool Options::GetBool(const std::string& name) const {
-  // Bool values are only converted to strings in JavaScript so
-  // we only need to check for one type of bool string which is
-  // JavaScript's default serialization of a bool.
-  return GetString(name) == "true";
-}
-
-bool Options::GetBool(const std::string& name, bool default_value) const {
-  std::map<std::string, std::string>::const_iterator iter =
-      options_map_.find(name);
-  if (iter == options_map_.end())
-    return default_value;
-  return iter->second == "true";
-}
-
-double Options::GetDouble(const std::string& name) const {
-  double result;
-  LOG_ALWAYS_FATAL_IF(!base::StringToDouble(GetString(name), &result));
-  return result;
-}
-
-int Options::GetInt(const std::string& name) const {
-  int result;
-  LOG_ALWAYS_FATAL_IF(!base::StringToInt(GetString(name), &result));
-  return result;
+void Options::ParseMinStderrLogPriority(const std::string& priority) {
+  min_stderr_log_priority_ = GetPriorityFromChar(
+      priority.length() >= 1 ? priority[0] : 0);
 }
 
 }  // namespace arc

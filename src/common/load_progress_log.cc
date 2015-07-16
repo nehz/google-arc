@@ -17,7 +17,6 @@
 #include "common/alog.h"
 #include "common/options.h"
 
-// TODO(crbug.com/505146) Remove this feature.
 namespace arc {
 
 static const char* kFileName = "/storage/sdcard/arc_load_progress.log";
@@ -62,7 +61,7 @@ LoggerData* LoggerData::GetInstance() {
 }
 
 LoggerData::LoggerData() : base_time_(GetCurrentTime()) {
-  if (Options::GetInstance()->GetBool("log_load_progress", false)) {
+  if (Options::GetInstance()->log_load_progress) {
     log_file_ = open(kFileName, O_CREAT | O_WRONLY | O_TRUNC, 0x640);
     if (log_file_ != -1) {
       ALOGW("Opened load progress log file: %s", kFileName);

@@ -247,10 +247,13 @@
    nonsfi_loader_thread_create
    Memcheck:Param
    clone(tlsinfo)
+   # in nonsfi_loader
    fun:linux_clone_wrapper
-   fun:nacl_irt_thread_create
-   fun:pthread_create
+   fun:nacl_user_thread_create
    fun:thread_create
+   # in Bionic
+   fun:__nacl_clone
+   fun:pthread_create
    ...
    fun:nacl_irt_nonsfi_entry
    fun:main
@@ -261,9 +264,8 @@
    nonsfi_loader_thread_leak
    Memcheck:Leak
    fun:malloc
-   ...
-   fun:pthread_create
    # in nonsfi_loader
+   fun:nacl_user_thread_create
    fun:thread_create
    # in Bionic
    fun:__nacl_clone

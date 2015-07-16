@@ -10,6 +10,9 @@ void InjectIrtHooks();
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
 
+  // Set logging verbosity for unit testing.
+  arc::Options::GetInstance()->ParseMinStderrLogPriority("W");
+
   InjectIrtHooks();
 
   return RUN_ALL_TESTS();
