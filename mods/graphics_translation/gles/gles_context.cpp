@@ -93,6 +93,8 @@ GlesContext::GlesContext(int32_t id, GlesVersion version, GlesContext* share,
       fragment_shader_cache_(kCacheLimit, &DeleteShader),
       program_cache_(kCacheLimit, &DeleteProgram),
       fullscreen_quad_(NULL),
+      checks_enabled_(
+          arc::Options::GetInstance()->GetBool("enable_gl_error_check")),
       global_extensions_(NULL),
       supports_packed_depth_stencil_(false) {
   if (share) {
@@ -354,7 +356,7 @@ GLenum GlesContext::GetGLerror() {
 }
 
 bool GlesContext::AreChecksEnabled() const {
-  return arc::Options::GetInstance()->enable_gl_error_check;
+  return checks_enabled_;
 }
 
 void GlesContext::Flush() {

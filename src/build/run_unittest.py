@@ -159,7 +159,6 @@ def _run_unittest(tests, verbose, use_gdb, gtest_filter, gtest_list_tests):
         print 'Running:', command
       args = shlex.split(command)
       if use_gdb:
-        print args
         unittest_util.run_gdb(args)
       else:
         returncode = subprocess.call(args)

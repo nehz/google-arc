@@ -122,19 +122,14 @@ def _run_gdb_for_nacl(args, test_args):
 
 
 def _get_gdb_command_to_inject_bare_metal_gdb_py(main_binary):
-  bare_metal_gdb_init_args = map(gdb_util.to_python_string_literal, [
-      toolchain.get_nonsfi_loader(),
-      main_binary,
-      build_common.get_load_library_path(),
-      build_common.get_bionic_runnable_ld_so(),
-  ])
-
-  # This GDB command sequence initializes the Python script for GDB to
-  # load shared objects in Bare Metal mode properly.
-  return ['-ex', 'python sys.path.insert(0, "src/build")',
-          '-ex', 'python from util import bare_metal_gdb',
-          '-ex', 'python bare_metal_gdb.init_for_unittest(%s)' % (
-              ', '.join(bare_metal_gdb_init_args))]
+  return (
+      gdb_util.get_gdb_python_init_args() +
+      gdb_util.get_gdb_python_script_init_args(
+          'bare_metal_support_for_unittest',
+          nonsfi_loader=toolchain.get_nonsfi_loader(),
+          test_binary=main_binary,
+          library_path=build_common.get_load_library_path(),
+          runnable_ld_path=build_common.get_bionic_runnable_ld_so()))
 
 
 def _run_gdb_for_bare_metal_arm(runner_args, test_args):

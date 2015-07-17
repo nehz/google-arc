@@ -54,7 +54,7 @@ bool g_should_allow_rwx_pages;
 // add an app to this list.
 void InitShouldAllowRwxPages() {
   const std::string md5 = base::MD5String(
-      Options::GetInstance()->package_name);
+      Options::GetInstance()->GetString("package_name"));
   g_should_allow_rwx_pages = (
       md5 == "a1b1bbe5f63d5b96c1a0f87c197ebfae" ||
       md5 == "77f62c7141dd3730bf844c1c55e92b1f");

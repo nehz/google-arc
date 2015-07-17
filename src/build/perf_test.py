@@ -441,7 +441,7 @@ def main():
 
   args = parser.parse_args()
   remote_executor.maybe_detect_remote_host_type(args)
-  logging_util.setup(verbose=args.verbose)
+  logging_util.setup(level=logging.DEBUG if args.verbose else logging.WARNING)
 
   clazz = create_test_class(args.mode)
   clazz(args).main()

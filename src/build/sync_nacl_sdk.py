@@ -65,7 +65,7 @@ def main(args):
                       'latest..')
   download_package_util_flags.add_extra_flags(parser)
   args = parser.parse_args(args)
-  logging_util.setup(verbose=args.verbose)
+  logging_util.setup(level=logging.DEBUG if args.verbose else logging.WARNING)
   if args.roll:
     roll_pinned_manifest_forward()
 

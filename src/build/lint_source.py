@@ -710,7 +710,7 @@ def main():
   parser.add_argument('--verbose', '-v', action='store_true',
                       help='Prints additional output.')
   args = parser.parse_args()
-  logging_util.setup(verbose=args.verbose)
+  logging_util.setup(level=logging.DEBUG if args.verbose else logging.WARNING)
 
   if not args.ignore_file and not args.files:
     args.ignore_file = os.path.join(

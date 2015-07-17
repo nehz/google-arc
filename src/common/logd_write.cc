@@ -24,8 +24,8 @@
 #include "base/strings/stringprintf.h"
 #include "common/alog.h"
 #include "common/logger.h"
-#include "common/options.h"
 #include "common/scoped_pthread_mutex_locker.h"
+#include "common/stderr_log_priority.h"
 #include "common/trace_event.h"
 
 static const char priority_char_map[] = {
@@ -74,7 +74,7 @@ pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
 bool ShouldLog(arc_LogPriority priority) {
   if (priority < ARC_LOG_VERBOSE || priority >= ARC_LOG_SILENT)
     return false;
-  return priority >= Options::GetInstance()->GetMinStderrLogPriority();
+  return priority >= arc::GetMinStderrLogPriority();
 }
 
 #if defined(LOG_TIMESTAMPS)

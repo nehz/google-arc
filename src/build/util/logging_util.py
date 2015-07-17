@@ -43,7 +43,7 @@ class _LevelInitialCharacterFilter(logging.Filter):
     return True
 
 
-def setup(verbose=False):
+def setup(level=logging.WARNING):
   """Initializes the default logging module.
 
   After invoking this function, the header of the logging message is
@@ -62,12 +62,9 @@ def setup(verbose=False):
     (google-glog, LogSink::ToString()).
 
   Args:
-    verbose: If True, the output logging level is set to DEBUG, otherwise
-        set to WARNING.
+    level: Minimum logging level.
   """
-  logging.basicConfig(
-      level=logging.DEBUG if verbose else logging.WARNING,
-      format=_MSG_FORMAT, datefmt=_DATE_FORMAT)
+  logging.basicConfig(level=level, format=_MSG_FORMAT, datefmt=_DATE_FORMAT)
   logger = logging.getLogger()
   logger.addFilter(_LevelInitialCharacterFilter())
 

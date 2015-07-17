@@ -622,7 +622,8 @@ def handle_compare(parsed_args):
 def main():
   OPTIONS.parse_configure_file()
   parsed_args = _parse_args(sys.argv[1:])
-  logging_util.setup(verbose=parsed_args.verbose)
+  logging_util.setup(
+      level=logging.DEBUG if parsed_args.verbose else logging.INFO)
   return parsed_args.entrypoint(parsed_args)
 
 

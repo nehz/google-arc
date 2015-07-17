@@ -45,10 +45,6 @@ _STLPORT_PRINTERS_PATH = ('third_party/android/ndk/sources/host-tools/'
                           'gdb-pretty-printers/stlport/gppfs-0.2')
 
 
-def to_python_string_literal(s):
-  return '\'%s\'' % s.encode('string-escape')
-
-
 def _wait_by_busy_loop(func, interval=0.1):
   """Repeatedly calls func() until func returns value evaluated to true."""
   while True:
@@ -198,6 +194,43 @@ Then, set breakpoints as you like and start debugging by
 ''' % command_file.name
 
 
+def get_gdb_python_init_args():
+  """Builds gdb arguments to initialize Python interpreter.
+
+  These arguments must be inserted before any argument built by
+  get_gdb_python_script_init_args().
+
+  Returns:
+    A list of gdb argument strings.
+  """
+  return [
+      '-ex',
+      'python sys.path.insert(0, %r)' %
+      os.path.abspath('src/build/util/gdb_scripts'),
+  ]
+
+
+def get_gdb_python_script_init_args(script_name, **kwargs):
+  """Builds gdb arguments to load and init a given gdb script.
+
+  gdb scripts are all located under src/build/util/gdb_scripts.
+
+  Args:
+    script_name: Basename of the gdb script to be loaded.
+    **kwargs: Arguments passed to init() in the gdb script.
+
+  Returns:
+    A list of gdb argument strings.
+  """
+  return [
+      '-ex', 'python import %s' % script_name,
+      '-ex',
+      'python %s.init(%s)' % (
+          script_name,
+          ', '.join('%s=%r' % item for item in kwargs.iteritems())),
+  ]
+
+
 def _launch_nacl_gdb(gdb_type, nacl_irt_path, port):
   nmf = os.path.join(build_common.get_runtime_out_dir(),
                      'arc_' + OPTIONS.target() + '.nmf')
@@ -213,39 +246,6 @@ def _launch_nacl_gdb(gdb_type, nacl_irt_path, port):
   gdb_args.extend(['-ex', 'target remote %s:%s' % (_LOCAL_HOST, port),
                    build_common.get_bionic_runnable_ld_so()])
   _launch_plugin_gdb(gdb_args, gdb_type)
-
-
-def _get_bare_metal_gdb_python_init_args():
-  library_path = os.path.abspath(build_common.get_load_library_path())
-  runnable_ld_path = os.path.join(library_path, 'runnable-ld.so')
-  return [
-      to_python_string_literal(
-          os.path.join(
-              library_path,
-              os.path.basename(build_common.get_runtime_main_nexe()))),
-      to_python_string_literal(library_path),
-      to_python_string_literal(runnable_ld_path),
-  ]
-
-
-def _get_bare_metal_gdb_init_commands(plugin_pid, remote_address, ssh_options):
-  bare_metal_gdb_init_args = _get_bare_metal_gdb_python_init_args()
-  util_dir = os.path.abspath('src/build/util')
-  bare_metal_gdb_init_args.append(
-      'lock_file=%s' % to_python_string_literal(
-          os.path.join(_BARE_METAL_GDB_LOCK_DIR, str(plugin_pid))))
-  if remote_address:
-    bare_metal_gdb_init_args.append('remote_address=%s' %
-                                    to_python_string_literal(remote_address))
-  if ssh_options:
-    bare_metal_gdb_init_args.append(
-        'ssh_options=[%s]' %
-        ','.join(map(to_python_string_literal, ssh_options)))
-  return ['-ex', 'python sys.path.insert(0, \'%s\')' % util_dir,
-          '-ex', 'python import bare_metal_gdb',
-          '-ex', 'python bare_metal_gdb.init(%s)' % (
-              ', '.join(bare_metal_gdb_init_args)),
-          '-ex', r'echo To start: c or cont\n']
 
 
 def _attach_bare_metal_gdb(
@@ -269,10 +269,23 @@ def _attach_bare_metal_gdb(
         nacl_helper_binary)])
   gdb_args.extend([
       '-ex', 'target remote %s:%d' % (_LOCAL_HOST, gdb_port)])
-  gdb_args.extend(_get_bare_metal_gdb_init_commands(
-      plugin_pid,
+
+  gdb_args.extend(get_gdb_python_init_args())
+
+  library_path = os.path.abspath(build_common.get_load_library_path())
+  gdb_args.extend(get_gdb_python_script_init_args(
+      'bare_metal_support',
+      arc_nexe=os.path.join(
+          library_path,
+          os.path.basename(build_common.get_runtime_main_nexe())),
+      library_path=library_path,
+      runnable_ld_path=os.path.join(library_path, 'runnable-ld.so'),
+      lock_file=os.path.join(_BARE_METAL_GDB_LOCK_DIR, str(plugin_pid)),
       remote_address=remote_address,
       ssh_options=ssh_options))
+
+  gdb_args.extend(['-ex', r'echo To start: c or cont\n'])
+
   _launch_plugin_gdb(gdb_args, gdb_type)
 
 

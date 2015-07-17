@@ -84,6 +84,7 @@ class ColorBuffer : public android::RefBase {
   EglImagePtr image_;
   uint8_t* locked_mem_;
   ContextPtr context_;
+  bool compositor_enabled_;
 
   // TODO(crbug.com/441910): Figure out if this reference count can be merged
   // with the android::RefBase refcount.

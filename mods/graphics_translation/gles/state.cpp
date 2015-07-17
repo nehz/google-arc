@@ -1109,7 +1109,9 @@ PointerContext::PointerContext(GlesContext* context)
     array_buffer_(0),
     array_buffer_size_(0),
     element_array_buffer_(0),
-    element_array_buffer_size_(0) {
+    element_array_buffer_size_(0),
+    disable_gl_fixed_attribs_(
+        arc::Options::GetInstance()->GetBool("disable_gl_fixed_attribs")) {
 }
 
 PointerContext::~PointerContext() {
@@ -1253,8 +1255,7 @@ void PointerContext::BindPointers(GLint first, GLint last) {
     if (!ptr.enabled) {
       continue;
     }
-
-    if (arc::Options::GetInstance()->disable_gl_fixed_attribs) {
+    if (disable_gl_fixed_attribs_) {
       LOG_ALWAYS_FATAL_IF(ptr.type == GL_FIXED,
                           "GL_FIXED type attribs not supported.");
     }

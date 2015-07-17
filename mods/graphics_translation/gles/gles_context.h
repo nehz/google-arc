@@ -252,6 +252,7 @@ class GlesContext {
   // there is no support in the underlying implementation.
   mutable TextureFormats emulated_compressed_texture_formats_;
 
+  bool checks_enabled_;
   mutable const char* global_extensions_;
   mutable bool supports_packed_depth_stencil_;
 

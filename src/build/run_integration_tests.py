@@ -19,6 +19,7 @@ running that test suite.
 
 import argparse
 import collections
+import logging
 import multiprocessing
 import os
 import subprocess
@@ -457,7 +458,8 @@ def _run_suites_and_output_results_local(test_driver_list, args):
 
 def _process_args(raw_args):
   args = parse_args(raw_args)
-  logging_util.setup(verbose=(args.output == 'verbose'))
+  logging_util.setup(
+      level=logging.DEBUG if args.output == 'verbose' else logging.WARNING)
 
   OPTIONS.parse_configure_file()
 

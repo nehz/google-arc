@@ -108,6 +108,8 @@ ColorBuffer::ColorBuffer(EGLDisplay dpy, GLuint width, GLuint height,
     global_texture_(0),
     locked_mem_(NULL),
     context_(NULL),
+    compositor_enabled_(
+        arc::Options::GetInstance()->GetBool("enable_compositor")),
     refcount_(1) {
   EglDisplayImpl* d = EglDisplayImpl::GetDisplay(dpy);
   key_ = d->GetColorBuffers().GenerateKey();
@@ -247,7 +249,7 @@ void ColorBuffer::Commit() {
   // We do not need flush GL context when compositor is enabled, because
   // the Pepper Compositor API uses CHROMIUM_sync_point extension to sync
   // between GL contexts.
-  if (!arc::Options::GetInstance()->enable_compositor) {
+  if (!compositor_enabled_) {
     glFlush();
   }
 }

@@ -223,7 +223,8 @@ def main():
   OPTIONS.parse_configure_file()
 
   parsed_args = launch_chrome_options.parse_args(sys.argv)
-  logging_util.setup(verbose=parsed_args.verbose)
+  logging_util.setup(
+      level=logging.DEBUG if parsed_args.verbose else logging.INFO)
 
   _prepare_chrome_user_data_dir(parsed_args)
   global _CHROME_PID_PATH

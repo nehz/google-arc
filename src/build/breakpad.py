@@ -143,7 +143,7 @@ def _parse_args():
 
 def main():
   args = _parse_args()
-  logging_util.setup(verbose=args.verbose)
+  logging_util.setup()
   OPTIONS.parse_configure_file()
   if args.mode == 'stackwalk':
     _stackwalk(args.minidump)
