@@ -3,8 +3,10 @@
 # found in the LICENSE file.
 
 import collections
+import json
 import os
 import sys
+import threading
 import time
 
 from util import color
@@ -587,6 +589,91 @@ class SuiteResultsAnsi(SuiteResultsBase):
     self._write_summary(terse=True)
 
 
+class SuiteResultsTracing(object):
+  """Handles the results for each test suite in Chrome tracing mode.
+
+  This prints events in JSON notation compatible with chrome://tracing that
+  help to visualize the timeline in which tests are executed. This wraps around
+  another SuiteResultsBase object, so any method invoked on this class will also
+  call the wrapped object.
+  """
+
+  def __init__(self, wrapped_suite_results, test_driver_list, options):
+    self._wrapped = wrapped_suite_results
+    self._started_tests = set()
+    self._tracing_log = open(options.tracing, 'w')
+    self._tracing_log.write('[')
+    self._tracing_log.flush()
+
+  def _event(self, name, event_type):
+    return {
+        'name': name,
+        'ph': event_type,
+        'pid': 1,
+        'tid': threading.current_thread().ident,
+        'ts': time.time() * 1e6,
+    }
+
+  def start_test(self, score_board, test):
+    test_driver = self._wrapped._get_test_driver(score_board)
+    if test_driver.name not in self._started_tests:
+      event = self._event(test_driver.name, 'B')
+      self._tracing_log.write(json.dumps(event) + ',\n')
+      self._tracing_log.flush()
+      self._started_tests.add(test_driver.name)
+
+    self._wrapped.start_test(score_board, test)
+
+  def restart(self, score_board):
+    test_driver = self._wrapped._get_test_driver(score_board)
+    event = self._event(test_driver.name, 'E')
+    event['args'] = {
+        'status': 'Restarted',
+    }
+    self._tracing_log.write(json.dumps(event) + ',\n')
+    self._tracing_log.flush()
+    self._started_tests.remove(test_driver.name)
+
+    self._wrapped.restart(score_board)
+
+  def update_test(self, score_board, name, status, duration):
+    test_driver = self._wrapped._get_test_driver(score_board)
+    begin = (time.time() - duration) * 1e6
+    if test_driver.name not in self._started_tests:
+      event = self._event(test_driver.name, 'B')
+      event['ts'] = begin
+      self._tracing_log.write(json.dumps(event) + ',\n')
+      self._tracing_log.flush()
+      self._started_tests.add(test_driver.name)
+    event = self._event(name, 'X')
+    event['ts'] = begin
+    event['dur'] = duration * 1e6
+    event['args'] = {
+        'status': _STATUS_STRING[status],
+    }
+    self._tracing_log.write(json.dumps(event) + ',\n')
+    self._tracing_log.flush()
+
+    self._wrapped.update_test(score_board, name, status, duration)
+
+  def end(self, score_board):
+    test_driver = self._wrapped._get_test_driver(score_board)
+    event = self._event(test_driver.name, 'E')
+    event['args'] = {
+        'status': _STATUS_STRING[score_board.overall_status],
+    }
+    if test_driver.name not in self._started_tests:
+      event['ph'] = 'X'
+      event['dur'] = 1000
+    self._tracing_log.write(json.dumps(event) + ',\n')
+    self._tracing_log.flush()
+
+    self._wrapped.end(score_board)
+
+  def __getattr__(self, name):
+    return getattr(self._wrapped, name)
+
+
 class SuiteResultsPrepare(SuiteResultsBase):
   """Outputs the progress of preparing files for remote executions."""
 
@@ -607,11 +694,17 @@ class SuiteResultsPrepare(SuiteResultsBase):
 def initialize(test_driver_list, args, prepare_only):
   global SuiteResults
   if prepare_only:
-    SuiteResults = Synchronized(SuiteResultsPrepare(test_driver_list, args))
+    results = SuiteResultsPrepare(test_driver_list, args)
   elif args.ansi:
-    SuiteResults = Synchronized(SuiteResultsAnsi(test_driver_list, args))
+    results = SuiteResultsAnsi(test_driver_list, args)
   else:
-    SuiteResults = Synchronized(SuiteResultsBuildBot(test_driver_list, args))
+    results = SuiteResultsBuildBot(test_driver_list, args)
+  if args.tracing:
+    # The SuiteResultsTracing acts as a wrapper around whatever SuiteResults
+    # object was originally chosen. This allows to non-intrusively collect
+    # tracing information.
+    results = SuiteResultsTracing(results, test_driver_list, args)
+  SuiteResults = Synchronized(results)
 
 
 def summarize(output_dir):

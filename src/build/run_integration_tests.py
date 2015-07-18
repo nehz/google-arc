@@ -307,11 +307,22 @@ def print_chrome_version():
   print '@@@STEP_TEXT@%s<br/>@@@' % (chrome_version)
 
 
+def _default_number_of_jobs():
+  if platform_util.is_running_on_chromeos():
+    # Newer builds of Chrome OS use the Freon display manager, which does not
+    # support concurrent invocations of Chrome.
+    return 1
+  else:
+    return min(10, multiprocessing.cpu_count())
+
+
 def parse_args(args):
   description = 'Runs integration tests, verifying they pass.'
   parser = argparse.ArgumentParser(description=description)
   parser.add_argument('--buildbot', action='store_true', help='Run tests '
                       'for the buildbot.')
+  parser.add_argument('--tracing', type=str, metavar='TRACING_FILE',
+                      help='Output the results in Chrome tracing format')
   parser.add_argument('--ansi', action='store_true',
                       help='Color output using ansi escape sequence')
   parser.add_argument('--cts-bot', action='store_true',
@@ -327,7 +338,7 @@ def parse_args(args):
   parser.add_argument('--include-timeouts', action='store_true',
                       help='Include tests which are expected to timeout.')
   parser.add_argument('-j', '--jobs', metavar='N', type=int,
-                      default=min(10, multiprocessing.cpu_count()),
+                      default=_default_number_of_jobs(),
                       help='Run N tests at once.')
   parser.add_argument('--keep-running', action='store_true',
                       help=('Attempt to recover from unclean failures. '

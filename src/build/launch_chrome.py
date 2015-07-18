@@ -282,13 +282,11 @@ def _compute_chrome_plugin_params(parsed_args):
     params.append(
         '--user-data-dir=' + remote_executor.resolve_path(_USER_DATA_DIR))
 
-  # Not all targets can use nonsfi mode.
-  if OPTIONS.is_bare_metal_build():
+  # Force-enable nonsfi mode on targets that do not allow it by default
+  # (for example, non-ChromeOS Linux) for testing purposes.
+  if (OPTIONS.is_bare_metal_build() and
+      not platform_util.is_running_on_chromeos()):
     params.append('--enable-nacl-nonsfi-mode')
-    # Use newlib version via flag.
-    # TODO(hidehiko): Remove when newlib version of nonsfi is default in
-    # Chrome and it's rolled.
-    params.append('--use-nacl-helper-nonsfi')
 
   return params
 
