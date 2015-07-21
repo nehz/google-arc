@@ -536,15 +536,20 @@ def handle_compare(parsed_args):
   if parsed_args.run_ninja:
     build_common.run_ninja()
 
+  launch_chrome_opts = []
+  if parsed_args.verbose:
+    launch_chrome_opts.append('--verbose')
+  launch_chrome_opts.extend(parsed_args.launch_chrome_opt)
+
   ctrl_runner = InteractivePerfTestRunner(
       arc_root=ctrl_root,
       remote=parsed_args.remote,
-      launch_chrome_opts=parsed_args.launch_chrome_opt,
+      launch_chrome_opts=launch_chrome_opts,
       instance_id=0)
   expt_runner = InteractivePerfTestRunner(
       arc_root=expt_root,
       remote=parsed_args.remote,
-      launch_chrome_opts=parsed_args.launch_chrome_opt,
+      launch_chrome_opts=launch_chrome_opts,
       instance_id=1)
 
   with contextlib.closing(ctrl_runner), contextlib.closing(expt_runner):
@@ -561,7 +566,9 @@ def handle_compare(parsed_args):
       merge_perfs(expt_perfs, expt_runner.run())
 
     for iteration in xrange(parsed_args.iterations):
-      print '*** iteration %d/%d ***' % (iteration + 1, parsed_args.iterations)
+      print
+      print '=================================== iteration %d/%d' % (
+          iteration + 1, parsed_args.iterations)
       for do in random.sample((do_ctrl, do_expt), 2):
         do()
 

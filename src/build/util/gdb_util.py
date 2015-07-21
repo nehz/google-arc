@@ -203,10 +203,18 @@ def get_gdb_python_init_args():
   Returns:
     A list of gdb argument strings.
   """
+  init_args = {
+      'target': OPTIONS.target(),
+  }
   return [
       '-ex',
       'python sys.path.insert(0, %r)' %
       os.path.abspath('src/build/util/gdb_scripts'),
+      '-ex',
+      'python import gdb_script_util',
+      '-ex',
+      'python gdb_script_util.init(%s)' %
+      ','.join('%s=%r' % item for item in init_args.iteritems()),
   ]
 
 

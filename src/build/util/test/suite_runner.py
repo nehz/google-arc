@@ -7,6 +7,7 @@
 import fnmatch
 import json
 import os
+import re
 import subprocess
 import threading
 import traceback
@@ -391,7 +392,12 @@ class SuiteRunnerBase(object):
     if self._args.max_deadline:
       deadline = min(deadline, self._args.max_deadline)
     args.append('--timeout=' + str(deadline))
-    if not set(['--gdb', '--jdb', '--jdb-port']).intersection(args):
+
+    # chrome-flakiness-retry option is incompatible with debuggers, do
+    # a quick check before adding the option.
+    # The flags are: --jdb, --jdb-port and --gdb.
+    if not any(re.match('--(gdb(=.+)?|jdb|jdb-port(=.+)?)$', arg)
+               for arg in args):
       args.append(
           '--chrome-flakiness-retry=%d' % LAUNCH_CHROME_FLAKE_RETRY_COUNT)
 

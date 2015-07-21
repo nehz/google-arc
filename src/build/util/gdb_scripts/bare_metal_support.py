@@ -21,24 +21,19 @@ import gdb
 import gdb_script_util
 
 
-_ARCH_ARM = 'arm'
-_ARCH_I686 = 'i686'
-
-
 # We set a breakpoint to this symbol.
 _BARE_METAL_NOTIFY_GDB_OF_LOAD_FUNC = '__bare_metal_notify_gdb_of_load'
 
 
 class LoadHandlerBreakpoint(gdb.Breakpoint):
-  def __init__(self, arch, main_binary, library_path):
+  def __init__(self, main_binary, library_path):
     super(LoadHandlerBreakpoint, self).__init__(
         _BARE_METAL_NOTIFY_GDB_OF_LOAD_FUNC)
-    self._arch = arch
     self._main_binary = main_binary
     self._library_path = library_path
 
   def _get_binary_path_from_link_map(self):
-    name = gdb_script_util.get_arg(self._arch, 'char*', 0)
+    name = gdb_script_util.get_arg('char*', 0)
     if not name:
       return None
     # This will be like: 0x357bc "libc.so"
@@ -70,7 +65,7 @@ class LoadHandlerBreakpoint(gdb.Breakpoint):
     return path
 
   def _get_text_section_address_from_link_map(self, path):
-    base_addr_str = gdb_script_util.get_arg(self._arch, 'unsigned int', 1)
+    base_addr_str = gdb_script_util.get_arg('unsigned int', 1)
     if not base_addr_str:
       return None
     try:
@@ -132,18 +127,11 @@ def init(arc_nexe, library_path, runnable_ld_path, lock_file,
   If remote_address is specified, we control the _LOCK_FILE using this
   address. This should be specified only for Chrome OS.
   """
-  if arc_nexe.endswith('_arm.nexe'):
-    arch = _ARCH_ARM
-  elif arc_nexe.endswith('_i686.nexe'):
-    arch = _ARCH_I686
-  else:
-    raise ValueError('Unsupported architecture: ' + arc_nexe)
-
   program_address = (
       _get_program_loaded_address(runnable_ld_path) +
       gdb_script_util.get_text_section_file_offset(runnable_ld_path))
   gdb.execute('add-symbol-file %s 0x%x' % (runnable_ld_path, program_address))
-  LoadHandlerBreakpoint(arch, arc_nexe, library_path)
+  LoadHandlerBreakpoint(arc_nexe, library_path)
 
   # Everything gets ready, so unlock the program.
   if remote_address:

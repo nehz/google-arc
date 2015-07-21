@@ -164,8 +164,7 @@ def _run_chrome_iterations(parsed_args):
     stat_list = []
     for i in xrange(parsed_args.iterations):
       _maybe_wait_iteration_lock(parsed_args)
-
-      sys.stderr.write('\nStarting Chrome, test run #%s\n' % (i + 1))
+      sys.stderr.write('\nStarting Chrome\n')
       stats = _run_chrome(parsed_args)
       startup_stats.print_raw_stats(stats)
       sys.stdout.flush()
@@ -586,7 +585,7 @@ def _run_chrome(parsed_args, **kwargs):
   # for the details.
   chrome_timeout = _select_chrome_timeout(parsed_args)
   for i in xrange(parsed_args.chrome_flakiness_retry + 1):
-    if i:
+    if i > 0:
       logging.error('Chrome is flaky. Retrying...: %d', i)
 
     p = chrome_process.ChromeProcess(params, timeout=chrome_timeout)

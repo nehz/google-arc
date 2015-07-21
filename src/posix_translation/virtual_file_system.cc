@@ -603,16 +603,16 @@ void VirtualFileSystem::DebugWriteLocked(int fd, const void* buf,
     return;
   }
 
-  // We delay this check until here because this function is sometimes called
-  // without the lock held before the browser is ready.  Furthermore, this
-  // function is called from a critical code path and so the check is delayed
-  // until absolutely necessary.
-  mutex_.AssertAcquired();
-
   FileDescNamePair& debug_fd = iter->second;
 
   scoped_refptr<FileStream> stream;
   if (debug_fd.fd_ == kInvalidFileNo) {
+    // We delay this check until here because this function is sometimes called
+    // without the lock held before the browser is ready.  Furthermore, this
+    // function is called from a critical code path and so the check is delayed
+    // until absolutely necessary.
+    mutex_.AssertAcquired();
+
     debug_fd.fd_ = GetFirstUnusedDescriptorLocked();
     if (debug_fd.fd_ >= 0) {
       PermissionInfo permission;

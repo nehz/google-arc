@@ -19,15 +19,10 @@ import bare_metal_support
 import gdb_script_util
 
 
-_ARCH_ARM = 'arm'
-_ARCH_I686 = 'i686'
-
-
 class MmapFinishBreakpoint(gdb.FinishBreakpoint):
-  def __init__(self, arch, main_binary, library_path,
+  def __init__(self, main_binary, library_path,
                runnable_ld_path, mmap_addr):
     super(MmapFinishBreakpoint, self).__init__()
-    self._arch = arch
     self._main_binary = main_binary
     self._library_path = library_path
     self._runnable_ld_path = runnable_ld_path
@@ -43,13 +38,13 @@ class MmapFinishBreakpoint(gdb.FinishBreakpoint):
     gdb.execute('add-symbol-file %s 0x%x' % (self._runnable_ld_path,
                                              file_off + self._mmap_addr))
     bare_metal_support.LoadHandlerBreakpoint(
-        self._arch, self._main_binary, self._library_path)
+        self._main_binary, self._library_path)
 
 
 class MmapBreakpoint(gdb.Breakpoint):
-  def __init__(self, arch, nonsfi_loader,
+  def __init__(self, nonsfi_loader,
                main_binary, library_path, runnable_ld_path):
-    if arch == _ARCH_ARM:
+    if gdb_script_util.is_arm():
       # Unfortunately, GDB does not handle remotely running PIE. We
       # need to adjust the loaded address by ourselves.
       #
@@ -63,23 +58,21 @@ class MmapBreakpoint(gdb.Breakpoint):
       assert matched, ('"readelf -h %s" did not return entry point' %
                        nonsfi_loader)
       entry_addr = int(matched.group(1), 16)
-      pc = int(gdb_script_util.strip_gdb_result(
-          gdb.execute('p (unsigned int)$pc', to_string=True)))
+      pc = int(gdb_script_util.get_var('unsigned int', '$pc'))
       load_bias = pc - entry_addr
       mmap = '*(void*)(0x%x+(int)mmap)' % load_bias
-    elif arch == _ARCH_I686:
+    elif gdb_script_util.is_i686():
       mmap = '*(void*)mmap'
     else:
       raise Exception('Unsupported architecture')
 
     super(MmapBreakpoint, self).__init__(mmap)
-    self._arch = arch
     self._main_binary = main_binary
     self._library_path = library_path
     self._runnable_ld_path = runnable_ld_path
 
   def stop(self):
-    prot = int(gdb_script_util.get_arg(self._arch, 'int', 2))
+    prot = int(gdb_script_util.get_arg('int', 2))
     # Wait until the first PROT_READ|PROT_EXEC mmap.
     if prot != 5:
       return False
@@ -87,14 +80,14 @@ class MmapBreakpoint(gdb.Breakpoint):
     # We do not use return_value of FinishBreakpoint because it
     # requires debug information. As of March 2015, nonsfi_loader has
     # debug information, but NaCl team may strip it in future.
-    addr = int(gdb_script_util.get_arg(self._arch, 'unsigned int', 0))
+    addr = int(gdb_script_util.get_arg('unsigned int', 0))
     assert addr
     # self.delete() should work according to the document, but it
     # finishes the debugger for some reason. Instead, just disable
     # this breakpoint.
     self.enabled = False
     MmapFinishBreakpoint(
-        self._arch, self._main_binary, self._library_path,
+        self._main_binary, self._library_path,
         self._runnable_ld_path, addr)
 
 
@@ -106,12 +99,5 @@ def init(nonsfi_loader, test_binary, library_path, runnable_ld_path):
   is called with PROT_EXEC then execute add-symbol-file for
   runnable-ld.so with the address for mmap.
   """
-  if nonsfi_loader.endswith('_arm'):
-    arch = _ARCH_ARM
-  elif nonsfi_loader.endswith('_x86_32'):
-    arch = _ARCH_I686
-  else:
-    raise ValueError('Unsupported architecture: ' + nonsfi_loader)
-
   MmapBreakpoint(
-      arch, nonsfi_loader, test_binary, library_path, runnable_ld_path)
+      nonsfi_loader, test_binary, library_path, runnable_ld_path)

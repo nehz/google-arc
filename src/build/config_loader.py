@@ -122,6 +122,10 @@ class ConfigLoader:
     ]
 
     if build_options.OPTIONS.internal_apks_source_is_internal():
-      paths.append(os.path.join(get_arc_root(), 'internal', 'mods'))
+      internal_base = os.path.join(get_arc_root(), 'internal')
+      for path in os.listdir(internal_base):
+        internal_path = os.path.join(internal_base, path)
+        if os.path.isdir(internal_path) and path != 'third_party':
+          paths.append(internal_path)
 
     return self.load_from_subdirectories(paths)

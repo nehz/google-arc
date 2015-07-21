@@ -472,8 +472,8 @@ class ChromeFlakinessHandler(concurrent_subprocess.DelegateOutputHandlerBase):
     self._chrome_process.terminate()
 
   def handle_terminate(self, returncode):
-    if self._timedout.is_set():
-      # On timeout, raise ChromeFlakinessError.
+    if self._timedout.is_set() or returncode != 0:
+      # On timeout or failure, raise ChromeFlakinessError.
       raise ChromeFlakinessError()
     return super(ChromeFlakinessHandler, self).handle_terminate(returncode)
 
