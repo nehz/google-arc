@@ -25,6 +25,13 @@ void WriteLog(const std::string& log);
 // std::string object.
 void WriteLog(const char* log, size_t log_size);
 
+// If a crash annotation callback handler was registered, use the
+// callback to annotate extra information when crashing.
+void MaybeAddCrashExtraInformation(
+    int crash_log_message_kind,
+    const char* field_name,
+    const char* message);
+
 }  // namespace arc
 
 #endif  // COMMON_LOGD_WRITE_H_
