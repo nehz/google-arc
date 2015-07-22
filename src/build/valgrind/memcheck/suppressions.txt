@@ -258,10 +258,8 @@
    fun:nacl_irt_nonsfi_entry
    fun:main
 }
-{
-   # TODO(hamaji): Check if this failure is OK. If not, file an
-   # appropriate NaCl bug.
-   nonsfi_loader_thread_leak
+{   
+   ChildPluginInstanceTest_InitToCheckArgument_leak
    Memcheck:Leak
    fun:malloc
    # in nonsfi_loader
@@ -269,6 +267,10 @@
    fun:thread_create
    # in Bionic
    fun:__nacl_clone
+   fun:pthread_create
+   # unit test.
+   fun:_ZN3arc19ChildPluginInstance4InitEjPPKcS3_
+   fun:_ZN3arc48ChildPluginInstanceTest_InitToCheckArgument_Test8TestBodyEv
    ...
 }
 {
@@ -281,15 +283,5 @@
    # detail.
    # TODO(hamaji): Stop using assembly code for i686.
    obj:*/runnable-ld.so
-   ...
-}
-{
-   # TODO(hamaji): Check if this failure is OK. If not, file an
-   # appropriate NaCl bug.
-   nonsfi_loader_thread_leak
-   Memcheck:Leak
-   fun:malloc
-   fun:pthread_create
-   fun:thread_create
    ...
 }

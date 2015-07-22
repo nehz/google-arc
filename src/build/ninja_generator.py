@@ -4116,6 +4116,7 @@ class JavaScriptNinjaGenerator(NinjaGenerator):
   """Runs closure compiler to minify the javascript files."""
 
   _SCRIPT_PATH = 'src/build/minify_js.py'
+  _COMPILER_JAR = staging.as_staging('closure_compiler/compiler.jar')
 
   @staticmethod
   def emit_common_rules(n):
@@ -4129,7 +4130,8 @@ class JavaScriptNinjaGenerator(NinjaGenerator):
   def minify(self, sources, out_min_js):
     out_map = '%s.map' % out_min_js
     self.build([out_min_js, out_map], 'minify_js', sources,
-               implicit=[JavaScriptNinjaGenerator._SCRIPT_PATH],
+               implicit=[JavaScriptNinjaGenerator._SCRIPT_PATH,
+                         JavaScriptNinjaGenerator._COMPILER_JAR],
                variables={'out_min_js': out_min_js, 'out_map': out_map})
 
 

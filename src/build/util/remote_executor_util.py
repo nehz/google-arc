@@ -107,6 +107,12 @@ _UNITTEST_GLOB_TEMPLATE_LIST = [
     '{out}/target/{target}/test',
     '{out}/target/{target}/unittest_info'
 ]
+_PROTECT_GLOB_TEMPLATE_LIST = [
+    # Downloaded in remote Win/Mac machine.
+    '{out}/chrome32',
+    '{out}/chrome64',
+    '{out}/adb',
+]
 
 # Flags to remove when launching Chrome on remote host.
 _REMOTE_FLAGS = ['--nacl-helper-binary', '--remote', '--ssh-key']
@@ -371,21 +377,26 @@ class RemoteExecutor(object):
         ('--exclude', pattern) for pattern in (
             build_common.COMMON_EDITOR_TMP_FILE_PATTERNS + ['*.pyc'])))
 
-    # 2) append all exclude paths.
+    # 2) protect files downloaded and cached in remote machine.
+    result.extend(itertools.chain.from_iterable(
+        ('--filter', 'P %s' % build_common.expand_path_placeholder(pattern))
+        for pattern in _PROTECT_GLOB_TEMPLATE_LIST))
+
+    # 3) append all exclude paths.
     result.extend(itertools.chain.from_iterable(
         ('--exclude', '/' + path) for path in sorted(set(exclude_paths))))
 
-    # 3) append source paths as follows;
-    # 3-1) Remove "redundant" paths. Here "redundant" means paths whose
+    # 4) append source paths as follows;
+    # 4-1) Remove "redundant" paths. Here "redundant" means paths whose
     #    anscestor is contained in the include paths.
-    # 3-2) Then, append remaining paths and their anscestors. See docstring
+    # 4-2) Then, append remaining paths and their anscestors. See docstring
     #    for more details why anscestors are needed.
-    # 3-3) Finally, exclude unnecessary files and directories.
+    # 4-3) Finally, exclude unnecessary files and directories.
     #    Note: the "redundant" paths are removed at 1), so we can assume that
     #    all paths here are leaves.
     source_paths = set(source_paths)
 
-    # 3-1) Remove redundant paths.
+    # 4-1) Remove redundant paths.
     redundant_paths = []
     for path in source_paths:
       for dirpath in itertools.islice(file_util.walk_ancestor(path), 1, None):
@@ -395,13 +406,13 @@ class RemoteExecutor(object):
     for path in redundant_paths:
       source_paths.discard(path)
 
-    # 3-2) Build --include arguments.
+    # 4-2) Build --include arguments.
     include_paths = set(itertools.chain.from_iterable(
         file_util.walk_ancestor(path) for path in source_paths))
     result.extend(itertools.chain.from_iterable(
         ('--include', '/' + path) for path in sorted(include_paths)))
 
-    # 3-3) Exclude unnecessary files.
+    # 4-3) Exclude unnecessary files.
     result.extend(itertools.chain.from_iterable(
         ('--exclude', '/%s/*' % path)
         for path in sorted(include_paths - source_paths)))
