@@ -249,6 +249,11 @@ class PyLinter(CommandLineLinterBase):
   def __init__(self):
     super(PyLinter, self).__init__('flake8', target_groups=[_GROUP_PY])
 
+  def should_run(self, path):
+    # Do not run Python linter for the third_party library, which is not managed
+    # by us.
+    return not path.startswith('third_party/')
+
   def _build_command(self, path):
     return ['src/build/flake8',
             '--ignore=' + ','.join(PyLinter._DISABLED_LINT_LIST),

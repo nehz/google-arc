@@ -3998,6 +3998,7 @@ class PythonTestNinjaGenerator(NinjaGenerator):
       'src/build',
       'src/ndk_translation/android_api',
       'src/packaging',
+      'third_party/pylib/beautifulsoup4',
       'third_party/tools/depot_tools',
       'third_party/tools/python_mock'
   ]

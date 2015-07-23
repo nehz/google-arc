@@ -45,32 +45,6 @@
    ...
 }
 {
-   # TODO(crbug.com/376666): Currently, our IRT thread implementation
-   # leaks glibc's pthread struct.
-   bare_metal_thread_leak_for_gprecise
-   Memcheck:Leak
-   fun:calloc
-   ...
-   fun:_dl_allocate_tls
-   fun:pthread_create@@GLIBC_2.1
-   fun:_ZN12_GLOBAL__N_122nacl_irt_thread_createEPFvvEPvS2_
-   fun:__nacl_clone
-   fun:pthread_create
-   ...
-}
-{
-   # TODO(crbug.com/376666): Currently, our IRT thread implementation
-   # leaks glibc's pthread struct.
-   bare_metal_thread_leak_for_gtrusty
-   Memcheck:Leak
-   fun:calloc
-   ...
-   fun:_ZN12_GLOBAL__N_122nacl_irt_thread_createEPFvvEPvS2_
-   fun:__nacl_clone
-   fun:pthread_create
-   ...
-}
-{
    # Chromium base's ThreadIdNameManager intentionally leaks the name
    # of threads.
    chromium_thread_name_is_intentionally_leaked

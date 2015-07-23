@@ -151,6 +151,13 @@
     "help": "Set the orientation of the window."
   },
   {
+    "name": "packageName",
+    "defaultValue": "org.chromium.arc",
+    "help": "The fully qualified name of the package (e.g. com.example.HelloAndroid), normally set by apk_to_crx.",
+    "plugin": true,
+    "childPlugin": true
+  },
+  {
     "name": "resize",
     "defaultValue": "disabled",
     "allowedValues": ["disabled", "reconfigure", "scale"],
@@ -171,5 +178,11 @@
     "help": "Minimum console log priority. In order of most to least output: Verbose, Debug, Info, Warning, Error, Fatal, Silent. Defaults to warning.",
     "plugin": true,
     "childPlugin": true
+  },
+  {
+    "name": "useGoogleContactsSyncAdapter",
+    "defaultValue": false,
+    "help": "Enable Android system syncing of Google Contacts.",
+    "plugin": true
   }
 ]
