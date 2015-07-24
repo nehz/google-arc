@@ -1580,11 +1580,28 @@ class CNinjaGenerator(NinjaGenerator):
     n.emit_compiler_rule('clang', target, flag_name='cflags',
                          extra_flags=extra_flags + ['$clangflags'],
                          compiler_includes='clangsystemincludes')
-    n.emit_compiler_rule('asm_with_preprocessing', target, flag_name='asmflags',
-                         extra_flags=extra_flags + ['$gccflags'])
-    n.emit_compiler_rule('asm', target, flag_name='asmflags',
-                         supports_deps=False,
-                         extra_flags=extra_flags + ['$gccflags'])
+    if OPTIONS.is_nacl_build():
+      # GNU extensions of asm languages, e.g. altmacro, are missing on Clang.
+      # Use gas instead of integrated Clang assembler by adding
+      # -no-integrated-as flag.
+      n.emit_compiler_rule('asm_with_preprocessing', target,
+                           flag_name='asmflags',
+                           extra_flags=(extra_flags +
+                                        ['$gccflags', '-no-integrated-as']))
+      # Add -Qunused-arguments to suppress warnings for unused preprocessor
+      # flags.
+      n.emit_compiler_rule('asm', target, flag_name='asmflags',
+                           supports_deps=False,
+                           extra_flags=(extra_flags +
+                                        ['$gccflags', '-Qunused-arguments',
+                                         '-no-integrated-as']))
+    else:
+      n.emit_compiler_rule('asm_with_preprocessing', target,
+                           flag_name='asmflags',
+                           extra_flags=extra_flags + ['$gccflags'])
+      n.emit_compiler_rule('asm', target, flag_name='asmflags',
+                           supports_deps=False,
+                           extra_flags=extra_flags + ['$gccflags'])
     n.emit_ar_rule('ar', target)
     for rule_suffix in ['', '_system_library']:
       for compiler_prefix in ['', 'clang.']:

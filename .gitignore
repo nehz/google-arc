@@ -16,6 +16,8 @@ tags
 /internal
 /out/
 /src/packaging/android_studio_plugin/*.jar
+/src/packaging/android_studio_plugin/.idea/inspectionProfiles/Project_Default.xml
+/src/packaging/android_studio_plugin/.idea/misc.xml
 /src/packaging/android_studio_plugin/.idea/workspace.xml
 /third_party/.gclient_entries
 /third_party/.gclient_last_sync

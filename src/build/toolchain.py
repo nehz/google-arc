@@ -305,6 +305,7 @@ def _get_tool_map():
       'host': {
           'cxx': os.getenv('HOSTCXX', 'g++'),
           'cc': os.getenv('HOSTCC', 'gcc'),
+          'asm': os.getenv('HOSTCC', 'gcc'),
           'ld': os.getenv('HOSTLD', 'g++'),
           'ar': os.getenv('HOSTAR', 'ar'),
           'nm': os.getenv('HOSTNM', 'nm'),
@@ -326,6 +327,7 @@ def _get_tool_map():
                   ' -m32'),
           'cc': (os.path.join(get_nacl_toolchain_path(), 'x86_64-nacl-gcc') +
                  ' -m32'),
+          'asm': os.path.join(_PNACL_BIN_PATH, 'i686-nacl-clang'),
           'ld': os.path.join(get_nacl_toolchain_path(), 'i686-nacl-g++'),
           'ar': os.path.join(_PNACL_BIN_PATH, 'i686-nacl-ar'),
           'nm': os.path.join(_PNACL_BIN_PATH, 'i686-nacl-nm'),
@@ -353,6 +355,7 @@ def _get_tool_map():
           'cxx': os.path.join(get_nacl_toolchain_path(), 'x86_64-nacl-g++'),
           'cc': os.path.join(get_nacl_toolchain_path(), 'x86_64-nacl-gcc'),
           'ld': os.path.join(get_nacl_toolchain_path(), 'x86_64-nacl-g++'),
+          'asm': os.path.join(_PNACL_BIN_PATH, 'x86_64-nacl-clang'),
           'ar': os.path.join(_PNACL_BIN_PATH, 'x86_64-nacl-ar'),
           'nm': os.path.join(_PNACL_BIN_PATH, 'x86_64-nacl-nm'),
           'objcopy': os.path.join(_PNACL_BIN_PATH, 'x86_64-nacl-objcopy'),
@@ -378,6 +381,7 @@ def _get_tool_map():
       'bare_metal_i686': {
           'cxx': os.getenv('TARGETCXX', 'g++-4.8'),
           'cc': os.getenv('TARGETCC', 'gcc-4.8'),
+          'asm': os.getenv('TARGETCC', 'gcc-4.8'),
           'clangxx': os.path.join(_CLANG_BIN_DIR, 'clang++'),
           'clang': os.path.join(_CLANG_BIN_DIR, 'clang'),
           'ld': os.getenv('TARGETLD', 'g++-4.8'),
@@ -402,6 +406,7 @@ def _get_tool_map():
       'bare_metal_arm': {
           'cxx': os.getenv('TARGETCXX', ' arm-linux-gnueabihf-g++'),
           'cc': os.getenv('TARGETCC', ' arm-linux-gnueabihf-gcc'),
+          'asm': os.getenv('TARGETCC', ' arm-linux-gnueabihf-gcc'),
           'clangxx': os.path.join(_CLANG_BIN_DIR, 'clang++'),
           'clang': os.path.join(_CLANG_BIN_DIR, 'clang'),
           'clang.ld': os.path.join(_CLANG_BIN_DIR, 'clang'),
@@ -453,8 +458,7 @@ def _get_tool_map():
 
 def get_tool(target, tool, with_cc_wrapper=True):
   tool = {
-      'asm': 'cc',
-      'asm_with_preprocessing': 'cc',
+      'asm_with_preprocessing': 'asm',
       'clang.ld': 'clang',
       'clang.ld_system_library': 'clang',
       'ld_system_library': 'ld',

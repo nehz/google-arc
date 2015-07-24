@@ -246,12 +246,7 @@ void ColorBuffer::BindToTexture() {
 void ColorBuffer::Commit() {
   LOG_ALWAYS_FATAL_IF(sw_write_,
                       "Commit() is called for a SW write color buffer.");
-  // We do not need flush GL context when compositor is enabled, because
-  // the Pepper Compositor API uses CHROMIUM_sync_point extension to sync
-  // between GL contexts.
-  if (!compositor_enabled_) {
-    glFlush();
-  }
+  glFlush();
 }
 
 void ColorBuffer::BindContext(const ContextPtr& context) {
