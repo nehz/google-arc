@@ -121,13 +121,6 @@
     "notes": "0 indicates no debugging."
   },
   {
-    "name": "logLoadProgress",
-    "defaultValue": false,
-    "help": "Log asset and class accesses.",
-    "plugin": true,
-    "notes": "TODO(crbug.com/505146) Remove this metadata and code"
-  },
-  {
     "name": "minimumLaunchDelay",
     "defaultValue": 0,
     "help": "Specifies delay in milliseconds for launching the app. If set, chrome.app.runtime.onLaunched handler does not create a window for the app until the specified time passes."
