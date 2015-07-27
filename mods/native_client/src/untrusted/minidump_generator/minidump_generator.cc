@@ -417,6 +417,27 @@ static void SaveBionicThreadState(MinidumpAllocator *minidump_writer,
   COPY_REG(rip, REG_RIP);
   stack_start = regs.get()->rsp;
 #undef COPY_REG
+#elif defined(__i386__) && !defined(__native_client__)
+#define COPY_REG(REG, src_idx)     \
+    regs.get()->REG = info.context_regs[src_idx]
+  TypedMDRVA<MDRawContextX86> regs(minidump_writer);
+  if (!regs.Allocate())
+    return;
+  thread->thread_context = regs.location();
+  regs.get()->context_flags =
+      MD_CONTEXT_X86_CONTROL | MD_CONTEXT_X86_INTEGER;
+  regs.get()->eflags = 0;
+  COPY_REG(edi, REG_EDI);
+  COPY_REG(esi, REG_ESI);
+  COPY_REG(ebp, REG_EBP);
+  COPY_REG(ebx, REG_EBX);
+  COPY_REG(edx, REG_EDX);
+  COPY_REG(ecx, REG_ECX);
+  COPY_REG(eax, REG_EAX);
+  COPY_REG(esp, REG_ESP);
+  COPY_REG(eip, REG_EIP);
+  stack_start = regs.get()->esp;
+#undef COPY_REG
 #elif defined(__arm__)
   TypedMDRVA<MDRawContextARM> regs(minidump_writer);
   if (!regs.Allocate())
@@ -428,7 +449,7 @@ static void SaveBionicThreadState(MinidumpAllocator *minidump_writer,
   regs.get()->cpsr = 0;
   stack_start = regs.get()->iregs[13];
 #else
-  // TODO(igorc): Support stack traces in 32-bit mode.
+  // TODO(igorc): Support stack traces in NaCl x86 mode.
   return;
 #endif
 

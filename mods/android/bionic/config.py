@@ -133,6 +133,8 @@ def _filter_libc_common_for_i686(vars, sources):
   if OPTIONS.is_bare_metal_build():
     # For direct syscalls used internally.
     sources.append('android/bionic/libc/arch-x86/bionic/syscall.S')
+    # For saving register context for waiting threads.
+    sources.append('android/bionic/libc/arch-x86/bionic/save_reg_context.S')
   else:
     # See the comment in _filter_libc_common_for_arm.
     # TODO(crbug.com/318433): Use order-only dependencies.
@@ -158,7 +160,7 @@ def _filter_libc_common_for_x86_64(vars, sources):
       # As we support ARM NDKs even on NaCl x86-64, we provide legacy
       # APIs.
       'android/bionic/libc/bionic/legacy_32_bit_support.cpp'])
-  sources.append('android/bionic/libc/arch-amd64/bionic/save_reg_context.S')
+  sources.append('android/bionic/libc/arch-x86_64/bionic/save_reg_context.S')
 
 
 def _remove_unnecessary_defines(vars):
@@ -1472,7 +1474,7 @@ def _generate_bionic_tests():
       _BIONIC_TEST_LIB_MODULES + ['no-elf-hash-table-library']]
 
   test_binary = n.link(variables={'ldflags': ldflags})
-  n.add_disabled_tests('pthread_thread_context.*')
+  n.add_disabled_tests('PthreadThreadContext*.*')
   n.run(test_binary, implicit=test_deps)
 
   # pthread_context_test should run only with a single thread. As
@@ -1480,7 +1482,7 @@ def _generate_bionic_tests():
   # result of this test, we use a separate TestNinjaGenerator for this
   # test.
   n = ninja_generator.TestNinjaGenerator('bionic_pthread_context_test')
-  n.add_enabled_tests('pthread_thread_context.*')
+  n.add_enabled_tests('PthreadThreadContext*.*')
   n.run(test_binary, implicit=test_deps)
 
   # Build the shared object for dlfcn.dlopen_library_with_only_gnu_hash.

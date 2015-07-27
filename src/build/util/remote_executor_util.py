@@ -115,7 +115,7 @@ _PROTECT_GLOB_TEMPLATE_LIST = [
 ]
 
 # Flags to remove when launching Chrome on remote host.
-_REMOTE_FLAGS = ['--nacl-helper-binary', '--remote', '--ssh-key']
+_REMOTE_FLAGS = ['--nacl-helper-nonsfi-binary', '--remote', '--ssh-key']
 
 _TEMP_DIR = None
 _TEMP_KEY = 'temp_arc_key'
@@ -160,7 +160,7 @@ def get_remote_binaries_dir():
 class RemoteExecutor(object):
   def __init__(self, user, remote, remote_env=None, ssh_key=None,
                enable_pseudo_tty=False, attach_nacl_gdb_type=None,
-               nacl_helper_binary=None, arc_dir_name=None,
+               nacl_helper_nonsfi_binary=None, arc_dir_name=None,
                jdb_port=None, jdb_type=None):
     self._user = user
     self._remote_env = remote_env or {}
@@ -176,7 +176,7 @@ class RemoteExecutor(object):
     self._known_hosts = _get_known_hosts()
     self._enable_pseudo_tty = enable_pseudo_tty
     self._attach_nacl_gdb_type = attach_nacl_gdb_type
-    self._nacl_helper_binary = nacl_helper_binary
+    self._nacl_helper_nonsfi_binary = nacl_helper_nonsfi_binary
     self._arc_dir_name = arc_dir_name or 'arc'
     self._jdb_port = jdb_port
     self._jdb_type = jdb_type
@@ -467,7 +467,7 @@ class RemoteExecutor(object):
             remote_executor=self)
       elif OPTIONS.is_bare_metal_build():
         handler = gdb_util.BareMetalGdbHandlerAdapter(
-            handler, self._nacl_helper_binary,
+            handler, self._nacl_helper_nonsfi_binary,
             self._attach_nacl_gdb_type, host=self._remote,
             ssh_options=self.get_ssh_options(),
             remote_executor=self)
@@ -557,7 +557,7 @@ def create_launch_remote_chrome_param(argv):
   """Creates flags to run ./launch_chrome on remote_host.
 
   To run ./launch_chrome, it is necessary to tweak the given flags.
-  - Removes --nacl-helper-binary, --remote, and --ssh-key flags.
+  - Removes --nacl-helper-nonsfi-binary, --remote, and --ssh-key flags.
   - Adds --noninja flag.
   """
   result_argv = []

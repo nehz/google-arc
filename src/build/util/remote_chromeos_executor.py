@@ -41,7 +41,7 @@ _DISABLE_CHROME_RESTART_FILE = '/var/run/disable_chrome_restart'
 _CHROME_COMMAND_LINE_FILE = '/var/tmp/chrome_command_line'
 
 _REMOTE_CHROME_EXE_BINARY = '/opt/google/chrome/chrome'
-_REMOTE_NACL_HELPER_BINARY = '/opt/google/chrome/nacl_helper'
+_REMOTE_NACL_HELPER_NONSFI_BINARY = '/opt/google/chrome/nacl_helper_nonsfi'
 _CRYPTOHOME = '/usr/sbin/cryptohome'
 
 _UNNEEDED_PARAM_PREFIXES = (
@@ -57,13 +57,15 @@ _EXEC_PATTERNS = [
 
 
 def _create_remote_executor(parsed_args, enable_pseudo_tty=False,
-                            attach_nacl_gdb_type=None, nacl_helper_binary=None,
+                            attach_nacl_gdb_type=None,
+                            nacl_helper_nonsfi_binary=None,
                             arc_dir_name=None, jdb_port=None, jdb_type=None):
   return remote_executor_util.RemoteExecutor(
       'root', parsed_args.remote, remote_env=_REMOTE_ENV,
       ssh_key=parsed_args.ssh_key, enable_pseudo_tty=enable_pseudo_tty,
       attach_nacl_gdb_type=attach_nacl_gdb_type,
-      nacl_helper_binary=nacl_helper_binary, arc_dir_name=arc_dir_name,
+      nacl_helper_nonsfi_binary=nacl_helper_nonsfi_binary,
+      arc_dir_name=arc_dir_name,
       jdb_port=jdb_port, jdb_type=jdb_type)
 
 
@@ -211,22 +213,22 @@ def get_chrome_exe_path():
 def launch_remote_chrome(parsed_args, argv):
   try:
     attach_nacl_gdb_type = None
-    nacl_helper_binary = None
-    need_copy_nacl_helper_binary = False
+    nacl_helper_nonsfi_binary = None
+    need_copy_nacl_helper_nonsfi_binary = False
     jdb_port = None
     jdb_type = None
 
     if 'plugin' in parsed_args.gdb:
       attach_nacl_gdb_type = parsed_args.gdb_type
       if OPTIONS.is_bare_metal_build():
-        nacl_helper_binary = parsed_args.nacl_helper_binary
-        if not nacl_helper_binary:
+        nacl_helper_nonsfi_binary = parsed_args.nacl_helper_nonsfi_binary
+        if not nacl_helper_nonsfi_binary:
           # We decide the path here, but the binary can be copied after
           # RemoteExecutor is constructed.
-          nacl_helper_binary = os.path.join(
+          nacl_helper_nonsfi_binary = os.path.join(
               remote_executor_util.get_remote_binaries_dir(),
-              os.path.basename(_REMOTE_NACL_HELPER_BINARY))
-          need_copy_nacl_helper_binary = True
+              os.path.basename(_REMOTE_NACL_HELPER_NONSFI_BINARY))
+          need_copy_nacl_helper_nonsfi_binary = True
 
     if 'jdb_port' in vars(parsed_args) and 'jdb_type' in vars(parsed_args):
       jdb_port = parsed_args.jdb_port
@@ -234,39 +236,21 @@ def launch_remote_chrome(parsed_args, argv):
 
     executor = _create_remote_executor(
         parsed_args, attach_nacl_gdb_type=attach_nacl_gdb_type,
-        nacl_helper_binary=nacl_helper_binary,
+        nacl_helper_nonsfi_binary=nacl_helper_nonsfi_binary,
         arc_dir_name=parsed_args.remote_arc_dir_name,
         jdb_port=jdb_port, jdb_type=jdb_type)
 
     copied_files = remote_executor_util.get_launch_chrome_deps(parsed_args)
     _setup_remote_environment(parsed_args, executor, copied_files)
 
-    if need_copy_nacl_helper_binary:
-      remote_binaries = [_REMOTE_NACL_HELPER_BINARY]
-      # List all DSOs _REMOTE_NACL_HELPER_BINARY directly or indirectly
-      # depends on and add them to |remote_binaries| so that they are
-      # copied to get_remote_binaries_dir(). Note: nacl_helper may dlopen()
-      # some more libraries like /usr/lib/libsoftokn3.so, libsqlite3.so.0,
-      # and libfreebl3.so. It is nice if we can also copy these DSOs in
-      # advance, but it is difficult to do so at this point.
-      # TODO(crbug.com/376666): Remove this once newlib-switch is done. The
-      # new loader is always statically linked and does not need this trick.
-      ldd = executor.run_command_for_output(
-          'ldd %s' % _REMOTE_NACL_HELPER_BINARY)
-      for line in ldd.splitlines():
-        dso_map = line.split()
-        if len(dso_map) > 0 and dso_map[0].startswith('/'):
-          # Process a line like ['/lib/ld-linux-XXX.so.X', '(0xdeadbeef)'].
-          remote_binaries.append(dso_map[0])
-        elif len(dso_map) > 2 and dso_map[2].startswith('/'):
-          # Process ['libX.so', '=>', '/lib/libX.so.1', '(0xfee1dead)'].
-          remote_binaries.append(dso_map[2])
+    if need_copy_nacl_helper_nonsfi_binary:
+      remote_binaries = [_REMOTE_NACL_HELPER_NONSFI_BINARY]
       executor.copy_remote_files(remote_binaries,
                                  remote_executor_util.get_remote_binaries_dir())
 
-    if nacl_helper_binary:
+    if nacl_helper_nonsfi_binary:
       # This should not happen, but for just in case.
-      assert os.path.exists(nacl_helper_binary)
+      assert os.path.exists(nacl_helper_nonsfi_binary)
       # -v: show the killed process, -w: wait for the killed process to die.
       executor.run('sudo killall -vw gdbserver', ignore_failure=True)
 

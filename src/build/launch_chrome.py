@@ -195,11 +195,11 @@ def _get_chrome_path(parsed_args):
     return remote_executor.get_chrome_exe_path()
 
 
-def _get_nacl_helper_path(parsed_args):
-  if parsed_args.nacl_helper_binary:
-    return parsed_args.nacl_helper_binary
+def _get_nacl_helper_nonsfi_path(parsed_args):
+  if parsed_args.nacl_helper_nonsfi_binary:
+    return parsed_args.nacl_helper_nonsfi_binary
   chrome_path = _get_chrome_path(parsed_args)
-  return os.path.join(os.path.dirname(chrome_path), 'nacl_helper')
+  return os.path.join(os.path.dirname(chrome_path), 'nacl_helper_nonsfi')
 
 
 def _get_nacl_irt_path(parsed_args):
@@ -534,7 +534,8 @@ def _select_output_handler(parsed_args, stats, chrome_process, **kwargs):
           handler, _get_nacl_irt_path(parsed_args), parsed_args.gdb_type)
     elif OPTIONS.is_bare_metal_build():
       handler = gdb_util.BareMetalGdbHandlerAdapter(
-          handler, _get_nacl_helper_path(parsed_args), parsed_args.gdb_type)
+          handler, _get_nacl_helper_nonsfi_path(parsed_args),
+          parsed_args.gdb_type)
 
   if (parsed_args.enable_arc_strace and
       parsed_args.arc_strace_output != 'stderr'):

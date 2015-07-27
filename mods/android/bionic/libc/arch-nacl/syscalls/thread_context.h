@@ -40,6 +40,18 @@ extern void BionicInternalSaveRegContext(uint64_t*);
     __pthread_save_context_regs(regs_tmp, sizeof(regs_tmp));    \
   }
 
+#elif defined(__i386__) && !defined(__native_client__)
+
+extern void BionicInternalSaveRegContext(uint32_t*);
+
+#define SAVE_CONTEXT_REGS()                                     \
+  {                                                             \
+    uint32_t regs_tmp[15];                                      \
+    BionicInternalSaveRegContext(regs_tmp);                     \
+    __pthread_save_context_regs(regs_tmp, sizeof(regs_tmp));    \
+  }
+
+
 #elif defined(__arm__)
 
 #ifndef __thumb__

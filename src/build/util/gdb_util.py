@@ -257,7 +257,7 @@ def _launch_nacl_gdb(gdb_type, nacl_irt_path, port):
 
 
 def _attach_bare_metal_gdb(
-    remote_address, plugin_pid, ssh_options, nacl_helper_binary, gdb_type):
+    remote_address, plugin_pid, ssh_options, nacl_helper_nonsfi_path, gdb_type):
   """Attaches to the gdbserver, running locally or port-forwarded.
 
   If |remote_address| is set, it is used for ssh.
@@ -269,12 +269,8 @@ def _attach_bare_metal_gdb(
       lambda: _is_remote_port_open(_LOCAL_HOST, gdb_port))
 
   gdb_args = []
-  if nacl_helper_binary:
-    gdb_args.append(nacl_helper_binary)
-    # TODO(crbug.com/376666): Remove this once newlib-switch is done. The
-    # new loader is always statically linked and does not need this trick.
-    gdb_args.extend(['-ex', 'set solib-search-path %s' % os.path.dirname(
-        nacl_helper_binary)])
+  if nacl_helper_nonsfi_path:
+    gdb_args.append(nacl_helper_nonsfi_path)
   gdb_args.extend([
       '-ex', 'target remote %s:%d' % (_LOCAL_HOST, gdb_port)])
 
@@ -432,10 +428,10 @@ class BareMetalGdbHandlerAdapter(
   # mods/android/bionic/linker/linker.cpp.
   _WAITING_GDB_PATTERN = re.compile(r'linker: waiting for gdb \((\d+)\)')
 
-  def __init__(self, base_handler, nacl_helper_path, gdb_type, host=None,
+  def __init__(self, base_handler, nacl_helper_nonsfi_path, gdb_type, host=None,
                ssh_options=None, remote_executor=None):
     super(BareMetalGdbHandlerAdapter, self).__init__(base_handler)
-    self._nacl_helper_path = nacl_helper_path
+    self._nacl_helper_nonsfi_path = nacl_helper_nonsfi_path
     self._gdb_type = gdb_type
     self._host = host
     self._ssh_options = ssh_options
@@ -464,7 +460,7 @@ class BareMetalGdbHandlerAdapter(
       else:
         _launch_bare_metal_gdbserver(plugin_pid, self._next_is_child_plugin)
       _attach_bare_metal_gdb(
-          self._host, plugin_pid, self._ssh_options, self._nacl_helper_path,
-          self._gdb_type)
+          self._host, plugin_pid, self._ssh_options,
+          self._nacl_helper_nonsfi_path, self._gdb_type)
 
     self._next_is_child_plugin = True

@@ -20,80 +20,135 @@
 #include <private/pthread_context.h>
 #include <thread_context.h>
 
-struct Args {
-  Args()
-      : has_started(false),
-        should_exit(false) {
-    pthread_mutex_init(&mu, NULL);
-    pthread_cond_init(&cond, NULL);
-  }
-  ~Args() {
-    pthread_cond_destroy(&cond);
-    pthread_mutex_destroy(&mu);
+namespace {
+
+// Tests that need to create a thread and be cleaned up later.
+class PthreadThreadContextThreadTest : public testing::Test {
+ public:
+  PthreadThreadContextThreadTest()
+      : thread_(), thread_has_started_(false),
+        thread_should_exit_(false) {
+    pthread_mutex_init(&mu_, NULL);
+    pthread_cond_init(&cond_, NULL);
   }
 
-  bool has_started;
-  bool should_exit;
-  pthread_mutex_t mu;
-  pthread_cond_t cond;
+  virtual ~PthreadThreadContextThreadTest() {
+    pthread_cond_destroy(&cond_);
+    pthread_mutex_destroy(&mu_);
+  }
+
+  virtual void SetUp() {
+    ASSERT_EQ(1, __pthread_get_thread_count(true));
+
+    // Create a new thread and wait until it goes into futex_wait loop,
+    // which is instrumented to export thread context information.
+    {
+      ScopedPthreadMutexLocker lock(&mu_);
+      ASSERT_EQ(0, pthread_create(&thread_, NULL, WaitFn, this));
+      while (!thread_has_started_)
+        pthread_cond_wait(&cond_, &mu_);
+    }
+  }
+
+  virtual void TearDown() {
+    // Let the thread finish.
+    {
+      ScopedPthreadMutexLocker lock(&mu_);
+      thread_should_exit_ = true;
+      pthread_cond_signal(&cond_);
+    }
+    pthread_join(thread_, NULL);
+  }
+
+
+  static void* WaitFn(void* arg) {
+    PthreadThreadContextThreadTest* self =
+        static_cast<PthreadThreadContextThreadTest*>(arg);
+    {
+      ScopedPthreadMutexLocker lock(&self->mu_);
+      self->thread_has_started_ = true;
+      pthread_cond_signal(&self->cond_);
+
+      while (!self->thread_should_exit_)
+        pthread_cond_wait(&self->cond_, &self->mu_);
+    }
+    return NULL;
+  }
+
+  static bool HasContextRegs() {
+    __pthread_context_info_t info;
+    info.has_context_regs = true;
+    __pthread_get_current_thread_info(&info);
+    return info.has_context_regs;
+  }
+
+ protected:
+  pthread_t thread_;
+  bool thread_has_started_;
+  bool thread_should_exit_;
+  pthread_mutex_t mu_;
+  pthread_cond_t cond_;
 };
 
-static void* WaitFn(void* arg) {
-  Args* args = static_cast<Args*>(arg);
-  {
-    ScopedPthreadMutexLocker lock(&args->mu);
-    args->has_started = true;
-    pthread_cond_signal(&args->cond);
-
-    while (!args->should_exit)
-      pthread_cond_wait(&args->cond, &args->mu);
+TEST_F(PthreadThreadContextThreadTest, get_thread_infos) {
+  // Verify data in the thread list.
+  __pthread_context_info_t infos[100];
+  int thread_count = __pthread_get_thread_infos(true, true, 100, infos);
+  ASSERT_EQ(2, thread_count);
+  for (int i = 0; i < thread_count; ++i) {
+    SCOPED_TRACE(i);
+    ASSERT_TRUE(infos[i].stack_base != NULL);
+    EXPECT_GT(infos[i].stack_size, 0);
+#if defined(BARE_METAL_BIONIC)
+    ASSERT_EQ(infos[i].stack_size, 1024 * 1024);
+#endif
   }
-  return NULL;
 }
 
-TEST(pthread_thread_context, get_thread_infos) {
-  ASSERT_EQ(1, __pthread_get_thread_count(true));
+TEST_F(PthreadThreadContextThreadTest, get_thread_contexts) {
+  // We want the other thread to be inside futex call inside
+  // pthread_cond_wait(). The other option is to let the other thread
+  // __nanosleep.  This is not reliable but better than nothing.
+  //
+  // This might turn out to be flaky, if so we should wait longer here.
+  usleep(100000);
 
-  Args args;
-  // Create a new thread and wait until it finishes its
-  // initialization.
-  // TODO(crbug.com/372248): Remove the wait. This synchronization is
-  // only for Bare Metal mode. On Bare Metal mode, pthread_context
-  // uses |stack_end_from_irt| in pthread_internal_t to find the
-  // location of a stack. Unlike other pthread attributes, this is
-  // filled by the created thread, not by the creator. So, there is a
-  // race. pthread_context may read an uninitialized value in
-  // |stack_end_from_irt|.
-  pthread_t thread;
-  {
-    ScopedPthreadMutexLocker lock(&args.mu);
-    ASSERT_EQ(0, pthread_create(&thread, NULL, WaitFn, &args));
-    while (!args.has_started)
-      pthread_cond_wait(&args.cond, &args.mu);
-  }
+  // __nanosleep call would clear the context_regs.
+  ASSERT_FALSE(HasContextRegs());
+  SAVE_CONTEXT_REGS();
+#if defined(__x86_64__) || defined(__arm__) ||          \
+  (defined(__i386__) && !defined(__native_client__))
+  ASSERT_TRUE(HasContextRegs());
+#else
+  ASSERT_FALSE(HasContextRegs());
+#endif
 
   // Verify data in the thread list.
   __pthread_context_info_t infos[100];
   int thread_count = __pthread_get_thread_infos(true, true, 100, infos);
   ASSERT_EQ(2, thread_count);
   for (int i = 0; i < thread_count; ++i) {
+    SCOPED_TRACE(i);
     ASSERT_TRUE(infos[i].stack_base != NULL);
-    ASSERT_GT(infos[i].stack_size, 0);
-#if defined(BARE_METAL_BIONIC)
-    ASSERT_EQ(infos[i].stack_size, 1024 * 1024);
+    EXPECT_GT(infos[i].stack_size, 0);
+#if defined(__x86_64__)
+    ASSERT_TRUE(infos[i].has_context_regs);
+    EXPECT_NE(0, infos[i].context_regs[REG_RIP]);
+#elif defined(__i386__) && !defined(__native_client__)
+    ASSERT_TRUE(infos[i].has_context_regs);
+    EXPECT_NE(0, infos[i].context_regs[REG_EIP]);
+#elif defined(__arm__)
+    ASSERT_TRUE(infos[i].has_context_regs);
+    EXPECT_NE(0, infos[i].context_regs[15]);
+#else
+    EXPECT_FALSE(infos[i].has_context_regs);
 #endif
   }
-
-  // Let the thread finish.
-  {
-    ScopedPthreadMutexLocker lock(&args.mu);
-    args.should_exit = true;
-    pthread_cond_signal(&args.cond);
-  }
-  pthread_join(thread, NULL);
+  CLEAR_CONTEXT_REGS();
 }
 
-TEST(pthread_thread_context, get_cur_thread_context) {
+
+TEST(PthreadThreadContextSinglethreadTest, get_cur_thread_context) {
   __pthread_context_info_t info;
   info.has_context_regs = true;
   __pthread_get_current_thread_info(&info);
@@ -104,12 +159,15 @@ TEST(pthread_thread_context, get_cur_thread_context) {
   __pthread_get_current_thread_info(&info);
 #if defined(__x86_64__)
   ASSERT_TRUE(info.has_context_regs);
-  ASSERT_NE(0, info.context_regs[REG_RIP]);
+  EXPECT_NE(0, info.context_regs[REG_RIP]);
+#elif defined(__i386__) && !defined(__native_client__)
+  ASSERT_TRUE(info.has_context_regs);
+  EXPECT_NE(0, info.context_regs[REG_EIP]);
 #elif defined(__arm__)
   ASSERT_TRUE(info.has_context_regs);
-  ASSERT_NE(0, info.context_regs[15]);
+  EXPECT_NE(0, info.context_regs[15]);
 #else
-  ASSERT_FALSE(info.has_context_regs);
+  EXPECT_FALSE(info.has_context_regs);
 #endif
 
   CLEAR_CONTEXT_REGS();
@@ -117,3 +175,5 @@ TEST(pthread_thread_context, get_cur_thread_context) {
   __pthread_get_current_thread_info(&info);
   ASSERT_FALSE(info.has_context_regs);
 }
+
+}  // anonymous namespace

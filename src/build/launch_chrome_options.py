@@ -101,13 +101,14 @@ def _validate_gdb_type(parser, args):
 
 def _validate_remote_debug_settings(parser, args):
   if 'plugin' in args.gdb:
-    if (args.nacl_helper_binary and
-        not os.path.exists(args.nacl_helper_binary)):
-      parser.error('The file specified by --nacl-helper-binary must exist '
-                   'in your workstation.')
+    if (args.nacl_helper_nonsfi_binary and
+        not os.path.exists(args.nacl_helper_nonsfi_binary)):
+      parser.error('The file specified by --nacl-helper-nonsfi-binary must '
+                   'exist in your workstation.')
   else:
-    if args.nacl_helper_binary:
-      parser.error('--nacl-helper-binary can only be used with --gdb=plugin')
+    if args.nacl_helper_nonsfi_binary:
+      parser.error('--nacl-helper-nonsfi-binary can only be used with '
+                   '--gdb=plugin')
 
 
 def _validate_debug_modes(parser, args):
@@ -435,12 +436,12 @@ Native Client Debugging
                       type=str, nargs='+', default=None,
                       help='Execute adb logcat with given filtersepcs.')
 
-  parser.add_argument('--nacl-helper-binary', metavar='<path>',
-                      help='The path to nacl_helper binary. This option is '
-                      'usable only when both --remote and --gdb=plugin are '
-                      'specified. If this is not specified, nacl_helper will '
-                      'be copied from the remote host but symbols in '
-                      'nacl_helper may not be available.')
+  parser.add_argument('--nacl-helper-nonsfi-binary', metavar='<path>',
+                      help='The path to nacl_helper_nonsfi binary. This '
+                      'option is usable only when both --remote and '
+                      '--gdb=plugin are specified. If this is not specified, '
+                      'nacl_helper_nonsfi will be copied from the remote host '
+                      'but symbols in nacl_helper_nonsfi may be unavailable.')
 
   parser.add_argument('--nocrxbuild', dest='build_crx', action='store_false',
                       help='Do not to rebuild the crx - just use what is '
