@@ -96,10 +96,7 @@ struct pthread_internal_t {
   // ARC MOD BEGIN bionic-thread-info
   // Storage for thread context at the time of invoking a blocking call.
   volatile bool has_context_regs;
-#if defined(__x86_64__) || defined(__arm__) || \
-  (defined(__i386__) && !defined(__native_client__))
   greg_t context_regs[NGREG];
-#endif
   // ARC MOD END
 
   pthread_mutex_t startup_handshake_mutex;

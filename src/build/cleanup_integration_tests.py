@@ -7,9 +7,8 @@
 
 import glob
 import os
-import platform
-import re
 import subprocess
+import sys
 
 from util import platform_util
 
@@ -34,12 +33,6 @@ _KILL_PROCESSES_CYGWIN = [
     'nacl64.exe',
     'tail.exe',
 ]
-
-_BUILDBOT_NODE_RE = 'build[0-9]+-a75.*'
-
-
-def _is_running_on_bulidbot():
-  return bool(re.match(_BUILDBOT_NODE_RE, platform.node()))
 
 
 def _get_processes_to_kill():
@@ -84,5 +77,5 @@ def _cleanup_processes():
 
 if __name__ == '__main__':
   _cleanup_temporary_outputs()
-  if _is_running_on_bulidbot():
+  if '--buildbot' in sys.argv[1:]:
     _cleanup_processes()

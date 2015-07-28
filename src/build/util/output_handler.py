@@ -90,7 +90,16 @@ def _get_app_mem_info(pid):
 
 
 def _find_nacl_helper_pids(chrome_pid):
-  pids = subprocess.check_output(['pgrep', 'nacl_helper']).split()
+  if OPTIONS.is_nacl_build():
+    nacl_helper = 'nacl_helper$'
+  else:
+    nacl_helper = 'nacl_helper_nonsfi$'
+  pids = subprocess.check_output([
+      'pgrep',
+      # Use the full command-line to match against, because first 15
+      # chars are used without '-f' and nacl_helper_nonsfi is longer than that.
+      '-f',
+      nacl_helper]).split()
   results = []
   for pid in pids:
     pid = int(pid)
@@ -113,8 +122,10 @@ def _get_nacl_arc_process_memory(chrome_pid):
   # TODO(crbug.com/320266): Remove these awful heuristics once the app can
   # report out the resident usage itself.
   pids = _find_nacl_helper_pids(chrome_pid)
-  # There are 2 nacl_helpers in NaCl, 3 in BareMetal.
-  if len(pids) not in (2, 3):
+  # There are:
+  #  2 nacl_helpers in NaCl.
+  #  2 nacl_helper_nonsfi in BareMetal.
+  if len(pids) != 2:
     return None
   mem = max((_get_app_mem_info(pid) for pid in pids), key=lambda e: e['res'])
   sys.stderr.write(

@@ -417,7 +417,7 @@ static void SaveBionicThreadState(MinidumpAllocator *minidump_writer,
   COPY_REG(rip, REG_RIP);
   stack_start = regs.get()->rsp;
 #undef COPY_REG
-#elif defined(__i386__) && !defined(__native_client__)
+#elif defined(__i386__)
 #define COPY_REG(REG, src_idx)     \
     regs.get()->REG = info.context_regs[src_idx]
   TypedMDRVA<MDRawContextX86> regs(minidump_writer);

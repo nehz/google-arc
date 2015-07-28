@@ -3307,19 +3307,10 @@ class JavaNinjaGenerator(NinjaGenerator):
   def _dex2oat(self, apk_install_path, apk_path_in, apk_path_out,
                extra_flags=None):
     """Run dex2oat against apk or jar."""
-    # From android/build/core/dex_preopt_libart.mk.  We don't specify -Xms and
-    # -Xmx here, but let the runtime use the default value defined in
-    # art/runtime/gc/heap.h.
-    dex2oatflags = [
-        '--boot-image=' + os.path.join(build_common.get_android_fs_root(),
-                                       'system/framework/boot.art'),
-        '--dex-file=' + apk_path_in,
-        '--dex-location=' + apk_install_path,
-        '--oat-file=' + self._output_odex_file,
-        '--android-root=' + build_common.get_android_fs_root(),
-        '--include-patch-information',
-        '--runtime-arg', '-Xnorelocate']
-    dex2oatflags += build_common.get_dex2oat_target_dependent_flags()
+    dex2oatflags = build_common.get_dex2oat_for_apk_flags(
+        apk_path=apk_path_in,
+        apk_install_path=apk_install_path,
+        output_odex_path=self._output_odex_file)
     if extra_flags:
       dex2oatflags += as_list(extra_flags)
 

@@ -116,12 +116,7 @@ TEST_F(PthreadThreadContextThreadTest, get_thread_contexts) {
   // __nanosleep call would clear the context_regs.
   ASSERT_FALSE(HasContextRegs());
   SAVE_CONTEXT_REGS();
-#if defined(__x86_64__) || defined(__arm__) ||          \
-  (defined(__i386__) && !defined(__native_client__))
   ASSERT_TRUE(HasContextRegs());
-#else
-  ASSERT_FALSE(HasContextRegs());
-#endif
 
   // Verify data in the thread list.
   __pthread_context_info_t infos[100];
@@ -134,7 +129,7 @@ TEST_F(PthreadThreadContextThreadTest, get_thread_contexts) {
 #if defined(__x86_64__)
     ASSERT_TRUE(infos[i].has_context_regs);
     EXPECT_NE(0, infos[i].context_regs[REG_RIP]);
-#elif defined(__i386__) && !defined(__native_client__)
+#elif defined(__i386__)
     ASSERT_TRUE(infos[i].has_context_regs);
     EXPECT_NE(0, infos[i].context_regs[REG_EIP]);
 #elif defined(__arm__)
@@ -160,7 +155,7 @@ TEST(PthreadThreadContextSinglethreadTest, get_cur_thread_context) {
 #if defined(__x86_64__)
   ASSERT_TRUE(info.has_context_regs);
   EXPECT_NE(0, info.context_regs[REG_RIP]);
-#elif defined(__i386__) && !defined(__native_client__)
+#elif defined(__i386__)
   ASSERT_TRUE(info.has_context_regs);
   EXPECT_NE(0, info.context_regs[REG_EIP]);
 #elif defined(__arm__)

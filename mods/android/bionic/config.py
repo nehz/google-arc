@@ -35,7 +35,10 @@ _I686_ASM_FILES = [
     # as a pair.
     # 'android/bionic/libc/arch-x86/atom/string/sse2-memset-atom.S',
     # 'android/bionic/libc/arch-x86/atom/string/sse2-bzero-atom.S',
-    'android/bionic/libc/arch-x86/atom/string/sse2-strchr-atom.S']
+    'android/bionic/libc/arch-x86/atom/string/sse2-strchr-atom.S',
+    # For saving register context for waiting threads.
+    'android/bionic/libc/arch-x86/bionic/save_reg_context.S',
+]
 
 # The list of libc modules linked to the linker.
 _LINKER_MODULES = [
@@ -133,8 +136,6 @@ def _filter_libc_common_for_i686(vars, sources):
   if OPTIONS.is_bare_metal_build():
     # For direct syscalls used internally.
     sources.append('android/bionic/libc/arch-x86/bionic/syscall.S')
-    # For saving register context for waiting threads.
-    sources.append('android/bionic/libc/arch-x86/bionic/save_reg_context.S')
   else:
     # See the comment in _filter_libc_common_for_arm.
     # TODO(crbug.com/318433): Use order-only dependencies.

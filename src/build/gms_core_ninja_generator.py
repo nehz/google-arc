@@ -4,6 +4,7 @@
 
 import build_common
 import os
+import toolchain
 from build_options import OPTIONS
 from ninja_generator import ApkNinjaGenerator
 
@@ -11,20 +12,26 @@ from ninja_generator import ApkNinjaGenerator
 class GmsCoreNinjaGenerator(ApkNinjaGenerator):
   if OPTIONS.internal_apks_source_is_internal():
     _DIST_DIR = 'out/gms-core-build/dist'
-    _APK_PATH = 'out/gms-core-build/play_services.apk'
+    _ORIGINAL_APK_PATH = 'out/gms-core-build/play_services.apk'
     _NOTICES_OUTPUT_PATH = 'out/gms-core-build/NOTICES.tar.gz'
   else:
     # Use archived build
     _DIST_DIR = 'out/internal-apks'
-    _APK_PATH = 'out/internal-apks/play_services.apk'
+    _ORIGINAL_APK_PATH = 'out/internal-apks/play_services.apk'
     _NOTICES_OUTPUT_PATH = 'out/internal-apks/play_services_NOTICES.tar.gz'
+
+  if OPTIONS.enable_art_aot():
+    _APK_PATH = build_common.get_build_path_for_apk('play_services',
+                                                    'optimized.apk')
+  else:
+    _APK_PATH = _ORIGINAL_APK_PATH
 
   APITEST_APK_PATH = os.path.join(_DIST_DIR, 'GmsCoreApiTests.apk')
   APITEST_SETUP_APK_PATH = os.path.join(_DIST_DIR, 'GmsCoreApiTestsSetup.apk')
   _PROGUARD_MAPPING = os.path.join(_DIST_DIR, 'GmsCore-proguard-mapping.txt')
 
   # Every build artifact of GMS Core for ninja to generate dependencies.
-  _ALL_OUTPUTS = [_APK_PATH, _NOTICES_OUTPUT_PATH, APITEST_APK_PATH,
+  _ALL_OUTPUTS = [_ORIGINAL_APK_PATH, _NOTICES_OUTPUT_PATH, APITEST_APK_PATH,
                   APITEST_SETUP_APK_PATH]
   if not OPTIONS.is_debug_code_enabled():
     _ALL_OUTPUTS.append(_PROGUARD_MAPPING)
@@ -37,6 +44,22 @@ class GmsCoreNinjaGenerator(ApkNinjaGenerator):
         extra_dex2oat_flags=extra_dex2oat_flags)
 
   def build_gms_core_or_use_prebuilt(self):
+    if OPTIONS.enable_art_aot():
+      # Rule for pre-optimizing gms-core apk.
+      boot_image_dir = os.path.join(build_common.get_android_fs_root(),
+                                    'system/framework',
+                                    build_common.get_art_isa())
+      self.rule(
+          'gms_core_apk_preoptimize',
+          'src/build/gms_core_apk_preoptimize.py --input $in --output $out',
+          description='Preoptimizing gmscore sub apks contained in $in')
+      self.build(GmsCoreNinjaGenerator._APK_PATH,
+                 'gms_core_apk_preoptimize',
+                 GmsCoreNinjaGenerator._ORIGINAL_APK_PATH,
+                 implicit=[toolchain.get_tool('java', 'dex2oat'),
+                           os.path.join(boot_image_dir, 'boot.art'),
+                           os.path.join(boot_image_dir, 'boot.oat')])
+
     if not OPTIONS.internal_apks_source_is_internal():
       return
 
