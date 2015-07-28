@@ -19,6 +19,7 @@
 #include "common/arc_strace.h"
 #include "common/danger.h"
 #include "common/export.h"
+#include "common/irt_wrapper_util.h"
 #include "posix_translation/virtual_file_system.h"
 
 extern "C" {
@@ -343,6 +344,13 @@ ssize_t __wrap_recvfrom(int sockfd, void* buf, size_t len, int flags,
   ARC_STRACE_RETURN(result);
 }
 
+IRT_WRAPPER(recvfrom, int sockfd, void* buf, size_t len, int flags,
+                      struct sockaddr* src_addr, socklen_t* addrlen,
+                      int* count) {
+  *count = __wrap_recvfrom(sockfd, buf, len, flags, src_addr, addrlen);
+  return *count >= 0 ? 0 : errno;
+}
+
 ssize_t __wrap_recvmsg(int sockfd, struct msghdr* msg, int flags) {
   ARC_STRACE_ENTER_FD("recvmsg", "%d, %p, %d", sockfd, msg, flags);
   ssize_t result = VirtualFileSystem::GetVirtualFileSystem()->recvmsg(
@@ -383,6 +391,12 @@ ssize_t __wrap_sendto(int sockfd, const void* buf, size_t len, int flags,
   if (errno != EFAULT)
     ARC_STRACE_REPORT("buf=%s", arc::GetRWBufStr(buf, result).c_str());
   ARC_STRACE_RETURN(result);
+}
+
+IRT_WRAPPER(sendto, int sockfd, const void *buf, size_t len, int flags,
+            const struct sockaddr* dest_addr, socklen_t addrlen, int* count) {
+  *count = __wrap_sendto(sockfd, buf, len, flags, dest_addr, addrlen);
+  return *count >= 0 ? 0 : errno;
 }
 
 ssize_t __wrap_sendmsg(int sockfd, const struct msghdr* msg, int flags) {
@@ -433,3 +447,17 @@ int __wrap_socketpair(int domain, int type, int protocol, int sv[2]) {
   }
   ARC_STRACE_RETURN(result);
 }
+
+IRT_WRAPPER(socketpair, int domain, int type, int protocol, int sv[2]) {
+  return __wrap_socketpair(domain, type, protocol, sv) == 0 ? 0 : errno;
+}
+
+namespace posix_translation {
+
+void InitializeIRTHooksForSockets() {
+  DO_WRAP(recvfrom);
+  DO_WRAP(sendto);
+  DO_WRAP(socketpair);
+}
+
+}  // namespace posix_translation

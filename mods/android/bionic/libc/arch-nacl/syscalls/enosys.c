@@ -160,9 +160,6 @@ DEFINE_ENOSYS_SYSCALL(int, pthread_sigmask,
 DEFINE_ENOSYS_SYSCALL(int, readlink,
                       const char *path, char *buf, size_t bufsize)
 DEFINE_ENOSYS_SYSCALL(int, readv, int fd, const struct iovec *iov, int iovcnt)
-DEFINE_ENOSYS_SYSCALL(ssize_t, recvfrom, int sockfd, void *buf, size_t len,
-                      uint32_t flags, const struct sockaddr *src_addr,
-                      socklen_t *addrlen)
 DEFINE_ENOSYS_SYSCALL(ssize_t, recvmsg, int sockfd, struct msghdr *msg,
                       unsigned int flags)
 DEFINE_ENOSYS_SYSCALL(int, rename, const char *oldpath, const char *newpath)
@@ -187,9 +184,6 @@ DEFINE_ENOSYS_SYSCALL(ssize_t, sendfile, int out_fd, int in_fd,
                       off_t *offset, size_t count)
 DEFINE_ENOSYS_SYSCALL(ssize_t, sendmsg, int sockfd, const struct msghdr *msg,
                       unsigned int flags)
-DEFINE_ENOSYS_SYSCALL(ssize_t, sendto, int sockfd, const void *buf, size_t len,
-                      int flags, const struct sockaddr *dest_addr,
-                      socklen_t addrlen)
 DEFINE_ENOSYS_SYSCALL(int, setgid, gid_t gid)
 DEFINE_ENOSYS_SYSCALL(int, setgroups, size_t size, const gid_t *list)
 DEFINE_ENOSYS_SYSCALL(int, setitimer, int which,
