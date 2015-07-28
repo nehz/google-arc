@@ -25,16 +25,24 @@
 extern "C" {
 
 void __pthread_save_context_regs(void* regs, int size) {
+  // Not yet supported for nacl-i686.
+#if defined(__x86_64__) || defined(__arm__) ||          \
+  (defined(__i386__) && !defined(__native_client__))
     pthread_internal_t* thread = __get_thread();
     memcpy(thread->context_regs, regs, size);
     thread->has_context_regs = 1;
     ANDROID_MEMBAR_FULL();
+#endif
 }
 
 void __pthread_clear_context_regs() {
+  // Not yet supported for nacl-i686.
+#if defined(__x86_64__) || defined(__arm__) || \
+  (defined(__i386__) && !defined(__native_client__))
     pthread_internal_t* thread = __get_thread();
     thread->has_context_regs = 0;
     ANDROID_MEMBAR_FULL();
+#endif
 }
 
 static bool obtain_lock(bool try_lock) {
@@ -87,15 +95,18 @@ static void copy_thread_info(__pthread_context_info_t* dst,
     dst->stack_base = src->stack_end_from_irt - kIrtStackSize;
     dst->stack_size = kIrtStackSize;
   }
-  #else
+#else
   if (src->attr.stack_base) {
             dst->stack_base =
                 reinterpret_cast<char*>(src->attr.stack_base) +
                 src->attr.guard_size;
             dst->stack_size = src->attr.stack_size - src->attr.guard_size;
   }
-  #endif
+#endif
 
+  // Not yet supported for nacl-i686.
+#if defined(__x86_64__) || defined(__arm__) || \
+  (defined(__i386__) && !defined(__native_client__))
   // Copy registers, then do a second (racy) read of has_context_regs.
   if (src->has_context_regs) {
     memcpy(dst->context_regs, src->context_regs,
@@ -103,6 +114,7 @@ static void copy_thread_info(__pthread_context_info_t* dst,
     ANDROID_MEMBAR_FULL();
     dst->has_context_regs = src->has_context_regs;
   }
+#endif
 }
 
 void __pthread_get_current_thread_info(__pthread_context_info_t* info) {
