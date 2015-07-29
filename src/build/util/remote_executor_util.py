@@ -54,10 +54,12 @@ _INTEGRATION_TEST_GLOB_TEMPLATE_LIST = [
     '{out}/data_roots/art.*',
     '{out}/data_roots/arc.*',
     '{out}/data_roots/cts.*',
+    '{out}/data_roots/gms_core_apitest.*',
     '{out}/data_roots/graphics.*',
     '{out}/data_roots/jstests.*',
     '{out}/data_roots/ndk.*',
     '{out}/data_roots/system_mode.*',
+    '{out}/internal-apks-integration-tests/*',
     '{out}/staging/android/art/test/*/expected.txt',
     # The following two files are needed only for 901-perf test.
     '{out}/staging/android/art/test/901-perf/README.benchmark',

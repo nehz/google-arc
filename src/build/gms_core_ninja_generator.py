@@ -22,7 +22,8 @@ class GmsCoreNinjaGenerator(ApkNinjaGenerator):
 
   if OPTIONS.enable_art_aot():
     _APK_PATH = build_common.get_build_path_for_apk('play_services',
-                                                    'optimized.apk')
+                                                    'optimized.apk',
+                                                    is_target=True)
   else:
     _APK_PATH = _ORIGINAL_APK_PATH
 
