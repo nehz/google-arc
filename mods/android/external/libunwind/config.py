@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import ninja_generator
 from build_options import OPTIONS
 from make_to_ninja import MakefileNinjaTranslator
 
@@ -46,3 +47,17 @@ def generate_ninjas():
     }.get(vars.get_module_name(), lambda vars: False)(vars)
 
   MakefileNinjaTranslator('android/external/libunwind').generate(_filter)
+
+
+def generate_test_ninjas():
+  if not OPTIONS.is_nacl_x86_64():
+    return
+
+  n = ninja_generator.TestNinjaGenerator('libunwind_test',
+                                         base_path='android/external/libunwind',
+                                         enable_cxx11=True)
+  sources = []
+  if OPTIONS.is_x86_64():
+    sources.append('src/x86_64/ucontext_i_test.cc')
+  n.build_default(sources)
+  n.run(n.link())

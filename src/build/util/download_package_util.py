@@ -272,6 +272,14 @@ class BasicCachedPackage(object):
       file_util.rmtree(self._unpacked_cache_path, ignore_errors=True)
       raise
 
+  def touch_all_files_in_cache(self):
+    logging.info('%s: Touching all files in cache %s', self._name,
+                 self.unpacked_linked_cache_path)
+    cache_path = self.unpacked_linked_cache_path
+    for dirpath, dirnames, filenames in os.walk(cache_path):
+      for filename in filenames:
+        file_util.touch(os.path.join(cache_path, dirpath, filename))
+
   def populate_final_directory(self):
     """Sets up the final location for the download from the cache."""
     logging.info('%s: Setting up %s from cache %s', self._name,
@@ -358,6 +366,9 @@ class BasicCachedPackage(object):
 
         # Write out the updated stamp file
         cached_stamp_file.update()
+
+      # Reset the mtime on all the entries in the cache.
+      self.touch_all_files_in_cache()
 
       # Ensure the final directory properly links to the cache.
       self.populate_final_directory()
