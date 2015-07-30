@@ -173,3 +173,9 @@ def glob(*patterns):
   """
   return sorted(set(itertools.chain.from_iterable(
       _glob.iglob(pattern) for pattern in patterns)))
+
+
+def touch(path):
+  """""Does the equivalent of 'touch <path>'."""
+  with open(path, 'a'):
+      os.utime(path, None)
