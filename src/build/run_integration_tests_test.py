@@ -27,7 +27,7 @@ import unittest
 
 from build_options import OPTIONS
 from run_integration_tests import main
-from util.test import suite_runner_config_flags as flags
+from util.test import flags
 from util.test import suite_runner_config
 
 # TODO(lpique): Unify with similar constants in
@@ -131,9 +131,14 @@ def _make_all_tests_flaky():
   """
   def _make_flaky_suite_configuration(*unused, **kwunused):
     # We must return a new dictionary for every call.
-    return dict(
-        flags=flags.PASS | flags.FLAKY, bug=None, metadata={}, deadline=300,
-        test_order={}, suite_test_expectations={})
+    return {
+        'flags': flags.FlagSet(flags.FLAKY),
+        'bug': None,
+        'metadata': {},
+        'deadline': 300,
+        'test_order': {},
+        'suite_test_expectations': {}
+    }
   return patch(
       'util.test.suite_runner_config._evaluate',
       _make_flaky_suite_configuration)
@@ -231,7 +236,7 @@ def _stub_parse_configure_file():
 
 
 def _stub_read_test_list(path):
-  return {'*': flags.PASS}
+  return {'*': flags.FlagSet(flags.PASS)}
 
 
 def _stub_expectation_loader_get(*args):
@@ -385,7 +390,7 @@ class _RunIntegrationTestsTestBase(unittest.TestCase):
 @patch('dashboard_submit.queue_data', _stub_return_none)
 # We stub out build_crx and update_shell_command to do nothing.
 # TODO(lpique): Look into making them work without stubbing them out.
-@patch('apk_to_crx.build_crx', _stub_return_none)
+@patch('apk_to_crx.apk_to_crx.build_crx', _stub_return_none)
 @patch('prep_launch_chrome.update_shell_command', _stub_return_none)
 @patch('build_options._real_options.parse_configure_file',
        _stub_parse_configure_file)
@@ -449,7 +454,7 @@ class RunIntegrationTestsSlowTest(_RunIntegrationTestsTestBase):
 @patch('dashboard_submit.queue_data', _stub_return_none)
 # We stub out build_crx and update_shell_command to do nothing.
 # TODO(lpique): Look into making them work without stubbing them out.
-@patch('apk_to_crx.build_crx', _stub_return_none)
+@patch('apk_to_crx.apk_to_crx.build_crx', _stub_return_none)
 @patch('prep_launch_chrome.update_shell_command', _stub_return_none)
 @patch('build_options._real_options.parse_configure_file',
        _stub_parse_configure_file)

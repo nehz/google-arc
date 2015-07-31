@@ -7,14 +7,14 @@
 import fnmatch
 import re
 
-from util.test import suite_runner_config_flags as flags
+from util.test import flags
 
 
 def _build_re(pattern_list):
   """Builds a regular expression string from |pattern_list|.
 
-  The regular expression will match if any of the glob patterns listed match. It
-  can be used to replace:
+  The regular expression will match if any of the glob patterns listed match.
+  It can be used to replace:
 
     any(fnmatch.fnmatch(name, pattern) for pattern in pattern_list)
 
@@ -50,15 +50,16 @@ class TestRunFilter(object):
     # PASS, FLAKY tests will run always.
     # FAIL, LARGE, TIMEOUT tests will run iff their corresponding flag is set.
     # NOT_SUPPORTED tests will never run.
-    self._run_expectation_map = {
+    self._status_map = {
         flags.PASS: True,
         flags.FAIL: include_fail,
+        flags.FLAKY: True,
         flags.TIMEOUT: include_timeout,
         flags.NOT_SUPPORTED: False,
-        flags.LARGE: include_large,
-        flags.FLAKY: True,
     }
+    self._exclude_attribute_bits = (0 if include_large else flags.LARGE)
 
   def should_run(self, expectation):
     # The test should run only when all flags say the test can run.
-    return all(self._run_expectation_map[flag] for flag in expectation)
+    return (self._status_map[expectation.status] and
+            (expectation.attribute & self._exclude_attribute_bits) == 0)

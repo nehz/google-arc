@@ -4,16 +4,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import collections
 import unittest
 
-from collections import Counter
-import scoreboard
-import suite_results
-from suite_runner_config_flags import FAIL
-from suite_runner_config_flags import FLAKY
-from suite_runner_config_flags import PASS
-from suite_runner_config_flags import TIMEOUT
-from test_method_result import TestMethodResult
+from util.test import flags
+from util.test import scoreboard
+from util.test import suite_results
+from util.test import test_method_result
 
 
 def _noop(*args):
@@ -23,7 +20,7 @@ def _noop(*args):
 class TestHelper:
   def __init__(self, name, expect, actual):
     self._name = name
-    self._expect = expect
+    self._expect = flags.FlagSet(expect)
     self._actual = actual
 
   @property
@@ -41,11 +38,11 @@ class TestHelper:
 
 class ScoreboardTests(unittest.TestCase):
   def setUp(self):
-    self._test_counter = Counter()
+    self._test_counter = collections.Counter()
     self._expected_test_count = 0
 
     def _report_start(score_board):
-      self._test_counter = Counter()
+      self._test_counter = collections.Counter()
 
     def _report_update_test(score_board, name, status, duration=0):
       self._test_counter[status] += 1
@@ -82,7 +79,7 @@ class ScoreboardTests(unittest.TestCase):
     for name, result in actuals.iteritems():
       sb.start_test(name)
       if result:
-        sb.update([TestMethodResult(name, result)])
+        sb.update([test_method_result.TestMethodResult(name, result)])
 
   def _register_tests(self, sb, tests):
     self._expected_test_count = len(tests)
@@ -146,7 +143,8 @@ class ScoreboardTests(unittest.TestCase):
   # Setup to run one test and have it pass.
   def test_expected_pass(self):
     tests = [
-        TestHelper('test', PASS, TestMethodResult.PASS),
+        TestHelper('test', flags.PASS,
+                   test_method_result.TestMethodResult.PASS),
     ]
     results = {
         'total': 1,
@@ -161,7 +159,8 @@ class ScoreboardTests(unittest.TestCase):
   # Setup to run one test and have it pass unexpectedly.
   def test_unexpected_pass(self):
     tests = [
-        TestHelper('test', FAIL, TestMethodResult.PASS),
+        TestHelper('test', flags.FAIL,
+                   test_method_result.TestMethodResult.PASS),
     ]
     results = {
         'total': 1,
@@ -176,7 +175,8 @@ class ScoreboardTests(unittest.TestCase):
   # Setup to run one test and have it fail (expectedly).
   def test_expected_fail(self):
     tests = [
-        TestHelper('test', FAIL, TestMethodResult.FAIL),
+        TestHelper('test', flags.FAIL,
+                   test_method_result.TestMethodResult.FAIL),
     ]
     results = {
         'total': 1,
@@ -191,7 +191,8 @@ class ScoreboardTests(unittest.TestCase):
   # Setup to run one test and have it fail.
   def test_unexpected_fail(self):
     tests = [
-        TestHelper('test', PASS, TestMethodResult.FAIL),
+        TestHelper('test', flags.PASS,
+                   test_method_result.TestMethodResult.FAIL),
     ]
     results = {
         'total': 1,
@@ -206,7 +207,7 @@ class ScoreboardTests(unittest.TestCase):
   # Setup to run one test but do not actually run it.
   def test_skipped(self):
     tests = [
-        TestHelper('test', PASS, None),
+        TestHelper('test', flags.PASS, None),
     ]
     results = {
         'total': 1,
@@ -240,11 +241,15 @@ class ScoreboardTests(unittest.TestCase):
   # Setup multiple tests and have them pass, fail, or be skipped.
   def test_all(self):
     tests = [
-        TestHelper('pass', PASS, TestMethodResult.PASS),
-        TestHelper('fail', PASS, TestMethodResult.FAIL),
-        TestHelper('unexpected_passed', FAIL, TestMethodResult.PASS),
-        TestHelper('expected_failed', FAIL, TestMethodResult.FAIL),
-        TestHelper('skipped', PASS, None),
+        TestHelper('pass', flags.PASS,
+                   test_method_result.TestMethodResult.PASS),
+        TestHelper('fail', flags.PASS,
+                   test_method_result.TestMethodResult.FAIL),
+        TestHelper('unexpected_passed', flags.FAIL,
+                   test_method_result.TestMethodResult.PASS),
+        TestHelper('expected_failed', flags.FAIL,
+                   test_method_result.TestMethodResult.FAIL),
+        TestHelper('skipped', flags.PASS, None),
     ]
     results = {
         'total': 5,
@@ -268,7 +273,8 @@ class ScoreboardTests(unittest.TestCase):
   # Setup one flaky test and have it pass.
   def test_flake_pass(self):
     tests = [
-        TestHelper('flake', FLAKY, TestMethodResult.PASS),
+        TestHelper('flake', flags.FLAKY,
+                   test_method_result.TestMethodResult.PASS),
     ]
     results = {
         'total': 1,
@@ -283,7 +289,8 @@ class ScoreboardTests(unittest.TestCase):
   # Setup one flaky test and have it fail.
   def test_flake_fail(self):
     tests = [
-        TestHelper('flake', FLAKY, TestMethodResult.FAIL),
+        TestHelper('flake', flags.FLAKY,
+                   test_method_result.TestMethodResult.FAIL),
     ]
     results = {
         'total': 1,
@@ -297,7 +304,7 @@ class ScoreboardTests(unittest.TestCase):
 
   # Setup one flaky test, let it fail once, restart, and then have it pass.
   def test_flake_restart_pass(self):
-    expectations = {'flake': FLAKY}
+    expectations = {'flake': flags.FlagSet(flags.FLAKY)}
     sb = scoreboard.Scoreboard('suite', expectations)
 
     tests = ['flake']
@@ -305,7 +312,7 @@ class ScoreboardTests(unittest.TestCase):
     sb.start(tests)
 
     # Fail the test the first time.
-    actuals = {'flake': TestMethodResult.FAIL}
+    actuals = {'flake': test_method_result.TestMethodResult.FAIL}
     self._update_tests(sb, actuals)
     results = {
         'total': 1,
@@ -320,7 +327,7 @@ class ScoreboardTests(unittest.TestCase):
     sb.start(tests)
 
     # Pass the test the second time.
-    actuals = {'flake': TestMethodResult.PASS}
+    actuals = {'flake': test_method_result.TestMethodResult.PASS}
     self._update_tests(sb, actuals)
     results = {
         'total': 2,
@@ -354,7 +361,7 @@ class ScoreboardTests(unittest.TestCase):
 
   # Setup one flaky test, let it not complete.
   def test_flake_incomplete(self):
-    expectations = {'flake': FLAKY}
+    expectations = {'flake': flags.FlagSet(flags.FLAKY)}
     sb = scoreboard.Scoreboard('suite', expectations)
 
     tests = ['flake']
@@ -368,7 +375,7 @@ class ScoreboardTests(unittest.TestCase):
 
   # Setup one flaky test, let it fail twice (with a restart between).
   def test_flake_restart_fail(self):
-    expectations = {'flake': FLAKY}
+    expectations = {'flake': flags.FlagSet(flags.FLAKY)}
     sb = scoreboard.Scoreboard('suite', expectations)
 
     tests = ['flake']
@@ -376,7 +383,7 @@ class ScoreboardTests(unittest.TestCase):
     sb.start(tests)
 
     # Fail the test the first time.
-    actuals = {'flake': TestMethodResult.FAIL}
+    actuals = {'flake': test_method_result.TestMethodResult.FAIL}
     self._update_tests(sb, actuals)
     results = {
         'total': 1,
@@ -391,7 +398,7 @@ class ScoreboardTests(unittest.TestCase):
     sb.start(tests)
 
     # Pass the test the second time.
-    actuals = {'flake': TestMethodResult.FAIL}
+    actuals = {'flake': test_method_result.TestMethodResult.FAIL}
     self._update_tests(sb, actuals)
     results = {
         'total': 2,
@@ -419,16 +426,16 @@ class ScoreboardTests(unittest.TestCase):
   # 'blacklisted'.
   def test_blacklist(self):
     expectations = {
-        'alpha': PASS,
-        'beta': PASS,
-        'gamma': PASS,
+        'alpha': flags.FlagSet(flags.PASS),
+        'beta': flags.FlagSet(flags.PASS),
+        'gamma': flags.FlagSet(flags.PASS),
     }
     sb = scoreboard.Scoreboard('suite', expectations)
     self._register_tests(sb, ['alpha', 'beta', 'gamma'])
 
     # Run and pass just the first test.
     sb.start(['alpha', 'beta', 'gamma'])
-    actuals = {'alpha': TestMethodResult.PASS}
+    actuals = {'alpha': test_method_result.TestMethodResult.PASS}
     self._update_tests(sb, actuals)
     results = {
         'total': 3,
@@ -459,7 +466,7 @@ class ScoreboardTests(unittest.TestCase):
 
     # Run the remaining two tests.
     sb.start(['beta', 'gamma'])
-    actuals = {'beta': TestMethodResult.PASS}
+    actuals = {'beta': test_method_result.TestMethodResult.PASS}
     self._update_tests(sb, actuals)
     results = {
         'total': 3,
@@ -494,7 +501,7 @@ class ScoreboardTests(unittest.TestCase):
     # Finally run the last test.  Now 'gamma' should no longer be in the
     # blacklist since it ran.
     sb.start(['gamma'])
-    actuals = {'gamma': TestMethodResult.PASS}
+    actuals = {'gamma': test_method_result.TestMethodResult.PASS}
     self._update_tests(sb, actuals)
     results = {
         'total': 3,
@@ -522,9 +529,13 @@ class ScoreboardTests(unittest.TestCase):
 
   def test_get_expectations_works_with_named_tests(self):
     sb = scoreboard.Scoreboard(
-        'suite', dict(testPasses=PASS, testFails=FAIL, testTimesOut=TIMEOUT,
-                      testFlaky=FLAKY))
-
+        'suite',
+        {
+            'testPasses': flags.FlagSet(flags.PASS),
+            'testFails': flags.FlagSet(flags.FAIL),
+            'testTimesOut': flags.FlagSet(flags.TIMEOUT),
+            'testFlaky': flags.FlagSet(flags.FLAKY),
+        })
     expectations = sb.get_expectations()
 
     self.assertEquals(4, len(expectations))
@@ -535,7 +546,9 @@ class ScoreboardTests(unittest.TestCase):
 
   def test_get_expectations_works_with_dummy_placeholder(self):
     sb = scoreboard.Scoreboard(
-        'suite', {scoreboard.Scoreboard.ALL_TESTS_DUMMY_NAME: FAIL})
+        'suite',
+        {scoreboard.Scoreboard.ALL_TESTS_DUMMY_NAME:
+         flags.FlagSet(flags.FAIL)})
 
     expectations = sb.get_expectations()
 

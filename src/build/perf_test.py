@@ -35,8 +35,8 @@ from util import launch_chrome_util
 from util import logging_util
 from util import remote_executor
 from util.test import art_test_runner
+from util.test import flags
 from util.test import suite_runner
-from util.test import suite_runner_config_flags as flags
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _ARC_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))
@@ -327,8 +327,8 @@ class VMPerfDriver(BaseDriver):
     super(VMPerfDriver, self).__init__(args)
 
   def _run(self, benchmark):
-    runner = art_test_runner.ArtTestRunner('901-perf',
-                                           config={'flags': flags.PASS})
+    runner = art_test_runner.ArtTestRunner(
+        '901-perf', config={'flags': flags.FlagSet(flags.PASS)})
     args = _prepare_integration_tests_args(100)
 
     # We reuse scripts for integration tests in vm tests, and they expect

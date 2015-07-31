@@ -4,6 +4,7 @@
 
 import time
 
+from util.test import flags
 from util.test import suite_results
 from util.test.scoreboard_constants import EXPECT_FAIL
 from util.test.scoreboard_constants import EXPECT_PASS
@@ -12,10 +13,6 @@ from util.test.scoreboard_constants import INCOMPLETE
 from util.test.scoreboard_constants import SKIPPED
 from util.test.scoreboard_constants import UNEXPECT_FAIL
 from util.test.scoreboard_constants import UNEXPECT_PASS
-from util.test.suite_runner_config_flags import FAIL
-from util.test.suite_runner_config_flags import FLAKY
-from util.test.suite_runner_config_flags import NOT_SUPPORTED
-from util.test.suite_runner_config_flags import TIMEOUT
 
 
 class Scoreboard:
@@ -75,19 +72,20 @@ class Scoreboard:
 
   @staticmethod
   def map_expectation_flag_to_scoreboard_expectation(ex):
-    if NOT_SUPPORTED in ex:
+    status = ex.status
+    if status == flags.NOT_SUPPORTED:
       return Scoreboard._SHOULD_SKIP
-    elif FLAKY in ex:
-      return Scoreboard._MAYBE_FLAKY
-    elif FAIL in ex:
-      return Scoreboard._SHOULD_FAIL
     # Tests marked as TIMEOUT will be skipped, unless --include-timeouts is
     # specified.  Unfortunately, we have no way of knowing, so we just assume
     # they will be skipped.  If it turns out that this test is actually run,
     # then it will get treated as though it was expected to PASS.  We assume
     # the TIMEOUT is not specified with FAIL or FLAKY as well.
-    elif TIMEOUT in ex:
+    if status == flags.TIMEOUT:
       return Scoreboard._SHOULD_SKIP
+    if status == flags.FAIL:
+      return Scoreboard._SHOULD_FAIL
+    if status == flags.FLAKY:
+      return Scoreboard._MAYBE_FLAKY
     return Scoreboard._SHOULD_PASS
 
   def set_expectations(self, expectations):
@@ -369,8 +367,8 @@ class Scoreboard:
 
   def get_expectations(self):
     expectations = {}
-    for name, expectation in self._expectations.iteritems():
-      expectations[name] = self._MAP_EXPECTATIONS_TO_RESULT[expectation]
+    for name, test_expectation in self._expectations.iteritems():
+      expectations[name] = self._MAP_EXPECTATIONS_TO_RESULT[test_expectation]
     if len(self._expectations) == 0:
       expectations[self.ALL_TESTS_DUMMY_NAME] = (
           self._MAP_EXPECTATIONS_TO_RESULT[self._default_expectation])

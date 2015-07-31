@@ -4,8 +4,8 @@
 
 """Implements a suite runner that runs unittests."""
 
+from util.test import flags
 from util.test import suite_runner
-from util.test import suite_runner_config_flags as flags
 
 
 class UnittestRunner(suite_runner.SuiteRunnerBase):
@@ -29,7 +29,9 @@ class UnittestRunner(suite_runner.SuiteRunnerBase):
 
   def __init__(self, test_name, **kwargs):
     super(UnittestRunner, self).__init__(
-        test_name, {UnittestRunner._TEST_NAME: flags.PASS}, **kwargs)
+        test_name,
+        {UnittestRunner._TEST_NAME: flags.FlagSet(flags.PASS)},
+        **kwargs)
 
   def run(self, test_methods_to_run):
     assert test_methods_to_run == [UnittestRunner._TEST_NAME]

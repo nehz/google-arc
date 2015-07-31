@@ -24,9 +24,13 @@ from metadata import manager as metadata_manager
 from util import file_util
 
 _DOGFOOD_METADATA_PATH = 'third_party/examples/apk/dogfood.meta'
+
+# Due to the way Python's mock module work, this has to be imported this way, so
+# that the mock declaration in the test (e.g. run_integration_tests_test.py) can
+# refer to this consistently with the name 'apk_to_crx.apk_to.crx.build_crx'.
 _ROOT_DIR = build_common.get_arc_root()
 sys.path.append(os.path.join(_ROOT_DIR, 'src', 'packaging'))
-import apk_to_crx
+import apk_to_crx.apk_to_crx as apk_to_crx
 
 
 def _remove_ndk_libraries(apk_path):

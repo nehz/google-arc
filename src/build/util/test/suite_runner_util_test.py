@@ -6,85 +6,99 @@
 
 import unittest
 
+from util.test import flags
 from util.test import suite_runner_util
-from util.test import suite_runner_config_flags as flags
 
 
 class SuiteRunnerUtilTest(unittest.TestCase):
   def test_merge_expectation_map(self):
     base_map = {
-        'c#test1': flags.PASS,
-        'c#test2': flags.FAIL,
+        'c#test1': flags.FlagSet(flags.PASS),
+        'c#test2': flags.FlagSet(flags.FAIL),
     }
 
     # With no override expectations, the base expectations should be used.
     self.assertEquals(
         {
-            'c#test1': flags.PASS,
-            'c#test2': flags.FAIL,
+            'c#test1': flags.FlagSet(flags.PASS),
+            'c#test2': flags.FlagSet(flags.FAIL),
         },
-        suite_runner_util.merge_expectation_map(base_map, {}, flags.PASS))
+        suite_runner_util.merge_expectation_map(
+            base_map, {}, flags.FlagSet(flags.PASS)))
 
     # test1 should be overridden to FAIL, test2 should keep the base FAIL.
     self.assertEquals(
         {
-            'c#test1': flags.FAIL,
-            'c#test2': flags.FAIL,
+            'c#test1': flags.FlagSet(flags.FAIL),
+            'c#test2': flags.FlagSet(flags.FAIL),
         },
         suite_runner_util.merge_expectation_map(
-            base_map, {'c#test1': flags.FAIL}, flags.PASS))
+            base_map,
+            {'c#test1': flags.FlagSet(flags.FAIL)},
+            flags.FlagSet(flags.PASS)))
 
-    # The pure flags from the default expectation should end up in the output
-    # expectation map.
+    # The pure expectation from the default expectation should end up in the
+    # output expectation map.
     self.assertEquals(
         {
-            'c#test1': flags.PASS | flags.FLAKY,
-            'c#test2': flags.FAIL | flags.FLAKY,
+            'c#test1': flags.FlagSet(flags.FLAKY),
+            'c#test2': flags.FlagSet(flags.FAIL),
         },
         suite_runner_util.merge_expectation_map(
-            base_map, {}, flags.PASS | flags.FLAKY))
+            base_map, {}, flags.FlagSet(flags.FLAKY)))
 
     # If the default expectation is TIMEOUT, all the tests inside should be too
     # if no other test-level overrides are given
     self.assertEquals(
         {
-            'c#test1': flags.PASS | flags.FLAKY,
-            'c#test2': flags.TIMEOUT,
+            'c#test1': flags.FlagSet(flags.FLAKY),
+            'c#test2': flags.FlagSet(flags.TIMEOUT),
         },
         suite_runner_util.merge_expectation_map(
-            base_map, {'c#test1': flags.PASS | flags.FLAKY}, flags.TIMEOUT))
+            base_map,
+            {'c#test1': flags.FlagSet(flags.FLAKY)},
+            flags.FlagSet(flags.TIMEOUT)))
 
     # A suite level FLAKY flag should cause all tests to be marked FLAKY,
     # regardless of whether the base or override expectation is used.
     self.assertEquals(
         {
-            'c#test1': flags.FAIL | flags.FLAKY | flags.LARGE,
-            'c#test2': flags.FAIL | flags.FLAKY,
+            'c#test1': flags.FlagSet(flags.FAIL | flags.LARGE),
+            'c#test2': flags.FlagSet(flags.FAIL),
         },
         suite_runner_util.merge_expectation_map(
-            base_map, {'c#test1': flags.FAIL | flags.LARGE},
-            flags.PASS | flags.FLAKY))
+            base_map,
+            {'c#test1': flags.FlagSet(flags.FAIL | flags.LARGE)},
+            flags.FlagSet(flags.FLAKY)))
 
     # A suite level LARGE flag should cause all tests to be marked LARGE,
     # regardless of whether the base or override expectation is used.
     self.assertEquals(
         {
-            'c#test1': flags.PASS | flags.LARGE,
-            'c#test2': flags.PASS | flags.LARGE,
+            'c#test1': flags.FlagSet(flags.PASS | flags.LARGE),
+            'c#test2': flags.FlagSet(flags.PASS | flags.LARGE),
         },
         suite_runner_util.merge_expectation_map(
-            base_map, {'c#test2': flags.PASS}, flags.PASS | flags.LARGE))
+            base_map,
+            {'c#test2': flags.FlagSet(flags.PASS)},
+            flags.FlagSet(flags.PASS | flags.LARGE)))
 
     with self.assertRaises(AssertionError):
       # Raise an exception if suite_expectations contains an unknown test name.
       suite_runner_util.merge_expectation_map(
-          base_map, {'c#test3': flags.PASS}, flags.PASS)
+          base_map,
+          {'c#test3': flags.FlagSet(flags.PASS)},
+          flags.FlagSet(flags.PASS))
 
   def _check_simple(self, expected, patterns):
     self.assertEquals(
-        expected,
+        dict((key, flags.FlagSet(value))
+             for key, value in expected.iteritems()),
         suite_runner_util.merge_expectation_map(
-            dict.fromkeys(expected, flags.PASS), patterns, flags.PASS))
+            dict.fromkeys(expected, flags.FlagSet(flags.PASS)),
+            dict((key, flags.FlagSet(value))
+                 for key, value in patterns.iteritems()),
+            flags.FlagSet(flags.PASS)))
 
   def test_merge_star_matches_all(self):
     # An entry of '*' should match all tests."""
@@ -107,7 +121,7 @@ class SuiteRunnerUtilTest(unittest.TestCase):
         'z#m1': flags.PASS,
     }, {
         'x#*': flags.FAIL,
-        'y#*': flags.TIMEOUT
+        'y#*': flags.TIMEOUT,
     })
 
   def test_merge_all_patterns_used(self):
@@ -134,10 +148,6 @@ class SuiteRunnerUtilTest(unittest.TestCase):
       }, {
           'x#*': flags.FAIL,
           'x#m1': flags.FAIL,
-      })
-      suite_runner_util.merge_expectation_map({'abc_123': flags.PASS}, {
-          'abc_*': flags.PASS,
-          'abc*': flags.FAIL,
       })
 
   def test_merge_star_is_exclusive(self):

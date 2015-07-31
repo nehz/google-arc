@@ -4,7 +4,7 @@
 
 """Provides utilities to for suite runner implementation."""
 
-from util.test import suite_runner_config_flags as flags
+from util.test import flags
 
 
 class _GlobalExpectationMatcher(object):
@@ -73,27 +73,33 @@ class _ExpectationMatcher(object):
 
 
 def _merge(base_expectation, override_expectation, default_expectation):
-  # |default_expectation| must be left hand side, because '|' operator for
-  # the expectation set is asymmetric. (cf suite_runner_config_flags.py).
-  # TODO(crbug.com/437402): Clean up this.
   if override_expectation:
-    return default_expectation | override_expectation
-  elif flags.PASS in default_expectation:
-    return default_expectation | base_expectation
-  else:
-    return default_expectation
+    return default_expectation.override_with(override_expectation)
+
+  # We choose 'worse' status here. Considering;
+  # |base_expectation| should be either |PASS| or |FAIL|, because it is based
+  # on the original Android's test config. On the other hand,
+  # default_expectation is what we defined for each test suite. Specifically,
+  # it's |PASS| by default.
+  # It should make sense that a test case, which is marked |FAIL| by base
+  # but |PASS| by default, fails.
+  # On the other hand, if we annotate NOT_SUPPORTED or TIMEOUT for a test
+  # case, we do not want to run (by default) regardless of whether it is
+  # marked as PASS or FAIL by base expectation.
+  status = max(base_expectation.status, default_expectation.status)
+  return flags.FlagSet(status | default_expectation.attribute)
 
 
 def merge_expectation_map(
     base_expectation_map, override_expectation_map, default_expectation):
-  # In test cases, |base_expectation_map| is stubbed out as {'*': flags.PASS}.
-  # cf) src/build/run_integration_tests_test.py.
+  # In test cases, |base_expectation_map| is stubbed out as
+  # {'*': expectation.PASS}. cf) src/build/run_integration_tests_test.py.
   # We cannot easily avoid this situation, because the real files are
   # generated at build time, so the unittests do not know about them.
   # To avoid test failure, we temporarily handle it here, too.
   # TODO(crbug.com/432507): Once the '*' expansion work is done, we can
   # get rid of '*'. We should revisit here then.
-  if base_expectation_map == {'*': flags.PASS}:
+  if base_expectation_map == {'*': flags.FlagSet(flags.PASS)}:
     return base_expectation_map
 
   if '*' in override_expectation_map:
@@ -112,7 +118,7 @@ def read_test_list(path):
   """Reads a list of test methods from file, and returns an expectation map."""
   with open(path) as stream:
     data = stream.read()
-  return dict.fromkeys(data.splitlines(), flags.PASS)
+  return dict.fromkeys(data.splitlines(), flags.FlagSet(flags.PASS))
 
 
 def create_gtest_filter_list(test_list, max_length):

@@ -11,7 +11,7 @@ import sys
 
 import build_common
 from build_options import OPTIONS
-from util.test import suite_runner_config_flags as flags
+from util.test import flags
 
 # For use in the suite configuration files, to identify a default configuration
 # to use for a list of related suites.
@@ -66,7 +66,7 @@ def _validate_internal(raw_config, is_root):
 
 
 def _validate_flags(value):
-  assert isinstance(value, flags.ExclusiveFlagSet), (
+  assert isinstance(value, flags.FlagSet), (
       'Not a recognized flag: %s' % value)
 
 
@@ -90,8 +90,8 @@ def _validate_suite_test_expectations(value):
     assert isinstance(outer_name, basestring), (
         'suite_test_expectations %s is not a string' % outer_name)
 
-    # The value must be an ExpectationFlagSet or a dict.
-    if isinstance(outer_expectation, flags.ExclusiveFlagSet):
+    # The value must be an flags.FlagSet or a dict.
+    if isinstance(outer_expectation, flags.FlagSet):
       assert '*' == outer_name or '*' not in outer_name, (
           'suite_test_expectations pattern "%s" is not allowed. Only "*" is '
           'allowed.' % outer_name)
@@ -110,7 +110,7 @@ def _validate_suite_test_expectations(value):
       assert isinstance(inner_name, basestring), (
           'suite_test_expectations %s#%s is not a string' % (
               outer_name, inner_name))
-      assert isinstance(inner_expectation, flags.ExclusiveFlagSet), (
+      assert isinstance(inner_expectation, flags.FlagSet), (
           'suite_test_expectations %s#%s is not an expectation flag set: '
           '%s' % (outer_name, inner_name, inner_expectation))
       assert '*' == inner_name or '*' not in inner_name, (
@@ -152,7 +152,7 @@ def _evaluate(raw_config, defaults=None):
   _validate(raw_config)
 
   result = {
-      'flags': flags.PASS,
+      'flags': flags.FlagSet(flags.PASS),
       'bug': None,
       'deadline': _DEFAULT_OUTPUT_TIMEOUT,
       'test_order': {},
@@ -182,15 +182,15 @@ def _evaluate(raw_config, defaults=None):
 def _merge_config(raw_config, output):
   """Merges the |raw_config| into |output|.
 
-  Merges values in raw_config (if exists) into output. Here is the storategy:
-  - flags: Use '|' operator.
+  Merges values in raw_config (if exists) into output. Here is the strategy:
+  - flags: Use expectation.FlagSet#override.
   - bug, deadline: simply overwrite by raw_config's.
   - metadata, test_order, suite_test_expectations: merge by dict.update().
   Note that: just before the merging, the nested suite_test_expectations
   dict is flattened.
   """
   if 'flags' in raw_config:
-    output['flags'] |= raw_config['flags']
+    output['flags'] = output['flags'].override_with(raw_config['flags'])
   if 'bug' in raw_config:
     output['bug'] = raw_config['bug']
   if 'deadline' in raw_config:
@@ -209,12 +209,13 @@ def _evaluate_suite_test_expectations(raw_dict):
   """Flatten the (possibly-nested) suite_test_expectations dict."""
   result = {}
   for outer_name, outer_expectation in raw_dict.iteritems():
-    if isinstance(outer_expectation, flags.ExclusiveFlagSet):
-      result[outer_name] = flags.PASS | outer_expectation
+    if isinstance(outer_expectation, flags.FlagSet):
+      result[outer_name] = (
+          flags.FlagSet(flags.PASS).override_with(outer_expectation))
       continue
     for inner_name, inner_expectation in outer_expectation.iteritems():
       result['%s#%s' % (outer_name, inner_name)] = (
-          flags.PASS | inner_expectation)
+          flags.FlagSet(flags.PASS).override_with(inner_expectation))
   return result
 
 
@@ -229,12 +230,12 @@ def _read_test_config(path, on_bot, use_gpu, remote_host_type):
       '__builtin__': None,  # Do not inherit the current context.
 
       # Expectation flags.
-      'PASS': flags.PASS,
-      'FAIL': flags.FAIL,
-      'TIMEOUT': flags.TIMEOUT,
-      'NOT_SUPPORTED': flags.NOT_SUPPORTED,
-      'LARGE': flags.LARGE,
-      'FLAKY': flags.FLAKY,
+      'PASS': flags.FlagSet(flags.PASS),
+      'FLAKY': flags.FlagSet(flags.FLAKY),
+      'FAIL': flags.FlagSet(flags.FAIL),
+      'TIMEOUT': flags.FlagSet(flags.TIMEOUT),
+      'NOT_SUPPORTED': flags.FlagSet(flags.NOT_SUPPORTED),
+      'LARGE': flags.FlagSet(flags.LARGE),
 
       # OPTIONS is commonly used for the conditions.
       'OPTIONS': OPTIONS,
@@ -270,7 +271,7 @@ def default_run_configuration():
   return _evaluate({
       'configurations': [{
           'enable_if': OPTIONS.weird(),
-          'flags': flags.FLAKY,
+          'flags': flags.FlagSet(flags.FLAKY),
       }]})
 
 

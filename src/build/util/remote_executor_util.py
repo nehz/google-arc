@@ -79,7 +79,7 @@ _INTEGRATION_TEST_GLOB_TEMPLATE_LIST = [
     '{out}/target/common/obj/JAVA_LIBRARIES/uiautomator.*/javalib.jar',
     '{out}/target/common/vmHostTests',
     '{out}/third_party_apks/*',
-    '{out}/tools/apk_to_crx.py',
+    '{out}/tools/apk_to_crx.zip',
     'run_integration_tests',
     'src/integration_tests',
     'third_party/android-cts/android-cts/repository/plans/CTS.xml',

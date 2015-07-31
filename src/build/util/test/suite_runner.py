@@ -18,7 +18,6 @@ from util import file_util
 from util import launch_chrome_util
 from util.test import scoreboard
 from util.test import suite_runner_config
-from util.test import suite_runner_config_flags as flags
 from util.test import suite_runner_util
 from util.test import test_method_result
 
@@ -142,8 +141,8 @@ class SuiteRunnerBase(object):
 
     flags
 
-      A combination of util.test.suite_runner_config_flags flag values that
-      indicate the expected result of running the suite.
+      util.test.expectation.FlagSet value that indicates the expected result
+      of running the suite.
 
     suite_test_expectations
 
@@ -240,11 +239,6 @@ class SuiteRunnerBase(object):
 
   def get_scoreboard(self):
     return self._scoreboard
-
-  @property
-  def expect_failure(self):
-    """Returns the expected result of the whole suite."""
-    return flags.FAIL in self._flags or flags.TIMEOUT in self._flags
 
   @property
   def bug(self):

@@ -4,7 +4,7 @@
 
 import unittest
 
-from util.test import suite_runner_config_flags as flags
+from util.test import flags
 from util.test import test_filter
 
 
@@ -73,21 +73,23 @@ class TestRunFilterTest(unittest.TestCase):
   def test_should_run(self):
     # Check the default behavior.
     instance = test_filter.TestRunFilter()
-    self.assertTrue(instance.should_run(flags.PASS))
-    self.assertTrue(instance.should_run(flags.FLAKY | flags.PASS))
-    self.assertFalse(instance.should_run(flags.FAIL))
-    self.assertFalse(instance.should_run(flags.TIMEOUT))
-    self.assertFalse(instance.should_run(flags.NOT_SUPPORTED))
-    self.assertFalse(instance.should_run(flags.LARGE | flags.PASS))
+    self.assertTrue(instance.should_run(flags.FlagSet(flags.PASS)))
+    self.assertTrue(instance.should_run(flags.FlagSet(flags.FLAKY)))
+    self.assertFalse(instance.should_run(flags.FlagSet(flags.FAIL)))
+    self.assertFalse(instance.should_run(flags.FlagSet(flags.TIMEOUT)))
+    self.assertFalse(instance.should_run(flags.FlagSet(flags.NOT_SUPPORTED)))
+    self.assertFalse(instance.should_run(
+        flags.FlagSet(flags.PASS | flags.LARGE)))
 
     instance = test_filter.TestRunFilter(include_fail=True)
-    self.assertTrue(instance.should_run(flags.FAIL))
+    self.assertTrue(instance.should_run(flags.FlagSet(flags.FAIL)))
 
     instance = test_filter.TestRunFilter(include_large=True)
-    self.assertTrue(instance.should_run(flags.LARGE | flags.PASS))
+    self.assertTrue(instance.should_run(
+        flags.FlagSet(flags.PASS | flags.LARGE)))
 
     instance = test_filter.TestRunFilter(include_timeout=True)
-    self.assertTrue(instance.should_run(flags.TIMEOUT))
+    self.assertTrue(instance.should_run(flags.FlagSet(flags.TIMEOUT)))
 
 
 if __name__ == '__main__':
