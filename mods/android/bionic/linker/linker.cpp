@@ -88,12 +88,6 @@ void phdr_table_get_nacl_gapped_layout_info(
 // CallConstructors().
 extern linker_function_t __init_array;
 extern linker_function_t __init_array_end;
-
-#if defined(__x86_64__)
-// See bionic/libc/include/private/get_tls_for_art.
-__attribute__((section(".get_tls_for_art")))
-get_tls_fn_t get_tls_for_art = &__get_tls;
-#endif
 #endif  // __native_client__
 
 // Add the forward declaration for load_main_binary.

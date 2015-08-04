@@ -512,6 +512,9 @@ TEST(pthread, pthread_getcpuclockid__clock_gettime) {
 // ARC MOD BEGIN
 #endif
 // ARC MOD END
+  // ARC MOD BEGIN UPSTREAM bionic-test-fix-thread-leak
+  ASSERT_EQ(0, pthread_join(t, NULL));
+  // ARC MOD END UPSTREAM
 }
 
 TEST(pthread, pthread_getcpuclockid__no_such_thread) {

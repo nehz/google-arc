@@ -1027,7 +1027,7 @@ def _generate_linker_script_for_runnable_ld():
 
   rule_name = 'gen_runnable_ld_lds'
   n = ninja_generator.NinjaGenerator(rule_name)
-  cc = toolchain.get_tool(OPTIONS.target(), 'cc')
+  cc = toolchain.get_tool(OPTIONS.target(), 'clang')
   n.rule(rule_name,
          command='$in %s > $out || (rm $out; exit 1)' % cc,
          description=rule_name)
@@ -1117,10 +1117,13 @@ def _generate_runnable_ld_ninja():
   # and x86_64, we use our own begin.c.
   sources.remove('android/bionic/linker/arch/x86/begin.c')
 
+  if OPTIONS.is_nacl_x86_64():
+    sources.append('android/bionic/linker/get_tls_for_art.S')
+
   ldflags = n.get_ldflags()
   if OPTIONS.is_nacl_build():
     ldflags += (' -dynamic' +
-                ' -Wl,-Ttext=' + _LOADER_TEXT_SECTION_START_ADDRESS +
+                ' -Wl,-Ttext-segment=' + _LOADER_TEXT_SECTION_START_ADDRESS +
                 ' -Wl,-T ' + linker_script)
   else:
     # We need to use recent linkers for __ehdr_start.

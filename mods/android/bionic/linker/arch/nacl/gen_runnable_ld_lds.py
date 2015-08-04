@@ -26,7 +26,7 @@ import sys
 
 
 def main(args):
-  args.extend(['-nostdlib', '-nostartfiles', '-shared', '-Wl,--verbose'])
+  args.extend(['-nostdlib', '-shared', '-Wl,--verbose'])
   # As we specify --verbose for the linker, it outputs ldscript.
   output = subprocess.check_output(args)
 
@@ -52,15 +52,15 @@ def main(args):
       r'\1PROVIDE (__init_array = .);\1\2\1PROVIDE (__init_array_end = .);',
       output)
 
-  if re.search(r'OUTPUT_ARCH\(i386:x86-64\)', output):
+  if re.search(r'OUTPUT_ARCH\(i386:x86-64:nacl\)', output):
     # Place a pointer to __get_tls in a fixed address on NaCl
     # x86-64. 0x10020000 is at the beginning of the Bionic loader's
     # readonly segment.
     # See also bionic/libc/include/private/get_tls_for_art.h.
     output = re.sub(r'(\.note\.gnu\.build-id +:)',
                     r'. = 0x10020000; .get_tls_for_art : { '
-                    r'KEEP(*(.get_tls_for_art)) } :seg_rodata\n'
-                    r' . = 0x10020004; \1', output)
+                    r'KEEP(*(.get_tls_for_art)) } \n'
+                    r'  . = 0x10020004; \1', output)
 
   print output
 
