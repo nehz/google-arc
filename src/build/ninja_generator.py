@@ -47,6 +47,11 @@ def get_libgcc_for_bare_metal():
                       'intermediates/libgcc/libgcc.a')
 
 
+def get_libgcc_eh_for_nacl():
+  return os.path.join(build_common.get_build_dir(),
+                      'intermediates/libgcc/libgcc_eh.a')
+
+
 def get_libgcc_installed_dir_for_bare_metal():
   assert OPTIONS.is_bare_metal_build()
   return ('third_party/ndk/toolchains/arm-linux-androideabi-4.6/prebuilt/'
@@ -54,21 +59,16 @@ def get_libgcc_installed_dir_for_bare_metal():
 
 
 def _get_libgcc_for_bionic_realpath():
+  # Compilers uses libgcc.a as the runtime library, and emit code to call
+  # functions in libgcc.a.
+  # https://gcc.gnu.org/onlinedocs/gccint/Libgcc.html
+  #
   # TODO(crbug.com/283798): We might need to build libgcc by ourselves.
   if OPTIONS.is_nacl_build():
-    # GCC emits code to call functions in libgcc when the instruction
-    # sequence will be too long if it emits inline code.
-    # http://gcc.gnu.org/onlinedocs/gccint/Libgcc.html
-    #
-    # We use newlib's libgcc.a because glibc's libgcc.a defines all
-    # symbols with __attribute__((visibility("hidden"))) so we cannot
-    # expose these symbols from libc.so. We cannot also use libgcc.so for
-    # glibc as it has a DT_NEEDED entry to glibc's libc.so.
-    bits_subdir = '' if OPTIONS.is_x86_64() else '32/'
-    return [os.path.join(
-        toolchain.get_nacl_sdk_path(),
-        'toolchain/linux_x86_newlib/lib/gcc/x86_64-nacl/4.4.3/%slibgcc.a' %
-        bits_subdir)]
+    # libgcc_eh.a contains exception handling code that we use it to get
+    # backtrace.
+    return [os.path.join(toolchain.get_nacl_libgcc_dir(), 'libgcc.a'),
+            get_libgcc_eh_for_nacl()]
   elif OPTIONS.is_bare_metal_build():
     return [get_libgcc_for_bare_metal()]
   raise Exception('Bionic is not supported yet for ' + OPTIONS.target())
@@ -1810,9 +1810,10 @@ class CNinjaGenerator(NinjaGenerator):
       module_name = dep
       if os.path.sep in module_name:
         module_name = os.path.splitext(os.path.basename(module_name))[0]
-      if module_name == 'libgcc':
-        # libgcc is not built for nacl mode and even in BMM where we generate
-        # it, the code remains permissively licensed.
+      if (module_name == 'libgcc' or
+          (module_name == 'libgcc_eh' and OPTIONS.is_nacl_build())):
+        # libgcc and libgcc_eh are not built for nacl mode and even in BMM where
+        # we generate it, the code remains permissively licensed.
         continue
       module_names.append(module_name)
     return module_names

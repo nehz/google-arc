@@ -447,15 +447,21 @@ def _check_any_license(stats, our_path, tracking_path, default_tracking):
     return
   staged_notices = Notices()
   staged_notices.add_sources([our_path])
-  # our_path will be a pre-staging path, and so we need to additionally
-  # allow its tracking path to have a license file.
+
   if tracking_path:
+    # our_path will be a pre-staging path, and so we need to additionally
+    # allow its tracking path to have a license file.
     staged_notices.add_sources([tracking_path])
-  else:
+  elif default_tracking:
     # For newly added files (no tracking path) we just assume the default
     # tracking path.
-    if default_tracking:
-      staged_notices.add_sources([default_tracking])
+    staged_notices.add_sources([default_tracking])
+  elif our_path.startswith('third_party/'):
+    # For third_party files, the NOTICE file may be added via mods/ directory.
+    # Check the directory, too.
+    staged_notices.add_sources(
+        [os.path.join('mods', os.path.relpath(our_path, 'third_party'))])
+
   if not staged_notices.has_proper_metadata():
     show_error(stats, 'File has no notice/license information.')
 

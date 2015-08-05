@@ -430,16 +430,27 @@ class ChromeFlakinessHandler(concurrent_subprocess.DelegateOutputHandlerBase):
   Note that this handler wraps any handler, and passes through all
   stdout and stderr output to it.
   """
-  _LAUNCH_CHROME_MINIMUM_LINES = 16
+  _LAUNCH_CHROME_MINIMUM_LINES = 20
   _LAUNCH_CHROME_TIMEOUT = 30  # In seconds.
   # In some situation, following message is repeatedly output, so that
   # the output line easily exceeds the limit above. To detect error
   # a little bit more stably, exclude such messages.
   _EXCLUDE_MESSAGE_LIST = [
+      'Gtk-Message: Failed to load module "canberra-gtk-module"',
       'GTK theme error: Unable to locate theme engine in module_path: "murrine"'
   ]
   _EXCLUDE_MESSAGE_PATTERN = re.compile('|'.join(
       re.escape(message) for message in _EXCLUDE_MESSAGE_LIST))
+
+  # Currently, Chrome sometimes fail to launch a plugin process.
+  # If it is detected, terminate the Chrome, and retry.
+  # cf) crbug.com/511058
+  _CHROME_FLAKINESS_MESSAGE_LIST = [
+      'Check failed: sandbox::Credentials::MoveToNewUserNS()',
+      'Bad NaCl helper startup ack',
+  ]
+  _CHROME_FLAKINESS_MESSAGE_PATTERN = re.compile('|'.join(
+      re.escape(message) for message in _CHROME_FLAKINESS_MESSAGE_LIST))
 
   def __init__(self, base_handler, chrome_process):
     super(ChromeFlakinessHandler, self).__init__(base_handler)
@@ -468,6 +479,16 @@ class ChromeFlakinessHandler(concurrent_subprocess.DelegateOutputHandlerBase):
       return
 
     if ChromeFlakinessHandler._EXCLUDE_MESSAGE_PATTERN.search(line):
+      return
+
+    if ChromeFlakinessHandler._CHROME_FLAKINESS_MESSAGE_PATTERN.search(line):
+      # On plugin launch failure, terminate the Chrome and retry.
+      # Note that this code has a small race that _timeout_callback() may be
+      # invoked twice. However, it should work, because
+      # chrome_process.terminate() should handle the asynchronous invocation.
+      self._timer.cancel()
+      self._timer = None
+      self._timeout_callback()
       return
 
     self._line_count += 1

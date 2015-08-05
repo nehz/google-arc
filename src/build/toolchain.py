@@ -22,9 +22,9 @@ _NACL_TOOLS_PATH = os.path.join(_NACL_SDK_PATH, 'tools')
 _PNACL_BIN_PATH = os.path.join(_NACL_SDK_PATH, 'toolchain/linux_pnacl/bin')
 _PNACL_CLANG_VERSIONS_PATH = \
     os.path.join(_NACL_SDK_PATH, 'toolchain/linux_pnacl/lib/clang')
-# Don't calculate _PNACL_INCLUDE_DIR here (since it needs filesystem access),
-# do that in get_pnacl_include_dir() instead.
-_PNACL_INCLUDE_DIR = None
+# Don't calculate _PNACL_SYSTEM_DIR here (since it needs filesystem access),
+# do that in get_pnacl_system_dir() instead.
+_PNACL_SYSTEM_DIR = None
 # TODO(crbug.com/247242): support --naclsdktype={debug,release}
 _NACL_SDK_RELEASE = 'Release'  # alternative: Debug
 _QEMU_ARM_LD_PATH = '/usr/arm-linux-gnueabihf'
@@ -127,22 +127,26 @@ def get_nacl_irt_core(bitsize):
   return get_nacl_tool('irt_core_x86_%d.nexe' % bitsize)
 
 
-def _find_pnacl_include_dir():
+def _find_pnacl_system_dir():
   versions = os.listdir(_PNACL_CLANG_VERSIONS_PATH)
   assert versions, 'No clang versions found under %s' % \
       _PNACL_CLANG_VERSIONS_PATH
   # Get the largest version, taking care to order '10' above '2'
   # by converting the string into an array of integers.
   version = max(versions, key=lambda v: [int(x) for x in v.split('.')])
-  return os.path.join(_PNACL_CLANG_VERSIONS_PATH, version, 'include')
+  return os.path.join(_PNACL_CLANG_VERSIONS_PATH, version)
+
+
+def get_pnacl_system_dir():
+  global _PNACL_SYSTEM_DIR
+  # Recalculate _PNACL_SYSTEM_DIR if needed
+  if _PNACL_SYSTEM_DIR is None:
+    _PNACL_SYSTEM_DIR = _find_pnacl_system_dir()
+  return _PNACL_SYSTEM_DIR
 
 
 def get_pnacl_include_dir():
-  global _PNACL_INCLUDE_DIR
-  # Recalculate _PNACL_INCLUDE_DIR if needed
-  if _PNACL_INCLUDE_DIR is None:
-    _PNACL_INCLUDE_DIR = _find_pnacl_include_dir()
-  return _PNACL_INCLUDE_DIR
+  return os.path.join(get_pnacl_system_dir(), 'include')
 
 
 def _get_runner_env_vars(use_test_library=True,
@@ -526,3 +530,8 @@ def get_clang_version(target):
   while len(version) < 3:
     version.append(0)
   return version
+
+
+def get_nacl_libgcc_dir():
+  dirname = 'x86_64-nacl' if OPTIONS.is_x86_64() else 'i686-nacl'
+  return os.path.join(get_pnacl_system_dir(), 'lib', dirname)

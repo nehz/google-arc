@@ -185,7 +185,6 @@ def _filter_libc_common(vars):
       # separate archive and build them with -Werror.
       'android/bionic/libc/arch-nacl/bionic/__set_tls.c',
       'android/bionic/libc/arch-nacl/bionic/clone.cpp',
-      'android/bionic/libc/arch-nacl/bionic/popcount.c',
       'android/bionic/libc/arch-nacl/syscalls/__exit.cpp',
       'android/bionic/libc/arch-nacl/syscalls/__getcwd.c',
       'android/bionic/libc/arch-nacl/syscalls/__getdents64.c',
@@ -1537,6 +1536,60 @@ def _generate_libgcc_ninja():
   n.build(ninja_generator.get_libgcc_for_bare_metal(), rule_name, orig_libgcc)
 
 
+def _generate_libgcc_eh_ninja():
+  if not OPTIONS.is_nacl_build():
+    return
+
+  # Create indirections to expose hidden functions in libgcc_eh.a to DSOs.
+  # PNaCl toolchain has its compiler runtime and exception handling code
+  # separately in libgcc.a and libgcc_eh.a.
+  # Though we need to access libgcc_eh.a from DSOs for getting backtrace,
+  # all symbols in libgcc_eh.a are hidden symbols.
+  # To expose necessary symbols, we rename these hidden symbols to "__real"
+  # prefixed ones, and define proxy functions for them.
+  #
+  # On the native Linux, libgcc_eh.a is linked only for statically linked
+  # binaries, and libgcc_s.so is linked for dynamically linked binaries.
+  # However, PNaCl toolchain doesn't support DSOs and doesn't have libgcc_s.so
+  # at this time.
+
+  # TODO(crbug.com/283798): Build libgcc by ourselves.
+  n = ninja_generator.CNinjaGenerator('generate_libgcc')
+
+  target = OPTIONS.target()
+  orig_libgcc = os.path.join(toolchain.get_nacl_libgcc_dir(), 'libgcc_eh.a')
+
+  libgcc_proxy = staging.as_staging(
+      'android/bionic/libc/arch-nacl/bionic/libgcc_proxy.S')
+  libgcc_proxy_rename_list = n.get_build_path('rename_list')
+  gen_rename_list_rule = 'gen_rename_list'
+  n.rule(gen_rename_list_rule,
+         command=' '.join(['sed', '-n',
+                           '\'s/^define_proxy \\(.*\\)$$/\\1 __real\\1/p\'',
+                           '$in', '>', '$out']))
+  n.build(libgcc_proxy_rename_list, gen_rename_list_rule, inputs=[libgcc_proxy])
+
+  symbol_rename_rule = 'rename_symbols'
+  n.rule(symbol_rename_rule,
+         command=' '.join([toolchain.get_tool(target, 'objcopy'),
+                           '--redefine-syms=$rename_list', '$in', '$out']))
+
+  renamed_a = n.get_build_path('renamed.a')
+  n.build(renamed_a, symbol_rename_rule, inputs=orig_libgcc,
+          implicit=[libgcc_proxy_rename_list],
+          variables={'rename_list': libgcc_proxy_rename_list})
+
+  append_obj_rule = 'append_obj'
+  n.rule(append_obj_rule,
+         command=' '.join(['cp', '$in', '$out', '&&',
+                           toolchain.get_tool(target, 'ar'),
+                           'rs', '$out', '$objs']))
+  objs = n.asm_with_preprocessing(libgcc_proxy)
+  n.build(ninja_generator.get_libgcc_eh_for_nacl(),
+          append_obj_rule, inputs=renamed_a, implicit=objs,
+          variables={'objs': ' '.join(objs)})
+
+
 def generate_ninjas():
   ninja_generator_runner.request_run_in_parallel(
       _generate_bionic_test_lib_ninja,
@@ -1546,7 +1599,8 @@ def generate_ninjas():
       _generate_libdl_ninja,
       _generate_runnable_ld_ninja,
       _generate_crt_bionic_ninja,
-      _generate_libgcc_ninja)
+      _generate_libgcc_ninja,
+      _generate_libgcc_eh_ninja)
 
 
 def generate_test_ninjas():

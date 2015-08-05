@@ -105,7 +105,8 @@ class BaseDriver(object):
     self._run(launch_chrome_util.get_launch_chrome_command([
         'perftest',
         '--noninja',
-        '--iterations=' + str(self._args.iterations)
+        '--iterations=' + str(self._args.iterations),
+        '--chrome-flakiness-retry=3',
     ] + args))
 
   def _atftest(self, args=None):
@@ -117,6 +118,7 @@ class BaseDriver(object):
     self._run(launch_chrome_util.get_launch_chrome_command([
         'atftest',
         '--noninja',
+        '--chrome-flakiness-retry=3',
     ] + args))
 
   def _load_output(self):
