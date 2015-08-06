@@ -1162,7 +1162,8 @@ class MakeVars:
 
     # If a pre-built library should be installed from the canned directory.
     # TODO(crbug.com/364344): Once Renderscript is built from source, remove.
-    self._is_canned = False
+    self._is_canned_arm = False
+    self._is_canned_x86 = False
 
     # C++ exceptions are disabled by default. Only certain modules that
     # absolutely require them (like pdfium) should set this to True
@@ -1799,11 +1800,17 @@ class MakeVars:
   def get_extra_notices(self):
     return self._extra_notices
 
-  def set_canned(self, canned):
-    self._is_canned = canned
+  def set_canned_arm(self, canned):
+    self._is_canned_arm = canned
 
-  def is_canned(self):
-    return self._is_canned
+  def set_canned_x86(self, canned):
+    self._is_canned_x86 = canned
+
+  def is_canned_arm(self):
+    return self._is_canned_arm
+
+  def is_canned_x86(self):
+    return self._is_canned_x86
 
   def get_generated_sources(self):
     assert self.is_java_library()
@@ -1982,13 +1989,15 @@ def _generate_c_ninja(vars, out_lib_deps):
   out_libs = _generate_out_libs(n, vars, copied_headers)
   _append_out_lib_deps(out_lib_deps, out_libs)
 
-  if vars.is_canned():
-    filename = '%s.so' % vars.get_module_name()
-    # TODO(crbug.com/484758): Install the file to /vendor/lib-x86 when the
-    # file is for x86 (EM_386).
+  filename = '%s.so' % vars.get_module_name()
+  if vars.is_canned_arm():
     n.install_to_root_dir(
         os.path.join('vendor/lib-armeabi-v7a', filename),
         os.path.join('canned/target/android/vendor/lib-neon', filename))
+  if vars.is_canned_x86():
+    n.install_to_root_dir(
+        os.path.join('vendor/lib-x86', filename),
+        os.path.join('canned/target/android/vendor/lib-x86', filename))
 
   if vars.is_target_test_executable():
     n.run(out_libs, enable_valgrind=OPTIONS.enable_valgrind())

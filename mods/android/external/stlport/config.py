@@ -4,7 +4,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import build_common
 import ninja_generator
 from build_options import OPTIONS
 from make_to_ninja import MakefileNinjaTranslator
@@ -90,8 +89,8 @@ def generate_ninjas():
       vars.get_generator_args()['is_system_library'] = True
       # TODO(crbug.com/364344): Once Renderscript is built from source, this
       # canned install can be removed.
-      if not build_common.use_ndk_direct_execution():
-        vars.set_canned(True)
+      if not OPTIONS.is_arm():
+        vars.set_canned_arm(True)
     return True
   MakefileNinjaTranslator(_STLPORT_ROOT).generate(_filter)
 
