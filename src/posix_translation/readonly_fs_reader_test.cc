@@ -414,10 +414,36 @@ TEST_F(ReadonlyFsReaderTest, TestParseImageProd) {
   EXPECT_TRUE(FindFile(reader_prod_->file_objects_, "/system/bin/sh"));
   EXPECT_TRUE(FindFile(reader_prod_->file_objects_,
                        "/system/usr/share/zoneinfo/tzdata"));
-  // TODO(crbug.com/484758): Check lib-x86 once crbug.com/484758 is fixed.
+  // libRS.so is a canned library not built at all by ARC.
+  // - ARM version is always provided.
+  // - x86 version is provided only when NDK direct execution is enabled
+  //   under x86.
   EXPECT_TRUE(FindFile(reader_prod_->file_objects_,
                        "/vendor/lib-armeabi-v7a/libRS.so"));
-  // /vendor/lib/libstdc++.so (pre-built ARM) has been removed in favor of
+#if defined(__i386__) && defined(USE_NDK_DIRECT_EXECUTION)
+  EXPECT_TRUE(FindFile(reader_prod_->file_objects_,
+                       "/vendor/lib-x86/libRS.so"));
+#else
+  EXPECT_FALSE(FindFile(reader_prod_->file_objects_,
+                        "/vendor/lib-x86/libRS.so"));
+#endif
+  // libutils.so is needed by libRS.so. It is built by ARC, but we do not have
+  // NDK trampolines yet.
+  // - ARM version is provided only for non-ARM (x86) targets to satisfy
+  //   dependency of libRS.so.
+  // - x86 version is never provided in favor of a native version in
+  //   /system/lib.
+#if !defined(__arm__)
+  EXPECT_TRUE(FindFile(reader_prod_->file_objects_,
+                       "/vendor/lib-armeabi-v7a/libutils.so"));
+#else
+  EXPECT_FALSE(FindFile(reader_prod_->file_objects_,
+                        "/vendor/lib-armeabi-v7a/libutils.so"));
+#endif
+  EXPECT_FALSE(FindFile(reader_prod_->file_objects_,
+                        "/vendor/lib-x86/libutils.so"));
+  // libstdc++.so is needed by libRS.so. Since it is built by ARC and NDK
+  // trampolines for it exist, we do not need a canned binary in favor of
   // a native version in /system/lib.
   EXPECT_FALSE(FindFile(reader_prod_->file_objects_,
                         "/vendor/lib-armeabi-v7a/libstdc++.so"));

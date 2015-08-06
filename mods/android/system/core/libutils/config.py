@@ -38,11 +38,10 @@ def _generate_libutils_ninja():
       vars.get_whole_archive_deps().append('libutils_static')
       # TODO(crbug.com/364344): Once Renderscript is built from source, this
       # canned install can be removed.
-      # TODO(crbug.com/484862): Once we set up an NDK proxy library for
-      # libutils.so, we can go back to using the canned version only if "not
-      # build_common.use_ndk_direct_execution()".
-      if not build_options.OPTIONS.is_bare_metal_arm():
-        vars.set_canned(True)
+      # TODO(crbug.com/484862): Or, once we set up NDK trampolines for
+      # libutils.so, this canned install can be removed.
+      if not build_options.OPTIONS.is_arm():
+        vars.set_canned_arm(True)
     else:
       vars.set_module_name('libutils_static')
     return True

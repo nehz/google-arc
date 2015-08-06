@@ -39,6 +39,7 @@
 #include "posix_translation/abstract_socket_namespace.h"
 #include "posix_translation/file_system_handler.h"
 #include "posix_translation/host_resolver.h"
+#include "posix_translation/logd_socket_namespace.h"
 #include "posix_translation/virtual_file_system_interface.h"
 #include "ppapi/cpp/file_system.h"
 #include "ppapi/utility/completion_callback_factory.h"
@@ -272,6 +273,10 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
     return &abstract_socket_namespace_;
   }
 
+  LogdSocketNamespace* GetLogdSocketNamespace() {
+    return &logd_socket_namespace_;
+  }
+
   // Option to specify how to normalize a path. Public for testing.
   enum NormalizeOption {
     // Resolve all symlinks for a path.
@@ -377,6 +382,8 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   ino_t next_inode_;
   scoped_ptr<MountPointManager> mount_points_;
   AbstractSocketNamespace abstract_socket_namespace_;
+  // TODO(crbug/513081): Implement UNIX domain socket with names and remove this
+  LogdSocketNamespace logd_socket_namespace_;
 
   HostResolver host_resolver_;
 

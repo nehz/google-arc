@@ -7,14 +7,10 @@
 
 #include <sys/prctl.h>  // For setting thread names.
 
-#include "common/trace_event.h"
-
 namespace arc {
 
-inline void SetThreadDebugName(const char* name, bool tell_trace) {
+inline void SetThreadDebugName(const char* name) {
   prctl(PR_SET_NAME, name, 0, 0, 0);
-  if (tell_trace)
-    trace::SetThreadName(name);
 }
 
 }  // namespace arc

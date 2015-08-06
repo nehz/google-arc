@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from build_options import OPTIONS
 import make_to_ninja
 import open_source
 
@@ -29,8 +30,9 @@ def generate_ninjas():
       vars.get_shared_deps().extend(['libc', 'libm', 'libdl'])
 
     # Install an additional ARM version of libc++.so for Renderscript.
-    if vars.is_target() and vars.get_module_name() == 'libc++':
-      vars.set_canned(True)
+    if (vars.is_target() and vars.get_module_name() == 'libc++' and
+        not OPTIONS.is_arm()):
+      vars.set_canned_arm(True)
 
     vars.get_whole_archive_deps().remove('libcompiler_rt')
     vars.get_shared_deps().append('libcompiler_rt')

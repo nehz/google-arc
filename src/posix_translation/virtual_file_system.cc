@@ -144,6 +144,7 @@ VirtualFileSystem::VirtualFileSystem(
       next_inode_(128),
       mount_points_(new MountPointManager),
       abstract_socket_namespace_(&mutex_),
+      logd_socket_namespace_(&mutex_),
       host_resolver_(instance),
       abort_on_unexpected_memory_maps_(true) {
   ALOG_ASSERT(!file_system_);
@@ -1360,6 +1361,7 @@ int VirtualFileSystem::socket(int socket_family, int socket_type,
     errno = EMFILE;
     return -1;
   }
+
   bool is_inet = (socket_family == AF_INET || socket_family == AF_INET6);
   scoped_refptr<FileStream> socket;
   if (is_inet && socket_type == SOCK_DGRAM) {
@@ -1368,7 +1370,12 @@ int VirtualFileSystem::socket(int socket_family, int socket_type,
     socket = new TCPSocket(fd, socket_family, O_RDWR);
   } else if (socket_family == AF_UNIX && socket_type == SOCK_STREAM) {
     socket = new LocalSocket(O_RDWR, socket_type, LocalSocket::READ_WRITE);
+  } else if (socket_family == AF_UNIX && socket_type == SOCK_SEQPACKET) {
+    socket = new LocalSocket(O_RDWR, socket_type, LocalSocket::READ_WRITE);
+  } else if (socket_family == AF_UNIX && socket_type == SOCK_DGRAM) {
+    socket = new LocalSocket(O_RDWR, socket_type, LocalSocket::READ_WRITE);
   } else {
+    fd_to_stream_->RemoveFileStream(fd);
     // Only supporting SOCK_DGRAM and SOCK_STREAM right now. Fail otherwise.
     ALOGE("Request for unknown socket type %d, family=%d, protocol=%d",
           socket_type, socket_family, protocol);

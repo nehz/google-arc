@@ -23,8 +23,6 @@ _CREATE_READONLY_FS_IMAGE_SCRIPT = (
 
 
 # Mount points for directories.
-# TODO(crbug.com/484758): Remove /vendor/lib-x86 once x86 Renderscript binaries
-# are added to the image.
 _EMPTY_DIRECTORIES = ['/cache',
                       '/data',
                       '/storage',
@@ -32,7 +30,6 @@ _EMPTY_DIRECTORIES = ['/cache',
                       '/system/lib',
                       '/usr/lib',
                       '/vendor/chromium/crx',
-                      '/vendor/lib-x86',
                       '/vendor/lib']
 
 
@@ -219,6 +216,8 @@ def generate_test_ninjas():
                      'libchromium_base.a',
                      'libcommon.a',
                      'libgccdemangle_static.a')
+  if build_common.use_ndk_direct_execution():
+    n.add_defines('USE_NDK_DIRECT_EXECUTION')
   implicit = [gen_test_image]
   if open_source.is_open_source_repo():
     implicit.append(gen_prod_image)

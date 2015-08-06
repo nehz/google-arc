@@ -209,10 +209,17 @@ static int check_perms(const char *name, char *sctx)
     return check_mac_perms(name, sctx);
 }
 
+/* ARC MOD BEGIN */
+/* Do not expose unnecessary symbol. */
+#if !defined(HAVE_ARC)
+/* ARC MOD END */
 int __property_get(const char *name, char *value)
 {
     return __system_property_get(name, value);
 }
+/* ARC MOD BEGIN */
+#endif
+/* ARC MOD END */
 
 static void write_persistent_property(const char *name, const char *value)
 {

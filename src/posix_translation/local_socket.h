@@ -56,6 +56,8 @@ class LocalSocket : public SocketStream {
   virtual int listen(int backlog) OVERRIDE;
   virtual int getsockopt(int level, int optname, void* optval,
                          socklen_t* optlen) OVERRIDE;
+  virtual int setsockopt(int level, int optname, const void* optval,
+                         socklen_t optlen) OVERRIDE;
 
   virtual off64_t lseek(off64_t offset, int whence) OVERRIDE;
   virtual ssize_t read(void* buf, size_t count) OVERRIDE;
@@ -85,19 +87,28 @@ class LocalSocket : public SocketStream {
  protected:
   virtual ~LocalSocket();
   virtual void OnLastFileRef() OVERRIDE;
+  bool ValidateSockaddr(const sockaddr* addr, socklen_t addrlen);
+  bool ConvertSockaddrToName(const sockaddr* addr,
+                             socklen_t addrlen,
+                             std::string* out_name);
   bool ConvertSockaddrToAbstractName(const sockaddr* addr,
                                      socklen_t addrlen,
                                      std::string* out_name);
 
  private:
+  struct Datagram {
+    ucred cred_;
+    std::vector<char> content_;
+  };
   // Very limited control message support (SCM_RIGHTS passing file descriptors).
   typedef std::deque<std::vector<int> > ControlMessageFDQueue;
-  typedef std::deque<std::vector<char> > MessageQueue;
+  typedef std::deque<Datagram> DatagramQueue;
+  typedef std::vector<scoped_refptr<LocalSocket> > SocketVector;
 
   bool CanRead() const;
   bool CanWrite() const;
-  int HandleSendmsgLocked(const struct msghdr* msg);
-  bool HandleConnectLocked(LocalSocket* listening);
+  int HandleSendmsgLocked(const struct msghdr* msg, const ucred& peer_cred);
+  bool HandleConnectLocked(LocalSocket* bound_socket);
   void WaitForLocalSocketConnect();
   void WaitForOpenedConnectToAccept();
 
@@ -121,14 +132,19 @@ class LocalSocket : public SocketStream {
 
   arc::CircularBuffer buffer_;
   scoped_refptr<LocalSocket> peer_;
-  MessageQueue queue_;
+  DatagramQueue queue_;
   ControlMessageFDQueue cmsg_fd_queue_;
   std::string abstract_name_;
+  // TODO(crbug/513081): Implement UNIX domain socket with names and remove this
+  std::string logd_name_;
+  std::string logd_target_name_;
   // Credentials of creator if this socket.
   ucred my_cred_;
   // Credentials of peer this socket is currently (or was previously)
   // connected to.
   ucred peer_cred_;
+  // Enable/disable credentials pass.
+  int pass_cred_;
 
   DISALLOW_COPY_AND_ASSIGN(LocalSocket);
 };

@@ -13,8 +13,14 @@ namespace {
   const PPB_Trace_Event_Dev* g_trace_iface = NULL;
 }
 
+typedef void (*SetThreadNameType)(const char* name);
+void RegisterTraceSetThreadName(SetThreadNameType f);
+
 void Init(const PPB_Trace_Event_Dev* iface) {
   g_trace_iface = iface;
+
+  // Tell bionic about our SetThreadName.
+  RegisterTraceSetThreadName(&SetThreadName);
 }
 
 const unsigned char* GetCategoryEnabled(const char* category_name) {

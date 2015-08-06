@@ -445,6 +445,9 @@ class Database(object):
     total_costs_by_owner = Database.total_costs_by_owner(all_possible_owners,
                                                          dirs)
     # Return the lowest cost owner. In the case of a tie, pick one randomly.
+    # ARC MOD BEGIN
+    assert total_costs_by_owner, 'No more owners for dirs %s' % dirs
+    # ARC MOD END
     lowest_cost = min(total_costs_by_owner.itervalues())
     lowest_cost_owners = filter(
         lambda owner: total_costs_by_owner[owner] == lowest_cost,
