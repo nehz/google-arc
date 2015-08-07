@@ -74,6 +74,7 @@ def _validate_perftest_settings(parser, args):
   if args.mode == 'perftest':
     if args.iterations < 1:
       args.iterations = 1
+    args.stop_before_resume = True
   else:
     if args.no_cache_warming:
       parser.error("--no-cache-warming only valid in 'perftest' mode")

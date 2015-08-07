@@ -173,6 +173,13 @@
     "childPlugin": true
   },
   {
+    "name": "stopBeforeResume",
+    "defaultValue": false,
+    "help": "Stops just before onResume() is called.",
+    "developerOnly": true,
+    "plugin": true
+  },
+  {
     "name": "useGoogleContactsSyncAdapter",
     "defaultValue": false,
     "help": "Enable Android system syncing of Google Contacts.",

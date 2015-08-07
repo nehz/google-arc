@@ -97,7 +97,12 @@ class ConfigLoader:
 
         # Compile and load the source file as a module
         with open(path_name, 'r') as config_file:
+          # Allow config_file to import more modules from its directory.
+          # sys.path.remove() removes the 1st occurance. Thus insert
+          # at the beginning.
+          sys.path.insert(0, os.path.dirname(path_name))
           config_module = imp.load_source(module_name, path_name, config_file)
+          sys.path.remove(os.path.dirname(path_name))
 
         # Register the module so we can just a later normal looking import to
         # reference it.

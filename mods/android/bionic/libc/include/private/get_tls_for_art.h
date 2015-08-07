@@ -34,6 +34,6 @@ typedef void** (*get_tls_fn_t)();
 // loaded. This address is obtained by observing /proc/<pid>/maps
 // several times.
 #define POINTER_TO_GET_TLS_FUNC_ON_BMM_I386 0x20000
-#define POINTER_TO_GET_TLS_FUNC_ON_NACL_X86_64 0x10020000
+#define POINTER_TO_GET_TLS_FUNC_ON_NACL_X86_64 0x10020200
 
 #endif  // _ANDROID_BIONIC_LIBC_INCLUDE_PRIVATE_GET_TLS_FOR_ART_H

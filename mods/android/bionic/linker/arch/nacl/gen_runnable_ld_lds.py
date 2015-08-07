@@ -55,12 +55,19 @@ def main(args):
   if re.search(r'OUTPUT_ARCH\(i386:x86-64:nacl\)', output):
     # Place a pointer to __get_tls in a fixed address on NaCl
     # x86-64. 0x10020000 is at the beginning of the Bionic loader's
-    # readonly segment.
+    # readonly segment. Reserve first 0x200 for headers to ensure rodata
+    # is the first segment on the file. Otherwise, the runtime fails to load
+    # runnable-ld.so on Windows in case the ro segment starts after last 64kB
+    # of the file. See http://crbug.com/517304
     # See also bionic/libc/include/private/get_tls_for_art.h.
     output = re.sub(r'(\.note\.gnu\.build-id +:)',
-                    r'. = 0x10020000; .get_tls_for_art : { '
+                    r'. = ASSERT(ABSOLUTE(.) < 0x10020200, '
+                    r'"Unexpected header size.'
+                    r' Adjust POINTER_TO_GET_TLS_FUNC_ON_NACL_X86_64.");\n'
+                    r'  . = 0x10020200;\n'
+                    r'  .get_tls_for_art : { '
                     r'KEEP(*(.get_tls_for_art)) } \n'
-                    r'  . = 0x10020004; \1', output)
+                    r'  . = 0x10020204; \1', output)
 
   print output
 

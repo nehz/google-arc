@@ -313,7 +313,7 @@ def _set_up_internal_repo():
 
   # Create a symlink to the integration_test definition directory, either in the
   # internal repository checkout or in the downloaded archive.
-  # It is used to determe the definitions loaded in run_integration_tests.py
+  # It is used to determine the definitions loaded in run_integration_tests.py
   # without relying on OPTIONS. Otherwise, run_integration_tests_test may fail
   # due to the mismatch between the expectations and the actual test apk since
   # it always runs under the default OPTIONS.
@@ -321,7 +321,21 @@ def _set_up_internal_repo():
     test_dir = 'internal/integration_tests'
   else:
     test_dir = 'out/internal-apks/integration_tests'
-  file_util.create_link('out/internal-apks-integration-tests', test_dir, True)
+
+  symlink_location = 'out/internal-apks-integration-tests'
+  if not os.path.islink(symlink_location) and os.path.isdir(symlink_location):
+    # TODO(crbug.com/517306): This is a short-term fix for making bots green.
+    # Remove once we implement a more proper solution (like, isolating the
+    # test bundle extraction directory from the checkout, or stop running
+    # ./configure on test-only builders.)
+    #
+    # 'Test only' bots extracts a directory structure from test-bundle zip, so
+    # in that case we don't need to create a symlink.
+    print 'WARNING: A directory exists at %s.' % symlink_location
+    print 'WARNING: If not on test-only bot, gms test expectation may be stale.'
+  else:
+    # Otherwise, (re)create the link.
+    file_util.create_link(symlink_location, test_dir, overwrite=True)
 
 
 def main():

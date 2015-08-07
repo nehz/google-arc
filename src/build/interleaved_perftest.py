@@ -176,7 +176,7 @@ class _InteractivePerfTestOutputHandler(concurrent_subprocess.OutputHandler):
     return self._handle_common(line)
 
   def _handle_common(self, line):
-    m = re.search(r'VRAWPERF=(.*)', line)
+    m = re.search(r'^VRAWPERF=(.*)', line)
     if m:
       # block=False triggers the Queue.Full if the queue is not empty.
       # See also the comment in

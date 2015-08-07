@@ -30,7 +30,6 @@ _CRASH_RE = re.compile(
     r'INFO:CONSOLE.*PING TIMEOUT|'
     r'VM aborting')
 _ABNORMAL_EXIT_RE = re.compile(
-    r'NaCl untrusted code called _exit\(0x[^0]|'
     r'INFO:CONSOLE.*Activity stack is empty\. Shutting down\.|'
     r'No GPU support\.')
 # E.g., at java.lang.reflect.Method.invokeNative(Native Method)

@@ -402,6 +402,7 @@ int FenceStream::SyncIocMerge(va_list ap) {
     errno = EMFILE;
     return -1;
   }
+  ARC_STRACE_REGISTER_FD(data->fence, data->name);
   return 0;
 }
 
