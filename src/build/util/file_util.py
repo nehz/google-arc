@@ -177,5 +177,14 @@ def glob(*patterns):
 
 def touch(path):
   """""Does the equivalent of 'touch <path>'."""
-  with open(path, 'a'):
-      os.utime(path, None)
+  try:
+    with open(path, 'a'):
+      pass
+  except IOError as e:
+    # This error is raised if the file exists, but the open for append above
+    # fails because the file is not writeable. In that case, we can still try to
+    # make the call to os.utime() below.
+    if e.errno != errno.EACCES:
+      raise
+
+  os.utime(path, None)
