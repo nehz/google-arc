@@ -170,8 +170,8 @@
    fun:clone
 }
 {
-   # TODO(crbug.com/414569): L-Rebase: There is nothing suggesting an illegal
-   # read at this location. Suppressing it just to make the tree green.
+   # TODO(crbug.com/512232): libc entropy pool is not being initialized, so
+   # mkdtemp is reading from an uninitialized area.
    mkdtemp_lmp
    Memcheck:Value4
    fun:mktemp_internal
@@ -179,8 +179,8 @@
    ...
 }
 {
-   # TODO(crbug.com/414569): L-Rebase: There is nothing suggesting an illegal
-   # read at this location. Suppressing it just to make the tree green.
+   # TODO(crbug.com/512232): libc entropy pool is not being initialized, so
+   # mkstemp is reading from an uninitialized area.
    mkstemp_lmp
    Memcheck:Value4
    fun:mktemp_internal
