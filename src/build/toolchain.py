@@ -244,7 +244,6 @@ def _get_create_nmf_script():
 def _get_create_nmf():
   return ' '.join([
       # These environ variables are needed for our fork of create_nmf.py.
-      'PYTHONPATH=third_party/chromium-ppapi/native_client_sdk/src/tools',
       'NACL_SDK_ROOT=third_party/nacl_sdk/pepper_canary',
       sys.executable,
       _get_create_nmf_script()])

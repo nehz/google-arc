@@ -70,31 +70,12 @@ static void copy_thread_info(__pthread_context_info_t* dst,
   dst->has_context_regs = 0;
 
   // Copy the stack boundaries.
-#if defined(BARE_METAL_BIONIC)
-  // Main thread or any other thread that has no stack info
-  // (e.g. stack_end_from_irt) will not be reported here, and so will be
-  // omitted from caller's outputs.
-  // Note: Because |stack_end_from_irt| is initialized in the
-  // created thread there is a chance we get an uninitialized value
-  // from it. As pthread_create always initializes
-  // pthread_internal_t by zero, this will not be a big issue. Such
-  // threads will be just ignored.
-  // TODO(crbug.com/467085): Support tracing sleeping main thread.
-  // TODO(crbug.com/372248): Remove the use of stack_end_from_irt.
-  if (src->stack_end_from_irt) {
-    // Value from chrome/src/components/nacl/loader/nonsfi/irt_thread.cc.
-    static const int kIrtStackSize = 1024 * 1024;
-    dst->stack_base = src->stack_end_from_irt - kIrtStackSize;
-    dst->stack_size = kIrtStackSize;
-  }
-#else
   if (src->attr.stack_base) {
-            dst->stack_base =
-                reinterpret_cast<char*>(src->attr.stack_base) +
-                src->attr.guard_size;
-            dst->stack_size = src->attr.stack_size - src->attr.guard_size;
+    dst->stack_base =
+        reinterpret_cast<char*>(src->attr.stack_base) +
+        src->attr.guard_size;
+    dst->stack_size = src->attr.stack_size - src->attr.guard_size;
   }
-#endif
 
   // Copy registers, then do a second (racy) read of has_context_regs.
   if (src->has_context_regs) {

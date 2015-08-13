@@ -418,7 +418,7 @@ class NinjaGenerator(ninja_syntax.Writer):
     # Rule to make a list of tests from .apk. This is shared with
     # AtfNinjaGenerator and ApkFromSdkNinjaGenerator.
     n.rule('extract_test_list',
-           ('PYTHONPATH=src/build python %s '
+           ('src/build/run_python %s '
             '--apk=$in --output=$out.tmp && mv $out.tmp $out' %
             NinjaGenerator._EXTRACT_TEST_LIST_PATH),
            description='Extract test method list from $in')
@@ -3361,7 +3361,8 @@ class JavaNinjaGenerator(NinjaGenerator):
     self._build_test_list(final_package_path,
                           rule='extract_test_list',
                           test_list_name=self._module_name,
-                          implicit=[NinjaGenerator._EXTRACT_TEST_LIST_PATH])
+                          implicit=['src/build/run_python',
+                                    NinjaGenerator._EXTRACT_TEST_LIST_PATH])
 
   def get_included_module_names(self):
     module_names = []
@@ -3708,7 +3709,8 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
         ApkFromSdkNinjaGenerator.get_final_package_for_apk(self._module_name),
         rule='extract_test_list',
         test_list_name=self._module_name,
-        implicit=[NinjaGenerator._EXTRACT_TEST_LIST_PATH])
+        implicit=['src/build/run_python',
+                  NinjaGenerator._EXTRACT_TEST_LIST_PATH])
 
   @staticmethod
   def get_final_package_for_apk(apk_name):
@@ -4003,25 +4005,15 @@ class PythonTestNinjaGenerator(NinjaGenerator):
   # ARC has its main package of Python code here.
   _ARC_PYTHON_PATH = 'src/build'
 
-  _TEST_PYTHONPATH = [
-      'src/build',
-      'src/ndk_translation/android_api',
-      'src/packaging',
-      'third_party/pylib/beautifulsoup4',
-      'third_party/tools/depot_tools',
-      'third_party/tools/python_mock'
-  ]
-
   @staticmethod
   def emit_common_rules(n):
     # We run the test using the -m option to get consistent behavior with
     # imports. If we ran it with "python $in", the path to the file would be
     # automatically added to sys.path, when normally that path may not be in it.
     n.rule('run_python_test',
-           ('PYTHONPATH=%s python -m unittest discover --verbose $test_path '
-            '$test_name $base_run_path %s' % (
-                ':'.join(PythonTestNinjaGenerator._TEST_PYTHONPATH),
-                build_common.get_test_output_handler())),
+           ('src/build/run_python -m unittest discover'
+            ' --verbose $test_path $test_name $base_run_path ' +
+            build_common.get_test_output_handler()),
            description='run_python_test $in')
 
   def run(self, python_test, implicit=None):
@@ -4039,8 +4031,7 @@ class PythonTestNinjaGenerator(NinjaGenerator):
 
     # Get the list of Python files that are imported, excluding files from
     # outside the ARC directories.
-    python_dependencies = python_deps.find_deps(
-        python_test, python_path=PythonTestNinjaGenerator._TEST_PYTHONPATH)
+    python_dependencies = python_deps.find_deps(python_test)
 
     # The Python test file is included in the returned list. Remove it since we
     # are interested in the implicit dependencies, and the test is an
@@ -4048,7 +4039,8 @@ class PythonTestNinjaGenerator(NinjaGenerator):
     python_dependencies.remove(python_test)
 
     # Add the discovered python dependencies to the list of dependencies.
-    implicit = build_common.as_list(implicit) + python_dependencies
+    implicit = (build_common.as_list(implicit) + python_dependencies +
+                ['src/build/run_python'])
 
     # Generate an output file that holds the results (and so it can be updated
     # by the build system when dirty).

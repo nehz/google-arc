@@ -439,11 +439,12 @@ def is_tracking_an_upstream_file(path):
 
 
 def _check_any_license(stats, our_path, tracking_path, default_tracking):
-  # No need to require notices for other metadata files.
+  # No need to require notices for other metadata files, and top directory
+  # shortcuts.
   if (os.path.basename(our_path) in ['OPEN_SOURCE', 'OWNERS'] or
       any(our_path.startswith(p) for p in IGNORE_SUBDIRECORIES) or
-      our_path == '.gitmodules' or
-      our_path == '.gitignore'):
+      our_path in ('.gitmodules', '.gitignore',
+                   'configure', 'launch_chrome', 'run_integration_tests')):
     return
   staged_notices = Notices()
   staged_notices.add_sources([our_path])

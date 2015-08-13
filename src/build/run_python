@@ -1,0 +1,69 @@
+#!/usr/bin/python
+#
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+"""Simple wrapper of 'python' to run ARC Python scripts.
+
+To run Python scripts in ARC properly, it is necessary to set up paths
+of modules in advance. There are several ways for Python to set them,
+but the best way is setting them up before starting the python interpreter.
+Otherwise, we would hit some mysterious import errors, or need more hacky
+workarounds.
+
+This script wraps the 'python' command, and sets up PYTHONPATH just before
+executing it.
+"""
+
+import os
+import sys
+
+
+_PYTHONPATH_LIST = [
+    # TODO(crbug.com/298621): Remove paths to src/.
+    'src/build',
+    'src/ndk_translation/android_api',  # For testing.
+    'src/packaging',  # For testing.
+
+    # For create_nmf.
+    'third_party/chromium-ppapi/native_client_sdk/src/tools',
+
+    # For PPAPI ARM floating point shim generation and PPAPI mocks.
+    'third_party/chromium-ppapi/ppapi/generators',
+
+    'third_party/pylib/beautifulsoup4',
+    'third_party/tools/depot_tools',
+    'third_party/tools/python_mock',  # For testing.
+]
+
+_ARC_ROOT = os.path.normpath(os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), '..', '..'))
+
+
+def _setup_pythonpath(env):
+  """Adds (or overwrites) PYTHONPATH in |env|."""
+  # Set absolute paths for PYTHONPATH.
+  pythonpath_list = [
+      os.path.join(_ARC_ROOT, path) for path in _PYTHONPATH_LIST]
+  original_pythonpath = env.get('PYTHONPATH')
+  if original_pythonpath:
+    pythonpath_list.extend(original_pythonpath.split(os.pathsep))
+  env['PYTHONPATH'] = os.pathsep.join(pythonpath_list)
+
+
+def main():
+  # Set PYTHONPATH properly.
+  env = dict(os.environ)
+  _setup_pythonpath(env)
+
+  # Run python executable directly. Note that we should not execute the python
+  # script directly, even if its executable bit is set, because, on Chrome OS,
+  # such a file is on the "noexec" file system.
+  args = sys.argv[:]
+  args[0] = sys.executable
+  os.execve(args[0], args, env)
+
+
+if __name__ == '__main__':
+  main()

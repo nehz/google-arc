@@ -44,15 +44,17 @@ extern int __register_atfork(void (*)(void), void(*)(void), void (*)(void), void
 static inline void
 _getentropy_fail(void)
 {
-  /* ARC MOD BEGIN */
-  // TODO(crbug.com/512232): We need to remove this workaround and correctly
-  // initialize libc's entropy pool.
-#if !defined(HAVE_ARC)
-  /* ARC MOD END */
+	/* ARC MOD BEGIN */
+#if defined(HAVE_ARC)
+	// We want to call abort() instead of raise(SIGKILL) since signals are
+	// not available in all platforms ARC supports.
+	abort();
+#else
+	/* ARC MOD END */
 	raise(SIGKILL);
-  /* ARC MOD BEGIN */
+	/* ARC MOD BEGIN */
 #endif
-  /* ARC MOD END */
+	/* ARC MOD END */
 }
 
 static volatile sig_atomic_t _rs_forked;

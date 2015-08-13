@@ -29,10 +29,6 @@
 #include <pthread.h>
 
 #include <errno.h>
-// ARC MOD BEGIN
-// TODO(crbug.com/372248): Remove this when we no longer need the workaround.
-#include <stdlib.h>
-// ARC MOD END
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -160,25 +156,6 @@ static int __pthread_start(void* arg) {
   pthread_mutex_destroy(&thread->startup_handshake_mutex);
 
   __init_alternate_signal_stack(thread);
-  // ARC MOD BEGIN
-  // For Bare Metal, store our current frame pointer to our
-  // thread-local storage because IRT doesn't give us a way of telling
-  // where our real end of stack region is.
-  // TODO(crbug.com/372248): Remove the workaround.
-#if defined(BARE_METAL_BIONIC)
-  void* frame_pointer = __builtin_frame_address(0);
-  if (!frame_pointer) {
-    // If frame pointer is 0, something is wrong.
-    abort();
-  }
-  // We will hopefully be in middle of the first page of the stack at
-  // this time still, from there we can find the 4k page alignment of
-  // the stack. The end of the stack should be the first 4k boundary.
-  thread->stack_end_from_irt =
-      reinterpret_cast<char*>(
-          BIONIC_ALIGN(reinterpret_cast<uintptr_t>(frame_pointer), PAGE_SIZE));
-#endif
-  // ARC MOD END
 
   void* result = thread->start_routine(thread->start_routine_arg);
   pthread_exit(result);

@@ -183,25 +183,6 @@ int pthread_attr_getguardsize(const pthread_attr_t* attr, size_t* guard_size) {
 
 int pthread_getattr_np(pthread_t t, pthread_attr_t* attr) {
   *attr = reinterpret_cast<pthread_internal_t*>(t)->attr;
-  // ARC MOD BEGIN
-  // Patch stack information because what bionic thinks the stack
-  // should be is wrong.  TODO(crbug.com/372248): Remove the
-  // workaround after newlib switch when we have an opportunity to fix
-  // it.
-#if defined(BARE_METAL_BIONIC)
-  // Stack size is hardcoded to be 1024 * 1024 in
-  // components/nacl/loader/nonsfi/irt_thread.cc, and we would have
-  // consumed about 3k already at the point of obtaining the value for
-  // stack_from_irt; we don't actually really care about the actual
-  // value of stack_size.
-  //
-  // The first thread has correct stack information as given in
-  // libc_init_common.cpp, in which case stack_end_from_irt==0.
-  pthread_internal_t* thread = reinterpret_cast<pthread_internal_t*>(t);
-  if (thread->stack_end_from_irt)
-    attr->stack_base = thread->stack_end_from_irt - attr->stack_size;
-#endif
-  // ARC MOD END
   return 0;
 }
 

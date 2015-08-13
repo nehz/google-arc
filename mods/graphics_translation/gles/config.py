@@ -47,13 +47,10 @@ def _generate_api_entries_extra_code(n):
 def _generate_pass_through_code(n):
   rule_name = 'pass_through_gen'
 
-  ppapi_dir = staging.as_staging('chromium-ppapi/ppapi')
-  script_root = os.path.join(ppapi_dir, 'generators')
-  api_dir = os.path.join(ppapi_dir, 'api')
+  api_dir = staging.as_staging('chromium-ppapi/ppapi/api')
   script_path = 'mods/graphics_translation/gles/pass_through_gen.py'
 
-  gen_command = ['PYTHONPATH=%s' % pipes.quote(script_root),
-                 'python', script_path,
+  gen_command = ['src/build/run_python', script_path,
                  '--wnone',
                  '--passthroughgen',
                  '--hpp=graphics_translation/gles/pass_through.h',
@@ -69,7 +66,7 @@ def _generate_pass_through_code(n):
 
   idls = n.find_all_files(api_dir, 'idl')
   n.build([_get_pass_through_h_path(), _get_pass_through_impl_path()],
-          rule_name, idls, implicit=[script_path],
+          rule_name, idls, implicit=['src/build/run_python', script_path],
           variables={'logfile': os.path.join(_get_generated_sources_path(),
                                              'pass_through_gen.log'),
                      'dstroot': _get_generated_sources_path()})

@@ -138,14 +138,6 @@ void __libc_init_tls(KernelArgumentBlock& args) {
       stack_top - main_thread.attr.stack_size);
 #endif
   // ARC MOD END
-  // ARC MOD BEGIN
-  // Fill |stack_end_from_irt| as well as other thread attributes.
-  // TODO(crbug.com/372248): Remove the use of stack_end_from_irt.
-#if defined(BARE_METAL_BIONIC)
-  main_thread.stack_end_from_irt =
-      reinterpret_cast<char*>(stack_top);
-#endif
-  // ARC MOD END
   __init_thread(&main_thread, false);
   __init_tls(&main_thread);
   __set_tls(main_thread.tls);

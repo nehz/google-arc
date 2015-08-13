@@ -1,2 +1,10 @@
 #!/bin/sh
-exec python -u src/build/configure.py "$@"
+#
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Although run_python is an executable script, we need to run |python|
+# command, because src/build/run_python would be on "noexec" file system
+# on Chrome OS.
+exec python src/build/run_python -u src/build/configure.py "$@"

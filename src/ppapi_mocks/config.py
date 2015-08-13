@@ -42,7 +42,6 @@ def _generate_libppapi_mocks():
                                             force_compiler='clang',
                                             enable_cxx11=True)
   ppapi_dir = staging.as_staging('chromium-ppapi/ppapi')
-  generators_dir = os.path.join(ppapi_dir, 'generators')
   api_dir = os.path.join(ppapi_dir, 'api')
   script_path = os.path.join(_MY_DIR, 'gen_ppapi_mock.py')
   out_dir = os.path.join(
@@ -51,8 +50,7 @@ def _generate_libppapi_mocks():
   log_file = os.path.join(out_dir, 'log.txt')
   stamp_file = os.path.join(out_dir, 'STAMP')
 
-  command = ['PYTHONPATH=%s' % pipes.quote(generators_dir),
-             'python', pipes.quote(script_path),
+  command = ['src/build/run_python', pipes.quote(script_path),
              '--wnone',  # Suppress all warnings.
              '--range=start,end',  # Generate code for all revisions.
              '--ppapicgen',  # Generate PpapiMock source files.
@@ -82,8 +80,9 @@ def _generate_libppapi_mocks():
   n.build(generated_files + [stamp_file], rule_name, idl_list,
           variables={'log_file': pipes.quote(log_file),
                      'stamp': pipes.quote(stamp_file)},
-          implicit=([staging.as_staging(idl_path) for idl_path in idl_list] +
-                    [script_path]))
+          implicit=([script_path, 'src/build/run_python'] +
+                    [staging.as_staging(idl_path) for idl_path in idl_list]))
+
   _add_ppapi_mock_compile_flags(n)
   n.build_default(
       [path for path in generated_files if path.endswith('.cc')] +

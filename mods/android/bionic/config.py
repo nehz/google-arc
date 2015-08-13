@@ -45,10 +45,7 @@ _LINKER_MODULES = [
     'libc_aeabi',  # __aeabi_memcpy etc.
     'libc_bionic',  # logging functions
     'libc_common',
-    'libc_freebsd',  # __swsetup etc.
-    'libc_gdtoa',  # strtold etc.
-    'libc_netbsd',  # strcoll etc.
-    'libc_openbsd',  # exit etc.
+    'libc_openbsd',  # strcmp, strcpy, exit etc.
 ]
 
 
@@ -400,6 +397,9 @@ def _filter_libc_bionic(vars):
   if OPTIONS.is_arm():
     sources.extend(
         ['android/bionic/libc/arch-arm/bionic/setjmp.S'])
+  # Use a NaCl-specific version of getentropy.
+  sources.remove('android/bionic/libc/bionic/getentropy_linux.c')
+  sources.append('android/bionic/libc/arch-nacl/bionic/getentropy.cpp')
   return True
 
 

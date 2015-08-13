@@ -33,13 +33,12 @@ def _generate_chromium_ppapi_fpabi_shim_ninja():
   rule_name = 'gen_' + ninja_name
 
   ppapi_dir = staging.as_staging('chromium-ppapi/ppapi')
-  script_root = os.path.join(ppapi_dir, 'generators')
   script_path = os.path.join(ppapi_dir, 'gen_ppapi_fpabi_shim.py')
   api_dir = os.path.join(ppapi_dir, 'api')
   out_file = os.path.join(build_common.get_ppapi_fpabi_shim_dir(),
                           'ppapi_fpabi_shim.c')
-  gen_command = ['PYTHONPATH=%s' % pipes.quote(script_root),
-                 'python', pipes.quote(script_path),
+  gen_command = ['src/build/run_python',
+                 pipes.quote(script_path),
                  '--wnone',
                  '--fpabi',
                  '--fpabishim', '$out.tmp',
@@ -60,7 +59,8 @@ def _generate_chromium_ppapi_fpabi_shim_ninja():
          description=rule_name + ' $out')
 
   idls = n.find_all_files(api_dir, '.idl', use_staging=False)
-  n.build(out_file, rule_name, idls, implicit=[script_path])
+  n.build(out_file, rule_name, idls,
+          implicit=[script_path, 'src/build/run_python'])
 
 
 def _generate_chromium_ppapi_ninja():

@@ -86,13 +86,6 @@ struct pthread_internal_t {
   void* return_value;
 
   void* alternate_signal_stack;
-  // ARC MOD BEGIN
-  // Thread stack pointer allocated by __nacl_irt_thread_create.
-  // TODO(crbug.com/372248): Remove the workaround.
-#if defined(BARE_METAL_BIONIC)
-  char* stack_end_from_irt;
-#endif
-  // ARC MOD END
   // ARC MOD BEGIN bionic-thread-info
   // Storage for thread context at the time of invoking a blocking call.
   volatile bool has_context_regs;

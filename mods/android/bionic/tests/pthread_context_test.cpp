@@ -99,9 +99,6 @@ TEST_F(PthreadThreadContextThreadTest, get_thread_infos) {
     SCOPED_TRACE(i);
     ASSERT_TRUE(infos[i].stack_base != NULL);
     EXPECT_GT(infos[i].stack_size, 0);
-#if defined(BARE_METAL_BIONIC)
-    ASSERT_EQ(infos[i].stack_size, 1024 * 1024);
-#endif
   }
 }
 
