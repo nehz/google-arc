@@ -212,7 +212,7 @@ def _filter_libc_common(vars):
       'android/bionic/libc/arch-nacl/syscalls/nacl_timespec.c',
       'android/bionic/libc/arch-nacl/syscalls/nacl_timeval.c',
       'android/bionic/libc/arch-nacl/syscalls/poll.c',
-      'android/bionic/libc/arch-nacl/syscalls/prctl.cc',
+      'android/bionic/libc/arch-nacl/syscalls/prctl.cpp',
       'android/bionic/libc/arch-nacl/syscalls/read.c',
       'android/bionic/libc/arch-nacl/syscalls/recvfrom.c',
       'android/bionic/libc/arch-nacl/syscalls/rmdir.c',
