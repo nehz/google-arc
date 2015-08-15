@@ -16,11 +16,11 @@
   movl \x, \y(%edi)
 .endm
 
-// void BionicInternalSaveRegContext(uint32_t[15])
+// void __pthread_internal_save_reg_context(uint32_t[15])
 // Saves register context necessary for traversing the stack in a minidump.
-.global BionicInternalSaveRegContext
-.type BionicInternalSaveRegContext, @function
-BionicInternalSaveRegContext:
+.global __pthread_internal_save_reg_context
+.type __pthread_internal_save_reg_context, @function
+__pthread_internal_save_reg_context:
   .cfi_startproc
   pushl %edi
   .cfi_adjust_cfa_offset 4
@@ -53,6 +53,6 @@ BionicInternalSaveRegContext:
   ret
 
   .cfi_endproc
-  .size BionicInternalSaveRegContext, . - BionicInternalSaveRegContext
+  .size __pthread_internal_save_reg_context, . - __pthread_internal_save_reg_context
 
 .section .note.GNU-stack, "", @progbits

@@ -32,10 +32,12 @@ struct nacl_abi_timespec {
   int64_t tv_nsec;
 };
 
+__LIBC_HIDDEN__
 void __nacl_abi_timespec_to_timespec(
     const struct nacl_abi_timespec *nacl_timespec,
     struct timespec *timespec);
 
+__LIBC_HIDDEN__
 void __timespec_to_nacl_abi_timespec(const struct timespec *timespec,
                                      struct nacl_abi_timespec *nacl_timespec);
 

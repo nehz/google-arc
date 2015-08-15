@@ -32,9 +32,11 @@ struct nacl_abi_timeval {
   int64_t tv_usec;
 };
 
+__LIBC_HIDDEN__
 void __nacl_abi_timeval_to_timeval(const struct nacl_abi_timeval *nacl_timeval,
                                    struct timeval *timeval);
 
+__LIBC_HIDDEN__
 void __timeval_to_nacl_abi_timeval(const struct timeval *timeval,
                                    struct nacl_abi_timeval *nacl_timeval);
 

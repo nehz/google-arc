@@ -19,11 +19,11 @@
 #define retq naclret
 
 
-// void BionicInternalSaveRegContext(uint64_t[17])
+// void __pthread_internal_save_reg_context(uint64_t[17])
 // Saves register context necessary for traversing the stack in a minidump.
-.global BionicInternalSaveRegContext
-.type BionicInternalSaveRegContext, @function
-BionicInternalSaveRegContext:
+.global __pthread_internal_save_reg_context
+.type __pthread_internal_save_reg_context, @function
+__pthread_internal_save_reg_context:
   .cfi_startproc
 
   // The ordering matches the one specified in ucontext.h.
@@ -54,6 +54,6 @@ BionicInternalSaveRegContext:
   retq
 
   .cfi_endproc
-  .size BionicInternalSaveRegContext, . - BionicInternalSaveRegContext
+  .size __pthread_internal_save_reg_context, . - __pthread_internal_save_reg_context
 
 .section .note.GNU-stack, "", @progbits

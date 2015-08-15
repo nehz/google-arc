@@ -99,6 +99,11 @@ struct nacl_abi_stat {  /* must be renamed when ABI is exported */
 };
 
 /* Converts struct nacl_abi_stat to struct stat. Implemented in fxstat.c */
+/* ARC MOD BEGIN */
+/* Do not expose this symbol from libc.so for external programs, this
+ * should not be needed. */
+__LIBC_HIDDEN__
+/* ARC MOD END */
 void __nacl_abi_stat_to_stat (struct nacl_abi_stat *nacl_st,
                                 struct stat *st);
 #endif

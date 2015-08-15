@@ -31,23 +31,23 @@ extern void __pthread_clear_context_regs();
 
 #if defined(__x86_64__)
 
-extern void BionicInternalSaveRegContext(uint64_t*);
+extern void __pthread_internal_save_reg_context(uint64_t*);
 
 #define SAVE_CONTEXT_REGS()                                     \
   {                                                             \
     uint64_t regs_tmp[17];                                      \
-    BionicInternalSaveRegContext(regs_tmp);                     \
+    __pthread_internal_save_reg_context(regs_tmp);                     \
     __pthread_save_context_regs(regs_tmp, sizeof(regs_tmp));    \
   }
 
 #elif defined(__i386__)
 
-extern void BionicInternalSaveRegContext(uint32_t*);
+extern void __pthread_internal_save_reg_context(uint32_t*);
 
 #define SAVE_CONTEXT_REGS()                                     \
   {                                                             \
     uint32_t regs_tmp[15];                                      \
-    BionicInternalSaveRegContext(regs_tmp);                     \
+    __pthread_internal_save_reg_context(regs_tmp);                     \
     __pthread_save_context_regs(regs_tmp, sizeof(regs_tmp));    \
   }
 
@@ -57,7 +57,7 @@ extern void BionicInternalSaveRegContext(uint32_t*);
 #ifndef __thumb__
 
 // Use inline assembly to save correct LR register state.
-#define BionicInternalSaveRegContext(ctx)                       \
+#define __pthread_internal_save_reg_context(ctx)                       \
   (({                                                           \
   register char* stm_base asm ("r12") = ctx;                    \
   __asm__ __volatile__ (                                        \
@@ -67,7 +67,7 @@ extern void BionicInternalSaveRegContext(uint32_t*);
 
 #else  // __thumb__
 
-#define BionicInternalSaveRegContext(ctx)                       \
+#define __pthread_internal_save_reg_context(ctx)                       \
   (({                                                           \
   register char* stm_base asm ("r12") = ctx;                    \
   __asm__ __volatile__ (                                        \
@@ -83,7 +83,7 @@ extern void BionicInternalSaveRegContext(uint32_t*);
 #define SAVE_CONTEXT_REGS()                                     \
   {                                                             \
     uint32_t regs_tmp[16];                                      \
-    BionicInternalSaveRegContext((char*)regs_tmp);              \
+    __pthread_internal_save_reg_context((char*)regs_tmp);              \
     __pthread_save_context_regs(regs_tmp, sizeof(regs_tmp));    \
   }
 

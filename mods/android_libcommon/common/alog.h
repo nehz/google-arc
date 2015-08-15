@@ -513,6 +513,13 @@ inline void ignore_result(const T&) {}
     __android_log_assert_with_source(cond, tag, __FILE__, __LINE__, \
         __android_second(0, ## fmt, NULL) __android_rest(fmt))
 
+// Sends the last log message to the plugin just before aborting. It was decided
+// to not send this during the crash reporting callback since the process is not
+// guaranteed to be in a good state to allocate the memory needed to send the
+// message. Also, there is no upstream support to add arbitrary data to the
+// minidump.
+// By sending this separately only in the cases when we know is safe, we
+// maximize the probability of reporting the crash successfully.
 #define android_printAssertArcAddToCrashReport(cond, tag, fmt...) \
     __android_log_assert_with_source_and_add_to_crash_report(cond, tag, \
         __FILE__, __LINE__, \

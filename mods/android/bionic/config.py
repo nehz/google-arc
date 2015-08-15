@@ -413,7 +413,6 @@ def _filter_libc(vars):
       'android/bionic/libc/arch-nacl/syscalls/nanosleep.c',
       'android/bionic/libc/arch-nacl/syscalls/sched_yield.c',
       'android/bionic/libc/arch-nacl/tmp/libc_stubs.c',
-      'android/bionic/libc/bionic/rindex.cpp',
       'android/bionic/libc/bionic/NetdClientDispatch.cpp'
   ])
   if OPTIONS.is_x86_64():

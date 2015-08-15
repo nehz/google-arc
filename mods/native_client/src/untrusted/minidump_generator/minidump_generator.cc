@@ -382,7 +382,7 @@ static void WriteExceptionList(MinidumpAllocator *minidump_writer,
 static void SaveBionicThreadState(MinidumpAllocator *minidump_writer,
                                   MDRawThread *thread,
                                   const __pthread_context_info_t &info) {
-  // Copy registers as defined in BionicInternalSaveRegContext().
+  // Copy registers as defined in __pthread_internal_save_reg_context()
   uintptr_t stack_start;
 #if defined(__x86_64__)
   // We save only lower halves of the registers, because otherwise Breakpad
