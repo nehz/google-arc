@@ -205,7 +205,7 @@ def _generate_lint_ninjas():
          description='lint $out')
   n.rule('lint_merge', command='%s --merge -o $out @$out.rsp' % lint_script,
          rspfile='$out.rsp',
-         rspfile_content='$in',
+         rspfile_content='$in_newline',
          description='lint --merge $out')
 
   files = lint_source.get_all_files_to_check()

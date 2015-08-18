@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -689,18 +690,22 @@ def merge_results(files, output_file):
 
 
 class ResponseFileArgumentParser(argparse.ArgumentParser):
-  def __init__(self):
-    super(ResponseFileArgumentParser, self).__init__(fromfile_prefix_chars='@')
+  def __init__(self, *args, **kwargs):
+    # Automatically set fromfile_prefix_chars to '@', if the caller did not
+    # specify a value for it.
+    kwargs.setdefault('fromfile_prefix_chars', '@')
+    super(ResponseFileArgumentParser, self).__init__(*args, **kwargs)
 
   def convert_arg_line_to_args(self, arg_line):
-    """Separate arguments by spaces instead of the default by newline.
-
-    This matches how Ninja response files are generated.  This prevents us
-    from adding source files with spaces in their paths."""
-    for arg in arg_line.split():
-        if not arg.strip():
-            continue
-        yield arg
+    """Called by the base class when reading arguments from a file."""
+    # Ninja will quote filenames written to the response file as if they were
+    # passed via the command line. As a result, we need to use shlex.split() to
+    # properly dequote them. This then handles cases like the filename itself
+    # containing quotes.
+    # As a useful side effect, this also handles multiple space separated
+    # arguments on a single line, since spaces would otherwise need to be
+    # quoted.
+    return shlex.split(arg_line)
 
 
 def main():
