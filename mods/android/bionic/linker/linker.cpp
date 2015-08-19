@@ -1170,8 +1170,12 @@ static soinfo* load_library(const char* name, int dlflags, const android_dlextin
     // Set is_ndk appropriately. NDK libraries in APKs are in
     // /data/app-lib/<app-name>.
     const char kNdkLibraryDir[] = "/data/app-lib/";
+    // Or, Google Play Services (and maybe other apps) may load ndk libraries
+    // placed by the app itself on the data directory /data/data/<app-name>.
+    const char kAppDataDir[] = "/data/data/";
     si->is_ndk = (is_in_vendor_lib ||
                   !strncmp(name, kNdkLibraryDir, sizeof(kNdkLibraryDir) - 1) ||
+                  !strncmp(name, kAppDataDir, sizeof(kAppDataDir) - 1) ||
                   !strncmp(name, kVendorLibDir, sizeof(kVendorLibDir) - 1));
 #endif
     // ARC MOD END

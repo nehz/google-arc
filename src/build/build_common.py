@@ -701,6 +701,21 @@ def get_art_isa():
   raise Exception('Unable to map target into an ART ISA: %s' % OPTIONS.target())
 
 
+def get_dex2oat_for_apk_flags(apk_path, apk_install_path, output_odex_path):
+  # From android/build/core/dex_preopt_libart.mk.  We don't specify -Xms and
+  # -Xmx here, but let the runtime use the default value defined in
+  # art/runtime/gc/heap.h.
+  root = get_android_fs_root()
+  common_flags = [
+      '--boot-image=' + os.path.join(root, 'system/framework/boot.art'),
+      '--dex-file=' + apk_path,
+      '--dex-location=' + apk_install_path,
+      '--oat-file=' + output_odex_path,
+      '--android-root=' + root,
+      '--include-patch-information', '--runtime-arg', '-Xnorelocate']
+  return common_flags + get_dex2oat_target_dependent_flags()
+
+
 def use_ppapi_fpabi_shim():
   return OPTIONS.is_arm()
 
