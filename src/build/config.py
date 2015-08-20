@@ -234,7 +234,7 @@ def _generate_disallowed_symbols_ninja():
 
 
 def generate_binaries_depending_ninjas(_):
-  if (not OPTIONS.is_nacl_x86_64() or
+  if (not OPTIONS.is_bare_metal_i686() or
       not OPTIONS.is_optimized_build() or
       # None of the targets analyzed are currently built in the open source
       # repository.

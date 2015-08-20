@@ -37,7 +37,7 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
 _ARC_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))
 
 # Libraries that are used for checking static initializers.
-CHECKED_LIBRARIES = ['arc_nacl_x86_64.nexe', 'libposix_translation.so']
+CHECKED_LIBRARIES = ['arc_bare_metal_i686.nexe', 'libposix_translation.so']
 
 COMMON_EDITOR_TMP_FILE_PATTERNS = ['.*.swp', '*~', '.#*', '#*#']
 COMMON_EDITOR_TMP_FILE_REG = re.compile(

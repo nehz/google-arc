@@ -17,10 +17,11 @@ def main(args):
   script = staging.as_staging(
       'android/external/chromium_org/tools/linux/dump-static-initializers.py')
   failure = 0
+  arch = 'bare_metal_i686_opt'
   for library in build_common.CHECKED_LIBRARIES:
     temp = 'src/build/dump-static-initializers-%s-expected-temp.txt' % library
     out = 'src/build/dump-static-initializers-%s-expected.txt' % library
-    lib = 'out/target/nacl_x86_64_opt/lib/%s' % library
+    lib = 'out/target/%s/lib/%s' % (arch, library)
     ret = subprocess.call('%s -d %s > %s' % (script, lib, temp), shell=True)
     if ret:
       failure = 1

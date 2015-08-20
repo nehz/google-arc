@@ -2,14 +2,43 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import build_common
-from ninja_generator import ApkFromSdkNinjaGenerator
-import prep_launch_chrome
+import os
 import subprocess
+
+import build_common
+import prep_launch_chrome
+from ninja_generator import ApkFromSdkNinjaGenerator
 from util.test import google_test_result_parser as result_parser
 from util.test import scoreboard
+from util.test import source_annotator
 from util.test import suite_runner
 from util.test import suite_runner_util
+
+
+class _JavaScriptLoggerWrapper(object):
+  """Wraps the SuiteRunnerLogger to annotate original JavaScript location."""
+
+  def __init__(self, base_logger, annotator):
+    self.base_logger = base_logger
+    self._annotator = annotator
+
+  @property
+  def path(self):
+    return self.base_logger.path
+
+  def close(self):
+    return self.base_logger.close()
+
+  def flush(self):
+    return self.base_logger.flush()
+
+  def write(self, text):
+    text = ''.join(
+        self._annotator.annotate(line) for line in text.splitlines(True))
+    return self.base_logger.write(text)
+
+  def writelines(self, text_list):
+    return self.write(''.join(text_list))
 
 
 class JavaScriptTestRunner(suite_runner.SuiteRunnerBase):
@@ -75,6 +104,30 @@ class JavaScriptTestRunner(suite_runner.SuiteRunnerBase):
         self._get_js_test_options(),
         additional_metadata=additional_metadata)
     prep_launch_chrome.update_arc_metadata(additional_metadata, args)
+
+    # List of sourcemap files. This needs to be sync with the build-time
+    # configuration. cf) src/packaging/config.py.
+    runtime_dir = build_common.get_runtime_out_dir()
+    test_template_dir = build_common.get_build_path_for_gen_test_template(
+        self.name)
+    annotator = source_annotator.SourceAnnotator([
+        ('gen_main.min.js',
+         os.path.join(runtime_dir, 'gen_main.min.js'),
+         os.path.join(runtime_dir, 'gen_main.min.js.map')),
+        ('gen_index.min.js',
+         os.path.join(runtime_dir, 'gen_index.min.js'),
+         os.path.join(runtime_dir, 'gen_index.min.js.map')),
+        ('gen_test.min.js',
+         os.path.join(test_template_dir, 'gen_test.min.js'),
+         os.path.join(test_template_dir, 'gen_test.min.js.map'))
+    ])
+    self._logger = _JavaScriptLoggerWrapper(self._logger, annotator)
+
+  def tearDown(self, test_methods_to_run):
+    # Note: this is called even when setUp() is failed, currently.
+    if isinstance(self._logger, _JavaScriptLoggerWrapper):
+      self._logger = self._logger.base_logger
+    super(JavaScriptTestRunner, self).tearDown(test_methods_to_run)
 
   def run(self, test_methods_to_run):
     args = self.get_launch_chrome_command(

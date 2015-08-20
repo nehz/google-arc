@@ -33,6 +33,7 @@ _PYTHONPATH_LIST = [
     'third_party/chromium-ppapi/ppapi/generators',
 
     'third_party/pylib/beautifulsoup4',
+    'third_party/pylib/sourcemap',
     'third_party/tools/depot_tools',
     'third_party/tools/python_mock',  # For testing.
 ]
