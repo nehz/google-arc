@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <limits.h>
 #include <netdb.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
@@ -51,6 +52,13 @@
 #include "posix_translation/time_util.h"
 #include "posix_translation/udp_socket.h"
 
+extern "C"
+int __wrap_pthread_create(
+    pthread_t* thread_out,
+    pthread_attr_t const* attr,
+    void* (*start_routine)(void*),  // NOLINT(readability/casting)
+    void* arg);
+
 namespace posix_translation {
 
 #if defined(DEBUG_POSIX_TRANSLATION)
@@ -64,6 +72,8 @@ std::string GetIPCStatsAsStringLocked();
 namespace {
 
 const char kVirtualFileSystemHandlerStr[] ALLOW_UNUSED = "VirtualFileSystem";
+
+const int kPreopenPendingFd = -2;
 
 void FillPermissionInfoToStat(const PermissionInfo& permission,
                               struct stat* out) {
@@ -95,6 +105,12 @@ void FillPermissionInfoToStat(const PermissionInfo& permission,
     ARC_STRACE_REPORT("Permission already set %o", static_cast<int>(perm));
   }
   out->st_mode = file_type | perm;
+}
+
+bool IsEligibleForPreopen(int oflag) {
+  // O_LARGEFILE: ignored on Bionic.
+  // O_CLOEXEC: not supported by POSIX translation.
+  return (oflag & ~(O_LARGEFILE | O_CLOEXEC)) == 0;
 }
 
 // The current VirtualFileSystemInterface exposed to plugins via
@@ -146,6 +162,7 @@ VirtualFileSystem::VirtualFileSystem(
       abstract_socket_namespace_(&mutex_),
       logd_socket_namespace_(&mutex_),
       host_resolver_(instance),
+      preopen_started_(false),
       abort_on_unexpected_memory_maps_(true) {
   ALOG_ASSERT(!file_system_);
   file_system_ = this;
@@ -320,65 +337,7 @@ int VirtualFileSystem::AddFileStreamLocked(scoped_refptr<FileStream> stream) {
 int VirtualFileSystem::open(const std::string& pathname, int oflag,
                             mode_t cmode) {
   base::AutoLock lock(mutex_);
-  ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
-
-  // Linux kernel also accepts 'O_RDONLY|O_TRUNC' and truncates the file. Even
-  // though pp::FileIO seems to refuse 'O_RDONLY|O_TRUNC', show a warning here.
-  if (((oflag & O_ACCMODE) == O_RDONLY) && (oflag & O_TRUNC))
-    ALOGW("O_RDONLY|O_TRUNC is specified for %s", pathname.c_str());
-
-  std::string resolved(pathname);
-  GetNormalizedPathLocked(&resolved, kResolveSymlinks);
-  PermissionInfo permission;
-  FileSystemHandler* handler = GetFileSystemHandlerLocked(resolved,
-                                                          &permission);
-  if (!handler) {
-    errno = ENOENT;
-    return -1;
-  }
-  ALOG_ASSERT(permission.IsValid(), "pathname=%s handler=%s",
-              pathname.c_str(), handler->name().c_str());
-  // Linux kernel accepts both 'O_RDONLY|O_CREAT' and 'O_RDONLY|O_TRUNC'.
-  // If the directory is not writable, the request should be denied.
-  if (((oflag & O_ACCMODE) != O_RDONLY || (oflag & (O_CREAT | O_TRUNC))) &&
-      !permission.is_writable()) {
-    if (oflag & O_CREAT) {
-      struct stat st;
-      if (!handler->stat(resolved, &st)) {
-        // TODO(crbug.com/463434): Re-enable L's CTS tests once the EISDIR fix
-        // is merged into ARC's L branch.
-        if (S_ISDIR(st.st_mode)) {
-          // When O_CREAT is specified, Linux kernel prefers EISDIR over EACCES
-          // for directories. Emulate the behavior.
-          errno = EISDIR;
-          return -1;
-        } else if (oflag & O_EXCL) {
-          // When O_CREAT|O_EXCL is specified, Linux kernel prefers EEXIST
-          // over EACCES. Emulate the behavior too.
-          errno = EEXIST;
-          return -1;
-        }
-      }
-      return DenyAccessForCreateLocked(&resolved, handler);
-    } else {
-      return DenyAccessForModifyLocked(resolved, handler);
-    }
-  }
-  int fd = GetFirstUnusedDescriptorLocked();
-  if (fd < 0) {
-    errno = EMFILE;
-    return -1;
-  }
-  scoped_refptr<FileStream> stream = handler->open(fd, resolved, oflag, cmode);
-  if (!stream) {
-    ALOG_ASSERT(errno > 0, "pathname=%s, handler=%s",
-                pathname.c_str(), handler->name().c_str());
-    fd_to_stream_->RemoveFileStream(fd);
-    return -1;
-  }
-  stream->set_permission(permission);
-  fd_to_stream_->AddFileStream(fd, stream);
-  return fd;
+  return OpenLocked(pathname, oflag, cmode, true);
 }
 
 // Android uses madvise to hint to the kernel about what Ashmem regions can be
@@ -555,6 +514,16 @@ void VirtualFileSystem::AddToCache(const std::string& path,
     handler->AddToCache(path, file_info, exists);
   else
     ALOGW("AddToCache: handler for %s not found", path.c_str());
+}
+
+void VirtualFileSystem::SchedulePreopen(const std::string& path) {
+  base::AutoLock lock(mutex_);
+  LOG_ALWAYS_FATAL_IF(
+      preopen_started_, "SchedulePreopen() called after StartPreopen()");
+  std::string resolved(path);
+  GetNormalizedPathLocked(&resolved, kResolveSymlinks);
+  scheduled_preopens_.push_back(resolved);
+  preopened_fds_.insert(std::make_pair(resolved, kPreopenPendingFd));
 }
 
 bool VirtualFileSystem::RegisterFileStream(
@@ -1204,6 +1173,110 @@ int VirtualFileSystem::GetFirstUnusedDescriptorLocked() {
   return fd_to_stream_->GetFirstUnusedDescriptor();
 }
 
+int VirtualFileSystem::OpenLocked(
+    const std::string& pathname, int oflag, mode_t cmode, bool use_preopened) {
+  mutex_.AssertAcquired();
+  ARC_STRACE_REPORT_HANDLER(kVirtualFileSystemHandlerStr);
+
+  // Crash early when called from the main thread.
+  // Otherwise this function can succeed even if called from the main thread
+  // if the file is in preopen cache.
+  LOG_ALWAYS_FATAL_IF(pp::Module::Get()->core()->IsMainThread());
+
+  // Linux kernel also accepts 'O_RDONLY|O_TRUNC' and truncates the file. Even
+  // though pp::FileIO seems to refuse 'O_RDONLY|O_TRUNC', show a warning here.
+  if (((oflag & O_ACCMODE) == O_RDONLY) && (oflag & O_TRUNC))
+    ALOGW("O_RDONLY|O_TRUNC is specified for %s", pathname.c_str());
+
+  std::string resolved(pathname);
+  GetNormalizedPathLocked(&resolved, kResolveSymlinks);
+
+  if (use_preopened && IsEligibleForPreopen(oflag)) {
+    while (true) {
+      PreopenedFdMultimap::iterator it = preopened_fds_.lower_bound(resolved);
+      if (it == preopened_fds_.end() || it->first != resolved) {
+        break;
+      }
+      if (it->second != kPreopenPendingFd) {
+        int fd = it->second;
+        preopened_fds_.erase(it);
+        return fd;
+      }
+      // Wait until the file is opened by PerformPreopen().
+      ALOGW("preopen: Waiting for slow preopen: %s", resolved.c_str());
+      Wait();
+    }
+  }
+
+  PermissionInfo permission;
+  FileSystemHandler* handler = GetFileSystemHandlerLocked(resolved,
+                                                          &permission);
+  if (!handler) {
+    errno = ENOENT;
+    return -1;
+  }
+  ALOG_ASSERT(permission.IsValid(), "pathname=%s handler=%s",
+              pathname.c_str(), handler->name().c_str());
+  // Linux kernel accepts both 'O_RDONLY|O_CREAT' and 'O_RDONLY|O_TRUNC'.
+  // If the directory is not writable, the request should be denied.
+  if (((oflag & O_ACCMODE) != O_RDONLY || (oflag & (O_CREAT | O_TRUNC))) &&
+      !permission.is_writable()) {
+    if (oflag & O_CREAT) {
+      struct stat st;
+      if (!handler->stat(resolved, &st)) {
+        // TODO(crbug.com/463434): Re-enable L's CTS tests once the EISDIR fix
+        // is merged into ARC's L branch.
+        if (S_ISDIR(st.st_mode)) {
+          // When O_CREAT is specified, Linux kernel prefers EISDIR over EACCES
+          // for directories. Emulate the behavior.
+          errno = EISDIR;
+          return -1;
+        } else if (oflag & O_EXCL) {
+          // When O_CREAT|O_EXCL is specified, Linux kernel prefers EEXIST
+          // over EACCES. Emulate the behavior too.
+          errno = EEXIST;
+          return -1;
+        }
+      }
+      return DenyAccessForCreateLocked(&resolved, handler);
+    } else {
+      return DenyAccessForModifyLocked(resolved, handler);
+    }
+  }
+  int fd = GetFirstUnusedDescriptorLocked();
+  if (fd < 0) {
+    errno = EMFILE;
+    return -1;
+  }
+  scoped_refptr<FileStream> stream = handler->open(fd, resolved, oflag, cmode);
+  if (!stream) {
+    ALOG_ASSERT(errno > 0, "pathname=%s, handler=%s",
+                pathname.c_str(), handler->name().c_str());
+    fd_to_stream_->RemoveFileStream(fd);
+    return -1;
+  }
+  stream->set_permission(permission);
+  fd_to_stream_->AddFileStream(fd, stream);
+  if (!IsEligibleForPreopen(oflag)) {
+    // We must invalidate the preopen cache when a file is opened with
+    // non-eligible flags. For example, in this scenario, we must invalidate
+    // the cache at the step (2):
+    //
+    // 1. File A is attempted to preopen, but file A does not exist, so error
+    //    file descriptor is cached.
+    // 2. File A is opened for write with O_CREAT. File A is now created.
+    // 3. File A is opened for read. If preopen is disabled, this would
+    //    succeed by opening a file created at (2). If preopen is enabled,
+    //    we should not reuse the error file descriptor cached at (1).
+    ClosePreopenedFilesWithResolvedPathLocked(resolved);
+  }
+  if (use_preopened && IsEligibleForPreopen(oflag) &&
+      strcmp(stream->GetStreamType(), "pepper") == 0) {
+    ALOGI("preopen: candidate: %s", resolved.c_str());
+  }
+  return fd;
+}
+
 int VirtualFileSystem::IsSelectReadyLocked(int nfds, fd_set* fds,
                                            SelectReadyEvent event,
                                            bool apply) {
@@ -1768,6 +1841,9 @@ int VirtualFileSystem::remove(const std::string& pathname) {
   }
   if (!permission.is_writable())
     return DenyAccessForModifyLocked(resolved, handler);
+
+  ClosePreopenedFilesWithResolvedPathLocked(resolved);
+
   return handler->remove(resolved);
 }
 
@@ -1836,6 +1912,9 @@ int VirtualFileSystem::rename(const std::string& oldpath,
     errno = EACCES;
     return -1;
   }
+
+  ClosePreopenedFilesWithResolvedPathLocked(resolved_oldpath);
+  ClosePreopenedFilesWithResolvedPathLocked(resolved_newpath);
 
   return handler->rename(resolved_oldpath, resolved_newpath);
 }
@@ -1938,6 +2017,9 @@ int VirtualFileSystem::unlink(const std::string& pathname) {
   }
   if (!permission.is_writable())
     return DenyAccessForModifyLocked(resolved, handler);
+
+  ClosePreopenedFilesWithResolvedPathLocked(resolved);
+
   return handler->unlink(resolved);
 }
 
@@ -2005,6 +2087,9 @@ void VirtualFileSystem::SetBrowserReady() {
   ALOG_ASSERT(!browser_ready_);
   browser_ready_ = true;
   ALOGI("VirtualFileSystem::SetBrowserReady: the browser is ready to run ARC");
+  if (arc::Options::GetInstance()->GetBool("enable_preopen", false)) {
+    StartPreopenLocked();
+  }
   cond_.Broadcast();
 }
 
@@ -2119,6 +2204,61 @@ int VirtualFileSystem::DenyAccessForModifyLocked(const std::string& path,
   ALOG_ASSERT(errno == ENOENT || errno == ENOTDIR || errno == EACCES);
   ARC_STRACE_REPORT("DenyAccess: path=%s errno=%d", path.c_str(), errno);
   return -1;
+}
+
+void VirtualFileSystem::StartPreopenLocked() {
+  mutex_.AssertAcquired();
+  LOG_ALWAYS_FATAL_IF(preopen_started_, "StartPreopen() called multiple times");
+  preopen_started_ = true;
+
+  pthread_t thread;
+  pthread_attr_t thread_attr;
+  pthread_attr_init(&thread_attr);
+  pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_DETACHED);
+  int thread_result = __wrap_pthread_create(
+      &thread, &thread_attr, &VirtualFileSystem::PreopenThreadMain, this);
+  LOG_ALWAYS_FATAL_IF(thread_result < 0, "Failed to start a preopen thread");
+  pthread_attr_destroy(&thread_attr);
+}
+
+void* VirtualFileSystem::PreopenThreadMain(void* arg) {
+  VirtualFileSystem* self = static_cast<VirtualFileSystem*>(arg);
+  self->PerformPreopens();
+  return NULL;
+}
+
+void VirtualFileSystem::PerformPreopens() {
+  base::AutoLock lock(mutex_);
+  TRACE_EVENT0(ARC_TRACE_CATEGORY, "VirtualFileSystem::PerformPreopens");
+  for (const std::string& resolved : scheduled_preopens_) {
+    PreopenedFdMultimap::iterator it = preopened_fds_.lower_bound(resolved);
+    while (it != preopened_fds_.end() && it->first == resolved &&
+           it->second != kPreopenPendingFd) {
+      ++it;
+    }
+    // We do not call OpenLocked() if the preopen cache has already been
+    // invalidated by ClosePreopenedFilesWithResolvedPathLocked().
+    if (it != preopened_fds_.end() && it->first == resolved) {
+      it->second = OpenLocked(resolved, 0, 0, false);
+      // Wake up possibly blocking open().
+      Broadcast();
+    }
+  }
+}
+
+void VirtualFileSystem::ClosePreopenedFilesWithResolvedPathLocked(
+    const std::string& resolved_path) {
+  const auto& range = preopened_fds_.equal_range(resolved_path);
+  for (PreopenedFdMultimap::const_iterator it = range.first;
+       it != range.second;
+       ++it) {
+    ALOGW("preopen: Invalidating %s. Please update the list.",
+          it->first.c_str());
+    if (it->second >= 0) {
+      CloseLocked(it->second);
+    }
+  }
+  preopened_fds_.erase(range.first, range.second);
 }
 
 void VirtualFileSystem::ResolveSymlinks(std::string* in_out_path) {

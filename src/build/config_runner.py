@@ -374,7 +374,7 @@ def _set_up_generate_ninja():
 
     cache_to_save.append((global_deps, cache_path))
 
-  _config_loader.load_from_default_path()
+  _config_loader.load()
 
   return needs_clobbering, cache_to_save
 

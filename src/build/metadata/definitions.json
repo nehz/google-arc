@@ -73,6 +73,13 @@
     "plugin": true
   },
   {
+    "name": "enablePreopen",
+    "defaultValue": true,
+    "commandArugmentName": "disable-preopen",
+    "help": "Opens files in batch to speed up the boot process.",
+    "plugin": true
+  },
+  {
     "name": "enableSynthesizeTouchEventsOnClick",
     "defaultValue": false,
     "help": "Synthesize touch events from mouse clicks and drags.",

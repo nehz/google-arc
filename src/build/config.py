@@ -9,6 +9,18 @@ adding rules to this file unless they are rules for the overall project
 or for third party directories that can be open sourced.
 """
 
+# Hack: Temporarily enable absolute-import in this file.
+# We are now mid-point of the simplification of PYTHONPATH. Unfortunately,
+# this module is loaded as src.build.config, but PYTHONPATH is set to
+# 'src/build', too. As a result, modules below are loaded *twice*. One is
+# top-level module (such as build_common) imported by other modules. The other
+# is relative to this file (such as src.build.build_common) imported by this
+# file. It causes some troubles (especially on some global variables).
+# As a temporary short-time work around, we enable absolute import in this
+# file, so that all imports below get top-level modules.
+# TODO(crbug.com/522299): Remove this.
+from __future__ import absolute_import
+
 import os
 
 import analyze_diffs

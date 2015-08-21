@@ -208,6 +208,7 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   virtual void InvalidateCache() OVERRIDE;
   virtual void AddToCache(const std::string& path, const PP_FileInfo& file_info,
                           bool exists) OVERRIDE;
+  virtual void SchedulePreopen(const std::string& path) OVERRIDE;
   virtual bool RegisterFileStream(int fd,
                                   scoped_refptr<FileStream> stream) OVERRIDE;
   virtual FileSystemHandler* GetFileSystemHandler(
@@ -325,6 +326,9 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
 
   int GetFirstUnusedDescriptorLocked();
 
+  int OpenLocked(
+      const std::string& pathname, int oflag, mode_t cmode, bool use_preopened);
+
   int IsSelectReadyLocked(int nfds, fd_set* fds,
                           SelectReadyEvent event,
                           bool apply);
@@ -349,6 +353,15 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   // for other details of this function.
   int DenyAccessForModifyLocked(const std::string& path,
                                 FileSystemHandler* handler);
+
+  // Starts preopening files as scheduled by SchedulePreopen().
+  void StartPreopenLocked();
+  static void* PreopenThreadMain(void* arg);
+  void PerformPreopens();
+
+  // Invalidates preopened files.
+  void ClosePreopenedFilesWithResolvedPathLocked(
+      const std::string& resolved_path);
 
   // Gets a /proc/self/maps like memory map for debugging in a human readable
   // format.
@@ -386,6 +399,17 @@ class VirtualFileSystem : public VirtualFileSystemInterface {
   LogdSocketNamespace logd_socket_namespace_;
 
   HostResolver host_resolver_;
+
+  bool preopen_started_;
+
+  // The list of resolved paths of files scheduled for preopen.
+  std::vector<std::string> scheduled_preopens_;
+
+  // The map from resolved path to fd of preopened files.
+  // If a file was scheduled for preopen but not opened yet, the value is set to
+  // kPreopenPendingFd.
+  typedef std::multimap<std::string, int> PreopenedFdMultimap;
+  PreopenedFdMultimap preopened_fds_;
 
   bool abort_on_unexpected_memory_maps_;  // For unit testing.
   std::map<int, FileDescNamePair> debug_fds_;

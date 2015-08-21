@@ -41,6 +41,9 @@ void MockVirtualFileSystem::AddToCache(const std::string& path,
   ++add_to_cache_callcount_;
 }
 
+void MockVirtualFileSystem::SchedulePreopen(const std::string& path) {
+}
+
 bool MockVirtualFileSystem::RegisterFileStream(
     int fd, scoped_refptr<FileStream> stream) {
   return true;

@@ -57,6 +57,9 @@ class VirtualFileSystemInterface {
                           const PP_FileInfo& file_info,
                           bool exists) = 0;
 
+  // Opens a file and caches FD to speed up open() later.
+  virtual void SchedulePreopen(const std::string& path) = 0;
+
   // Associates |stream| with |fd|. Returns false if |fd| is already in use.
   // This interface is useful for e.g. registering FileStreams for pre-existing
   // FDs like STDIN/STDOUT/STDERR_FILENOs.

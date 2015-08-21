@@ -6,131 +6,133 @@
 
 import imp
 import os
-import os.path
 import sys
 
+import build_common
 import build_options
-from build_common import get_arc_root
 
 
-def _all_config_files(base_paths):
-  for base_path in base_paths:
-    for root, dirs, files in os.walk(base_path, followlinks=False):
-      for name in files:
-        if name == 'config.py':
-          yield os.path.join(root, name), base_path
+def _find_config_py(base_path):
+  """Finds config.py files under |base_path| and its descendants.
+
+  Args:
+    base_path: The root path for the searching, relative to ARC_ROOT.
+
+  Yields:
+    Paths to the found config.py files, relative to ARC_ROOT.
+  """
+  arc_root = build_common.get_arc_root()
+  base_abs_path = os.path.join(arc_root, base_path)
+  for dirpath, dirnames, filenames in os.walk(base_abs_path):
+    for name in filenames:
+      if name == 'config.py':
+        # Returns the path relative to ARC_ROOT.
+        # Note that, as |base_abs_path| is an absolute path, dirpath is
+        # also an absolute path.
+        yield os.path.relpath(os.path.join(dirpath, name), arc_root)
+
+    # "third_party" directories are out of our focus.
+    if 'third_party' in dirnames:
+      dirnames.remove('third_party')
 
 
-def _register_module(module_path, module):
-  sys.modules[module_path] = module
-  if '.' in module_path:
-    parent_name, child_name = module_path.rsplit('.', 1)
-    setattr(sys.modules[parent_name], child_name, module)
+def _import_package(package_path, filepath):
+  """Import the package at given |package_path|.
+
+  This is almost same to __import__. The only difference is; when it is not
+  found, creates an empty package, and registers it. Practically, this happens
+  when __init__.py is not found.
+
+  Args:
+    package_path: The path of the package being imported.
+    filepath: The path on the file system corresponding to the package.
+
+  Returns:
+    Module instance.
+  """
+  try:
+    return __import__(package_path)
+  except ImportError:
+    # Here, we assume __init__.py is missing. Create a new empty module
+    # instance.
+    package = imp.new_module(package_path)
+    package.__path__ = [filepath]
+    sys.modules[package_path] = package
+    if '.' in package_path:
+      parent, name = package_path.rsplit('.', 1)
+      parent_package = _import_package(parent, os.path.dirname(filepath))
+      setattr(parent_package, name, package)
+    return package
 
 
-def _walk_module_path(module_path):
-  path = module_path.split('.')
-  for index in xrange(len(path) - 1):
-    yield '.'.join(path[:index + 1])
+def _load_internal(path_list):
+  """Loads all files in |path_list|.
+
+  The files are loaded as an appropriately named submodule.
+  Note that the modules will be loaded even if parent modules are not found,
+  like because of missing __init__.py. In such a case, empty modules will be
+  created.
+
+  Args:
+    path_list: a list of files to be loaded, relative to ARC_ROOT.
+
+  Returns:
+    A list of loaded modules.
+  """
+
+  # For safety, acquire the import lock.
+  imp.acquire_lock()
+  try:
+    result = []
+    for path in path_list:
+      path = os.path.normpath(path)
+      abs_path = os.path.join(build_common.get_arc_root(), path)
+      module_name = os.path.splitext(path)[0].replace(os.sep, '.')
+
+      # Ensure ancestor packages.
+      if '.' in module_name:
+        _import_package(module_name.rsplit('.', 1)[0],
+                        os.path.dirname(abs_path))
+
+      with open(abs_path, 'rb') as config_file:
+        result.append(imp.load_source(module_name, abs_path, config_file))
+
+    return result
+  finally:
+    imp.release_lock()
 
 
-def _ensure_parents_exist(module_path):
-  for parent in _walk_module_path(module_path):
-    if parent not in sys.modules:
-      _register_module(parent, imp.new_module(parent))
-
-
-class ConfigLoader:
+class ConfigLoader(object):
   def __init__(self):
     self._config_modules = []
 
-  def find_name(self, attribute_name):
-    """Iterates over all loaded config modules and does a name lookup on """
-    """them."""
-    for module in self._config_modules:
-      if hasattr(module, attribute_name):
-        yield getattr(module, attribute_name)
-
   def find_config_modules(self, attribute_name):
-    """Finds the loaded config modules that have the specified attribute """
-    """name."""
+    """Finds the loaded config modules that have the specified attribute name.
+
+    Args:
+      attribute_name: the name of a field or method to be found.
+
+    Yields:
+      Modules that have the given |attribute_name|.
+    """
     for module in self._config_modules:
       if hasattr(module, attribute_name):
         yield module
 
-  def load_from_subdirectories(self, base_paths):
-    """Loads all the config.py files found under the base_path."""
-
-    # Get the list and sort it to avoid nondeterministic import issues caused
-    # by some modules being set up before others.
-    return self.load_config_files(_all_config_files(base_paths))
-
-  def load_config_files(self, config_files):
-    """Loads all the config.py files found under the base_path.
-
-    The files are loaded as an appropriately named submodule.
-    If this function finds base_path/foo/bar/config.py, a module named
-    foo.bar is created with its contents, and can be subsequently
-    referenced with an 'import foo.bar' (foo.bar.config seemed redundant).
-    No __init__.py files are needed.
-
-    Returns a list of all the modules loaded so that later code can optional
-    do some introspection to decide what to do with them.
-    """
-
-    # For safety, acquire the import lock.
-    imp.acquire_lock()
-    try:
-      for path_name, base_path in config_files:
-        # Convert the filename into a dotted python module name.
-        # base_path/foo/bar/config.py -> foo.bar
-        top_level_dir = os.path.basename(base_path)
-        dirs = [top_level_dir]
-        relative_path_to_config = os.path.dirname(
-            os.path.relpath(path_name, base_path))
-        if relative_path_to_config:
-          dirs.extend(relative_path_to_config.split(os.sep))
-        module_name = '.'.join(dirs)
-
-        # Ensure parent modules exist, creating them if needed.
-        _ensure_parents_exist(module_name)
-
-        # Compile and load the source file as a module
-        with open(path_name, 'r') as config_file:
-          # Allow config_file to import more modules from its directory.
-          # sys.path.remove() removes the 1st occurance. Thus insert
-          # at the beginning.
-          sys.path.insert(0, os.path.dirname(path_name))
-          config_module = imp.load_source(module_name, path_name, config_file)
-          sys.path.remove(os.path.dirname(path_name))
-
-        # Register the module so we can just a later normal looking import to
-        # reference it.
-        _register_module(module_name, config_module)
-
-        self._config_modules.append(config_module)
-    finally:
-      imp.release_lock()
-
-    return self._config_modules
-
-  def load_from_default_path(self):
-    # On the first import, automatically discover all config modules in the
-    # project for later use, including allowing them to be imported by their
-    # containing directory name.
-    paths = [
-        os.path.join(get_arc_root(), 'mods', 'android'),
-        os.path.join(get_arc_root(), 'mods', 'chromium-ppapi'),
-        os.path.join(get_arc_root(), 'mods', 'examples'),
-        os.path.join(get_arc_root(), 'mods', 'graphics_translation'),
-        os.path.join(get_arc_root(), 'src'),
+  def load(self):
+    """Loads all config.py files in the project."""
+    search_root_list = [
+        os.path.join('mods', 'android'),
+        os.path.join('mods', 'chromium-ppapi'),
+        os.path.join('mods', 'examples'),
+        os.path.join('mods', 'graphics_translation'),
+        'src',
     ]
-
     if build_options.OPTIONS.internal_apks_source_is_internal():
-      internal_base = os.path.join(get_arc_root(), 'internal')
-      for path in os.listdir(internal_base):
-        internal_path = os.path.join(internal_base, path)
-        if os.path.isdir(internal_path) and path != 'third_party':
-          paths.append(internal_path)
+      search_root_list.append('internal')
 
-    return self.load_from_subdirectories(paths)
+    config_file_list = []
+    for search_root in search_root_list:
+      config_file_list.extend(_find_config_py(search_root))
+
+    self._config_modules = _load_internal(config_file_list)

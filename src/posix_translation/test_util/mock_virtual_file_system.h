@@ -34,6 +34,7 @@ class MockVirtualFileSystem : public VirtualFileSystemInterface {
   virtual void AddToCache(const std::string& path,
                           const PP_FileInfo& file_info,
                           bool exists) OVERRIDE;
+  virtual void SchedulePreopen(const std::string& path) OVERRIDE;
   virtual bool RegisterFileStream(int fd,
                                   scoped_refptr<FileStream> stream) OVERRIDE;
   virtual FileSystemHandler* GetFileSystemHandler(

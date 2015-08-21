@@ -77,6 +77,7 @@ _INTEGRATION_TEST_GLOB_TEMPLATE_LIST = [
     '{out}/target/common/obj/APPS/ndk_translation_tests_intermediates/work/libs/*',  # NOQA
     '{out}/target/common/obj/APPS/perf_tests_codec_intermediates/perf_tests_codec.apk',  # NOQA
     '{out}/target/common/obj/JAVA_LIBRARIES/uiautomator.*/javalib.jar',
+    '{out}/target/common/test_template_*',
     '{out}/target/common/vmHostTests',
     '{out}/third_party_apks/*',
     '{out}/tools/apk_to_crx.zip',
