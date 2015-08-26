@@ -1,8 +1,9 @@
-#!/usr/bin/python
+#!src/build/run_python
+
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
+
 # Script to download and build 'adb' command, that's needed to run integration
 # tests on Linux, Chrome OS, Windows, and Mac.
 #

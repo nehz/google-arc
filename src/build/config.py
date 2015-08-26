@@ -302,7 +302,7 @@ def _generate_check_symbols_ninja():
   script = staging.as_staging('src/build/check_symbols.py')
   rule_name = 'check_symbols'
   n.rule(rule_name,
-         command=('python %s $android_lib $in %s' % (
+         command=('src/build/run_python %s $android_lib $in %s' % (
              script, build_common.get_test_output_handler())),
          description=(rule_name + ' $in'))
 

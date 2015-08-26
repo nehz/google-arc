@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-#
+#!src/build/run_python
+
 # Copyright (C) 2014 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,12 +13,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 import subprocess
 import sys
-
-sys.path.insert(0, 'src/build')
 
 import open_source
 from build_options import OPTIONS

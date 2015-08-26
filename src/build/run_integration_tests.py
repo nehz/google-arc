@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!src/build/run_python
 
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -40,7 +40,6 @@ from util import remote_executor
 from util.test import scoreboard
 from util.test import scoreboard_constants
 from util.test import suite_results
-from util.test import suite_runner
 from util.test import suite_runner_config
 from util.test import test_driver
 from util.test import test_filter
@@ -290,7 +289,7 @@ def pretty_print_tests(args):
   def print_test_list(tag, test_list):
     for qualified_name, flag in sorted(test_list):
       line_color = _REPORT_COLOR_FOR_SUITE_EXPECTATION[
-        scoreboard.Scoreboard.map_expectation_flag_to_result(flag)]
+          scoreboard.Scoreboard.map_expectation_flag_to_result(flag)]
       color.write_ansi_escape(
           sys.stdout, line_color,
           '[%-4s %-*s] %s\n' % (tag, flag_width, flag, qualified_name))

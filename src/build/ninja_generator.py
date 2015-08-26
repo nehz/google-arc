@@ -16,11 +16,13 @@ import os
 import pipes
 import re
 import StringIO
-import sys
 import traceback
+
+import ninja_syntax
 
 import analyze_diffs
 import build_common
+import ninja_generator_runner
 import open_source
 import staging
 import toolchain
@@ -28,15 +30,10 @@ import wrapped_functions
 from build_common import as_list, as_dict
 from build_common import find_all_files
 from build_options import OPTIONS
-from ninja_generator_runner import request_run_in_parallel
 from notices import Notices
 from util import file_util
 from util import python_deps
 from util.test import unittest_util
-
-# Pull in ninja_syntax from our tools/ninja directory.
-sys.path.insert(0, 'third_party/tools/ninja/misc')
-import ninja_syntax
 
 # Extensions of primary source files.
 _PRIMARY_EXTENSIONS = ['.c', '.cpp', '.cc', '.java', '.S', '.s']
@@ -290,10 +287,9 @@ class NinjaGenerator(ninja_syntax.Writer):
   """
 
   _EXTRACT_TEST_LIST_PATH = 'src/build/util/test/extract_test_list.py'
+  _GENERATE_FILE_FROM_TEMPLATE_PATH = (
+      'src/packaging/generate_file_from_template.py')
   _PRETTY_PRINT_JSON_PATH = 'src/build/util/pretty_print_json.py'
-
-  # Global list of all ninjas generated in this parallel task.
-  _ninja_list = []
 
   # Default implicit dependencies.
   _default_implicit = []
@@ -327,7 +323,7 @@ class NinjaGenerator(ninja_syntax.Writer):
     else:
       ninja_path = ninja_name
     super(NinjaGenerator, self).__init__(StringIO.StringIO())
-    NinjaGenerator._ninja_list.append(self)
+    ninja_generator_runner.register_ninja(self)
     self._ninja_path = ninja_path
     self._base_path = base_path
     self._notices_only = notices_only
@@ -429,14 +425,10 @@ class NinjaGenerator(ninja_syntax.Writer):
                NinjaGenerator._PRETTY_PRINT_JSON_PATH),
            description='Build test info $out')
 
-  @staticmethod
-  def consume_ninjas():
-    """Returns the list of NinjaGenerator created in the process."""
-    # Note: this method should never be called by any modules except
-    # ninja_generator_runner.
-    result = NinjaGenerator._ninja_list
-    NinjaGenerator._ninja_list = []
-    return result
+    n.rule('generate_from_template',
+           command=('%s $keyvalues $in > $out || (rm -f $out; exit 1)' %
+                    NinjaGenerator._GENERATE_FILE_FROM_TEMPLATE_PATH),
+           description='generate_from_template $out')
 
   @staticmethod
   def _canonicalize_set(target_groups):
@@ -1908,7 +1900,7 @@ class TopLevelNinjaGenerator(NinjaGenerator):
     # a ninja regeneration rule whose parameters differ, resulting in
     # ninja wanting to immediately re-run configure.
     self.rule('regen_ninja',
-              'python $in $$(cat %s)' % OPTIONS.get_configure_options_file(),
+              './configure $$(cat %s)' % OPTIONS.get_configure_options_file(),
               description='Regenerating ninja files due to dependency',
               depfile=self._get_depfile_path(),
               generator=True)
@@ -1934,6 +1926,7 @@ class TopLevelNinjaGenerator(NinjaGenerator):
     JarNinjaGenerator.emit_common_rules(self)
     JavaNinjaGenerator.emit_common_rules(self)
     JavaScriptNinjaGenerator.emit_common_rules(self)
+    JavaScriptTestNinjaGenerator.emit_common_rules(self)
     NaClizeNinjaGenerator.emit_common_rules(self)
     NinjaGenerator.emit_common_rules(self)
     NoticeNinjaGenerator.emit_common_rules(self)
@@ -4159,9 +4152,93 @@ def generate_python_test_ninjas_for_path(base_path, exclude=None,
   python_tests = build_common.find_all_files(
       base_path, suffixes='_test.py', include_tests=True, exclude=exclude,
       use_staging=False)
-  request_run_in_parallel(
+  ninja_generator_runner.request_run_in_parallel(
       *[(_generate_python_test_ninja_for_test, python_test, implicit_map)
         for python_test in python_tests])
+
+
+class JavaScriptTestNinjaGenerator(JavaScriptNinjaGenerator):
+  _TEST_DEPENDENCIES = [
+      'testing/chrome_test/chrome_test.js',
+      build_common.get_generated_metadata_js_file(),
+      'src/packaging/runtime/common.js',
+      'src/packaging/runtime/promise_wrap.js',
+      'src/packaging/runtime/tests/test_base.js',
+  ]
+
+  def __init__(self, test_name, **kwargs):
+    super(JavaScriptTestNinjaGenerator, self).__init__(
+        'test_template_' + test_name, **kwargs)
+    self._test_name = test_name
+    self._test_files = JavaScriptTestNinjaGenerator._TEST_DEPENDENCIES[:]
+
+  def _generate_test_runner_html(self, out_path, script_src):
+    self.build(
+        out_path,
+        'generate_from_template',
+        'src/packaging/test_template/test_runner.html',
+        variables={
+            'keyvalues': pipes.quote('script_src=%s' % script_src)
+        },
+        implicit=[NinjaGenerator._GENERATE_FILE_FROM_TEMPLATE_PATH])
+
+  def add_test_files_in_directory(self, tests_directory):
+    test_js_files = build_common.find_all_files(
+        tests_directory, suffixes=['.js'], include_tests=True)
+    self.add_test_files(test_js_files)
+
+  def add_test_files(self, files):
+    for f in files:
+      if f in self._test_files:
+        continue
+      self._test_files.append(f)
+
+  def generate_test_template(self):
+    out_dir = build_common.get_build_path_for_gen_test_template(self._test_name)
+
+    gen_min_js = os.path.join(out_dir, 'gen_test.min.js')
+    # Note: This creates mapping file under out directory, too.
+    self.minify(self._test_files, gen_min_js)
+
+    # Generate main HTML page for test runner.
+    generated_test_runner = os.path.join(out_dir, 'test_runner.html')
+    self._generate_test_runner_html(generated_test_runner,
+                                    os.path.basename(gen_min_js))
+
+    # Copy needed files to |out_dir|.
+    resources = build_common.find_all_files('src/packaging/test_template',
+                                            exclude=['test_runner.html'])
+    resources.extend(['src/packaging/app_template/manifest.json',
+                      'src/packaging/app_template/icon.png'])
+    copied_files = []
+    for path in resources:
+      out_file = os.path.join(out_dir, os.path.basename(path))
+      self.build(out_file, 'cp', path)
+      copied_files.append(out_file)
+
+    self.build(os.path.join(out_dir, '_locales'), 'mkdir_empty')
+    messages_json = os.path.join(out_dir, '_locales', 'messages.json')
+    self.build(messages_json, 'cp',
+               'src/packaging/app_template/_locales/messages.json')
+    self.build(os.path.join(out_dir, 'BUILD_STAMP'), 'touch',
+               implicit=([generated_test_runner, gen_min_js, messages_json] +
+                         copied_files))
+
+    # Build a test name list.
+    self._build_test_list(
+        self._test_files,
+        'gen_js_test_list',
+        test_list_name='test_template_' + self._test_name,
+        implicit=[build_common.get_extract_google_test_list_path()])
+
+  @staticmethod
+  def emit_common_rules(n):
+    n.rule(
+        'gen_js_test_list',
+        command=('src/build/run_python %s --language=javascript $in > $out.tmp '
+                 '&& mv $out.tmp $out' %
+                 build_common.get_extract_google_test_list_path()),
+        description='Generate JavaScript test method list')
 
 
 def build_default(n, root, files, **kwargs):

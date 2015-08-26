@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!src/build/run_python
 #
 # Copyright 2015 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -10,8 +10,6 @@
 # posix functions that are renamed to __wrap_FUNC by --wrap.
 
 import sys
-
-sys.path.insert(0, 'src/build')
 
 import wrapped_functions
 from build_options import OPTIONS

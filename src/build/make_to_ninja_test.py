@@ -1,13 +1,12 @@
-#!/usr/bin/python
-
 # Copyright 2015 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Unittests for make_to_ninja.py."""
 
-import make_to_ninja
 import unittest
+
+import make_to_ninja
 
 
 class MakeToNinjaUnittest(unittest.TestCase):
@@ -32,7 +31,6 @@ class MakeToNinjaUnittest(unittest.TestCase):
     flags.remove('cflags')
     self.assertEquals([], flags.cflags)
     self.assertEquals(['cflags'], cflags)
-
 
   def testFlagsHasFlag(self):
     flags = make_to_ninja.Flags([], ['abc'], [], [], [])

@@ -28,7 +28,7 @@ zip
 "
 
 # Packages for trampoline-generating tool for building ndk_translation.
-arc_list="
+arc_list="$arc_list
 libjsoncpp-dev
 "
 

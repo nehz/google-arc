@@ -137,6 +137,10 @@ def get_staging_root():
   return os.path.join(OUT_DIR, 'staging')
 
 
+def get_data_root_dir():
+  return os.path.join(OUT_DIR, 'data_roots')
+
+
 def get_stripped_dir():
   return os.path.join(get_build_dir(), 'stripped')
 

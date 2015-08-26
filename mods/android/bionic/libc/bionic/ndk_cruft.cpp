@@ -242,14 +242,13 @@ extern "C" int __futex_wait(volatile void* ftx, int value, const struct timespec
 
 // Unity's libmono uses this.
 // ARC MOD BEGIN
-// We want to return ENOSYS instead of doing a system call.
+// implemented in android/bionic/libc/arch-nacl/syscalls/nacl_signals.cpp.
 #if !defined(HAVE_ARC)
 // ARC MOD END
 extern "C" int tkill(pid_t tid, int sig) {
   return syscall(__NR_tkill, tid, sig);
 }
 // ARC MOD BEGIN
-// We want to return ENOSYS instead of doing a system call.
 #endif
 // ARC MOD END
 

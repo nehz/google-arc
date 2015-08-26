@@ -1,15 +1,14 @@
-#!/usr/bin/python
+#!src/build/run_python
+
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
+
 # Provides functions for running Chrome and dalvik tests on a remote host.
 
 import argparse
 import os.path
 import sys
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import build_common
 from util import platform_util

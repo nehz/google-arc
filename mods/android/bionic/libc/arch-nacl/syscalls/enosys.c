@@ -64,7 +64,6 @@ DEFINE_ENOSYS_SYSCALL(int, __fstatfs64, int fd, size_t size,
 DEFINE_ENOSYS_SYSCALL(int, __ioctl, int d, int request, ...)
 DEFINE_ENOSYS_SYSCALL(long, __ptrace, int request, pid_t pid,
                       void *addr, void *data)
-DEFINE_ENOSYS_SYSCALL(int, __sigsuspend, const sigset_t *mask)
 DEFINE_ENOSYS_SYSCALL(int, __statfs64, const char *path, size_t size,
                       struct statfs* buf)
 DEFINE_ENOSYS_SYSCALL(int, accept, int sockfd, struct sockaddr *addr,
@@ -139,7 +138,6 @@ DEFINE_ENOSYS_SYSCALL(int, inotify_init, void)
 DEFINE_ENOSYS_SYSCALL(int, inotify_rm_watch, int fd, uint32_t wd)
 DEFINE_ENOSYS_SYSCALL(int, ioprio_get, int which, int who)
 DEFINE_ENOSYS_SYSCALL(int, ioprio_set, int which, int who, int ioprio)
-DEFINE_ENOSYS_SYSCALL(int, kill, pid_t pid, int sig)
 DEFINE_ENOSYS_SYSCALL(int, klogctl, int type, char *bufp, int len)
 DEFINE_ENOSYS_SYSCALL(int, lchown, const char *path, uid_t owner, gid_t group)
 DEFINE_ENOSYS_SYSCALL(int, link, const char *oldpath, const char *newpath)
@@ -168,9 +166,6 @@ DEFINE_ENOSYS_SYSCALL(ssize_t, pread64, int fd, void *buf, size_t count,
 DEFINE_ENOSYS_SYSCALL(int, prlimit64, pid_t pid, int resource,
                       const struct rlimit64* new_limit,
                       struct rlimit64* old_limit)
-DEFINE_ENOSYS_SYSCALL(int, pthread_kill, pthread_t thread, int sig)
-DEFINE_ENOSYS_SYSCALL(int, pthread_sigmask,
-                      int how, const sigset_t *set, sigset_t *oldset)
 DEFINE_ENOSYS_SYSCALL(ssize_t, pwrite64, int fd, const void *buf, size_t count,
                       off64_t offset)
 DEFINE_ENOSYS_SYSCALL(ssize_t, readlink,
@@ -215,12 +210,7 @@ DEFINE_ENOSYS_SYSCALL(int, settimeofday, const struct timeval *tv,
                       const struct timezone *tz)
 DEFINE_ENOSYS_SYSCALL(int, setuid, uid_t uid)
 DEFINE_ENOSYS_SYSCALL(int, sigaltstack, const stack_t *ss, stack_t *oss)
-DEFINE_ENOSYS_SYSCALL(int, sigpending, sigset_t *set)
 DEFINE_ENOSYS_SYSCALL(int, shutdown, int sockfd, int how)
-DEFINE_ENOSYS_SYSCALL(int, sigaction, int signum, const struct sigaction *act,
-                      struct sigaction *oldact)
-DEFINE_ENOSYS_SYSCALL(int, sigprocmask,
-                      int how, const sigset_t *set, sigset_t *oldset)
 DEFINE_ENOSYS_SYSCALL(int, socket, int domain, int type, int protocol)
 DEFINE_ENOSYS_SYSCALL(int, symlink, const char *oldpath, const char *newpath)
 DEFINE_ENOSYS_SYSCALL(int, sync, void)
@@ -229,8 +219,6 @@ DEFINE_ENOSYS_SYSCALL(int, sync, void)
 DEFINE_ENOSYS_SYSCALL(int, syscall, int number, ...)
 #endif
 DEFINE_ENOSYS_SYSCALL(int, sysinfo, struct sysinfo *info)
-DEFINE_ENOSYS_SYSCALL(int, tkill, int tid, int sig)
-DEFINE_ENOSYS_SYSCALL(int, tgkill, int tgid, int tid, int sig);
 DEFINE_ENOSYS_SYSCALL(int, truncate, const char *path, off_t length)
 DEFINE_ENOSYS_SYSCALL(int, truncate64, const char *path, off64_t length)
 DEFINE_ENOSYS_SYSCALL(mode_t, umask, mode_t mask)

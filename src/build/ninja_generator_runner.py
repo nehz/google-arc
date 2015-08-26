@@ -7,8 +7,6 @@ import multiprocessing
 import time
 import traceback
 
-import ninja_generator
-
 from util import concurrent
 
 
@@ -46,6 +44,21 @@ def request_run_in_parallel(*task_list):
   __request_task_list.extend(task_list)
 
 
+# A list of ninjas which is created during running a task.
+_ninja_list = None
+
+
+def register_ninja(ninja):
+  """Registers the given |ninja| to return from the parallelized task."""
+  # _ninja_list can be None, if a NinjaGenerator is instantiated in the main
+  # process synchronously (rather than in a task of ninja_generator_runner),
+  # such as "notices", "all_test_lists" or "all_unittest_info" etc.
+  # In these cases, the created NinjaGenerator instances are handled manually.
+  # Please see also config_runner.py, too.
+  if _ninja_list is not None:
+    _ninja_list.append(ninja)
+
+
 def _run_task(generator_task):
   """Run a generate ninja task synchronously.
 
@@ -54,19 +67,21 @@ def _run_task(generator_task):
   To run this function from the multiprocess.Pool, we need to make it a
   module top-level function.
 
-  At the beginning of the task, NinjaGenerator._ninja_list and
-  __request_task_list must be empty. In NinjaGenerator's ctor, the instance
-  will be stored in the NinjaGenerator._ninja_list, and this function returns
-  it (to parent process) as a result.
+  At the beginning of the task, |_ninja_list| and |__request_task_list| must be
+  None. In NinjaGenerator's ctor, the instance will be stored in the
+  |_ninja_list| via register_ninja(), and this function returns it (to parent
+  process) as a result.
   Instead of creating NinjaGenerator, generate_ninja() and
   generate_test_ninja() can call request_run_in_parallel(). Then, this function
   returns tasks to the parent process, and they'll be run in parallel.
   """
   try:
-    # Make sure both lists are empty.
-    assert not ninja_generator.NinjaGenerator._ninja_list
+    # Make sure both lists are None.
+    global _ninja_list
+    assert _ninja_list is None
+    _ninja_list = []
     global __request_task_list
-    assert not __request_task_list
+    assert __request_task_list is None
     __request_task_list = []
 
     start_time = time.time()
@@ -82,11 +97,9 @@ def _run_task(generator_task):
                    function.__module__, function.__name__, elapsed_time)
 
     # Extract the result from global variables.
-    ninja_list = ninja_generator.NinjaGenerator.consume_ninjas()
     task_list = [GeneratorTask(context, requested_task)
                  for requested_task in __request_task_list]
-
-    result = context.make_result(ninja_list) if ninja_list else None
+    result = context.make_result(_ninja_list) if _ninja_list else None
 
     # At the moment, it is prohibited 1) to return NinjaGenerator and
     # 2) to request to run ninja generators back to the parent process, at the
@@ -98,9 +111,6 @@ def _run_task(generator_task):
       # Just raise the exception up the single process, single thread
       # stack in the simple -j1 case.
       raise
-    # Consume the partially generated list of ninja files to avoid
-    # re-entrance assertions in this function.
-    ninja_generator.NinjaGenerator.consume_ninjas()
     # multiprocessing.Pool will discard the stack trace information.
     # So here, we format the message and raise another Exception with it.
     message = traceback.format_exc()
@@ -110,6 +120,9 @@ def _run_task(generator_task):
     print message
     raise Exception('subprocess failure, see console output above')
   finally:
+    # Reset the partially generated list of ninja files to avoid re-entrance
+    # assertions in this function.
+    _ninja_list = None
     __request_task_list = None
 
 

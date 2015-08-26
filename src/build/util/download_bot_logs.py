@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!src/build/run_python
 
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -32,7 +32,6 @@ import os
 import sys
 import urllib2
 
-sys.path.insert(0, 'src/build')
 import util.concurrent
 from util import file_util
 

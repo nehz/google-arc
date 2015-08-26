@@ -12,14 +12,12 @@ import os
 import re
 import sys
 
-from build_common import get_arc_welder_unpacked_dir
+import build_common
 from build_options import OPTIONS
 import metadata.manager
 from ninja_generator import ApkFromSdkNinjaGenerator
 from util import launch_chrome_util
 from util import remote_executor
-
-_DATA_ROOTS_PATH = os.path.join('out', 'data_roots')
 
 _DEFAULT_TIMEOUT = 60
 
@@ -39,20 +37,25 @@ def _parse_mode_arguments(remaining_args, parsed_args):
   if not _parse_barewords(remaining_args, parsed_args):
     return False
 
-  if not parsed_args.apk_path_list and parsed_args.mode != 'system':
-    if parsed_args.mode == 'atftest':
+  if parsed_args.mode == 'system':
+    # TODO(crbug.com/308425): Currently, system mode CRX is generated in the
+    # launch_chrome. But it should be generated in the build step.
+    if not parsed_args.crx_name_override:
+      parsed_args.crx_name_override = _SYSTEM_CRX_NAME
+  elif parsed_args.mode == 'atftest':
+    # We need an APK to test unless we override the CRX.
+    if not parsed_args.apk_path_list and not parsed_args.crx_name_override:
       raise Exception('Must specify atftest test')
-    parsed_args.apk_path_list = \
-        [ApkFromSdkNinjaGenerator.get_install_path_for_module('HelloAndroid')]
-
-  # TODO(crbug.com/308425): Currently, system mode CRX is generated in the
-  # launch_chrome. But it should be generated in the build step.
-  if not parsed_args.crx_name_override and parsed_args.mode == 'system':
-    parsed_args.crx_name_override = _SYSTEM_CRX_NAME
+  else:
+    # HelloAndroid is the default APK if no APK is specified.
+    if not parsed_args.apk_path_list:
+      parsed_args.apk_path_list = \
+          [ApkFromSdkNinjaGenerator.get_install_path_for_module('HelloAndroid')]
 
   if parsed_args.mode == 'arcwelder':
     parsed_args.build_crx = False
-    parsed_args.arc_data_dir = os.path.join(get_arc_welder_unpacked_dir())
+    parsed_args.arc_data_dir = os.path.join(
+        build_common.get_arc_welder_unpacked_dir())
   else:
     parsed_args.arc_data_dir = _get_arc_data_dir(parsed_args)
 
@@ -196,7 +199,8 @@ def _get_arc_data_dir(parsed_args):
     crx_name = os.path.splitext(os.path.basename(
         parsed_args.apk_path_list[-1]))[0]
   # Chrome does not like spaces in paths to CRXs to load.
-  return os.path.join(_DATA_ROOTS_PATH, crx_name.replace(' ', '_'))
+  return os.path.join(build_common.get_data_root_dir(),
+                      crx_name.replace(' ', '_'))
 
 
 def _set_default_args(args):

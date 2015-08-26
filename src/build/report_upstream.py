@@ -1,9 +1,9 @@
-#!/usr/bin/env python
+#!src/build/run_python
 
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
+
 # The tool to produce reports on upstreamable changes.
 
 import argparse
@@ -16,10 +16,9 @@ import subprocess
 import sys
 import tempfile
 import urlparse
+from xml.sax.saxutils import escape
 
 import analyze_diffs
-
-from xml.sax.saxutils import escape
 
 
 _GERRIT_SERVERS = ('android-review.googlesource.com')

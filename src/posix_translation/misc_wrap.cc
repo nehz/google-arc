@@ -83,6 +83,8 @@ ARC_EXPORT int __wrap_setregid(gid_t rgid, gid_t egid);
 ARC_EXPORT int __wrap_setreuid(uid_t ruid, uid_t euid);
 ARC_EXPORT int __wrap_setgid(gid_t gid);
 ARC_EXPORT int __wrap_setuid(uid_t uid);
+int tgkill(int, int, int);
+int tkill(int, int);
 }  // extern "C"
 
 namespace {
@@ -273,8 +275,8 @@ int __wrap_getrlimit(int resource, struct rlimit *rlim) {
 int __wrap_kill(pid_t pid, int sig) {
   ARC_STRACE_ENTER("kill", "%d, %s",
                    static_cast<int>(pid), arc::GetSignalStr(sig).c_str());
-  errno = ENOSYS;
-  ARC_STRACE_RETURN(-1);
+  const int result = kill(pid, sig);
+  ARC_STRACE_RETURN(result);
 }
 
 int __wrap_pthread_setschedparam(pthread_t thread, int policy,
@@ -288,7 +290,8 @@ int __wrap_pthread_setschedparam(pthread_t thread, int policy,
 
 int __wrap_pthread_kill(pthread_t thread, int sig) {
   ARC_STRACE_ENTER("pthread_kill", "%s", arc::GetSignalStr(sig).c_str());
-  ARC_STRACE_RETURN_INT(ENOSYS, false);
+  const int result = pthread_kill(thread, sig);
+  ARC_STRACE_RETURN(result);
 }
 
 int __wrap_sched_setscheduler(pid_t pid, int policy,
@@ -323,27 +326,27 @@ int __wrap_sigaction(int signum, const struct sigaction *act,
   ARC_STRACE_ENTER("sigaction", "%s, %s, %p",
                    arc::GetSignalStr(signum).c_str(),
                    arc::GetSigActionStr(act).c_str(), oldact);
-  errno = ENOSYS;
-  ARC_STRACE_RETURN(-1);
+  const int result = sigaction(signum, act, oldact);
+  ARC_STRACE_RETURN(result);
 }
 
 int __wrap_sigsuspend(const sigset_t* mask) {
   ARC_STRACE_ENTER("sigsuspend", "%s", arc::GetSigSetStr(mask).c_str());
-  errno = ENOSYS;
-  ARC_STRACE_RETURN(-1);
+  const int result = sigsuspend(mask);
+  ARC_STRACE_RETURN(result);
 }
 
 int __wrap_tgkill(int tgid, int tid, int sig) {
   ARC_STRACE_ENTER("tgkill", "%d, %d, %s", tgid, tid,
                    arc::GetSignalStr(sig).c_str());
-  errno = ENOSYS;
-  ARC_STRACE_RETURN(-1);
+  const int result = tgkill(tgid, tid, sig);
+  ARC_STRACE_RETURN(result);
 }
 
 int __wrap_tkill(int tid, int sig) {
   ARC_STRACE_ENTER("tkill", "%d, %s", tid, arc::GetSignalStr(sig).c_str());
-  errno = ENOSYS;
-  ARC_STRACE_RETURN(-1);
+  const int result = tkill(tid, sig);
+  ARC_STRACE_RETURN(result);
 }
 
 int __wrap_uname(struct utsname* buf) {

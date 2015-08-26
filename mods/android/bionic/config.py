@@ -1,9 +1,6 @@
-#!/usr/bin/env python
-#
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
 
 import os
 import re
@@ -201,6 +198,7 @@ def _filter_libc_common(vars):
       'android/bionic/libc/arch-nacl/syscalls/gettid.cpp',
       'android/bionic/libc/arch-nacl/syscalls/gettimeofday.c',
       'android/bionic/libc/arch-nacl/syscalls/getuid.c',
+      'android/bionic/libc/arch-nacl/syscalls/kill.cpp',
       'android/bionic/libc/arch-nacl/syscalls/lseek.c',
       'android/bionic/libc/arch-nacl/syscalls/lseek64.c',
       'android/bionic/libc/arch-nacl/syscalls/lstat.c',
@@ -220,6 +218,7 @@ def _filter_libc_common(vars):
       'android/bionic/libc/arch-nacl/syscalls/setpriority.c',
       'android/bionic/libc/arch-nacl/syscalls/socketpair.c',
       'android/bionic/libc/arch-nacl/syscalls/stat.c',
+      'android/bionic/libc/arch-nacl/syscalls/tgkill.cpp',
       'android/bionic/libc/arch-nacl/syscalls/unlink.c',
       'android/bionic/libc/arch-nacl/syscalls/write.c',
       'android/bionic/libc/arch-nacl/syscalls/writev.c',
@@ -334,9 +333,6 @@ def _filter_libc_bionic(vars):
   sources = vars.get_sources()
   _remove_assembly_source(sources)
 
-  # NaCl does not support signals.
-  sources.remove('android/bionic/libc/bionic/pthread_kill.cpp')
-  sources.remove('android/bionic/libc/bionic/pthread_sigmask.cpp')
   # Bionic's mmap is a wrapper for __mmap2 (except for x86_64). Works the
   # wrapper are not necessary for NaCl and it calls madvice, which NaCl
   # does not support. We will simply define mmap without the wrapper.
@@ -373,10 +369,7 @@ def _filter_libc_bionic(vars):
             'android/bionic/libc/bionic/readlink.cpp',
             'android/bionic/libc/bionic/rename.cpp',
             'android/bionic/libc/bionic/rmdir.cpp',
-            'android/bionic/libc/bionic/sigaction.cpp',
             'android/bionic/libc/bionic/stat.cpp',
-            'android/bionic/libc/bionic/sigpending.cpp',
-            'android/bionic/libc/bionic/sigprocmask.cpp',
             'android/bionic/libc/bionic/socket.cpp',
             'android/bionic/libc/bionic/symlink.cpp',
             'android/bionic/libc/bionic/utimes.cpp',
@@ -400,6 +393,10 @@ def _filter_libc_bionic(vars):
   # Use a NaCl-specific version of getentropy.
   sources.remove('android/bionic/libc/bionic/getentropy_linux.c')
   sources.append('android/bionic/libc/arch-nacl/bionic/getentropy.cpp')
+
+  # This file is included even in SFI mode since it defines stubs for
+  # functions when it is not supported by NaCl.
+  sources.append('android/bionic/libc/arch-nacl/syscalls/nacl_signals.cpp')
   return True
 
 

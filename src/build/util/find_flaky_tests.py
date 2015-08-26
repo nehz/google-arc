@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!src/build/run_python
 
 # Copyright 2015 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -24,8 +24,6 @@ import os.path
 import re
 import subprocess
 import sys
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from build_options import OPTIONS
 

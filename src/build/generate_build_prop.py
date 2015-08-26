@@ -1,15 +1,14 @@
-#!/usr/bin/env python
-#
+#!src/build/run_python
+
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
+
 # These build properties are usually created by the Android makefile
 # system.  Specifically the ro.build.version info is written by
 # $ANDROID/build/tools/buildinfo.sh whose variables are set by
 # $ANDROID/build/core/version_defaults.mk and various build_id.mk
 # files.
-
 
 import os
 import subprocess

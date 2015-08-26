@@ -1,11 +1,12 @@
-#!/usr/bin/env python
+#!src/build/run_python
 
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import build_common
 import os
+
+import build_common
 
 os.chdir(build_common.get_arc_root())
 if not os.path.exists(build_common.OUT_DIR):

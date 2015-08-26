@@ -35,6 +35,7 @@ _PYTHONPATH_LIST = [
     'third_party/pylib/beautifulsoup4',
     'third_party/pylib/sourcemap',
     'third_party/tools/depot_tools',
+    'third_party/tools/ninja/misc',  # For ninja_syntax used in ninja_generator.
     'third_party/tools/python_mock',  # For testing.
 ]
 

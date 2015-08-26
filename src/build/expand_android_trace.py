@@ -1,17 +1,18 @@
-#!/usr/bin/env python
+#!src/build/run_python
 
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import argparse
-import build_common
-import build_options
 import collections
 import json
 import os
 import re
 import sys
+
+import build_common
+import build_options
 
 
 class LogTag(object):
