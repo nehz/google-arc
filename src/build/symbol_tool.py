@@ -3,28 +3,30 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
-# Usage:
-#
-# 1) Dump defined symbols
-# $ ./src/build/symbol_tool --dump-defined foo.so > defined.list
-#
-# 2) Dump undefined symbols
-# $ ./src/build/symbol_tool --dump-undefined foo.so > undefined.list
-#
-# 3) Clean up symbols file (remove comments and sort)
-# $ ./src/build/symbol_tool --clean foo.list > clean.list
-#
-# 4) Verify symbols
-# $ ./src/build/symbol_tool --verify input.list disallowed.list
-#    (Reports errors if input.list contains symbols listed in disallowed.list)
-#
+
+"""Tool to interact with a symbol list.
+
+Usage:
+
+1) Dump defined symbols
+$ ./src/build/symbol_tool --dump-defined foo.so > defined.list
+
+2) Dump undefined symbols
+$ ./src/build/symbol_tool --dump-undefined foo.so > undefined.list
+
+3) Clean up symbols file (remove comments and sort)
+$ ./src/build/symbol_tool --clean foo.list > clean.list
+
+4) Verify symbols
+$ ./src/build/symbol_tool --verify input.list disallowed.list
+   (Reports errors if input.list contains symbols listed in disallowed.list)
+"""
 
 import argparse
 import subprocess
 import sys
-import toolchain
 
+import toolchain
 from build_options import OPTIONS
 
 

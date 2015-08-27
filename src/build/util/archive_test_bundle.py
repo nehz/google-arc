@@ -3,9 +3,12 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
-# Archives files needed to run integration tests such as arc runtime,
-# CRX files, config files, and test jar files.
+
+"""Archives files needed to run integration tests.
+
+This scripts archives files, such as arc runtime, CRX files, config files,
+and test jar files, for run_integration_tests.
+"""
 
 import argparse
 import logging

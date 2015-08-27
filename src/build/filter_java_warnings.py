@@ -4,11 +4,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# This script exists to filter out the mandatory -Xlint warnings that
-# are given when compiling upstream Android code.  Since there is
-# nothing we can do about these and they just generate noise for our
-# build, filter them out.  We show all other warnings and preserve
-# exit status.
+"""This script exists to filter out the mandatory -Xlint warnings.
+
+The warnings are given when compiling upstream Android code. Since there is
+nothing we can do about these and they just generate noise for our build,
+filter them out.  We show all other warnings and preserve exit status.
+"""
 
 import sys
 

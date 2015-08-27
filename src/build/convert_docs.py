@@ -3,11 +3,11 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
-# Tool to convert Markdown files to HTML.
-#
-# For usage run 'python src/build/convert-docs.py --help
-#
+
+"""Tool to convert Markdown files to HTML.
+
+For usage run 'python src/build/convert-docs.py --help
+"""
 
 import argparse
 import cgi

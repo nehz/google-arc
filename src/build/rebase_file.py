@@ -9,8 +9,8 @@
 import argparse
 import sys
 
-import util.rebase.constants
-import util.rebase.mod
+from util.rebase import constants
+from util.rebase import mod as rebase_mod
 
 _EPILOG = r"""
 This script performs the following operations:
@@ -62,39 +62,39 @@ def main():
   parser.add_argument('new_path', nargs='?')
   args = parser.parse_args()
 
-  mod = util.rebase.mod.get_arc_android_mod(args.old_path)
+  mod = rebase_mod.get_arc_android_mod(args.old_path)
   mod.rebase(args.old_revision, force_new_mod_path=args.new_path)
 
-  if mod.status == util.rebase.constants.RESULT_OK:
+  if mod.status == constants.RESULT_OK:
     print 'Merged files automatically, no manual work needed'
-  elif mod.status == util.rebase.contants.RESULT_MOD_INCORRECT_FOR_OLD_VERSION:
+  elif mod.status == constants.RESULT_MOD_INCORRECT_FOR_OLD_VERSION:
     sys.exit(
         'analyze_diffs reported errors for "%s". The old version you specified '
         'may not match the version of the code the modification is actually '
         'supposed to track.' % (
             args.old_path))
   elif mod.status == (
-      util.rebase.contants.RESULT_MOD_ANDROID_SUBMODULE_NOT_IDENTIFIED):
+      constants.RESULT_MOD_ANDROID_SUBMODULE_NOT_IDENTIFIED):
     sys.exit(
         'The tracked source code appears to have moved, and the new location '
         'for the base code modified by "%s" was not identified.' % (
             mod.new_mod_path))
-  elif mod.status == util.rebase.contants.RESULT_MOD_EXISTS_AT_NEW_LOCATION:
+  elif mod.status == constants.RESULT_MOD_EXISTS_AT_NEW_LOCATION:
     sys.exit(
         'A file exists at the new location for the mod "%s".' % (
             mod.new_mod_path))
-  elif mod.status == util.rebase.constants.RESULT_REBASE_RESULT_NO_UPSTREAM:
+  elif mod.status == constants.RESULT_REBASE_RESULT_NO_UPSTREAM:
     sys.exit(
         'The original source file for %s was unable to be located. You will '
         'need to manually move the mod or otherwise fix it up to identify the '
         'correct file.' % (
             args.old_path))
-  elif mod.status == util.rebase.constants.RESULT_NO_CLEAN_MERGE:
+  elif mod.status == constants.RESULT_NO_CLEAN_MERGE:
     sys.exit(
         'The merge of "%s" did not complete cleanly. You will need to manually '
         'edit it to fix it.' % (
             mod.new_mod_path))
-  elif mod.status == util.rebase.constants.RESULT_DIFFS_AFTER_MERGE:
+  elif mod.status == constants.RESULT_DIFFS_AFTER_MERGE:
     sys.exit(
         'The merge of "%s" completed cleanly, but analyze_diffs reported '
         'errors.' % (

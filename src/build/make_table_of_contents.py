@@ -3,23 +3,24 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
-# Tool to make a table of contents file of a shared library in a build rule.
-# The output file contains the list of all external symbols of the shared
-# library.  So dependants that is linked dynamically to the shared library
-# needs to be relink only when the contents of the output file is modified.
-#
-# This script updates the timestamp of the output file only when its content
-# is updated.  So that the build system can stop re-building a dependant that is
-# dynamically linked to the shared library.
-#
+
+"""Tool to make a table of contents file of a shared library in a build rule.
+
+The output file contains the list of all external symbols of the shared
+library.  So dependants that is linked dynamically to the shared library
+needs to be relink only when the contents of the output file is modified.
+
+This script updates the timestamp of the output file only when its content
+is updated.  So that the build system can stop re-building a dependant that is
+dynamically linked to the shared library.
+"""
 
 import errno
 import subprocess
 import sys
 
-from build_options import OPTIONS
 import toolchain
+from build_options import OPTIONS
 from util import file_util
 
 

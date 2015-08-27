@@ -20,7 +20,6 @@ report with the top failing tests that have not been marked as SKIP.
 
 import collections
 import os
-import os.path
 import re
 import subprocess
 import sys

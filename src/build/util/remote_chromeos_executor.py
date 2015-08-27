@@ -2,8 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Provides functions for running Chrome and dalvik tests on a remote ChromeOS
-# device.
+"""Utilities for running Chrome and dalvik tests on a remote ChromeOS device."""
 
 import atexit
 import errno

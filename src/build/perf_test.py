@@ -4,9 +4,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""
-Runs performance tests, storing the result for submitting.  This script is
-actually a driver class to:
+"""Runs performance tests, storing the result for submitting.
+
+This script is actually a driver class to:
 
   1. performs different types of performance test,
   2. captures the output of launch_chrome.py,
@@ -27,9 +27,9 @@ import subprocess
 import sys
 
 import dashboard_submit
+import ninja_generator
 import run_integration_tests
 from build_options import OPTIONS
-from ninja_generator import ApkFromSdkNinjaGenerator
 from util import concurrent_subprocess
 from util import launch_chrome_util
 from util import logging_util
@@ -396,7 +396,7 @@ class ApkBenchDriver(BaseDriver):
 
   def main(self):
     self._atftest([
-        ApkFromSdkNinjaGenerator.get_install_path_for_module(
+        ninja_generator.ApkFromSdkNinjaGenerator.get_install_path_for_module(
             'perf_tests_codec'),
         # On bare_metal_arm target, this test takes about 200 seconds
         # to complete.

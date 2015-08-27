@@ -4,49 +4,51 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Script to download and build 'adb' command, that's needed to run integration
-# tests on Linux, Chrome OS, Windows, and Mac.
-#
-# For Windows and Mac, this script simply downloads a zip file of Android
-# Developer Tools and extracts the pre-built 'adb' executable from the zip
-# file.
-#
-# Usage:
-#
-# % python src/build/sync_adb.py --target=win-x86_64
-# % python src/build/sync_adb.py --target=mac-x86_64
-#
-# For Linux and Chrome OS, this script downloads a subset of Gingerbread
-# source code and builds the 'adb' executable for linux-x86-64 and
-# linux-arm. Note that linux-i686 is unnecessary as ARC does not support
-# linux-i686-based Chrome OS at this moment. Usage:
-#
-# Usage:
-#
-# % python src/build/sync_adb.py --target=linux-arm
-# % python src/build/sync_adb.py --target=linux-x86_64
-#
-# Why building from Gingerbread source code?
-#
-# Because it's difficult to build 'adb' from the code in third_party/android
-# (it's KitKat as of writing), whereas the Gingerbread version is much easier
-# to build, and has enough features to use in integration tests.
-#
-# FWIW, here's why building the 'adb' and its dependencies from
-# third_party/android is hard:
-#
-# 1) It's hard to do so with make_to_ninja.py and ninja_generator.py.
-#
-# The 'adb' executable of linux-arm is necessary to run integration tests on
-# ARM-based Chrome OS devices for bare_metal_arm. To build 'adb' of linux-arm
-# as part of the bare_metal_arm build, lots of changes are required to
-# make_to_ninja.py and ninja_generator.py that will add siginificant complexity.
-#
-# 2) It's also hard to do so without make_to_ninja.py and ninja_generator.py.
-#
-# This is mostly because the newer version of 'adb' depends on openssl which
-# is hard to build with a hand-written makefile.
-#
+"""Script to download and build 'adb' command.
+
+
+'adb' is needed to run integration tests on Linux, Chrome OS, Windows, and Mac.
+
+For Windows and Mac, this script simply downloads a zip file of Android
+Developer Tools and extracts the pre-built 'adb' executable from the zip
+file.
+
+Usage:
+
+% python src/build/sync_adb.py --target=win-x86_64
+% python src/build/sync_adb.py --target=mac-x86_64
+
+For Linux and Chrome OS, this script downloads a subset of Gingerbread
+source code and builds the 'adb' executable for linux-x86-64 and
+linux-arm. Note that linux-i686 is unnecessary as ARC does not support
+linux-i686-based Chrome OS at this moment. Usage:
+
+Usage:
+
+% python src/build/sync_adb.py --target=linux-arm
+% python src/build/sync_adb.py --target=linux-x86_64
+
+Why building from Gingerbread source code?
+
+Because it's difficult to build 'adb' from the code in third_party/android
+(it's KitKat as of writing), whereas the Gingerbread version is much easier
+to build, and has enough features to use in integration tests.
+
+FWIW, here's why building the 'adb' and its dependencies from
+third_party/android is hard:
+
+1) It's hard to do so with make_to_ninja.py and ninja_generator.py.
+
+The 'adb' executable of linux-arm is necessary to run integration tests on
+ARM-based Chrome OS devices for bare_metal_arm. To build 'adb' of linux-arm
+as part of the bare_metal_arm build, lots of changes are required to
+make_to_ninja.py and ninja_generator.py that will add siginificant complexity.
+
+2) It's also hard to do so without make_to_ninja.py and ninja_generator.py.
+
+This is mostly because the newer version of 'adb' depends on openssl which
+is hard to build with a hand-written makefile.
+"""
 
 import argparse
 import cStringIO
@@ -59,8 +61,7 @@ import urllib2
 import urlparse
 import zipfile
 
-from build_common import SimpleTimer
-from build_common import StampFile
+import build_common
 from util import file_util
 
 ADB_OUTPUT_DIR = 'out/adb'
@@ -98,8 +99,8 @@ def _download_adb_source(force):
   """
   source_dir = os.path.join(ADB_OUTPUT_DIR, 'src')
   stamp_file_path = os.path.join(source_dir, 'STAMP')
-  stamp_file = StampFile(ADB_SOURCE_VERSION, stamp_file_path,
-                         force=force)
+  stamp_file = build_common.StampFile(ADB_SOURCE_VERSION, stamp_file_path,
+                                      force=force)
   if stamp_file.is_up_to_date():
     return
 
@@ -107,7 +108,7 @@ def _download_adb_source(force):
     file_util.rmtree(source_dir)
 
   try:
-    timer = SimpleTimer()
+    timer = build_common.SimpleTimer()
     timer.start('Downloading the adb source code', show=True)
     _run_git_clone(BRANCH, SYSTEM_CORE_URL,
                    os.path.join(ADB_OUTPUT_DIR, 'src/system/core'))
@@ -129,14 +130,14 @@ def _build_adb(target, force):
 
   build_dir = os.path.join(ADB_OUTPUT_DIR, target)
   stamp_file_path = os.path.join(build_dir, 'STAMP')
-  stamp_file = StampFile(ADB_SOURCE_VERSION, stamp_file_path,
-                         force=force)
+  stamp_file = build_common.StampFile(ADB_SOURCE_VERSION, stamp_file_path,
+                                      force=force)
   if stamp_file.is_up_to_date():
     return
 
   gcc = GCC_NAMES[target]
   try:
-    timer = SimpleTimer()
+    timer = build_common.SimpleTimer()
     timer.start('Building the adb executable for %s' % target, show=True)
     subprocess.check_call(
         ['make', '-j16', '-f', MAKEFILE, 'CC=' + gcc, 'TARGET=' + target],
@@ -161,8 +162,8 @@ def _download_adb(target, force):
 
   output_dir = os.path.join(ADB_OUTPUT_DIR, target)
   stamp_file_path = os.path.join(output_dir, 'STAMP')
-  stamp_file = StampFile(url,  # Use URL as the version.
-                         stamp_file_path, force=force)
+  stamp_file = build_common.StampFile(url,  # Use URL as the version.
+                                      stamp_file_path, force=force)
   if stamp_file.is_up_to_date():
     return
 
@@ -185,7 +186,7 @@ def _download_adb(target, force):
     dll_output_file_name = os.path.join(output_dir, 'AdbWinApi.dll')
 
   try:
-    timer = SimpleTimer()
+    timer = build_common.SimpleTimer()
     timer.start('Downloading the adb executable for %s' % target, show=True)
     with contextlib.closing(urllib2.urlopen(url)) as stream, (
         zipfile.ZipFile(cStringIO.StringIO(stream.read()))) as zip_archive:

@@ -4,13 +4,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Build APK from C/C++ and java sources with Android SDK and NDK.
+"""Build APK from C/C++ and java sources with Android SDK and NDK."""
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
-import shutil
 
 import build_common
 import toolchain

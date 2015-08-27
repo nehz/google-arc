@@ -1,16 +1,16 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
-# Provides functionality to connect to external eclipse framework
-# in order to debug java code.
+
+"""Provides functionality to connect to external eclipse framework.
+
+Activates and connect debugger at Eclipse IDE. It also checks if Eclipse exists
+and properly configured.
+"""
 
 import os
 import subprocess
 import time
-
-# Activates and connect debugger at Eclipse IDE. It also checks if
-# Eclipse exists and properly configured.
 
 
 def connect_eclipse_debugger(port):

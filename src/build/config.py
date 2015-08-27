@@ -31,10 +31,7 @@ import ninja_generator_runner
 import open_source
 import staging
 import toolchain
-
 from build_options import OPTIONS
-from ninja_generator import ArchiveNinjaGenerator
-from ninja_generator import NinjaGenerator
 
 
 _ANDROID_SYSTEM_IMAGE_DIR = ('ndk/platforms/android-%d' %
@@ -42,12 +39,13 @@ _ANDROID_SYSTEM_IMAGE_DIR = ('ndk/platforms/android-%d' %
 
 
 def _generate_gtest_ninja(name, instances=0, enable_libcxx=False, host=False):
-  n = ArchiveNinjaGenerator(name, base_path='googletest/src',
-                            instances=instances,
-                            force_compiler='clang',
-                            enable_cxx11=True,
-                            enable_libcxx=enable_libcxx,
-                            host=host)
+  n = ninja_generator.ArchiveNinjaGenerator(
+      name, base_path='googletest/src',
+      instances=instances,
+      force_compiler='clang',
+      enable_cxx11=True,
+      enable_libcxx=enable_libcxx,
+      host=host)
   n.add_include_paths(staging.as_staging('googletest'))
   # To avoid "private field 'pretty_' is not used" on clang.
   n.add_compiler_flags('-Wno-unused-private-field')
@@ -55,11 +53,12 @@ def _generate_gtest_ninja(name, instances=0, enable_libcxx=False, host=False):
 
 
 def _generate_gmock_ninja(name, enable_libcxx=False):
-  n = ArchiveNinjaGenerator(name, base_path='testing/gmock/src',
-                            instances=0,  # Not used by shared objects
-                            force_compiler='clang',
-                            enable_cxx11=True,
-                            enable_libcxx=enable_libcxx)
+  n = ninja_generator.ArchiveNinjaGenerator(
+      name, base_path='testing/gmock/src',
+      instances=0,  # Not used by shared objects
+      force_compiler='clang',
+      enable_cxx11=True,
+      enable_libcxx=enable_libcxx)
   n.add_include_paths(staging.as_staging('testing/gmock'),
                       staging.as_staging('testing/gmock/include'))
   n.build_default(['gmock-all.cc']).archive()
@@ -94,7 +93,7 @@ def _generate_test_framework_ninjas():
 
 def _generate_breakpad_ninja():
   allowed_dirs = ['common', 'linux', 'dwarf']
-  n = ArchiveNinjaGenerator(
+  n = ninja_generator.ArchiveNinjaGenerator(
       'libbreakpad_common',
       base_path='breakpad/src/common',
       host=True)
@@ -129,7 +128,7 @@ def _generate_breakpad_ninja():
 
 
 def _generate_lint_test_ninjas():
-  n = NinjaGenerator('analyze_diffs_test')
+  n = ninja_generator.NinjaGenerator('analyze_diffs_test')
   script = 'src/build/analyze_diffs.py'
   n.rule('analyze_diffs_test_fail',
          command=('if %s --under_test $in > $output_path 2>&1; then '
@@ -182,7 +181,7 @@ def _generate_checkdeps_ninjas():
     # Do not run checkdeps on the open source repo since some directories
     # checked are not included there.
     return
-  n = NinjaGenerator('checkdeps', target_groups=['lint'])
+  n = ninja_generator.NinjaGenerator('checkdeps', target_groups=['lint'])
   checkdeps_script = staging.as_staging(
       'native_client/tools/checkdeps/checkdeps.py')
   n.rule('checkdeps',
@@ -208,7 +207,7 @@ def _generate_checkdeps_ninjas():
 
 
 def _generate_lint_ninjas():
-  n = NinjaGenerator('lint', target_groups=['lint'])
+  n = ninja_generator.NinjaGenerator('lint', target_groups=['lint'])
   lint_script = 'src/build/lint_source.py'
   analyze_diffs_script = 'src/build/analyze_diffs.py'
   ignore = 'src/build/lint_ignore.txt'

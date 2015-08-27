@@ -14,11 +14,11 @@ from build_options import OPTIONS
 import prep_launch_chrome
 import staging
 import toolchain
+from util import file_util
 from util.test import scoreboard
 from util.test import suite_runner
 from util.test import system_mode
-from util.test.test_method_result import TestMethodResult
-from util import file_util
+from util.test import test_method_result
 
 
 _NACL_FILTER_PATTERN = re.compile('|'.join(
@@ -179,12 +179,14 @@ class ArtTestRunner(suite_runner.SuiteRunnerBase):
       if output is None:
         # In this case, arc.run_adb() should have recorded some logs
         # which will be retrieved by arc.get_log() later.
-        result = TestMethodResult(case_name, TestMethodResult.FAIL)
+        result = test_method_result.TestMethodResult(
+            case_name, test_method_result.TestMethodResult.FAIL)
 
       elif self._is_benchmark:
         self._logger.write(
             'Benchmark %s: %d ms\n' % (case_name, elapsed_time * 1000))
-        result = TestMethodResult(case_name, TestMethodResult.PASS)
+        result = test_method_result.TestMethodResult(
+            case_name, test_method_result.TestMethodResult.PASS)
 
       else:
         result = self._check_output(case_name, output)
@@ -271,8 +273,10 @@ class ArtTestRunner(suite_runner.SuiteRunnerBase):
           ['diff', '-b', output_file_path, expected_file_path],
           omit_xvfb=True)
     except subprocess.CalledProcessError:
-      result = TestMethodResult(case_name, TestMethodResult.FAIL)
+      result = test_method_result.TestMethodResult(
+          case_name, test_method_result.TestMethodResult.FAIL)
     else:
-      result = TestMethodResult(case_name, TestMethodResult.PASS)
+      result = test_method_result.TestMethodResult(
+          case_name, test_method_result.TestMethodResult.PASS)
 
     return result

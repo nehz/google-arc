@@ -2,9 +2,8 @@
 # Copyright 2015 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
-# Parse the JSON string given as the first argument and print its formatted
-# version.
+
+"""Parses and reformats the JSON string given as the first argument."""
 
 import json
 import sys

@@ -13,8 +13,8 @@ import sys
 import logging
 import xml.etree.cElementTree
 
-import util.git
-import util.rebase.state as state
+from util import git
+from util.rebase import state
 
 _EPILOG = """
     To view help information specific to each command, use:
@@ -152,7 +152,7 @@ def _do_add(args):
   remote_path = _get_remote_url_for_project(args.subproject)
   third_party_dir = _get_third_party_directory(args.subproject)
   logging.info('Adding %s as %s', remote_path, third_party_dir)
-  util.git.add_submodule(remote_path, third_party_dir)
+  git.add_submodule(remote_path, third_party_dir)
   _do_update(args)
 
 
@@ -165,11 +165,11 @@ def _update_subproject(deps, state, subproject, module_path, verify_only=False):
   logging.info('%s Fetching information about %s', subproject, desired_revision)
 
   # Convert the desired revision into a hash (if not already one).
-  desired_revision = util.git.get_ref_hash(desired_revision, cwd=module_path)
+  desired_revision = git.get_ref_hash(desired_revision, cwd=module_path)
 
   # Get the current version of the repo. We will need this to rebase the mods
   # after we roll forward.
-  current_revision = util.git.get_head_revision(cwd=module_path)
+  current_revision = git.get_head_revision(cwd=module_path)
 
   if desired_revision == current_revision:
     logging.info('%s is already at %s', subproject, desired_revision)
@@ -187,8 +187,8 @@ def _update_subproject(deps, state, subproject, module_path, verify_only=False):
     return
 
   logging.info('%s checking out %s', subproject, desired_revision)
-  util.git.force_checkout_revision(desired_revision, cwd=module_path)
-  util.git.add_to_staging(module_path)
+  git.force_checkout_revision(desired_revision, cwd=module_path)
+  git.add_to_staging(module_path)
 
   logging.info('%s rebasing mods', subproject)
   state.rebase_submodule_path(current_revision, module_path)
@@ -223,7 +223,7 @@ def _do_update(args, verify_only=False):
 
 def _do_update_all(args, verify_only=False):
   """Updates the version used for all Android sub-projects."""
-  submodules = util.git.get_submodules('.', False)
+  submodules = git.get_submodules('.', False)
   logging.info('Examining %d submodules....', len(submodules))
   rebase_state = state.State()
   for submodule in submodules:
@@ -255,7 +255,7 @@ def _do_remove(args):
   """Removes a git submodule for an Android sub-project."""
   third_party_dir = _get_third_party_directory(args.subproject)
   logging.info('removing %s', third_party_dir)
-  util.git.remove_submodule(third_party_dir)
+  git.remove_submodule(third_party_dir)
 
 
 def deps_contents_to_lookup_helper(contents):

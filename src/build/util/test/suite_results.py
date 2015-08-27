@@ -10,7 +10,7 @@ import threading
 import time
 
 from util import color
-from util.synchronized_interface import Synchronized
+from util import synchronized_interface
 from util.test import scoreboard_constants
 
 # The different types of message outputs.
@@ -407,8 +407,11 @@ class SuiteResultsBase(object):
           suite.scoreboard.expected_failed or
           suite.scoreboard.incompleted):
         self._writer.header(_NORMAL, 'Raw Output: %s' % (suite.name))
-        with open(os.path.join(output_dir, suite.name)) as f:
-          raw_output = f.read()
+        try:
+          with open(os.path.join(output_dir, suite.name)) as f:
+            raw_output = f.read()
+        except IOError:
+          raw_output = '(No log file. The suite has not started.)'
         self._writer.write(_NORMAL, raw_output)
         self._writer.write(_NORMAL, '\n')
 
@@ -704,7 +707,7 @@ def initialize(test_driver_list, args, prepare_only):
     # object was originally chosen. This allows to non-intrusively collect
     # tracing information.
     results = SuiteResultsTracing(results, test_driver_list, args)
-  SuiteResults = Synchronized(results)
+  SuiteResults = synchronized_interface.Synchronized(results)
 
 
 def summarize(output_dir):

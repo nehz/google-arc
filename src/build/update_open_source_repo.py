@@ -6,13 +6,13 @@
 
 import argparse
 import logging
-import open_source
 import os
 import subprocess
 import sys
 
+import open_source
 import prepare_open_source_commit
-import util.git
+from util import git
 
 
 _OPEN_SOURCE_URL = 'https://chromium.googlesource.com/arc/arc'
@@ -33,7 +33,7 @@ def _clone_repo_if_needed(dest):
 
 
 def _validate_local_repository(dest):
-  if not util.git.is_git_dir(dest):
+  if not git.is_git_dir(dest):
     sys.exit('directory "%s" is not a valid git repo' % dest)
 
 
@@ -44,7 +44,7 @@ def _check_out_matching_branch(dest, branch):
   subprocess.check_call(['git', 'remote', 'update'])
   subprocess.check_call(['git', 'remote', 'update'], cwd=dest)
   subprocess.check_call(['git', 'fetch', '--tags'], cwd=dest)
-  if not util.git.has_remote_branch(branch, cwd=dest):
+  if not git.has_remote_branch(branch, cwd=dest):
     sys.exit('Open source repository does not have the remote branch %s' %
              branch)
   logging.info('Checking out %s branch' % branch)
@@ -109,7 +109,7 @@ def _reset_and_clean_repo(dest):
 
 def _validate_args(args):
   if not args.branch:
-    args.branch = util.git.get_remote_branch(util.git.get_last_landed_commit())
+    args.branch = git.get_remote_branch(git.get_last_landed_commit())
 
 
 # Updates or clones from scratch the open source repository at the location
@@ -137,7 +137,7 @@ def main():
 
   _clone_repo_if_needed(args.dest)
   _validate_local_repository(args.dest)
-  if (util.git.get_uncommitted_files(cwd=args.dest) and not args.force):
+  if (git.get_uncommitted_files(cwd=args.dest) and not args.force):
     logging.error('%s has uncommitted files, use --force to override')
     return 1
   _reset_and_clean_repo(args.dest)

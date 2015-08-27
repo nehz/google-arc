@@ -4,6 +4,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+"""A git pre-push hook script."""
+
 import fnmatch
 import md5
 import os.path
@@ -14,20 +16,18 @@ import build_common
 import check_chrome_lkgr
 import convert_docs
 import lint_source
-import util.git
 import staging
 import suggest_reviewers
-
-"""A git pre-push hook script."""
+from util import git
 
 
 def _is_patch_to_next_pastry():
   """Determines if the current patch is to arc/next-pastry or not."""
-  return util.git.get_branch_tracked_remote_url().endswith('arc/next-pastry')
+  return git.get_branch_tracked_remote_url().endswith('arc/next-pastry')
 
 
 def _check_uncommitted_change():
-  uncommitted_files = util.git.get_uncommitted_files()
+  uncommitted_files = git.get_uncommitted_files()
   if uncommitted_files:
     print ''
     print 'Please commit or stash the following uncommitted files.'
@@ -119,9 +119,9 @@ def _check_ninja_lint_clean_after_deps_change(push_files):
 def _check_commit_messages():
   MAX_COLS = 100
   error = False
-  changes = util.git.get_in_flight_commits()
+  changes = git.get_in_flight_commits()
   for change in changes:
-    msg = util.git.get_commit_message(change)
+    msg = git.get_commit_message(change)
     seen_change_id = False
     trailing_lines = False
     for line_num, line in enumerate(msg):
@@ -174,19 +174,19 @@ def _get_file_list_digest(files):
 
 def _has_file_list_changed_since_last_push(files):
   file_list_digest = _get_file_list_digest(files)
-  old_file_list_digest = util.git.get_branch_specific_config('filelist')
+  old_file_list_digest = git.get_branch_specific_config('filelist')
   if not old_file_list_digest:
     return True
   return old_file_list_digest != file_list_digest
 
 
 def _save_file_list(files):
-  util.git.set_branch_specific_config('filelist', _get_file_list_digest(files))
+  git.set_branch_specific_config('filelist', _get_file_list_digest(files))
 
 
 # Export for other repo to reuse.
 def get_push_files():
-  last_landed_commit = util.git.get_last_landed_commit()
+  last_landed_commit = git.get_last_landed_commit()
   # Find out what files have changed since last landed commit
   #   * That are staged (--cached) -- this speeds up the check
   #   * Returning their names as a simple list (--name-only)

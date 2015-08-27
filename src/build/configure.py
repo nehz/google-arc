@@ -89,23 +89,6 @@ def _cleanup_orphaned_pyc_files():
           os.unlink(fullpath)
 
 
-def _cleanup_stripped_dir():
-  # Remove binaries in the stripped directory when they are unnecessary to
-  # prevent stale binaries from being used for remote execution.
-  if not OPTIONS.is_debug_info_enabled():
-    file_util.rmtree(build_common.get_stripped_dir(), ignore_errors=True)
-  elif OPTIONS.strip_runtime_binaries:
-    file_util.rmtree(
-        build_common.get_runtime_platform_specific_path(
-            build_common.get_runtime_out_dir(), OPTIONS.target()),
-        ignore_errors=True)
-
-
-def _cleanup_unittest_info():
-  if os.path.exists(build_common.get_unittest_info_path()):
-    file_util.rmtree(build_common.get_unittest_info_path())
-
-
 def _gclient_sync_third_party():
   gclient_filename = 'third_party/.gclient'
 
@@ -361,8 +344,6 @@ def main():
   _gclient_sync_third_party()
   _check_javac_version()
   _cleanup_orphaned_pyc_files()
-  _cleanup_stripped_dir()
-  _cleanup_unittest_info()
 
   _set_up_git_hooks()
 

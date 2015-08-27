@@ -12,8 +12,8 @@ import sys
 import tempfile
 
 import analyze_diffs
-import util.git as git
-import util.rebase.constants as constants
+from util import git
+from util.rebase import constants
 
 
 def relpath(path, base_path):

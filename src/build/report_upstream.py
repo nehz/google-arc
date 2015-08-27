@@ -4,7 +4,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# The tool to produce reports on upstreamable changes.
+"""The tool to produce reports on upstreamable changes."""
 
 import argparse
 import collections
@@ -16,7 +16,7 @@ import subprocess
 import sys
 import tempfile
 import urlparse
-from xml.sax.saxutils import escape
+from xml.sax import saxutils
 
 import analyze_diffs
 
@@ -226,7 +226,7 @@ class ChangeDescription(object):
   def print_html(section_changes):
     header_str = '<tr>'
     for name in _CSV_COL_NAMES:
-      header_str += '<th>' + escape(name) + '</th>'
+      header_str += '<th>' + saxutils.escape(name) + '</th>'
     header_str += '</tr>'
 
     print '<html><body>'
@@ -253,9 +253,9 @@ class ChangeDescription(object):
               '<a href="https://chrome-internal-review.googlesource.com/#q,'
               '%s,n,z">%s</a> ') % (hash, hash))
       elif idx == _CSV_IDX_UPSTREAM_URL:
-        output.append('<a href="%s">%s</a>' % (value, escape(value)))
+        output.append('<a href="%s">%s</a>' % (value, saxutils.escape(value)))
       else:
-        output.append(str(escape(value)))
+        output.append(str(saxutils.escape(value)))
       output.append('</td>')
       idx += 1
     output.append('</tr>')

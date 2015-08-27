@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Converts Android.mk files into ninja files
+"""Converts Android.mk files into ninja files."""
 
 # TODO(igorc): Support codegen rules. Perhaps needs a rework to parse resulting
 # commands rather than dumping variable names.
@@ -20,15 +20,7 @@ import dependency_inspection
 import ninja_generator
 import staging
 import toolchain
-from build_common import StampFile
 from build_options import OPTIONS
-from ninja_generator import AaptNinjaGenerator
-from ninja_generator import ArchiveNinjaGenerator
-from ninja_generator import ExecNinjaGenerator
-from ninja_generator import JarNinjaGenerator
-from ninja_generator import NinjaGenerator
-from ninja_generator import SharedObjectNinjaGenerator
-from ninja_generator import TestNinjaGenerator
 from util import file_util
 
 
@@ -730,7 +722,7 @@ def _copy_canned_generated_sources():
   stamp_file_path = os.path.join(_ANDROID_TARGET_GEN_SOURCES_DIR, 'STAMP')
   tar_stat = os.stat(_CANNED_GEN_SOURCES_TAR)
   tar_revision = '%s:%s' % (tar_stat.st_size, tar_stat.st_mtime)
-  stamp_file = StampFile(tar_revision, stamp_file_path)
+  stamp_file = build_common.StampFile(tar_revision, stamp_file_path)
   if stamp_file.is_up_to_date():
     return
 
@@ -1942,19 +1934,20 @@ def _generate_c_ninja(vars, out_lib_deps):
 
   if vars.is_shared() or vars.is_target_executable():
     extra_args['use_clang_linker'] = vars.is_clang_linker_enabled()
-    n = SharedObjectNinjaGenerator(vars.get_module_name(), host=vars.is_host(),
-                                   **extra_args)
+    n = ninja_generator.SharedObjectNinjaGenerator(
+        vars.get_module_name(), host=vars.is_host(), **extra_args)
   elif vars.is_target_test_executable():
-    n = TestNinjaGenerator(vars.get_module_name(), host=vars.is_host(),
-                           use_default_main=False, **extra_args)
+    n = ninja_generator.TestNinjaGenerator(
+        vars.get_module_name(), host=vars.is_host(),
+        use_default_main=False, **extra_args)
     n.add_disabled_tests(*vars.get_disabled_tests())
     n.add_qemu_disabled_tests(*vars.get_qemu_disabled_tests())
   elif vars.is_host_executable():
-    n = ExecNinjaGenerator(vars.get_module_name(), host=vars.is_host(),
-                           **extra_args)
+    n = ninja_generator.ExecNinjaGenerator(
+        vars.get_module_name(), host=vars.is_host(), **extra_args)
   else:
-    n = ArchiveNinjaGenerator(vars.get_module_name(), host=vars.is_host(),
-                              **extra_args)
+    n = ninja_generator.ArchiveNinjaGenerator(
+        vars.get_module_name(), host=vars.is_host(), **extra_args)
 
   # Reset any defaults that our NinjaGenerator had.
   n.variable('asmflags', '$asmflags')
@@ -2061,17 +2054,21 @@ def _generate_java_ninja(vars):
       aapt_flags = []
     aapt_flags.append('--non-constant-id')
 
-  n = JarNinjaGenerator(vars.get_module_name(), base_path=base_path,
-                        install_path='/system/framework',
-                        resource_subdirectories=vars._local_resource_dirs,
-                        aapt_flags=aapt_flags, extra_packages=extra_packages,
-                        include_aidl_files=aidl_sources,
-                        dex_preopt=vars._dex_preopt,
-                        java_resource_dirs=vars._java_resource_dirs,
-                        static_library=vars.is_static_java_library(),
-                        jarjar_rules=vars._jarjar_rules,
-                        dx_flags=vars._dx_flags, built_from_android_mk=True,
-                        manifest_path=manifest_path)
+  n = ninja_generator.JarNinjaGenerator(
+      vars.get_module_name(),
+      base_path=base_path,
+      install_path='/system/framework',
+      resource_subdirectories=vars._local_resource_dirs,
+      aapt_flags=aapt_flags,
+      extra_packages=extra_packages,
+      include_aidl_files=aidl_sources,
+      dex_preopt=vars._dex_preopt,
+      java_resource_dirs=vars._java_resource_dirs,
+      static_library=vars.is_static_java_library(),
+      jarjar_rules=vars._jarjar_rules,
+      dx_flags=vars._dx_flags,
+      built_from_android_mk=True,
+      manifest_path=manifest_path)
   n.add_aidl_include_paths(*vars._aidl_includes)
   n.add_java_files(java_sources)
 
@@ -2105,8 +2102,9 @@ def _generate_package_ninja(vars, out_lib_deps, out_intermediates):
   intermediates = vars.get_exported_intermediates()
   extra_args = vars.get_generator_args()
 
-  n = AaptNinjaGenerator(module_name, path, manifest, intermediates,
-                         implicit=implicit, **extra_args)
+  n = ninja_generator.AaptNinjaGenerator(
+      module_name, path, manifest, intermediates, implicit=implicit,
+      **extra_args)
 
   for flag in aapt_flags:
     n.add_aapt_flag(flag)
@@ -2145,7 +2143,8 @@ def _generate_prebuilt_ninja(vars):
   install_path = vars.get_prebuilt_install_path()
   install_to_root_dir = vars.is_prebuilt_install_to_root_dir()
 
-  n = NinjaGenerator(vars.get_module_name(), base_path=vars.get_path())
+  n = ninja_generator.NinjaGenerator(
+      vars.get_module_name(), base_path=vars.get_path())
 
   n.add_notice_sources([src_path])
 

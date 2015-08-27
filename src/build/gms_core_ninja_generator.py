@@ -3,13 +3,13 @@
 # found in the LICENSE file.
 
 import build_common
+import ninja_generator
 import os
 import toolchain
 from build_options import OPTIONS
-from ninja_generator import ApkNinjaGenerator
 
 
-class GmsCoreNinjaGenerator(ApkNinjaGenerator):
+class GmsCoreNinjaGenerator(ninja_generator.ApkNinjaGenerator):
   if OPTIONS.internal_apks_source_is_internal():
     _DIST_DIR = 'out/gms-core-build/dist'
     _ORIGINAL_APK_PATH = 'out/gms-core-build/play_services.apk'
@@ -105,7 +105,7 @@ class GmsCoreNinjaGenerator(ApkNinjaGenerator):
     self.install()
 
 
-class GmsCoreApiTestNinjaGenerator(ApkNinjaGenerator):
+class GmsCoreApiTestNinjaGenerator(ninja_generator.ApkNinjaGenerator):
   def __init__(self, **kwargs):
     super(GmsCoreApiTestNinjaGenerator, self).__init__(
         'GmsCoreApiTests', **kwargs)

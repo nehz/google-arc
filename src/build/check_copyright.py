@@ -4,14 +4,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import datetime
 import os
 import re
+import string
 import sys
 
 import analyze_diffs
-
-from datetime import date
-from string import Template
 
 _MAXIMUM_COPYRIGHT_PATTERN_LINES = 7
 
@@ -53,7 +52,8 @@ _ANDROID_CANONICAL = """
 
 
 def _expand_canonical(canonical, ext, long_slash_star):
-  canonical = Template(canonical).substitute({'year': date.today().year})
+  canonical = string.Template(canonical).substitute(
+      {'year': datetime.date.today().year})
   lines = canonical.splitlines()
   outlines = []
   if ext in ['.c', '.cpp', '.cc', '.h', '.java', '.js', '.S']:

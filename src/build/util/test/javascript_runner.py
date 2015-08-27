@@ -6,8 +6,8 @@ import os
 import subprocess
 
 import build_common
+import ninja_generator
 import prep_launch_chrome
-from ninja_generator import ApkFromSdkNinjaGenerator
 from util.test import google_test_result_parser as result_parser
 from util.test import scoreboard
 from util.test import source_annotator
@@ -48,7 +48,8 @@ class JavaScriptTestRunner(suite_runner.SuiteRunnerBase):
                **kwargs):
     if apks is None:
       apks = [
-          ApkFromSdkNinjaGenerator.get_install_path_for_module('HelloAndroid')]
+          ninja_generator.ApkFromSdkNinjaGenerator.get_install_path_for_module(
+              'HelloAndroid')]
 
     super(JavaScriptTestRunner, self).__init__(
         name,

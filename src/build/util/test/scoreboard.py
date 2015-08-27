@@ -6,13 +6,7 @@ import time
 
 from util.test import flags
 from util.test import suite_results
-from util.test.scoreboard_constants import EXPECT_FAIL
-from util.test.scoreboard_constants import EXPECT_PASS
-from util.test.scoreboard_constants import FLAKE
-from util.test.scoreboard_constants import INCOMPLETE
-from util.test.scoreboard_constants import SKIPPED
-from util.test.scoreboard_constants import UNEXPECT_FAIL
-from util.test.scoreboard_constants import UNEXPECT_PASS
+from util.test import scoreboard_constants
 
 
 class Scoreboard:
@@ -36,10 +30,10 @@ class Scoreboard:
   _MAYBE_FLAKY = 3
 
   _MAP_EXPECTATIONS_TO_RESULT = {
-      _SHOULD_FAIL: EXPECT_FAIL,
-      _MAYBE_FLAKY: FLAKE,
-      _SHOULD_SKIP: SKIPPED,
-      _SHOULD_PASS: EXPECT_PASS,
+      _SHOULD_FAIL: scoreboard_constants.EXPECT_FAIL,
+      _MAYBE_FLAKY: scoreboard_constants.FLAKE,
+      _SHOULD_SKIP: scoreboard_constants.SKIPPED,
+      _SHOULD_PASS: scoreboard_constants.EXPECT_PASS,
   }
 
   def __init__(self, name, expectations):
@@ -63,7 +57,7 @@ class Scoreboard:
   def reset_results(self, tests):
     for test in tests:
       if test != self.ALL_TESTS_DUMMY_NAME:
-        self._results[test] = INCOMPLETE
+        self._results[test] = scoreboard_constants.INCOMPLETE
 
   @staticmethod
   def map_expectation_flag_to_result(ex):
@@ -128,7 +122,7 @@ class Scoreboard:
       if self.ALL_TESTS_DUMMY_NAME in name:
         continue
       assert name in self._expectations
-      self._results[name] = INCOMPLETE
+      self._results[name] = scoreboard_constants.INCOMPLETE
 
   def restart(self):
     """
@@ -139,7 +133,7 @@ class Scoreboard:
     for name, result in self._results.iteritems():
       # All remaining tests were not completed (most likely due to other
       # failures or timeouts).
-      if result == INCOMPLETE:
+      if result == scoreboard_constants.INCOMPLETE:
         if name in self._did_not_complete_once:
           self._did_not_complete_blacklist.append(name)
         else:
@@ -165,7 +159,10 @@ class Scoreboard:
       else:
         self._register_test(test.name)
         expect = self._expectations[test.name]
-      result = EXPECT_PASS if test and test.passed else EXPECT_FAIL
+      if test and test.passed:
+        result = scoreboard_constants.EXPECT_PASS
+      else:
+        result = scoreboard_constants.EXPECT_FAIL
       actual = self._determine_actual_status(result, expect)
       self._set_result(test.name, actual)
       self._complete_count += 1
@@ -184,10 +181,11 @@ class Scoreboard:
       # expectations so ALL_TESTS_DUMMY_NAME was used. Results should not be
       # empty. Any valid test should report at least one test result so we will
       # mark the entire suite as INCOMPLETE.
-      self._set_result(self.ALL_TESTS_DUMMY_NAME, INCOMPLETE)
+      self._set_result(
+          self.ALL_TESTS_DUMMY_NAME, scoreboard_constants.INCOMPLETE)
       suite_results.report_update_test(self,
                                        self.ALL_TESTS_DUMMY_NAME,
-                                       INCOMPLETE)
+                                       scoreboard_constants.INCOMPLETE)
     else:
       for name, ex in self._expectations.iteritems():
         self._finalize_test(name, ex)
@@ -233,48 +231,48 @@ class Scoreboard:
 
   @property
   def expected_passed(self):
-    return self._get_count(EXPECT_PASS)
+    return self._get_count(scoreboard_constants.EXPECT_PASS)
 
   @property
   def unexpected_passed(self):
-    return self._get_count(UNEXPECT_PASS)
+    return self._get_count(scoreboard_constants.UNEXPECT_PASS)
 
   @property
   def expected_failed(self):
-    return self._get_count(EXPECT_FAIL)
+    return self._get_count(scoreboard_constants.EXPECT_FAIL)
 
   @property
   def unexpected_failed(self):
-    return self._get_count(UNEXPECT_FAIL)
+    return self._get_count(scoreboard_constants.UNEXPECT_FAIL)
 
   @property
   def skipped(self):
-    return self._get_count(SKIPPED)
+    return self._get_count(scoreboard_constants.SKIPPED)
 
   @property
   def restarts(self):
     return self._restart_count
 
   def get_flaky_tests(self):
-    return self._get_list(FLAKE)
+    return self._get_list(scoreboard_constants.FLAKE)
 
   def get_skipped_tests(self):
-    return self._get_list(SKIPPED)
+    return self._get_list(scoreboard_constants.SKIPPED)
 
   def get_incomplete_tests(self):
-    return self._get_list(INCOMPLETE)
+    return self._get_list(scoreboard_constants.INCOMPLETE)
 
   def get_expected_passing_tests(self):
-    return self._get_list(EXPECT_PASS)
+    return self._get_list(scoreboard_constants.EXPECT_PASS)
 
   def get_unexpected_passing_tests(self):
-    return self._get_list(UNEXPECT_PASS)
+    return self._get_list(scoreboard_constants.UNEXPECT_PASS)
 
   def get_expected_failing_tests(self):
-    return self._get_list(EXPECT_FAIL)
+    return self._get_list(scoreboard_constants.EXPECT_FAIL)
 
   def get_unexpected_failing_tests(self):
-    return self._get_list(UNEXPECT_FAIL)
+    return self._get_list(scoreboard_constants.UNEXPECT_FAIL)
 
   def _get_list(self, result):
     return [key for key, value in self._results.iteritems() if value == result]
@@ -288,25 +286,26 @@ class Scoreboard:
   @property
   def overall_status(self):
     if self.incompleted:
-      return INCOMPLETE
+      return scoreboard_constants.INCOMPLETE
     elif self.unexpected_failed:
-      return UNEXPECT_FAIL
+      return scoreboard_constants.UNEXPECT_FAIL
     elif self.unexpected_passed:
-      return UNEXPECT_PASS
+      return scoreboard_constants.UNEXPECT_PASS
     elif self.expected_failed:
-      return EXPECT_FAIL
+      return scoreboard_constants.EXPECT_FAIL
     elif self.skipped and not self.passed:
-      return SKIPPED
+      return scoreboard_constants.SKIPPED
     else:
-      return EXPECT_PASS
+      return scoreboard_constants.EXPECT_PASS
 
   def _register_test(self, name):
     if name not in self._expectations:
       self._expectations[name] = self._SHOULD_PASS
-      self._set_result(name, INCOMPLETE)
+      self._set_result(name, scoreboard_constants.INCOMPLETE)
 
   def _set_result(self, name, result):
-    if name in self._did_not_complete_blacklist and result != INCOMPLETE:
+    if (name in self._did_not_complete_blacklist and
+        result != scoreboard_constants.INCOMPLETE):
       self._did_not_complete_blacklist.remove(name)
     self._results[name] = result
 
@@ -316,48 +315,55 @@ class Scoreboard:
     if expect in [self._SHOULD_PASS, self._SHOULD_FAIL]:
       # This test was never started, so record and report it as being skipped.
       if name not in self._results:
-        self._set_result(name, SKIPPED)
+        self._set_result(name, scoreboard_constants.SKIPPED)
         # We are officially marking the test completed so that the total
         # tests adds up correctly.
         self._complete_count += 1
-        suite_results.report_update_test(self, name, SKIPPED)
+        suite_results.report_update_test(
+            self, name, scoreboard_constants.SKIPPED)
       # This test had no chance to start, or was started but never completed.
       # Report it as incomplete.
-      elif self._results[name] == INCOMPLETE:
-        suite_results.report_update_test(self, name, INCOMPLETE)
+      elif self._results[name] == scoreboard_constants.INCOMPLETE:
+        suite_results.report_update_test(
+            self, name, scoreboard_constants.INCOMPLETE)
     # This test was expected to be skipped and we have no results (ie. it
     # really was skipped) so record and report it as such.  Note: It is
     # possible for tests that were expected to be skipped to be run.  See
     # comment about TIMEOUT above.
     elif expect == self._SHOULD_SKIP and name not in self._results:
-      self._set_result(name, SKIPPED)
-      suite_results.report_update_test(self, name, SKIPPED)
+      self._set_result(name, scoreboard_constants.SKIPPED)
+      suite_results.report_update_test(self, name, scoreboard_constants.SKIPPED)
     # This flaky test never successfully passed, so record and report it as
     # a failure.
-    elif expect == self._MAYBE_FLAKY and self._results.get(name) == FLAKE:
-      self._set_result(name, UNEXPECT_FAIL)
-      suite_results.report_update_test(self, name, UNEXPECT_FAIL)
-    elif expect == self._MAYBE_FLAKY and self._results.get(name) == INCOMPLETE:
-      self._set_result(name, INCOMPLETE)
-      suite_results.report_update_test(self, name, INCOMPLETE)
+    elif (expect == self._MAYBE_FLAKY and
+          self._results.get(name) == scoreboard_constants.FLAKE):
+      self._set_result(name, scoreboard_constants.UNEXPECT_FAIL)
+      suite_results.report_update_test(
+          self, name, scoreboard_constants.UNEXPECT_FAIL)
+    elif (expect == self._MAYBE_FLAKY and
+          self._results.get(name) == scoreboard_constants.INCOMPLETE):
+      self._set_result(name, scoreboard_constants.INCOMPLETE)
+      suite_results.report_update_test(
+          self, name, scoreboard_constants.INCOMPLETE)
 
   @classmethod
   def _determine_actual_status(cls, status, expect):
-    assert status in [EXPECT_PASS, EXPECT_FAIL]
+    assert status in [scoreboard_constants.EXPECT_PASS,
+                      scoreboard_constants.EXPECT_FAIL]
     assert cls._is_valid_expectation(expect)
 
-    if status == EXPECT_PASS:
+    if status == scoreboard_constants.EXPECT_PASS:
       if expect in [cls._SHOULD_PASS, cls._MAYBE_FLAKY]:
-        return EXPECT_PASS
+        return scoreboard_constants.EXPECT_PASS
       elif expect in [cls._SHOULD_FAIL, cls._SHOULD_SKIP]:
-        return UNEXPECT_PASS
-    elif status == EXPECT_FAIL:
+        return scoreboard_constants.UNEXPECT_PASS
+    elif status == scoreboard_constants.EXPECT_FAIL:
       if expect in [cls._SHOULD_PASS, cls._SHOULD_SKIP]:
-        return UNEXPECT_FAIL
+        return scoreboard_constants.UNEXPECT_FAIL
       elif expect in [cls._SHOULD_FAIL]:
-        return EXPECT_FAIL
+        return scoreboard_constants.EXPECT_FAIL
       elif expect in [cls._MAYBE_FLAKY]:
-        return FLAKE
+        return scoreboard_constants.FLAKE
     return status
 
   @classmethod

@@ -12,11 +12,10 @@ import shutil
 import subprocess
 import sys
 
-import util.git
 from util import file_util
+from util import git
 
-
-_gitignore_checker = util.git.GitIgnoreChecker()
+_gitignore_checker = git.GitIgnoreChecker()
 
 
 def _are_files_different(file1, file2):
@@ -70,7 +69,7 @@ def _add_and_sync_submodule(dest, force, src_submodule, dest_submodule):
     # Remove any changes to the submodule.  Aborting a checkout or update
     # can result in it appearing that there are local modifications, so
     # this cleans it up.
-    if not force and util.git.get_uncommitted_files(cwd=submodule_path):
+    if not force and git.get_uncommitted_files(cwd=submodule_path):
       logging.error('Uncommitted files in submodule %s, reset or pass --force' %
                     submodule_path)
       sys.exit(1)
@@ -85,11 +84,11 @@ def _add_and_sync_submodules(dest, force):
 
   Existing submodules are updated, new ones are added."""
   logging.info('Synchronizing submodules')
-  dest_submodules = util.git.get_submodules(dest, use_gitmodules=False)
+  dest_submodules = git.get_submodules(dest, use_gitmodules=False)
   dest_submodules_by_path = {}
   for dest_submodule in dest_submodules:
     dest_submodules_by_path[dest_submodule.path] = dest_submodule
-  src_submodules = util.git.get_submodules('.', use_gitmodules=True)
+  src_submodules = git.get_submodules('.', use_gitmodules=True)
   dest_submodules_paths = set(dest_submodules_by_path.keys())
   src_submodules_paths = set([s.path for s in src_submodules])
   for removed_submodule in dest_submodules_paths - src_submodules_paths:
@@ -118,7 +117,7 @@ def _is_ignorable(path, check_source_control, cwd=None):
   # control.  Any file that fails the gitignore check should be deleted.
   if not check_source_control:
     return False
-  return not util.git.is_file_git_controlled(path, cwd)
+  return not git.is_file_git_controlled(path, cwd)
 
 
 def _add_directory_sync_set(src, rel_src_dir, basenames, filter,
@@ -222,8 +221,8 @@ def _purge_non_synced_ignored_files(dest, src, sync_set, submodule_paths):
 
 
 def run(dest, force):
-  if (not force and util.git.has_initial_commit(cwd=dest) and
-      util.git.get_uncommitted_files(cwd=dest)):
+  if (not force and git.has_initial_commit(cwd=dest) and
+      git.get_uncommitted_files(cwd=dest)):
     logging.error('Uncommitted files in %s, reset or pass --force' % dest)
     sys.exit(1)
   logging.info('Synchronizing open source tree at: ' + dest)

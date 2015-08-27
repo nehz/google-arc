@@ -2,13 +2,14 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# This module provides a function to prepare unpacked CRXs that are necessary
-# to run Chrome with ARC.
-# When this script is invoked, it accepts the same options as those of
-# launch_chrome.py and prepares the files that would be needed to invoke
-# launch_chrome.py with the same options. This usage is intended mainly for
-# generating files which are needed to run Chrome remotely on a Chrome OS
-# device.
+"""This module provides a function to prepare unpacked CRXs.
+
+When this script is invoked, it accepts the same options as those of
+launch_chrome.py and prepares the files that would be needed to invoke
+launch_chrome.py with the same options. This usage is intended mainly for
+generating files which are needed to run Chrome remotely on a Chrome OS
+device.
+"""
 
 import atexit
 import json
@@ -20,7 +21,7 @@ import launch_chrome_options
 
 from apk_to_crx import apk_to_crx
 from build_options import OPTIONS
-from metadata import manager as metadata_manager
+from metadata import manager
 from util import file_util
 
 _DOGFOOD_METADATA_PATH = 'third_party/examples/apk/dogfood.meta'
@@ -75,7 +76,7 @@ def _generate_shell_command(parsed_args):
 def _convert_launch_chrome_options_to_external_metadata(parsed_args):
   metadata = parsed_args.additional_metadata
 
-  for definition in metadata_manager.get_metadata_definitions():
+  for definition in manager.get_metadata_definitions():
     value = getattr(parsed_args, definition.python_name, None)
     if value is not None:
       metadata[definition.name] = value

@@ -8,9 +8,9 @@ import logging
 import os
 
 import staging
-import util.git
-import util.rebase.constants as constants
-import util.rebase.internal as internal
+from util import git
+from util.rebase import constants
+from util.rebase import internal
 
 
 class _ModState(object):
@@ -130,7 +130,7 @@ class _ModState(object):
       self._status = constants.RESULT_NO_CLEAN_MERGE
       return
 
-    util.git.add_to_staging(self._new_mod_path)
+    git.add_to_staging(self._new_mod_path)
     self._status = constants.RESULT_OK
 
 

@@ -23,14 +23,12 @@ import ninja_syntax
 import analyze_diffs
 import build_common
 import ninja_generator_runner
+import notices
 import open_source
 import staging
 import toolchain
 import wrapped_functions
-from build_common import as_list, as_dict
-from build_common import find_all_files
 from build_options import OPTIONS
-from notices import Notices
 from util import file_util
 from util import python_deps
 from util.test import unittest_util
@@ -141,9 +139,10 @@ class _TargetGroups(object):
     self.define_target_group(self.ALL, self.DEFAULT)
 
   def define_target_group(self, target_group, required=None):
-    assert set(as_list(required)) <= self._allowed
+    assert set(build_common.as_list(required)) <= self._allowed
     self._allowed.add(target_group)
-    self._map[target_group].required_target_groups = as_list(required)
+    self._map[target_group].required_target_groups = (
+        build_common.as_list(required))
 
   def record_build_rule(self, target_groups, outputs, inputs):
     """Remembers the build rule for later writing target group rule."""
@@ -181,7 +180,7 @@ class _VariableValueBuilder(object):
 
   def append_flag_pattern(self, flag_pattern, values):
     """Formats the given flag pattern using each entry in values."""
-    for value in as_list(values):
+    for value in build_common.as_list(values):
       self._extra.append(flag_pattern % value)
 
   def append_optional_path_list(self, flag, paths):
@@ -327,16 +326,18 @@ class NinjaGenerator(ninja_syntax.Writer):
     self._ninja_path = ninja_path
     self._base_path = base_path
     self._notices_only = notices_only
-    self._implicit = as_list(implicit) + NinjaGenerator._default_implicit
+    self._implicit = (build_common.as_list(implicit) +
+                      NinjaGenerator._default_implicit)
     if not self._is_host:
       self._implicit.extend(toolchain.get_tool(OPTIONS.target(), 'deps'))
     self._target_groups = NinjaGenerator._canonicalize_set(target_groups)
     self._build_rule_list = []
     self._root_dir_install_targets = []
     self._build_dir_install_targets = []
-    self._notices = Notices()
+    self._notices = notices.Notices()
     self._test_lists = []
     self._test_info_list = []
+    self._output_path_list = set()
     if extra_notices:
       if OPTIONS.is_notices_logging():
         print 'Adding extra notices to %s: %s' % (module_name, extra_notices)
@@ -432,7 +433,7 @@ class NinjaGenerator(ninja_syntax.Writer):
 
   @staticmethod
   def _canonicalize_set(target_groups):
-    canon = set(as_list(target_groups))
+    canon = set(build_common.as_list(target_groups))
     if len(canon) == 0:
       canon.add(_TargetGroups.DEFAULT)
     else:
@@ -463,6 +464,9 @@ class NinjaGenerator(ninja_syntax.Writer):
 
   def get_ninja_path(self):
     return self._ninja_path
+
+  def get_output_path_list(self):
+    return self._output_path_list
 
   @staticmethod
   def _add_bionic_stdlibs(flags, is_so, is_system_library):
@@ -585,12 +589,10 @@ class NinjaGenerator(ninja_syntax.Writer):
     return self._build_dir_install_targets or self._root_dir_install_targets
 
   def find_all_files(self, base_paths, suffix, **kwargs):
-    return find_all_files(base_paths,
-                          suffixes=suffix,
-                          **kwargs)
+    return build_common.find_all_files(base_paths, suffixes=suffix, **kwargs)
 
   def find_all_contained_files(self, suffix, **kwargs):
-    return find_all_files([self._base_path], suffix, **kwargs)
+    return build_common.find_all_files([self._base_path], suffix, **kwargs)
 
   def _validate_outputs(self, rule, outputs):
     if rule == 'phony':
@@ -622,8 +624,8 @@ class NinjaGenerator(ninja_syntax.Writer):
 
   def build(self, outputs, rule, inputs=None, variables=None,
             implicit=None, order_only=None, use_staging=True, **kwargs):
-    outputs = as_list(outputs)
-    all_inputs = as_list(inputs)
+    outputs = build_common.as_list(outputs)
+    all_inputs = build_common.as_list(inputs)
     in_real_path = []
     updated_inputs = []
     self._validate_outputs(rule, outputs)
@@ -637,20 +639,21 @@ class NinjaGenerator(ninja_syntax.Writer):
     self.add_notice_sources(updated_inputs)
     if variables is None:
       variables = {}
-    implicit = self._implicit + as_list(implicit)
+    implicit = self._implicit + build_common.as_list(implicit)
     # Give a in_real_path for displaying to the user.  Realistically
     # if there are more than 5 inputs they'll be truncated when displayed
     # so truncate them now to save space in ninja files.
     variables['in_real_path'] = ' '.join(in_real_path[:5])
-
-    self._build_rule_list.append((self._target_groups, set(outputs),
-                                  set(as_list(implicit)) | set(all_inputs)))
+    self._output_path_list.update(outputs)
+    self._build_rule_list.append(
+        (self._target_groups, set(outputs),
+         set(build_common.as_list(implicit)) | set(all_inputs)))
 
     self._check_implicit(rule, implicit)
     self._check_order_only(implicit, order_only)
     self._check_target_independent_does_not_depend_on_target(
         outputs,
-        updated_inputs + implicit + as_list(order_only),
+        updated_inputs + implicit + build_common.as_list(order_only),
         variables)
     return super(NinjaGenerator, self).build(outputs,
                                              rule,
@@ -1717,7 +1720,7 @@ class CNinjaGenerator(NinjaGenerator):
     return binfile + '.ncval'
 
   def ncval_test(self, binfiles):
-    for binfile in as_list(binfiles):
+    for binfile in build_common.as_list(binfiles):
       self.build(self.get_ncval_test_output(binfile), 'run_ncval_test', binfile)
 
   def add_libchromium_base_compile_flags(self):
@@ -1825,10 +1828,9 @@ class RegenDependencyComputer(object):
   def _compute(self):
     # Any change to one of these files requires rerunning
     # configure.
-    self._input = find_all_files(['src', 'mods'],
-                                 filenames='config.py',
-                                 use_staging=False,
-                                 include_tests=True)
+    self._input = build_common.find_all_files(
+        ['src', 'mods'], filenames='config.py',
+        use_staging=False, include_tests=True)
 
     self._input += get_configuration_dependencies()
 
@@ -1962,6 +1964,44 @@ class TopLevelNinjaGenerator(NinjaGenerator):
     file_util.write_atomically(
         self._get_depfile_path(),
         '%s: %s' % (self._ninja_path, ' '.join(input_dependencies)))
+
+  @staticmethod
+  def cleanup_out_directories(ninja_list):
+    output_paths = set()
+    for ninja in ninja_list:
+      output_paths |= ninja.get_output_path_list()
+      output_paths.add(ninja.get_ninja_path())
+    out_dir_prefix = build_common.OUT_DIR + os.path.sep
+    output_paths = set(
+        path for path in output_paths if path.startswith(out_dir_prefix))
+
+    def remove_files_not_built_in_dir(dir_path):
+      if os.path.isdir(dir_path):
+        for file_path in os.listdir(dir_path):
+          file_path = os.path.join(dir_path, file_path)
+          if file_path not in output_paths and not os.path.isdir(file_path):
+            if OPTIONS.verbose():
+              print 'Removing not-built artifact:', file_path
+            os.remove(file_path)
+
+    # TODO(crbug.com/524667): Clean the out directory of all stale artifacts,
+    # not just those in specific directories mentioned here. The exception would
+    # be not removing out/target/<other-target> when other-target !=
+    # current-target.
+
+    # Clean out any ninja files that were not generated.
+    remove_files_not_built_in_dir(build_common.get_generated_ninja_dir())
+
+    # Extra unit test files in this directory are problematic. Clean out
+    # anything that is not going to be built.
+    remove_files_not_built_in_dir(build_common.get_unittest_info_path())
+
+    # Remove binaries in the stripped directory when they are unnecessary to
+    # prevent stale binaries from being used for remote execution.
+    remove_files_not_built_in_dir(build_common.get_stripped_dir())
+    remove_files_not_built_in_dir(
+        build_common.get_runtime_platform_specific_path(
+            build_common.get_runtime_out_dir(), OPTIONS.target()))
 
 
 class ArchiveNinjaGenerator(CNinjaGenerator):
@@ -2142,10 +2182,11 @@ class SharedObjectNinjaGenerator(CNinjaGenerator):
     flag_variable = 'hostldflags' if self._is_host else 'ldflags'
     if not SharedObjectNinjaGenerator._ENABLED:
       raise Exception('Linking of additional shared libraries is not allowed')
-    variables = self._add_lib_vars(as_dict(variables))
+    variables = self._add_lib_vars(build_common.as_dict(variables))
     if not self._link_crtbegin:
       variables['crtbegin_for_so'] = ''
-    implicit = as_list(implicit) + self._static_deps + self._whole_archive_deps
+    implicit = (build_common.as_list(implicit) + self._static_deps +
+                self._whole_archive_deps)
     if self._notices_only or self._is_host:
       implicit += self._shared_deps
     else:
@@ -2259,7 +2300,8 @@ class ExecNinjaGenerator(CNinjaGenerator):
               use_libcxx=self._enable_libcxx))
 
   def link(self, variables=None, implicit=None, **kwargs):
-    implicit = as_list(implicit) + self._static_deps + self._whole_archive_deps
+    implicit = (build_common.as_list(implicit) + self._static_deps +
+                self._whole_archive_deps)
     if self._notices_only or self._is_host:
       implicit += self._shared_deps
     else:
@@ -2270,7 +2312,7 @@ class ExecNinjaGenerator(CNinjaGenerator):
                        build_common.get_bionic_crtend_o()])
       if OPTIONS.is_debug_code_enabled() and not self._is_system_library:
         implicit.append(build_common.get_bionic_libc_malloc_debug_leak_so())
-    variables = self._add_lib_vars(as_dict(variables))
+    variables = self._add_lib_vars(build_common.as_dict(variables))
     bin_path = os.path.join(self._intermediates_dir, self._module_name)
     if OPTIONS.is_nacl_build() and not self._is_host:
       rule_prefix = 'clang.'
@@ -2675,7 +2717,7 @@ class TestNinjaGenerator(ExecNinjaGenerator):
     variables['gtest_options'] = unittest_util.build_gtest_options(
         self._enabled_tests, self._disabled_tests + self._qemu_disabled_tests)
 
-    implicit = as_list(implicit)
+    implicit = build_common.as_list(implicit)
     # All tests should have an implicit dependency against the fake
     # libposix_translation.so to run under sel_ldr.
     implicit.append(os.path.join(build_common.get_load_library_path_for_test(),
@@ -2709,7 +2751,7 @@ class PpapiTestNinjaGenerator(TestNinjaGenerator):
     # include them.
     libppapi_mocks_build_path = build_common.get_build_path_for_library(
         'libppapi_mocks.a')
-    implicit = [libppapi_mocks_build_path] + as_list(implicit)
+    implicit = [libppapi_mocks_build_path] + build_common.as_list(implicit)
     super(PpapiTestNinjaGenerator, self).__init__(module_name,
                                                   implicit=implicit,
                                                   **kwargs)
@@ -2753,14 +2795,17 @@ class JavaNinjaGenerator(NinjaGenerator):
                                              **kwargs)
 
     # Generate paths to all source code files (not just .java files)
-    self._source_paths = [os.path.join(self._base_path or '', path)
-                          for path in as_list(source_subdirectories)]
+    self._source_paths = [
+        os.path.join(self._base_path or '', path)
+        for path in build_common.as_list(source_subdirectories)]
 
-    exclude_aidl_files = frozenset(os.path.join(self._base_path, path)
-                                   for path in as_list(exclude_aidl_files))
+    exclude_aidl_files = frozenset(
+        os.path.join(self._base_path, path)
+        for path in build_common.as_list(exclude_aidl_files))
     self._exclude_aidl_files = exclude_aidl_files
-    include_aidl_files = frozenset(os.path.join(self._base_path, path)
-                                   for path in as_list(include_aidl_files))
+    include_aidl_files = frozenset(
+        os.path.join(self._base_path, path)
+        for path in build_common.as_list(include_aidl_files))
     self._include_aidl_files = include_aidl_files
 
     # Information for the aidl tool.
@@ -2772,22 +2817,23 @@ class JavaNinjaGenerator(NinjaGenerator):
     self._javac_source_files = []
     self._javac_stamp_files = []
     self._javac_source_files_hashcode = None
-    self._javac_classpath_files = as_list(classpath_files)
+    self._javac_classpath_files = build_common.as_list(classpath_files)
     self._javac_classpath_dirs = []
     self._java_source_response_file = self._get_build_path(subpath='java.files')
     self._jar_files_to_extract = []
 
     self._resource_paths = []
     self._resource_includes = (JavaNinjaGenerator._default_resource_includes +
-                               as_list(resource_includes))
+                               build_common.as_list(resource_includes))
     if resource_class_names is None:
       self._resource_class_names = ['R']
     else:
       self._resource_class_names = resource_class_names
 
     if resource_subdirectories is not None:
-      self._resource_paths = [os.path.join(self._base_path or '', path)
-                              for path in as_list(resource_subdirectories)]
+      self._resource_paths = [
+          os.path.join(self._base_path or '', path)
+          for path in build_common.as_list(resource_subdirectories)]
 
     if manifest_path is None:
       manifest_path = 'AndroidManifest.xml'
@@ -3013,11 +3059,11 @@ class JavaNinjaGenerator(NinjaGenerator):
 
   def _build_aapt(self, outputs=None, output_apk=None, inputs=None,
                   implicit=None, input_path=None, out_base_path=None):
-    outputs = as_list(outputs)
-    implicit = as_list(implicit)
+    outputs = build_common.as_list(outputs)
+    implicit = build_common.as_list(implicit)
 
     resource_paths = [staging.as_staging(path)
-                      for path in as_list(self._resource_paths)]
+                      for path in build_common.as_list(self._resource_paths)]
 
     aaptflags = _VariableValueBuilder('aaptflags')
     aaptflags.append_flag('-f')
@@ -3040,7 +3086,7 @@ class JavaNinjaGenerator(NinjaGenerator):
         aaptflags.append_flag(pipes.quote(flag))
 
     implicit += [self._manifest_path]
-    implicit += as_list(self._resource_includes)
+    implicit += build_common.as_list(self._resource_includes)
 
     variables = dict(
         aaptflags=aaptflags,
@@ -3306,7 +3352,7 @@ class JavaNinjaGenerator(NinjaGenerator):
         apk_install_path=apk_install_path,
         output_odex_path=self._output_odex_file)
     if extra_flags:
-      dex2oatflags += as_list(extra_flags)
+      dex2oatflags += build_common.as_list(extra_flags)
 
     boot_image_dir = os.path.join(build_common.get_android_fs_root(),
                                   'system/framework',
@@ -3403,10 +3449,12 @@ class JarNinjaGenerator(JavaNinjaGenerator):
       self._output_odex_file = None
 
     self._is_core_library = core_library
-    self._java_resource_dirs = [os.path.join(self._base_path, path)
-                                for path in as_list(java_resource_dirs)]
-    self._java_resource_files = [os.path.join(self._base_path, path)
-                                 for path in as_list(java_resource_files)]
+    self._java_resource_dirs = [
+        os.path.join(self._base_path, path)
+        for path in build_common.as_list(java_resource_dirs)]
+    self._java_resource_files = [
+        os.path.join(self._base_path, path)
+        for path in build_common.as_list(java_resource_files)]
     self._is_static_library = static_library
 
     self._jar_packages = jar_packages
@@ -3560,8 +3608,9 @@ class JarNinjaGenerator(JavaNinjaGenerator):
       for d in self._java_resource_dirs:
         # Resource directories that are generated via make_to_ninja point to
         # staging directories.
-        resources = find_all_files(d, exclude=excludes,
-                                   use_staging=not d.startswith(staging_root))
+        resources = build_common.find_all_files(
+            d, exclude=excludes,
+            use_staging=not d.startswith(staging_root))
         for r in resources:
           rel_path = os.path.relpath(r, d)
           jar_command += ' -C %s %s' % (staging.as_staging(d), rel_path)
@@ -3661,7 +3710,7 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
     build_path = os.path.dirname(self._install_path)
     build_script = os.path.join(build_common.get_arc_root(),
                                 'src', 'build', 'build_using_sdk.py')
-    implicit = as_list(implicit)
+    implicit = build_common.as_list(implicit)
     implicit += map(staging.third_party_to_staging,
                     build_common.get_android_sdk_ndk_dependencies())
     implicit += [build_script]
@@ -3951,7 +4000,7 @@ class AaptNinjaGenerator(NinjaGenerator):
                              for p in self._resource_paths])
     for path in self._resource_paths:
       extra_flags += ' -S ' + path
-      implicit_depends += find_all_files(
+      implicit_depends += build_common.find_all_files(
           [path], use_staging=False, include_tests=True)
 
     if not self._assets_path:
@@ -3960,7 +4009,7 @@ class AaptNinjaGenerator(NinjaGenerator):
         self._assets_path = path
     if self._assets_path:
       extra_flags += ' -A ' + self._assets_path
-      implicit_depends += find_all_files(
+      implicit_depends += build_common.find_all_files(
           [self._assets_path], use_staging=False, include_tests=True)
 
     apk_path = os.path.join(resource_generated, basename_apk)
@@ -4148,7 +4197,7 @@ def generate_python_test_ninjas_for_path(base_path, exclude=None,
       implicit_map: (Optional) A mapping of test paths to extra dependencies for
           that test.
   """
-  implicit_map = as_dict(implicit_map)
+  implicit_map = build_common.as_dict(implicit_map)
   python_tests = build_common.find_all_files(
       base_path, suffixes='_test.py', include_tests=True, exclude=exclude,
       use_staging=False)

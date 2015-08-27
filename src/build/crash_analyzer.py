@@ -4,22 +4,23 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Usage:
-#
-# $ src/build/crash_analyzer.py
-#   out/target/nacl_i686/intermediates/bionic_test/bionic_test.results.1.tmp
-#
-# Note that this is also integrated in launch_chrome.py.
-#
+"""Analyzes the crash dump.
+Usage:
+
+$ src/build/crash_analyzer.py
+  out/target/nacl_i686/intermediates/bionic_test/bionic_test.results.1.tmp
+
+Note that this is also integrated in launch_chrome.py.
+"""
 
 import argparse
 import os
 import re
 import subprocess
 import sys
-import toolchain
 
 import build_common
+import toolchain
 from build_options import OPTIONS
 
 

@@ -12,7 +12,7 @@ import re
 import sys
 
 import build_common
-import build_options
+from build_options import OPTIONS
 
 
 class LogTag(object):
@@ -21,7 +21,7 @@ class LogTag(object):
 
 
 def main():
-  build_options.OPTIONS.parse_configure_file()
+  OPTIONS.parse_configure_file()
   parser = argparse.ArgumentParser()
 
   parser.add_argument('input', nargs='?',

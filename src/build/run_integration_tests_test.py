@@ -19,12 +19,13 @@ output from rarely used command line options. It is not meant to comprehensively
 cover all the logic in the integration test infrastructure.
 """
 
-from mock import patch
 import re
 import unittest
 
+import mock
+
+import run_integration_tests
 from build_options import OPTIONS
-from run_integration_tests import main
 from util.test import flags
 from util.test import suite_runner_config
 
@@ -137,7 +138,7 @@ def _make_all_tests_flaky():
         'test_order': {},
         'suite_test_expectations': {}
     }
-  return patch(
+  return mock.patch(
       'util.test.suite_runner_config._evaluate',
       _make_flaky_suite_configuration)
 
@@ -206,7 +207,7 @@ def _make_fake_atf_test_process(fake_subprocess_generator):
 
     _stub_unexpected_popen(args, *vargs, **kwargs)
 
-  return patch('util.concurrent_subprocess.Popen', _subprocess_creator)
+  return mock.patch('util.concurrent_subprocess.Popen', _subprocess_creator)
 
 
 def _stub_return_empty_string(*args, **kwargs):
@@ -252,8 +253,8 @@ class _RunIntegrationTestsTestBase(unittest.TestCase):
   EXAMPLE_TEST_NAME2 = 'libcore.java.lang.StringTest#test_compareTo'
 
   def _run_integration_tests(self, args):
-    with patch('sys.stdout', _FakeStream()) as stdout:
-      self._last_exit_code = main(args + ['--noninja'])
+    with mock.patch('sys.stdout', _FakeStream()) as stdout:
+      self._last_exit_code = run_integration_tests.main(args + ['--noninja'])
       self._last_output = stdout.get_output_lines()
 
   @classmethod
@@ -375,25 +376,25 @@ class _RunIntegrationTestsTestBase(unittest.TestCase):
 # These patch decorators replace the named function with a stub/fake/mock for
 # each test in the suite.
 # Any call to create a general subprocess object will be caught as unexpected.
-@patch('util.concurrent_subprocess.Popen', _stub_unexpected_popen)
-@patch('subprocess.Popen', _stub_unexpected_popen)
+@mock.patch('util.concurrent_subprocess.Popen', _stub_unexpected_popen)
+@mock.patch('subprocess.Popen', _stub_unexpected_popen)
 # Any call to subprocess.check_call will just return None.
-@patch('subprocess.check_call', _stub_return_none)
+@mock.patch('subprocess.check_call', _stub_return_none)
 # Any call to subprocess.check_output will just return an empty string.
-@patch('subprocess.check_output', _stub_return_empty_string)
+@mock.patch('subprocess.check_output', _stub_return_empty_string)
 # We patch sys.stdout.write to hide all output.
-@patch('sys.stdout', _FakeStream())
+@mock.patch('sys.stdout', _FakeStream())
 # We make dashboard_submit.queue_data no-op to avoid sending test data to the
 # real dashboard server.
-@patch('dashboard_submit.queue_data', _stub_return_none)
+@mock.patch('dashboard_submit.queue_data', _stub_return_none)
 # We stub out build_crx and update_shell_command to do nothing.
 # TODO(lpique): Look into making them work without stubbing them out.
-@patch('apk_to_crx.apk_to_crx.build_crx', _stub_return_none)
-@patch('prep_launch_chrome.update_shell_command', _stub_return_none)
-@patch('build_options._real_options.parse_configure_file',
-       _stub_parse_configure_file)
+@mock.patch('apk_to_crx.apk_to_crx.build_crx', _stub_return_none)
+@mock.patch('prep_launch_chrome.update_shell_command', _stub_return_none)
+@mock.patch('build_options._real_options.parse_configure_file',
+            _stub_parse_configure_file)
 # The unittest files may not be created yet.
-@patch('util.test.unittest_util.get_all_tests', lambda: [])
+@mock.patch('util.test.unittest_util.get_all_tests', lambda: [])
 class RunIntegrationTestsSlowTest(_RunIntegrationTestsTestBase):
   def test_plan_report_can_be_printed_for_all_suites(self):
     """Check that the --plan-report option appears to work.
@@ -439,31 +440,31 @@ class RunIntegrationTestsSlowTest(_RunIntegrationTestsTestBase):
 # These patch decorators replace the named function with a stub/fake/mock for
 # each test in the suite.
 # Any call to create a general subprocess object will be caught as unexpected.
-@patch('util.concurrent_subprocess.Popen', _stub_unexpected_popen)
-@patch('subprocess.Popen', _stub_unexpected_popen)
+@mock.patch('util.concurrent_subprocess.Popen', _stub_unexpected_popen)
+@mock.patch('subprocess.Popen', _stub_unexpected_popen)
 # Any call to subprocess.check_call will just return None.
-@patch('subprocess.check_call', _stub_return_none)
+@mock.patch('subprocess.check_call', _stub_return_none)
 # Any call to subprocess.check_output will just return an empty string.
-@patch('subprocess.check_output', _stub_return_empty_string)
+@mock.patch('subprocess.check_output', _stub_return_empty_string)
 # We patch sys.stdout.write to hide all output.
-@patch('sys.stdout', _FakeStream())
+@mock.patch('sys.stdout', _FakeStream())
 # We make dashboard_submit.queue_data no-op to avoid sending test data to the
 # real dashboard server.
-@patch('dashboard_submit.queue_data', _stub_return_none)
+@mock.patch('dashboard_submit.queue_data', _stub_return_none)
 # We stub out build_crx and update_shell_command to do nothing.
 # TODO(lpique): Look into making them work without stubbing them out.
-@patch('apk_to_crx.apk_to_crx.build_crx', _stub_return_none)
-@patch('prep_launch_chrome.update_shell_command', _stub_return_none)
-@patch('build_options._real_options.parse_configure_file',
-       _stub_parse_configure_file)
+@mock.patch('apk_to_crx.apk_to_crx.build_crx', _stub_return_none)
+@mock.patch('prep_launch_chrome.update_shell_command', _stub_return_none)
+@mock.patch('build_options._real_options.parse_configure_file',
+            _stub_parse_configure_file)
 # The unittest files may not be created yet.
-@patch('util.test.unittest_util.get_all_tests', lambda: [])
+@mock.patch('util.test.unittest_util.get_all_tests', lambda: [])
 # These tests run faster by limiting the number of tests constructed at startup
-@patch('util.test.suite_runner_util.read_test_list', _stub_read_test_list)
-@patch('util.test.suite_runner_config.SuiteExpectationsLoader.get',
-       _stub_expectation_loader_get)
-@patch('cts.cts_runner_util.read_cts_test_plan_packages',
-       _stub_read_cts_test_plan_packages)
+@mock.patch('util.test.suite_runner_util.read_test_list', _stub_read_test_list)
+@mock.patch('util.test.suite_runner_config.SuiteExpectationsLoader.get',
+            _stub_expectation_loader_get)
+@mock.patch('cts.cts_runner_util.read_cts_test_plan_packages',
+            _stub_read_cts_test_plan_packages)
 class RunIntegrationTestsFastTest(_RunIntegrationTestsTestBase):
   def test_single_test_passing(self):
     """A single test that cleanly passes should output as success."""

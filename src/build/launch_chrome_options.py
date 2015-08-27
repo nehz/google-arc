@@ -6,16 +6,16 @@
 # prep_launch_script.py.
 
 import argparse
-from functools import partial
+import functools
 import json
 import os
 import re
 import sys
 
 import build_common
+import ninja_generator
 from build_options import OPTIONS
-import metadata.manager
-from ninja_generator import ApkFromSdkNinjaGenerator
+from metadata import manager
 from util import launch_chrome_util
 from util import remote_executor
 
@@ -49,8 +49,9 @@ def _parse_mode_arguments(remaining_args, parsed_args):
   else:
     # HelloAndroid is the default APK if no APK is specified.
     if not parsed_args.apk_path_list:
-      parsed_args.apk_path_list = \
-          [ApkFromSdkNinjaGenerator.get_install_path_for_module('HelloAndroid')]
+      parsed_args.apk_path_list = [
+          ninja_generator.ApkFromSdkNinjaGenerator.get_install_path_for_module(
+              'HelloAndroid')]
 
   if parsed_args.mode == 'arcwelder':
     parsed_args.build_crx = False
@@ -218,7 +219,7 @@ def _add_parser_arguments_for_metadata(parser):
     return value
 
   group = parser.add_argument_group('Manifest metadata (auto-generated)')
-  metadata_definitions = metadata.manager.get_metadata_definitions()
+  metadata_definitions = manager.get_metadata_definitions()
 
   for definition in metadata_definitions:
     argument_names = ['--' + definition.command_argument_name]
@@ -237,7 +238,7 @@ def _add_parser_arguments_for_metadata(parser):
     elif metadata_type is unicode:
       additional_params.update({
           'choices': definition.allowed_values,
-          'type': partial(convert_short_options_to_long, definition)
+          'type': functools.partial(convert_short_options_to_long, definition)
       })
     elif metadata_type is int:
       additional_params.update({

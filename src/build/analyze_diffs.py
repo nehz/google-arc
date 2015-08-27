@@ -7,22 +7,23 @@
 # ARC MOD IGNORE - Keep from running on ourself since this file will
 # contain a lot of grepbait that will confuse itself.
 
-# Analyze differences in code from Android upstream.
-# There are two main goals:
-#  1) enforce a pattern in the source code to demarkate diffs.
-#  2) summarize the numbers of patches and patched files from upstream.
+"""Analyze differences in code from Android upstream.
+
+There are two main goals:
+ 1) enforce a pattern in the source code to demarkate diffs.
+ 2) summarize the numbers of patches and patched files from upstream.
+"""
 
 import argparse
 import cPickle
 import os
 import re
+import subprocess
 import sys
 
-from subprocess import Popen, PIPE
-
+import notices
 import open_source
 import staging
-from notices import Notices
 
 _args = None
 FILE_IGNORE_TAG = 'ARC MOD IGNORE'
@@ -90,7 +91,7 @@ def analyze_new_file(stats, our_lines):
 
 def diff_files(our_path, tracking_path):
   cmd = ['diff', '--unified=0', tracking_path, our_path]
-  process = Popen(cmd, stdout=PIPE)
+  process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
   os.waitpid(process.pid, 1)
   output = process.communicate()[0]
   return output.splitlines()
@@ -446,7 +447,7 @@ def _check_any_license(stats, our_path, tracking_path, default_tracking):
       our_path in ('.gitmodules', '.gitignore',
                    'configure', 'launch_chrome', 'run_integration_tests')):
     return
-  staged_notices = Notices()
+  staged_notices = notices.Notices()
   staged_notices.add_sources([our_path])
 
   if tracking_path:
@@ -482,10 +483,10 @@ def _compute_staged_notices(mods_path, third_party_path):
   been run, or might be out of date from when analyze_diffs is run.  So
   we make a best attempt to reconstruct the notices that would have occurred
   post-staging."""
-  mods_notices = Notices()
+  mods_notices = notices.Notices()
   if mods_path:
     mods_notices.add_sources([mods_path])
-  third_party_notices = Notices()
+  third_party_notices = notices.Notices()
   if third_party_path:
     third_party_notices.add_sources([third_party_path])
   # If there are mods and third_party notices, pick the one that is more
@@ -522,7 +523,8 @@ def _check_less_restrictive_tracking_license(stats, our_path,
   if not tracking_directory_notices.has_proper_metadata():
     show_error(stats, ('File %s tracked by %s has no license metadata' %
                        (tracking_path, our_path)))
-  if (Notices.is_more_restrictive(tracking_license, containing_license)):
+  if (notices.Notices.is_more_restrictive(
+          tracking_license, containing_license)):
     show_error(stats, ('File %s (%s) tracks a file with a more restrictive '
                        'license %s (%s)' % (our_path, containing_license,
                                             tracking_path, tracking_license)))

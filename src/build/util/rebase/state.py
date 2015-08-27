@@ -8,16 +8,16 @@ import collections
 import logging
 import sys
 
-import util.rebase.constants as constants
-import util.rebase.internal as internal
-import util.rebase.mod
+from util.rebase import constants
+from util.rebase import internal
+from util.rebase import mod as rebase_mod
 
 
 class State(object):
   def __init__(self):
     self._mods = collections.defaultdict(list)
     android_submodule_paths = internal.get_android_submodule_paths()
-    for mod in util.rebase.mod.get_all_arc_android_mods():
+    for mod in rebase_mod.get_all_arc_android_mods():
       android_submodule_path = internal.identify_containing_submodule(
           mod.android_path, submodules=android_submodule_paths)
       # logging.debug('%s %s', android_submodule_path, mod.new_mod_path)

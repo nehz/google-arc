@@ -8,7 +8,6 @@ import subprocess
 import time
 import unittest
 
-
 from util import file_util
 from util import chrome_process
 

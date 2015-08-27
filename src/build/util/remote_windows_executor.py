@@ -2,10 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 #
-# Provides functions for running Chrome and dalvik tests on a remote Windows
-# machine.
-#
-# At the moment, we support running Chrome via cygwin's sshd.
+"""Utilities for running Chrome and dalvik tests on a remote Windows machine.
+
+At the moment, we support running Chrome via cygwin's sshd.
+"""
 
 import os
 import subprocess

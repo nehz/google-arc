@@ -11,6 +11,7 @@ import os
 import re
 
 import build_common
+import config_loader
 import dependency_inspection
 import file_list_cache
 import make_to_ninja
@@ -18,13 +19,12 @@ import ninja_generator
 import ninja_generator_runner
 import open_source
 from build_options import OPTIONS
-from config_loader import ConfigLoader
 from util import file_util
 
 
 _CONFIG_CACHE_VERSION = 1
 
-_config_loader = ConfigLoader()
+_config_loader = config_loader.ConfigLoader()
 
 
 def _get_build_system_dependencies():
@@ -599,6 +599,7 @@ def generate_ninjas():
   for ninja in ninja_list:
     ninja.emit()
   top_level_ninja.emit_depfile()
+  top_level_ninja.cleanup_out_directories(ninja_list)
   timer.done()
 
   if OPTIONS.enable_config_cache():

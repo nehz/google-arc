@@ -1,18 +1,20 @@
 # Copyright 2015 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
-# A module to inspect dependencies from a config.py to the source tree for the
-# config cache.
-#
-# Intended usage in configuration scripts in src/build:
-#  1) Call start_inspection() before config.py invocation to start recording
-#     dependencies.
-#  2) Record dependencies of the config.py by hooking functions called from
-#     config.py.
-#  3) After config.py completes, collect the recorded dependencies from
-#     get_files() and get_listing().
-#  4) Call stop_inspection() at the end of config.py invocation for clean-up.
+
+"""Inspects dependencies from a config.py to the source tree.
+
+This is for the config cache.
+
+Intended usage in configuration scripts in src/build:
+ 1) Call start_inspection() before config.py invocation to start recording
+    dependencies.
+ 2) Record dependencies of the config.py by hooking functions called from
+    config.py.
+ 3) After config.py completes, collect the recorded dependencies from
+    get_files() and get_listing().
+ 4) Call stop_inspection() at the end of config.py invocation for clean-up.
+"""
 
 import file_list_cache
 

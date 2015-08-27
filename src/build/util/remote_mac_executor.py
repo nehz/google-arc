@@ -2,9 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Provides functions for running Chrome on a remote Mac device.
+"""Provides functions for running Chrome on a remote Mac device."""
 
 import subprocess
+
 from util import launch_chrome_util
 from util import remote_executor_util
 

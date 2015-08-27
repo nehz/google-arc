@@ -1,10 +1,12 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
-# Provides basic utilities to implement remote-host-execution of
-# launch_chrome, run_integration_tests, and run_unittests.py on Chrome OS,
-# Windows (Cygwin), and Mac.
+
+"""Provides basic utilities to implement remote-host-execution.
+
+Supports to run launch_chrome, run_integration_tests, and run_unittests.py on
+Chrome OS, Windows (Cygwin), and Mac.
+"""
 
 import atexit
 import itertools
@@ -23,7 +25,7 @@ from util import file_util
 from util import gdb_util
 from util import jdb_util
 from util import logging_util
-from util.minidump_filter import MinidumpFilter
+from util import minidump_filter
 from util.test import unittest_util
 
 RUN_UNITTEST = 'src/build/run_unittest.py'
@@ -54,7 +56,10 @@ _INTEGRATION_TEST_GLOB_TEMPLATE_LIST = [
     '{out}/data_roots/art.*',
     '{out}/data_roots/arc.*',
     '{out}/data_roots/cts.*',
-    '{out}/data_roots/gms_core_apitest.*',
+    # TODO(crbug.com/523905): We want '{out}/data_roots/gms_core_apitest.*' too,
+    # but it consumes too much disk space. As a temporary treatment until we
+    # find a way to reduce the size, we programatically select part of them.
+    # See _get_gms_core_apitest_data_roots_glob_template() below.
     '{out}/data_roots/graphics.*',
     '{out}/data_roots/jstests.*',
     '{out}/data_roots/ndk.*',
@@ -462,7 +467,8 @@ class RemoteExecutor(object):
       cwd = self.get_remote_arc_root()
     cmd = 'cd %s && %s' % (cwd, cmd)
 
-    handler = MinidumpFilter(concurrent_subprocess.RedirectOutputHandler())
+    handler = minidump_filter.MinidumpFilter(
+        concurrent_subprocess.RedirectOutputHandler())
     if self._attach_nacl_gdb_type:
       if OPTIONS.is_nacl_build():
         handler = gdb_util.NaClGdbHandlerAdapter(
@@ -600,6 +606,15 @@ def get_launch_chrome_deps(parsed_args):
   return file_util.glob(*patterns)
 
 
+def _get_gms_core_apitest_data_roots_glob_template():
+  # Expectaion files are prepared for supported moudles in gms core. In other
+  # words, test suites without matching expectation file always fail. Omit such
+  # suites in order to save the disk space of remote Chromebooks.
+  return ['{out}/data_roots/' + os.path.basename(path) for path in
+          file_util.glob('out/internal-apks-integration-tests/expectations/' +
+                         'gms_core_apitest.*')]
+
+
 def get_integration_test_deps():
   """Returns a list of paths needed to run ./run_integration_tests.
 
@@ -610,7 +625,8 @@ def get_integration_test_deps():
   # as a part of integration test on ChromeOS.
   glob_template_list = (
       _COMMON_GLOB_TEMPLATE_LIST + _LAUNCH_CHROME_GLOB_TEMPLATE_LIST +
-      _INTEGRATION_TEST_GLOB_TEMPLATE_LIST + _UNITTEST_GLOB_TEMPLATE_LIST)
+      _INTEGRATION_TEST_GLOB_TEMPLATE_LIST + _UNITTEST_GLOB_TEMPLATE_LIST +
+      _get_gms_core_apitest_data_roots_glob_template())
   patterns = (
       map(build_common.expand_path_placeholder, glob_template_list) +
       [toolchain.get_adb_path_for_chromeos()] +

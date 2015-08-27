@@ -32,8 +32,9 @@ import os
 import sys
 import urllib2
 
-import util.concurrent
+from util import concurrent
 from util import file_util
+
 
 _BUILDBOT_URL = 'https://chromegw.corp.google.com/i/client.arc'
 _LOG_URL_TMPL = ('%(buildbot_url)s/builders/%(builder)s/builds/'
@@ -159,7 +160,7 @@ def main():
 
   download_args_list = make_download_args_list(
       builders_info, args.outdir, args.number_of_logs)
-  with util.concurrent.CheckedExecutor(util.concurrent.ThreadPoolExecutor(
+  with concurrent.CheckedExecutor(concurrent.ThreadPoolExecutor(
       args.jobs, daemon=True)) as executor:
     for download_args in download_args_list:
       executor.submit(download_log, *download_args)

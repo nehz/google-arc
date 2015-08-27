@@ -4,8 +4,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Updates third_party/chromium-ppapi and third_party/native_client
-# directories to match Chrome revision in DEPS.chrome.
+"""Updates chromium-ppapi and native_client.
+
+This script updates third_party/chromium-ppapi and third_party/native_client
+directories to match Chrome revision in DEPS.chrome.
+"""
 
 import re
 import subprocess

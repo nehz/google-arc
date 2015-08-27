@@ -4,7 +4,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Syncs the nacl sdk at a pinned version given in NACLSDK.json
+"""Syncs the nacl sdk at a pinned version given in NACLSDK.json."""
 
 import argparse
 import logging

@@ -27,7 +27,6 @@ import sys
 
 import build_common
 import dashboard_submit
-import util.test.suite_results
 from build_options import OPTIONS
 from cts import expected_driver_times
 from util import color
@@ -43,7 +42,6 @@ from util.test import suite_results
 from util.test import suite_runner_config
 from util.test import test_driver
 from util.test import test_filter
-
 
 _BOT_TEST_SUITE_MAX_RETRY_COUNT = 5
 _DEFINITIONS_ROOT = 'src/integration_tests/definitions'
@@ -216,7 +214,7 @@ def _run_suites(test_driver_list, args, prepare_only=False):
   """Runs the indicated suites."""
   setup_output_directory(args.output_dir)
 
-  util.test.suite_results.initialize(test_driver_list, args, prepare_only)
+  suite_results.initialize(test_driver_list, args, prepare_only)
 
   if not test_driver_list:
     return False
@@ -446,8 +444,7 @@ def _run_suites_and_output_results_remote(args, raw_args):
 def _run_suites_and_output_results_local(test_driver_list, args):
   """Runs integration tests locally and returns the status code on exit."""
   run_result = _run_suites(test_driver_list, args)
-  test_failed, passed, total = (
-      util.test.suite_results.summarize(args.output_dir))
+  test_failed, passed, total = suite_results.summarize(args.output_dir)
 
   if args.cts_bot:
     if total > 0:
@@ -512,7 +509,7 @@ def main(raw_args):
     test_driver_list.extend(_get_test_driver_list(args))
 
   if args.plan_report:
-    util.test.suite_results.initialize(test_driver_list, args, False)
+    suite_results.initialize(test_driver_list, args, False)
     suite_results.report_expected_results(
         driver.scoreboard for driver in sorted(test_driver_list,
                                                key=lambda driver: driver.name))

@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Code to query about the open source repository.
+"""Code to query about the open source repository."""
 
 import fnmatch
 import os

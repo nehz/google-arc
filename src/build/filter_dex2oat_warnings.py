@@ -4,7 +4,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# This script exists to filter out known dex2oat logs and warnings.
+"""This script exists to filter out known dex2oat logs and warnings."""
 
 import sys
 

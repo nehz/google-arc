@@ -4,14 +4,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Overlays files from mods over third_party and places them in an output
-# staging directory.  This can be used either as a python module or as
-# a standalone script.  The latter can be helpful in debugging staging
-# or in quickly running staging when you know running all of configure
-# is unnecessary.
+"""Overlays files from mods over third_party as an output staging directory.
 
-# Code to create out/staging of properly overlaid files.  All
-# files are created as symlinks.
+This can be used either as a python module or as a standalone script. The
+latter can be helpful in debugging staging or in quickly running staging when
+you know running all of configure is unnecessary.
+
+Code to create out/staging of properly overlaid files.  All files are created
+as symlinks.
+"""
 
 import os
 import subprocess

@@ -9,7 +9,7 @@ import os
 import sys
 
 import build_common
-import build_options
+from build_options import OPTIONS
 
 
 def _find_config_py(base_path):
@@ -128,7 +128,7 @@ class ConfigLoader(object):
         os.path.join('mods', 'graphics_translation'),
         'src',
     ]
-    if build_options.OPTIONS.internal_apks_source_is_internal():
+    if OPTIONS.internal_apks_source_is_internal():
       search_root_list.append('internal')
 
     config_file_list = []

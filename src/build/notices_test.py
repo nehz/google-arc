@@ -7,7 +7,7 @@
 import os
 import unittest
 
-from notices import Notices
+import notices
 
 _PATH_PREFIX = 'src/build/tests/notices'
 
@@ -23,7 +23,7 @@ def _unprefix(pathlist):
 class TestNotices(unittest.TestCase):
   def __init__(self, *args, **kwargs):
     super(TestNotices, self).__init__(*args, **kwargs)
-    self._n = Notices()
+    self._n = notices.Notices()
 
   def _add_sources(self, subpaths):
     self._n.add_sources(_prefix(subpaths))
@@ -70,7 +70,7 @@ class TestNotices(unittest.TestCase):
 
   def _check_licenses_by_kind(self, dirs, kind, is_source_required):
     for p in dirs:
-      self._n = Notices()
+      self._n = notices.Notices()
       self._add_sources([os.path.join(p, 'file.c')])
       if is_source_required:
         self._assert_roots_are([p], [p])
@@ -80,44 +80,46 @@ class TestNotices(unittest.TestCase):
 
   def test_gpl_license(self):
     self._check_licenses_by_kind(
-        ['subdir-gnu-public-license'], Notices.KIND_GPL_LIKE, True)
+        ['subdir-gnu-public-license'], notices.Notices.KIND_GPL_LIKE, True)
     self.assertTrue(self._n.has_lgpl_or_gpl())
 
   def test_lgpl_license(self):
     self._check_licenses_by_kind(
-        ['subdir-library-gnu-public-license'], Notices.KIND_LGPL_LIKE, True)
+        ['subdir-library-gnu-public-license'],
+        notices.Notices.KIND_LGPL_LIKE, True)
     self.assertTrue(self._n.has_lgpl_or_gpl())
 
   def test_open_source_required_licenses(self):
     self._check_licenses_by_kind(
         ['subdir-mozilla-public-license',
          'subdir-creative-commons-sharealike'],
-        Notices.KIND_OPEN_SOURCE_REQUIRED, True)
+        notices.Notices.KIND_OPEN_SOURCE_REQUIRED, True)
     self.assertFalse(self._n.has_lgpl_or_gpl())
 
   def test_default_licenses(self):
-    self._check_licenses_by_kind(['.'], Notices.KIND_DEFAULT, False)
+    self._check_licenses_by_kind(['.'], notices.Notices.KIND_DEFAULT, False)
 
   def test_public_domain_license(self):
     self._check_licenses_by_kind(['subdir-public'],
-                                 Notices.KIND_PUBLIC_DOMAIN, False)
+                                 notices.Notices.KIND_PUBLIC_DOMAIN, False)
 
   def test_notice_licenses(self):
     self._check_licenses_by_kind(
-        ['subdir-either-or'], Notices.KIND_NOTICE, False)
+        ['subdir-either-or'], notices.Notices.KIND_NOTICE, False)
 
   def test_unknown_license(self):
     self._check_licenses_by_kind(
-        ['subdir-no-clue'], Notices.KIND_UNKNOWN, True)
+        ['subdir-no-clue'], notices.Notices.KIND_UNKNOWN, True)
 
   def test_todo_license(self):
-    self._check_licenses_by_kind(['subdir-to-do'], Notices.KIND_TODO, True)
+    self._check_licenses_by_kind(['subdir-to-do'],
+                                 notices.Notices.KIND_TODO, True)
 
   def test_add_notices(self):
     self._add_sources(['subdir-unrestricted/file.c'])
     self._assert_roots_are(['subdir-unrestricted'])
     n1 = self._n
-    self._n = Notices()
+    self._n = notices.Notices()
     self._add_sources(['subdir-gnu-public-license/file1.c'])
     self._assert_roots_are(['subdir-gnu-public-license'],
                            ['subdir-gnu-public-license'])
@@ -134,7 +136,7 @@ class TestNotices(unittest.TestCase):
     self._add_sources(['subdir-inherit/file.c'])
     self._assert_roots_are(['.'], ['subdir-inherit'])
     self._check_license_kind('subdir-inherit',
-                             Notices.KIND_LGPL_LIKE)
+                             notices.Notices.KIND_LGPL_LIKE)
     self.assertEqual(len(self._n.get_notice_files()), 1)
 
   def test_inheritance_notice_and_inherited_license(self):
@@ -159,16 +161,16 @@ class TestNotices(unittest.TestCase):
 
   def test_get_most_restrictive_license_kind(self):
     self.assertEqual(self._n.get_most_restrictive_license_kind(),
-                     Notices.KIND_PUBLIC_DOMAIN)
+                     notices.Notices.KIND_PUBLIC_DOMAIN)
     self._add_sources(['subdir-library-gnu-public-license/file.c'])
     self.assertEqual(self._n.get_most_restrictive_license_kind(),
-                     Notices.KIND_LGPL_LIKE)
+                     notices.Notices.KIND_LGPL_LIKE)
     self._add_sources(['subdir-mozilla-public-license/file.c'])
     self.assertEqual(self._n.get_most_restrictive_license_kind(),
-                     Notices.KIND_LGPL_LIKE)
+                     notices.Notices.KIND_LGPL_LIKE)
     self._add_sources(['subdir-gnu-public-license/file.c'])
     self.assertEqual(self._n.get_most_restrictive_license_kind(),
-                     Notices.KIND_GPL_LIKE)
+                     notices.Notices.KIND_GPL_LIKE)
 
 
 if __name__ == '__main__':

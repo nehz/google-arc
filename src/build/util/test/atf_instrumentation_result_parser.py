@@ -5,7 +5,7 @@
 import re
 import time
 
-from util.test.test_method_result import TestMethodResult
+from util.test import test_method_result
 
 
 class AtfInstrumentationResultParser(object):
@@ -49,12 +49,12 @@ class AtfInstrumentationResultParser(object):
 
   # Map from ATF test status code to TestMethodResult code.
   _METHOD_RESULT_MAP = {
-      _START: TestMethodResult.INCOMPLETE,
-      _OK: TestMethodResult.PASS,
-      _ERROR: TestMethodResult.FAIL,
-      _FAILURE: TestMethodResult.FAIL,
-      _IGNORED: TestMethodResult.FAIL,
-      _ASSUMPTION_FAILURE: TestMethodResult.FAIL,
+      _START: test_method_result.TestMethodResult.INCOMPLETE,
+      _OK: test_method_result.TestMethodResult.PASS,
+      _ERROR: test_method_result.TestMethodResult.FAIL,
+      _FAILURE: test_method_result.TestMethodResult.FAIL,
+      _IGNORED: test_method_result.TestMethodResult.FAIL,
+      _ASSUMPTION_FAILURE: test_method_result.TestMethodResult.FAIL,
   }
 
   # RESULT_CODE which instrumentation returns. See Activity.java.
@@ -123,8 +123,9 @@ class AtfInstrumentationResultParser(object):
     fqn = self._current_class + '#' + self._current_test
     assert (fqn not in self._test_fqn_to_result_map or
             self._test_fqn_to_result_map[fqn].incomplete)
-    result = TestMethodResult(fqn, self._METHOD_RESULT_MAP[code],
-                              self._get_current_stream_message(), duration)
+    result = test_method_result.TestMethodResult(
+        fqn, self._METHOD_RESULT_MAP[code],
+        self._get_current_stream_message(), duration)
     self._test_fqn_to_result_map[fqn] = result
 
     self._clear_current_values()

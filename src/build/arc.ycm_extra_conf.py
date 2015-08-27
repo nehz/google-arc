@@ -2,46 +2,46 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Autocompletion config for YouCompleteMe in ARC.
-#
-# USAGE:
-#
-#   1. Install YCM [https://github.com/Valloric/YouCompleteMe]
-#          (Googlers should check out [go/ycm])
-#
-#   2. Point to this config file in your .vimrc:
-#          let g:ycm_global_ycm_extra_conf =
-#              '<arc_depot>/src/build/arc.ycm_extra_conf.py'
-#
-#   3. Profit!
-#
-#
-# Usage notes:
-#
-#   * You must have built ARC before using this.
-#
-#   * Not all files have correct completion information since ninja does not use
-#     gomacc for all C++ files.
-#
-#   * You can avoid the call to ninja every time a file is saved/loaded by
-#     creating a JSON compilation database with the following command:
-#       $ ninja -t compdb cxx.nacl_i686 cc.nacl_i686 > \
-#         ycm/compile_commands.json
-#     Replacing 'nacl_i686' with the current ARC target.
-#
-# Hacking notes:
-#
-#   * The purpose of this script is to construct an accurate enough command line
-#     for YCM to pass to clang so it can build and extract the symbols.
-#
-#   * Right now, we only pull some flags. That seems to be sufficient for
-#     everything I have used it for.
-#
-#   * That whole ninja & clang thing? We could support other configs if someone
-#     were willing to write the correct commands and a parser.
-#
-#   * This has only been tested on gPrecise.
+"""Autocompletion config for YouCompleteMe in ARC.
 
+USAGE:
+
+  1. Install YCM [https://github.com/Valloric/YouCompleteMe]
+         (Googlers should check out [go/ycm])
+
+  2. Point to this config file in your .vimrc:
+         let g:ycm_global_ycm_extra_conf =
+             '<arc_depot>/src/build/arc.ycm_extra_conf.py'
+
+  3. Profit!
+
+
+Usage notes:
+
+  * You must have built ARC before using this.
+
+  * Not all files have correct completion information since ninja does not use
+    gomacc for all C++ files.
+
+  * You can avoid the call to ninja every time a file is saved/loaded by
+    creating a JSON compilation database with the following command:
+      $ ninja -t compdb cxx.nacl_i686 cc.nacl_i686 > \
+        ycm/compile_commands.json
+    Replacing 'nacl_i686' with the current ARC target.
+
+Hacking notes:
+
+  * The purpose of this script is to construct an accurate enough command line
+    for YCM to pass to clang so it can build and extract the symbols.
+
+  * Right now, we only pull some flags. That seems to be sufficient for
+    everything I have used it for.
+
+  * That whole ninja & clang thing? We could support other configs if someone
+    were willing to write the correct commands and a parser.
+
+  * This has only been tested on gPrecise.
+"""
 
 import os
 import subprocess
