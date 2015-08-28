@@ -3,15 +3,15 @@
 # found in the LICENSE file.
 import os
 
+import ninja_generator
 from build_options import OPTIONS
-from ninja_generator import ArchiveNinjaGenerator
 
 
 def generate_ninjas():
   base_path = os.path.join('graphics_translation', 'egl')
 
-  n = ArchiveNinjaGenerator('libegl', force_compiler='clang', enable_cxx11=True,
-                            base_path=base_path)
+  n = ninja_generator.ArchiveNinjaGenerator(
+      'libegl', force_compiler='clang', enable_cxx11=True, base_path=base_path)
   n.add_compiler_flags('-Werror')
   n.add_notice_sources(['mods/graphics_translation/NOTICE'])
   n.add_include_paths('mods',

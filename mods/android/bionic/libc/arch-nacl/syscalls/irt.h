@@ -23,6 +23,10 @@ struct PP_StartFunctions;
 struct PP_ThreadFunctions;
 struct NaClExceptionContext;
 struct NaClMemMappingInfo;
+// ARC MOD BEGIN
+typedef uintptr_t nacl_irt_tid_t;
+#define NACL_IRT_MAIN_THREAD_TID 0
+// ARC MOD END
 
 #if defined(__cplusplus)
 extern "C" {
@@ -251,6 +255,25 @@ struct nacl_irt_thread {
   void (*thread_exit)(int32_t *stack_flag);
   int (*thread_nice)(const int nice);
 };
+// ARC MOD BEGIN
+
+/*
+ * This interface is only available on Non-SFI Mode.
+ */
+#define NACL_IRT_THREAD_v0_2   "nacl-irt-thread-0.2"
+struct nacl_irt_thread_v0_2 {
+  /*
+   * This interface is the same as nacl_irt_thread_v0_1, with the additional
+   * feature that it assigns the thread ID of the child thread into
+   * |child_tid| before the child thread starts and before execution control
+   * returns to the parent.
+   */
+  int (*thread_create)(void (*start_func)(void), void *stack, void *thread_ptr,
+                       nacl_irt_tid_t *child_tid);
+  void (*thread_exit)(int32_t *stack_flag);
+  int (*thread_nice)(const int nice);
+};
+// ARC MOD END
 
 /* The irt_futex interface is based on Linux's futex() system call. */
 #define NACL_IRT_FUTEX_v0_1        "nacl-irt-futex-0.1"
@@ -405,6 +428,63 @@ struct nacl_irt_exception_handling {
   int (*exception_stack)(void *stack, size_t size);
   int (*exception_clear_flag)(void);
 };
+// ARC MOD BEGIN
+
+/*
+ * This interface is only available on Non-SFI Mode.
+ *
+ * For more information, consult documentation/nonsfi_mode_async_signals.txt.
+ */
+
+typedef void (*NaClIrtAsyncSignalHandler)(
+    struct NaClExceptionContext *context);
+
+#define NACL_IRT_ASYNC_SIGNAL_HANDLING_v0_1 "nacl-irt-async-signal-handling-0.1"
+struct nacl_irt_async_signal_handling {
+  /*
+   * NaCl applications can register a single, global async signal handler that
+   * will be invoked on the thread that receives the signal.  When
+   * send_async_signal is called, |handler| is invoked on the thread specified
+   * by |tid| on the thread's stack and without modifying the underlying signal
+   * mask (as opposed to the POSIX behavior), so it is possible for |handler| to
+   * be invoked recursively (if a signal is sent from |handler|) and
+   * concurrently (if two threads send signals at the same time).
+   *
+   * If the thread was executing an IRT function, the suspended thread will
+   * continue it after |handler| finishes.  In other words, no IRT function will
+   * be aborted.
+   *
+   * You can safely use only async-signal-safe operations in |handler|. The
+   * following NaCl IRT functions are async-signal-safe:
+   *
+   * - tls_get
+   * - futex_wait_abs
+   * - futex_wake
+   * - send_async_signal
+   *
+   * This function in particular is not async-signal-safe and must not be called
+   * from signal handlers.
+   */
+  int (*set_async_signal_handler)(NaClIrtAsyncSignalHandler handler);
+  /*
+   * Asynchronously delivers a signal to the thread identified by |tid| within
+   * the same process as the caller.  |tid| should be a valid thread identifier
+   * obtained when creating a thread (through the |child_tid| parameter to
+   * create_thread()) and the thread must still be alive.  The constant
+   * NACL_IRT_MAIN_THREAD_TID can be used to refer to the main thread.
+   *
+   * As opposed to POSIX, NaCl only provides a way to send a single signal.
+   * Delivery of different kinds of signals to be POSIX-compliant can be
+   * implemented in userspace.
+   *
+   * This IRT function returns 0 on success and may return ESRCH or EINVAL on
+   * failure.  When |tid| refers to a thread that has already exited, it is
+   * possible that the ID has been recycled for a new thread, so it might also
+   * succeed and send the signal to the new thread.
+   */
+  int (*send_async_signal)(nacl_irt_tid_t tid);
+};
+// ARC MOD END
 
 #if defined(__cplusplus)
 }

@@ -2,14 +2,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from ninja_generator import SharedObjectNinjaGenerator
+import ninja_generator
 
 
 def generate_ninjas():
-  n = SharedObjectNinjaGenerator('hwcomposer.default', install_path='/lib/hw',
-                                 force_compiler='clang',
-                                 enable_cxx11=True,
-                                 base_path='android/hardware/arc/hwcomposer')
+  n = ninja_generator.SharedObjectNinjaGenerator(
+      'hwcomposer.default', install_path='/lib/hw',
+      force_compiler='clang',
+      enable_cxx11=True,
+      base_path='android/hardware/arc/hwcomposer')
 
   # hwcomposer.cpp uses gcc-style struct initialization "member: value"
   # which clang warns by default. We cannot switch to the C++11 style

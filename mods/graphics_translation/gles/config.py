@@ -6,9 +6,9 @@ import os
 import pipes
 
 import build_common
+import ninja_generator
 import staging
 from build_options import OPTIONS
-from ninja_generator import ArchiveNinjaGenerator
 
 
 def _get_generated_sources_path():
@@ -73,9 +73,11 @@ def _generate_pass_through_code(n):
 
 
 def generate_ninjas():
-  n = ArchiveNinjaGenerator('libgles',
-                            force_compiler='clang', enable_cxx11=True,
-                            base_path='graphics_translation/gles')
+  n = ninja_generator.ArchiveNinjaGenerator(
+      'libgles',
+      force_compiler='clang',
+      enable_cxx11=True,
+      base_path='graphics_translation/gles')
   n.add_compiler_flags('-Werror')
   n.add_notice_sources(['mods/graphics_translation/NOTICE'])
   _generate_api_entries_extra_code(n)

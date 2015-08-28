@@ -36,6 +36,7 @@ struct msghdr;
 
 // ARC MOD BEGIN
 struct nacl_abi_timespec;
+typedef uintptr_t nacl_irt_tid_t;
 // Define nacl_abi_socklen_t and __nacl_irt_query_fn_t.
 typedef unsigned int nacl_abi_socklen_t;
 #define socklen_t nacl_abi_socklen_t
@@ -152,6 +153,13 @@ extern int (*__nacl_irt_thread_create) (void (*start_user_address)(void),
                                         void *stack,
                                         void *thread_ptr);
 extern void (*__nacl_irt_thread_exit) (int32_t *stack_flag);
+// ARC MOD BEGIN
+extern int (*__nacl_irt_thread_create_v0_2) (void (*start_user_address)(void),
+                                             void *stack,
+                                             void *thread_ptr,
+                                             nacl_irt_tid_t *tid);
+extern void (*__nacl_irt_thread_exit_v0_2) (int32_t *stack_flag);
+// ARC MOD END
 extern int (*__nacl_irt_thread_nice) (const int nice);
 
 extern int (*__nacl_irt_mutex_create) (int *mutex_handle);

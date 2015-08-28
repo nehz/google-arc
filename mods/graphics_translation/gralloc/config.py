@@ -2,15 +2,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from ninja_generator import SharedObjectNinjaGenerator
-from ninja_generator import ArchiveNinjaGenerator
+import ninja_generator
 
 
 def _generate_lib_ninja():
-  n = ArchiveNinjaGenerator('libgralloc',
-                            force_compiler='clang',
-                            enable_cxx11=True,
-                            base_path='graphics_translation/gralloc')
+  n = ninja_generator.ArchiveNinjaGenerator(
+      'libgralloc',
+      force_compiler='clang',
+      enable_cxx11=True,
+      base_path='graphics_translation/gralloc')
   n.add_compiler_flags('-Werror')
   n.add_notice_sources(['mods/graphics_translation/NOTICE'])
   n.emit_gl_common_flags(False)
@@ -26,10 +26,12 @@ def _generate_lib_ninja():
 
 
 def _generate_so_ninja():
-  n = SharedObjectNinjaGenerator('gralloc.arc', install_path='/lib/hw',
-                                 force_compiler='clang',
-                                 enable_cxx11=True,
-                                 base_path='graphics_translation/gralloc')
+  n = ninja_generator.SharedObjectNinjaGenerator(
+      'gralloc.arc',
+      install_path='/lib/hw',
+      force_compiler='clang',
+      enable_cxx11=True,
+      base_path='graphics_translation/gralloc')
 
   # gralloc_main.cpp uses gcc-style struct initialization "member: value"
   # which clang warns by default. We cannot switch to the C++11 style

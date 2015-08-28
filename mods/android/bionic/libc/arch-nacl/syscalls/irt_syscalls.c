@@ -270,6 +270,13 @@ int (*__nacl_irt_thread_create) (void (*start_user_address)(void),
                                  void *stack,
                                  void *thread_ptr);
 void (*__nacl_irt_thread_exit) (int32_t *stack_flag);
+// ARC MOD BEGIN
+int (*__nacl_irt_thread_create_v0_2) (void (*start_user_address)(void),
+                                      void *stack,
+                                      void *thread_ptr,
+                                      nacl_irt_tid_t *tid);
+void (*__nacl_irt_thread_exit_v0_2) (int32_t *stack_flag);
+// ARC MOD END
 int (*__nacl_irt_thread_nice) (const int nice);
 
 int (*__nacl_irt_mutex_create) (int *mutex_handle);
@@ -338,6 +345,8 @@ int (*__nacl_irt_write_real) (int fd, const void *buf, size_t count,
                               size_t *nwrote);
 // Add __nacl_irt_clear_cache.
 int (*__nacl_irt_clear_cache) (void *addr, size_t size);
+int (*__nacl_irt_async_signal_handler) (NaClIrtAsyncSignalHandler handler);
+int (*__nacl_irt_async_signal_send_async_signal) (uintptr_t tid);
 // ARC MOD END
 
 void
@@ -360,6 +369,10 @@ __init_irt_table (void)
     // ARC MOD END
     struct nacl_irt_dyncode nacl_irt_dyncode;
     struct nacl_irt_thread nacl_irt_thread;
+    // ARC MOD BEGIN
+    struct nacl_irt_thread_v0_2 nacl_irt_thread_v0_2;
+    struct nacl_irt_async_signal_handling nacl_irt_async_signal_handling;
+    // ARC MOD END
     struct nacl_irt_mutex nacl_irt_mutex;
     struct nacl_irt_cond nacl_irt_cond;
     struct nacl_irt_tls nacl_irt_tls;
@@ -468,6 +481,29 @@ __init_irt_table (void)
       __nacl_irt_thread_exit = u.nacl_irt_thread.thread_exit;
       __nacl_irt_thread_nice = u.nacl_irt_thread.thread_nice;
     }
+  // ARC MOD BEGIN
+
+  if (__nacl_irt_query &&
+      __nacl_irt_query (NACL_IRT_THREAD_v0_2, &u.nacl_irt_thread_v0_2,
+                        sizeof(u.nacl_irt_thread_v0_2)) ==
+      sizeof(u.nacl_irt_thread_v0_2))
+    {
+      __nacl_irt_thread_create_v0_2 = u.nacl_irt_thread_v0_2.thread_create;
+      __nacl_irt_thread_exit_v0_2 = u.nacl_irt_thread_v0_2.thread_exit;
+    }
+
+  if (__nacl_irt_query &&
+      __nacl_irt_query (NACL_IRT_ASYNC_SIGNAL_HANDLING_v0_1,
+                        &u.nacl_irt_async_signal_handling,
+                        sizeof(u.nacl_irt_async_signal_handling)) ==
+      sizeof(u.nacl_irt_async_signal_handling))
+    {
+      __nacl_irt_async_signal_handler =
+          u.nacl_irt_async_signal_handling.set_async_signal_handler;
+      __nacl_irt_async_signal_send_async_signal =
+          u.nacl_irt_async_signal_handling.send_async_signal;
+    }
+  // ARC MOD END
   // ARC MOD BEGIN
   // Remove the fallback to direct NaCl syscalls.
   // ARC MOD END

@@ -224,6 +224,12 @@ def _generate_chromium_base_test_ninja():
   # subtle floating point issues, e.g.
   # TimeDelta::FromSecondsD(13.1).InSecondsF() != 13.1.
   exclude.append('TimeDelta.FromAndIn')
+  # These tests are flaky under Valgrind.
+  if build_options.OPTIONS.enable_valgrind():
+    # This test queues up 4000 tasks among 200 threads. Under normal
+    # circumstances each thread gets to run at least one task, but on several
+    # occasions some threads have starved under Valgrind on the bots.
+    exclude.append('ConditionVariableTest.LargeFastTaskTest')
   n.add_disabled_tests(*exclude)
   n.run(n.link())
 
