@@ -4,18 +4,18 @@
 
 """Build libcpufeatures library."""
 
-import build_options
 import make_to_ninja
+from build_options import OPTIONS
 
 
 def _generate_libcpufeatures_ninja():
   def _filter(vars):
     # -fstack-protector emits undefined symbols.
-    if not build_options.OPTIONS.is_bare_metal_build():
+    if not OPTIONS.is_bare_metal_build():
       vars.get_cflags().append('-fno-stack-protector')
     return True
   path = 'android/ndk/sources/android/cpufeatures'
-  make_to_ninja. MakefileNinjaTranslator(path).generate(_filter)
+  make_to_ninja.MakefileNinjaTranslator(path).generate(_filter)
 
 
 def generate_ninjas():

@@ -3,8 +3,8 @@
 # found in the LICENSE file.
 
 
+import make_to_ninja
 import staging
-from make_to_ninja import MakefileNinjaTranslator
 
 
 def generate_ninjas():
@@ -24,4 +24,5 @@ def generate_ninjas():
     vars.get_cxxflags().append(
         '-I' + staging.as_staging('android/abi/cpp/include'))
     return True
-  MakefileNinjaTranslator('android/external/icu/icu4c').generate(_filter)
+  make_to_ninja.MakefileNinjaTranslator(
+      'android/external/icu/icu4c').generate(_filter)

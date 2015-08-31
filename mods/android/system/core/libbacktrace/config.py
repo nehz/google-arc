@@ -2,8 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import make_to_ninja
 import open_source
-from make_to_ninja import MakefileNinjaTranslator
 
 
 def generate_ninjas():
@@ -18,4 +18,5 @@ def generate_ninjas():
     vars.enable_clang()
     vars.enable_cxx11()
     return True
-  MakefileNinjaTranslator('android/system/core/libbacktrace').generate(_filter)
+  make_to_ninja.MakefileNinjaTranslator(
+      'android/system/core/libbacktrace').generate(_filter)

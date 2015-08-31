@@ -1,47 +1,49 @@
-#!/usr/bin/python
+#!src/build/run_python
+#
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Generates a read-only file system image.
+"""Generates a read-only file system image.
 
-# Image file format:
-#
-# [Number of files]     ; 32bit unsigned, big endian
-# [Offset of file #1]   ; 32bit unsigned, big endian (always 0x00000000)
-# [Size of file #1]     ; 32bit unsigned, big endian
-# [mtime of file #1]    ; 32bit unsigned, big endian
-# [Type of file #1]     ; 32bit unsigned, big endian
-# [Name of file #1]     ; Variable length, zero terminated, full path w/ slashes
-# (optional) [Link target of file #1] if file #1 is a symlink
-# [Zero padding to a 4-byte boundary]
-# [Offset of file #2]   ; 32bit unsigned, big endian
-# [Size of file #2]     ; 32bit unsigned, big endian
-# [mtime of file #2]    ; 32bit unsigned, big endian
-# [Type of file #2] ; 32bit unsigned, big endian
-# [Name of file #2]     ; Variable length, zero terminated, full path w/ slashes
-# (optional) [Link target of file #2] if file #1 is a symlink
-# [Zero padding to a 4-byte boundary]
-# ...
-# [Zero padding to a 4-byte boundary]
-# [Offset of file #n]   ; 32bit unsigned, big endian
-# [Size of file #n]     ; 32bit unsigned, big endian
-# [mtime of file #n]    ; 32bit unsigned, big endian
-# [Name of file #n]     ; Variable length, zero terminated, full path w/ slashes
-# [Zero padding to a 4k or 64k page boundary]
-# [Content of file #1]  ; Variable length, page aligned
-# [Zero padding to a 4k or 64k page boundary]
-# [Content of file #2]  ; Variable length, page aligned
-# [Zero padding to a 4k or 64k page boundary]
-# ...
-# [Content of file #n]  ; Variable length, page aligned
-# EOF
-#
-# * All offset values are relative to the beginning of the content of file #1.
-# * Each file's content is aligned to a 64k page so our mmap() implementation
-#   can return page aligned address on both 4k-page and 64k-page environments.
-# * The image file itself should be mapped on a native (4k or 64k) page
-#   boundary.
+Image file format:
+
+[Number of files]     ; 32bit unsigned, big endian
+[Offset of file #1]   ; 32bit unsigned, big endian (always 0x00000000)
+[Size of file #1]     ; 32bit unsigned, big endian
+[mtime of file #1]    ; 32bit unsigned, big endian
+[Type of file #1]     ; 32bit unsigned, big endian
+[Name of file #1]     ; Variable length, zero terminated, full path w/ slashes
+(optional) [Link target of file #1] if file #1 is a symlink
+[Zero padding to a 4-byte boundary]
+[Offset of file #2]   ; 32bit unsigned, big endian
+[Size of file #2]     ; 32bit unsigned, big endian
+[mtime of file #2]    ; 32bit unsigned, big endian
+[Type of file #2] ; 32bit unsigned, big endian
+[Name of file #2]     ; Variable length, zero terminated, full path w/ slashes
+(optional) [Link target of file #2] if file #1 is a symlink
+[Zero padding to a 4-byte boundary]
+...
+[Zero padding to a 4-byte boundary]
+[Offset of file #n]   ; 32bit unsigned, big endian
+[Size of file #n]     ; 32bit unsigned, big endian
+[mtime of file #n]    ; 32bit unsigned, big endian
+[Name of file #n]     ; Variable length, zero terminated, full path w/ slashes
+[Zero padding to a 4k or 64k page boundary]
+[Content of file #1]  ; Variable length, page aligned
+[Zero padding to a 4k or 64k page boundary]
+[Content of file #2]  ; Variable length, page aligned
+[Zero padding to a 4k or 64k page boundary]
+...
+[Content of file #n]  ; Variable length, page aligned
+EOF
+
+* All offset values are relative to the beginning of the content of file #1.
+* Each file's content is aligned to a 64k page so our mmap() implementation
+  can return page aligned address on both 4k-page and 64k-page environments.
+* The image file itself should be mapped on a native (4k or 64k) page
+  boundary.
+"""
 
 import argparse
 import array

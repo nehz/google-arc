@@ -73,10 +73,6 @@
   "mods/android_libcommon/common/alog.h": ["analyze_diffs"],
   "mods/android_libcommon/common/logger.h": ["analyze_diffs"],
 
-  # These two files confuse analyze_diffs.
-  "mods/android/external/chromium_org/third_party/WebKit/Source/platform/heap/asm/SaveRegisters_x86_64.S": ["analyze_diffs"],
-  "mods/android/external/chromium_org/third_party/WebKit/Source/platform/heap/asm/SaveRegisters_x86.S": ["analyze_diffs"],
-
   # Having ARC MOD confuses this script.
   "src/build/arc.el": ["analyze_diffs"],
 

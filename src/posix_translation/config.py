@@ -10,9 +10,6 @@ import ninja_generator_runner
 import open_source
 import staging
 from build_options import OPTIONS
-from ninja_generator import ArchiveNinjaGenerator
-from ninja_generator import NinjaGenerator
-from ninja_generator import SharedObjectNinjaGenerator
 from util import python_deps
 
 
@@ -76,10 +73,11 @@ def _generate_libposix_translation():
   compiler_flags = [
       '-Werror', '-fvisibility=hidden', '-fvisibility-inlines-hidden']
 
-  n = ArchiveNinjaGenerator('libposix_translation_static',
-                            # libart-gtest and libposix_translation need this
-                            force_compiler='clang',
-                            enable_cxx11=True)
+  n = ninja_generator.ArchiveNinjaGenerator(
+      'libposix_translation_static',
+      # libart-gtest and libposix_translation need this
+      force_compiler='clang',
+      enable_cxx11=True)
   n.add_compiler_flags(*compiler_flags)
   if OPTIONS.is_posix_translation_debug():
     n.add_defines('DEBUG_POSIX_TRANSLATION')
@@ -94,9 +92,11 @@ def _generate_libposix_translation():
                                           ['.cc'])
   n.build_default(all_files).archive()
 
-  n = SharedObjectNinjaGenerator('libposix_translation',
-                                 is_system_library=True, force_compiler='clang',
-                                 enable_cxx11=True)
+  n = ninja_generator.SharedObjectNinjaGenerator(
+      'libposix_translation',
+      is_system_library=True,
+      force_compiler='clang',
+      enable_cxx11=True)
   n.add_library_deps('libc.so', 'libm.so', 'libdl.so', 'libstlport.so')
   n.add_whole_archive_deps('libposix_translation_static.a')
   # Statically link libchromium_base.a so that we can use unwrapped version of
@@ -110,10 +110,11 @@ def _generate_libposix_translation():
 
 
 def _generate_libposix_translation_for_test():
-  n = SharedObjectNinjaGenerator('libposix_translation_for_test',
-                                 dt_soname='libposix_translation.so',
-                                 is_system_library=True,
-                                 is_for_test=True)
+  n = ninja_generator.SharedObjectNinjaGenerator(
+      'libposix_translation_for_test',
+      dt_soname='libposix_translation.so',
+      is_system_library=True,
+      is_for_test=True)
   # libposix_translation_for_test is built using generated code in the out/
   # directory. The logic we have to scan for NOTICES does not find one for this
   # generated code, and complains later. The libposix_translation.so code
@@ -142,7 +143,7 @@ def _generate_libposix_translation_for_test():
 
   # /test/libposix_translation.so should be a symbolic link to
   # ../lib/libposix_translation_for_test.so.
-  n = NinjaGenerator('test_libposix_translation')
+  n = ninja_generator.NinjaGenerator('test_libposix_translation')
   orig_so = os.path.join(
       build_common.get_load_library_path(), 'libposix_translation_for_test.so')
   link_so = os.path.join(
@@ -234,8 +235,11 @@ def generate_test_ninjas():
   # Setting instance count is zero because usage count verifier doesn't check
   # the reference from test executable. See verify_usage_counts in
   # ninja_generator.py
-  n = ArchiveNinjaGenerator('mock_posix_translation', instances=0,
-                            force_compiler='clang', enable_cxx11=True)
+  n = ninja_generator.ArchiveNinjaGenerator(
+      'mock_posix_translation',
+      instances=0,
+      force_compiler='clang',
+      enable_cxx11=True)
   n.add_libchromium_base_compile_flags()
   n.add_compiler_flags('-Werror')
   all_files = ['src/posix_translation/test_util/mock_virtual_file_system.cc']

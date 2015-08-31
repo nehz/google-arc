@@ -3,11 +3,11 @@
 # found in the LICENSE file.
 
 import build_common
-from build_options import OPTIONS
-from make_to_ninja import MakefileNinjaTranslator
+import make_to_ninja
 import ninja_generator
 import open_source
 import staging
+from build_options import OPTIONS
 
 
 def generate_ninjas():
@@ -24,7 +24,8 @@ def generate_ninjas():
       vars.remove_c_or_cxxflag('-Wno-int-to-pointer-cast')
     # TODO(crbug.com/327496): Move this to generic functionality of
     # make_to_ninja.
-    intermediates_dir = MakefileNinjaTranslator.get_intermediate_headers_dir()
+    intermediates_dir = (
+        make_to_ninja.MakefileNinjaTranslator.get_intermediate_headers_dir())
     vars.get_includes().append(intermediates_dir)
     # TODO(crbug.com/414569): L-rebase: These include directories do not seem to
     # be being added. Fix that.
@@ -68,4 +69,4 @@ def generate_ninjas():
     deps[:] = [x for x in deps if x not in excluded_libs]
     return True
   path = 'android/frameworks/base/core/jni'
-  MakefileNinjaTranslator(path).generate(_filter)
+  make_to_ninja.MakefileNinjaTranslator(path).generate(_filter)

@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Generate a linker script for runnable-ld.so.
-#
-# Usage:
-#
-# $ gen_runnable_ld_lds.py <path-to-nacl-gcc> [args-for-gcc...]
-#
+"""Generate a linker script for runnable-ld.so.
+
+Usage:
+
+$ gen_runnable_ld_lds.py <path-to-nacl-gcc> [args-for-gcc...]
+"""
 
 import re
 import subprocess

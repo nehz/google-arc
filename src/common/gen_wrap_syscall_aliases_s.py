@@ -3,11 +3,14 @@
 # Copyright 2015 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
-# The generated source code defines aliases from __wrap_FUNC to FUNC.
-# It is linked to pseudo libposix_translation.so for testing so that unit tests
-# can load any DSOs that depend on libposix_translation.so, and refer
-# posix functions that are renamed to __wrap_FUNC by --wrap.
+
+"""Generates wrap_syscall_aliases.S.
+
+The generated source code defines aliases from __wrap_FUNC to FUNC.
+It is linked to pseudo libposix_translation.so for testing so that unit tests
+can load any DSOs that depend on libposix_translation.so, and refer
+posix functions that are renamed to __wrap_FUNC by --wrap.
+"""
 
 import sys
 

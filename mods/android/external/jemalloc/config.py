@@ -8,7 +8,6 @@ import build_common
 import make_to_ninja
 import ninja_generator
 import ninja_generator_runner
-
 from build_options import OPTIONS
 
 

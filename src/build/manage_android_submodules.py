@@ -144,6 +144,10 @@ def _get_remote_url_for_project(name):
 def _get_third_party_directory(subproject):
   if subproject.startswith('platform/'):
     subproject = subproject.split('/', 1)[1]
+  if subproject.startswith('external/chromium_org/'):
+    # TODO(uekawa): This should be a common utility with configure.py
+    subproject = ('external/chromium_org__' +
+                  subproject.split('/', 2)[2].replace('/', '_'))
   return os.path.join('third_party', 'android', subproject)
 
 

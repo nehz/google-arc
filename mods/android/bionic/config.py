@@ -14,7 +14,6 @@ import open_source
 import staging
 import toolchain
 from build_options import OPTIONS
-from make_to_ninja import MakefileNinjaTranslator
 
 
 _LOADER_TEXT_SECTION_START_ADDRESS = '0x20000'
@@ -618,9 +617,9 @@ def _generate_libc_ninja():
       vars.get_cxxflags().append('-DBUILDING_LINKER')
     return True
 
-  MakefileNinjaTranslator('android/bionic/libc').generate(
+  make_to_ninja.MakefileNinjaTranslator('android/bionic/libc').generate(
       lambda vars: _filter(vars, is_for_linker=False))
-  MakefileNinjaTranslator('android/bionic/libc').generate(
+  make_to_ninja.MakefileNinjaTranslator('android/bionic/libc').generate(
       lambda vars: _filter(vars, is_for_linker=True))
 
 
@@ -702,7 +701,7 @@ def _generate_libm_ninja():
     vars.get_shared_deps().append('libc')
     return True
 
-  MakefileNinjaTranslator('android/bionic/libm').generate(_filter)
+  make_to_ninja.MakefileNinjaTranslator('android/bionic/libm').generate(_filter)
 
 
 def _generate_libdl_ninja():
@@ -718,7 +717,8 @@ def _generate_libdl_ninja():
     vars.get_generator_args()['is_system_library'] = True
     return True
 
-  MakefileNinjaTranslator('android/bionic/libdl').generate(_filter)
+  make_to_ninja.MakefileNinjaTranslator(
+      'android/bionic/libdl').generate(_filter)
 
 
 # The "fundamental test" tests the features of the loader and the
@@ -1165,7 +1165,8 @@ def _generate_bionic_test_lib_ninja():
       vars.get_ldflags().append('-Wl,--no-as-needed')
     return True
 
-  MakefileNinjaTranslator('android/bionic/tests/libs').generate(_filter)
+  make_to_ninja.MakefileNinjaTranslator(
+      'android/bionic/tests/libs').generate(_filter)
 
   # libdlext_test_v2.so must be a symbolic link to libdlext_test.so.
   # This file is used in dlfcn.dlopen_symlink test.
@@ -1492,8 +1493,8 @@ def _generate_bionic_tests():
   env = {
       'bionic-unit-tests-static_src_files': ''
   }
-  MakefileNinjaTranslator('android/bionic/tests',
-                          extra_env_vars=env).generate(_filter)
+  make_to_ninja.MakefileNinjaTranslator(
+      'android/bionic/tests', extra_env_vars=env).generate(_filter)
 
 
 def _generate_libgcc_ninja():

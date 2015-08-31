@@ -262,7 +262,7 @@ def generate_binaries_depending_ninjas(_):
   script = staging.as_staging(
       'android/external/chromium_org/tools/linux/dump-static-initializers.py')
   n.rule('analyze_static_initializers',
-         command=('python %s -d $in | head --lines=-1 | '
+         command=('python src/build/run_python %s -d $in | head --lines=-1 | '
                   'egrep -ve \'^# .*\.cpp \' |'
                   'sed -e \'s/ T\.[0-9]*/ T.XXXXX/\' |'
                   'diff -u $expect - && touch $out' %

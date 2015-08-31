@@ -4,7 +4,7 @@
 
 """Build libjnigraphics.so."""
 
-from make_to_ninja import MakefileNinjaTranslator
+import make_to_ninja
 import ninja_generator
 import open_source
 import staging
@@ -18,5 +18,5 @@ def generate_ninjas():
     n.link()
     return
 
-  MakefileNinjaTranslator(
+  make_to_ninja.MakefileNinjaTranslator(
       'android/frameworks/base/native/graphics/jni').generate()

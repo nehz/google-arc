@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from make_to_ninja import MakefileNinjaTranslator
+import make_to_ninja
 
 
 def generate_ninjas():
@@ -10,4 +10,5 @@ def generate_ninjas():
     if vars.is_host():
       return False
     return True
-  MakefileNinjaTranslator('android/external/expat').generate(_filter)
+  make_to_ninja.MakefileNinjaTranslator(
+      'android/external/expat').generate(_filter)

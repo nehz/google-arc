@@ -2,9 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import make_to_ninja
 import ninja_generator
 from build_options import OPTIONS
-from make_to_ninja import MakefileNinjaTranslator
 
 
 def _filter_libunwind(vars):
@@ -46,7 +46,8 @@ def generate_ninjas():
         'libunwind-ptrace': _filter_libunwind_ptrace,
     }.get(vars.get_module_name(), lambda vars: False)(vars)
 
-  MakefileNinjaTranslator('android/external/libunwind').generate(_filter)
+  make_to_ninja.MakefileNinjaTranslator(
+      'android/external/libunwind').generate(_filter)
 
 
 def generate_test_ninjas():

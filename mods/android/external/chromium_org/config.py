@@ -10,7 +10,6 @@ import build_common
 import make_to_ninja
 import ninja_generator_runner
 import staging
-
 from build_options import OPTIONS
 
 # The stlport include path. The extra '.' is injected by the Android makefile

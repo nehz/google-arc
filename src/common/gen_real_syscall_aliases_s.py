@@ -3,10 +3,13 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
-# The generated source code defines aliases from __real_FUNC to FUNC.
-# It is linked to unit tests that call __real_FUNC but are not linked with
-# --wrap.
+
+"""Generates real_syscall_aliases.S.
+
+The generated source code defines aliases from __real_FUNC to FUNC.
+It is linked to unit tests that call __real_FUNC but are not linked with
+--wrap.
+"""
 
 import sys
 

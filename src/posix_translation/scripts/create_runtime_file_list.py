@@ -1,18 +1,19 @@
-#!/usr/bin/python
+#!src/build/run_python
+#
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Generates a C++ file which can be used for constructing a
-# NaClManifestFileHandler object.
-#
-# Example:
-# ...
-# const posix_translation::NaClManifestEntry kRuntimeFiles[67] = {
-#  // { name, mode, size, mtime }
-#  { "/system/lib/libc.so", 0100755, 2054063, 1393551434 },
-#  { "/system/lib/libc_malloc_debug_leak.so", 0100755, 185355, 1393551434 },
-# ...
+"""Generates a C++ file used for constructing a NaClManifestFileHandler object.
+
+Example:
+...
+const posix_translation::NaClManifestEntry kRuntimeFiles[67] = {
+ // { name, mode, size, mtime }
+ { "/system/lib/libc.so", 0100755, 2054063, 1393551434 },
+ { "/system/lib/libc_malloc_debug_leak.so", 0100755, 185355, 1393551434 },
+...
+"""
 
 import argparse
 import os

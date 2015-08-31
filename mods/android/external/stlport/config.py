@@ -2,9 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import make_to_ninja
 import ninja_generator
 from build_options import OPTIONS
-from make_to_ninja import MakefileNinjaTranslator
 
 _STLPORT_ROOT = 'android/external/stlport'
 
@@ -90,7 +90,7 @@ def generate_ninjas():
       if not OPTIONS.is_arm():
         vars.set_canned_arm(True)
     return True
-  MakefileNinjaTranslator(_STLPORT_ROOT).generate(_filter)
+  make_to_ninja.MakefileNinjaTranslator(_STLPORT_ROOT).generate(_filter)
 
 
 def generate_test_ninjas():

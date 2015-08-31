@@ -23,7 +23,9 @@ def main(args):
     temp = 'src/build/dump-static-initializers-%s-expected-temp.txt' % library
     out = 'src/build/dump-static-initializers-%s-expected.txt' % library
     lib = 'out/target/%s/lib/%s' % (arch, library)
-    ret = subprocess.call('%s -d %s > %s' % (script, lib, temp), shell=True)
+    ret = subprocess.call(
+        'python src/build/run_python %s -d %s > %s' % (script, lib, temp),
+        shell=True)
     if ret:
       failure = 1
     else:

@@ -2,11 +2,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from build_options import OPTIONS
-from make_to_ninja import MakefileNinjaTranslator
+import make_to_ninja
 import ninja_generator
 import open_source
 import staging
+from build_options import OPTIONS
 
 
 def generate_ninjas():
@@ -30,4 +30,5 @@ def generate_ninjas():
       vars.get_shared_deps().append('libcompiler_rt')
     return True
 
-  MakefileNinjaTranslator('android/external/skia').generate(_filter)
+  make_to_ninja.MakefileNinjaTranslator(
+      'android/external/skia').generate(_filter)

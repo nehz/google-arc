@@ -3,10 +3,10 @@
 # found in the LICENSE file.
 
 
-from make_to_ninja import MakefileNinjaTranslator
+import make_to_ninja
 
 
 def generate_ninjas():
   def _filter(vars):
     return vars.is_shared()
-  MakefileNinjaTranslator('android/abi/cpp').generate(_filter)
+  make_to_ninja.MakefileNinjaTranslator('android/abi/cpp').generate(_filter)
