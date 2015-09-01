@@ -289,9 +289,10 @@ def _update_arc_version_file():
 
 
 def _set_up_internal_repo():
-  if OPTIONS.internal_apks_source() == 'internal':
-    # Sync internal/third_party/* to internal/build/DEPS.*.  The files needs to
-    # be re-staged and is done in staging.create_staging.
+  if OPTIONS.internal_apks_source_is_internal():
+    # Checkout internal/ repository if needed, and sync internal/third_party/*
+    # to internal/build/DEPS.*.  The files needs to be re-staged and is done
+    # in staging.create_staging.
     subprocess.check_call('src/build/sync_arc_int.py')
 
   # Create a symlink to the integration_test definition directory, either in the

@@ -39,7 +39,6 @@ def sync_repo(target_revision):
 
 def run():
   OPTIONS.parse_configure_file()
-  assert OPTIONS.internal_apks_source() == 'internal'
 
   # Check if internal/ exists. Run git-clone if not.
   if not os.path.isdir(_ARC_INTERNAL_DIR):
@@ -50,18 +49,23 @@ def run():
     subprocess.check_call('git clone %s internal' % url,
                           cwd=_ARC_ROOT, shell=True)
 
-  # Check if internal/ is clean and on master.
-  if _git_has_local_modification():
-    logging.error('%s has local modification' % _ARC_INTERNAL_DIR)
-    sys.exit(-1)
+  # On 'internal' mode, sync the HEAD to the DEPS revision.
+  # On 'internal-dev', just use the current HEAD.
+  if OPTIONS.internal_apks_source() == 'internal':
+    # Check if internal/ is clean and on master.
+    if _git_has_local_modification():
+      logging.error('%s has local modification' % _ARC_INTERNAL_DIR)
+      sys.exit(-1)
 
-  # Check if internal/ is up to date. Run git-reset if not.
-  with open(_DEPS_FILE) as f:
-    target_revision = f.read().rstrip()
-  logging.info('%s has %s' % (_DEPS_FILE, target_revision))
-  if target_revision != _get_current_arc_int_revision():
-    sync_repo(target_revision)
+    # Check if internal/ is up to date. Run git-reset if not.
+    with open(_DEPS_FILE) as f:
+      target_revision = f.read().rstrip()
+    logging.info('%s has %s' % (_DEPS_FILE, target_revision))
+    if target_revision != _get_current_arc_int_revision():
+      sync_repo(target_revision)
 
+  # Run the configuration for the current HEAD revision. This steps includes
+  # syncing internal/third_party/ repositories when needed.
   subprocess.check_call(os.path.join(_ARC_INTERNAL_DIR, 'build/configure.py'))
 
   return 0

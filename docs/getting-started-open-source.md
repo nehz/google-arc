@@ -34,13 +34,17 @@ A fully running system cannot currently be built.
    changed.  Also note that configure will download and keep synchronized a
    number of SDKs and test suites that we use in development.
 
-    If you want to build ARC for NaCl (x86-64), use:
+    If you want to build ARC for Bare Metal (i686), use:
 
          $ ./configure
 
     If you want to build ARC for NaCl (x86-32), use:
 
          $ ./configure --target=nacl_i686
+
+    If you want to build ARC for NaCl (x86-64), use:
+
+         $ ./configure --target=nacl_x86_64
 
     If you want to build ARC for Bare Metal (arm), use:
 
@@ -80,9 +84,9 @@ Here are the instructions:
      write(1, "#### Here in localtime!!!!\n", 27);
 
 5. Run configure with the architecture appropriate to your Chromebook.  For
-   x86-based Chromebooks use -tnx.  For ARM-based Chromebooks use -tba.
+   x86-based Chromebooks use -t=bi.  For ARM-based Chromebooks use -t=ba.
 6. Run ninja to build your changes.
-7. Copy all affected libraries from out/target/nacl_{x86_64,bare_metal_arm}
+7. Copy all affected libraries from out/target/bare_metal_{arm,i686}
    to a USB device or cloud storage.  For the example change above, you would
    copy libc.so.
 8. Open the shell on your Chromebook and change to the extension directory
@@ -90,7 +94,7 @@ Here are the instructions:
    chrome:extensions view.  For the given version of the runtime above, the
    directory is Extensions/mfaihdlpglflfgpfjcifdjdjcckigekc/38.4410.120.9_0.
 9. Copy the built libraries from our ARC open source checkout to the
-   _platform_specific/nacl_{x86_64,bare_metal_arm} directory.
+   _platform_specific/bare_metal_{arm,i686} directory.
 10. Run an app with the new runtime.  You should see the effects of your
     new library.  In the above example you would be able to see the stdout
     output appear in /var/log/ui/ui.LATEST file when the ARC runtime starts.

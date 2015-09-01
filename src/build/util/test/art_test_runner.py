@@ -34,7 +34,7 @@ _BARE_METAL_FILTER_PATTERN = re.compile('|'.join(
 
 
 # The remote directory where test files are written.
-_DEX_LOCATION = '/data/run-test'
+_TEST_FILES_LOCATION = '/data/run-test'
 
 
 def _cleanup_output(raw):
@@ -205,11 +205,21 @@ class ArtTestRunner(suite_runner.SuiteRunnerBase):
     test_file = os.path.join(self._work_dir, '%s.jar' % self._suite_name)
     assert os.access(test_file, os.R_OK), (
         'can not read a test file %s' % test_file)
-    arc.run_adb(['shell', 'mkdir', _DEX_LOCATION])
-    arc.run_adb(['push', test_file, _DEX_LOCATION])
+    arc.run_adb(['shell', 'mkdir', _TEST_FILES_LOCATION])
+    arc.run_adb(['push', test_file, _TEST_FILES_LOCATION])
     test_ex_file = os.path.join(self._work_dir, '%s-ex.jar' % self._suite_name)
     if os.access(test_ex_file, os.R_OK):
-      arc.run_adb(['push', test_ex_file, _DEX_LOCATION])
+      arc.run_adb(['push', test_ex_file, _TEST_FILES_LOCATION])
+    # Push shared libraries needed for ART integration tests but not installed
+    # in the official runtime. We set LD_LIBRARY_PATH later to use them.
+    arc.run_adb(
+        ['push',
+         build_common.get_build_path_for_library('libarttest.so'),
+         _TEST_FILES_LOCATION])
+    arc.run_adb(
+        ['push',
+         build_common.get_build_path_for_library('libnativebridgetest.so'),
+         _TEST_FILES_LOCATION])
 
   def _run_test(self, arc, case_name):
     """Runs the test case.
@@ -237,8 +247,12 @@ class ArtTestRunner(suite_runner.SuiteRunnerBase):
     vm_args.extend(case_name.split())
 
     commands = [
-        ['cd', _DEX_LOCATION],
-        ['export', 'DEX_LOCATION=%s' % _DEX_LOCATION],
+        ['cd', _TEST_FILES_LOCATION],
+        ['export', 'DEX_LOCATION=%s' % _TEST_FILES_LOCATION],
+        # We have several test-only shared libraries installed in
+        # _TEST_FILES_LOCATION.
+        ['export', 'LD_LIBRARY_PATH=%s:$LD_LIBRARY_PATH' %
+         _TEST_FILES_LOCATION],
         ['dalvikvm'] + vm_args,
     ]
 

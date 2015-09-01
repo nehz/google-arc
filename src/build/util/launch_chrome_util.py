@@ -67,3 +67,10 @@ def split_launch_chrome_args(args):
   safe_args = filter(lambda x: x not in _LAUNCH_CHROME_ARGS_TO_FILTER, args)
   unsafe_args = filter(lambda x: x in _LAUNCH_CHROME_ARGS_TO_FILTER, args)
   return (safe_args, unsafe_args)
+
+
+def set_environment_for_chrome():
+  # Prevent GTK from attempting to move the menu bar, which prints many warnings
+  # about undefined symbol "menu_proxy_module_load"
+  if 'UBUNTU_MENUPROXY' in os.environ:
+    del os.environ['UBUNTU_MENUPROXY']

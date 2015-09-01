@@ -24,6 +24,7 @@ from util import concurrent_subprocess
 from util import file_util
 from util import gdb_util
 from util import jdb_util
+from util import launch_chrome_util
 from util import logging_util
 from util import minidump_filter
 from util import output_handler
@@ -126,13 +127,6 @@ def _prepare_chrome_user_data_dir(parsed_args):
     _USER_DATA_DIR = parsed_args.user_data_dir
   else:
     _USER_DATA_DIR = build_common.get_chrome_default_user_data_dir()
-
-
-def set_environment_for_chrome():
-  # Prevent GTK from attempting to move the menu bar, which prints many warnings
-  # about undefined symbol "menu_proxy_module_load"
-  if 'UBUNTU_MENUPROXY' in os.environ:
-    del os.environ['UBUNTU_MENUPROXY']
 
 
 def _maybe_wait_iteration_lock(parsed_args):
@@ -250,7 +244,7 @@ def main():
   # TODO(crbug.com/375609): Remove the hack once it becomes no longer needed.
   lib_paths.append(os.path.dirname(_get_chrome_path(parsed_args)))
   os.environ['LD_LIBRARY_PATH'] = ':'.join(lib_paths)
-  set_environment_for_chrome()
+  launch_chrome_util.set_environment_for_chrome()
 
   if not platform_util.is_running_on_remote_host():
     _check_apk_existence(parsed_args)

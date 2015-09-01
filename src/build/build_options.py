@@ -31,7 +31,7 @@ _TARGET_MAPPING = {'ni': _TARGET_NACL_I686,
                    'n64': _TARGET_NACL_X86_64,
                    'bi': _TARGET_BARE_METAL_I686,
                    'ba': _TARGET_BARE_METAL_ARM}
-_DEFAULT_TARGET = _TARGET_NACL_X86_64
+_DEFAULT_TARGET = _TARGET_BARE_METAL_I686
 
 # --chrometype=
 _ALLOWED_CHROMETYPES = ['beta',
