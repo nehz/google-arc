@@ -189,7 +189,7 @@ class SuiteResultsBase(object):
     self._reverse_writer = reverse_writer
     self._options = options
     self._start_time = time.time()
-    self._important_warnings = 0
+    self._important_warnings = []
 
     self._test_driver_list = test_driver_list
     self._remaining_suites = test_driver_list[:]
@@ -254,19 +254,24 @@ class SuiteResultsBase(object):
     test_driver = self._get_test_driver(score_board)
     incomplete = score_board.get_incomplete_tests()
     if len(incomplete):
-      self.warn('Retrying %d tests in %s that did not complete.\n' %
-                (len(incomplete), test_driver.name), True)
+      self.warn(
+          'Retrying %d tests in %s that did not complete.\n' %
+          (len(incomplete), test_driver.name),
+          'Retry: %s' % test_driver.name)
     blacklist = score_board.get_incomplete_blacklist()
     if len(blacklist):
-      self.warn('Blacklisting %d tests in %s that did not complete\n' %
-                (len(blacklist), test_driver.name), True)
-    self.warn('Retrying %d tests in %s.\n' %
-              (len(test_driver.tests_to_run), test_driver.name), False)
+      self.warn(
+          'Blacklisting %d tests in %s that did not complete\n' %
+          (len(blacklist), test_driver.name),
+          'Blacklist: %s' % test_driver.name)
+    self.warn_logonly('Retrying %d tests in %s.\n' %
+                      (len(test_driver.tests_to_run), test_driver.name))
     self.report_restart(test_driver)
 
   def abort(self, score_board):
     self.warn('Aborting running %s -- the number of tests remaining to run is'
-              ' not decreasing.' % score_board.name)
+              ' not decreasing.' % score_board.name,
+              'Abort: %s' % score_board.name)
 
   def start_test(self, score_board, test):
     test_driver = self._get_test_driver(score_board)
@@ -288,12 +293,20 @@ class SuiteResultsBase(object):
       self._running_suites.remove(test_driver)
     self.report_end(test_driver, score_board)
 
-  def warn(self, message, important=True):
-    warntype = _WARNING
-    if important:
-      warntype = _IMPORTANT
-      self._important_warnings += 1
-    self.write(warntype, message)
+  def warn_logonly(self, log_message):
+    """Just shows an warning on the log, not changing the buildbot result."""
+    self.write(_WARNING, log_message)
+
+  def warn(self, log_message, bot_message):
+    """Records an important warning reported as the buildbot warning.
+
+    The |bot_message| is emit as annotations after deduplication, when the
+    test running step ended up in the warning state. The warning messages
+    are suppressed if any failure occurred elsewhere.
+    """
+    self.write(_IMPORTANT, log_message)
+    if bot_message not in self._important_warnings:
+      self._important_warnings.append(bot_message)
 
   def summarize(self, output_dir):
     for suite in self._remaining_suites:
@@ -497,6 +510,12 @@ class SuiteResultsBuildBot(SuiteResultsBase):
     elif (self._important_warnings or
           self._counters[scoreboard_constants.UNEXPECT_PASS]):
       self._emit_step_message('WARNINGS')
+      for message in self._important_warnings:
+        self._emit_step_text_annotation(message)
+      if self._counters[scoreboard_constants.UNEXPECT_PASS]:
+        self._emit_step_text_annotation(
+            '%d Unexpected Passes' %
+            self._counters[scoreboard_constants.UNEXPECT_PASS])
 
   def report_start_test(self, test_driver, test):
     if self._options.output == 'verbose':
