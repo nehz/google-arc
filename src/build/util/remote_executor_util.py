@@ -101,6 +101,9 @@ _INTEGRATION_TEST_GLOB_TEMPLATE_LIST = [
     'third_party/android/cts/tools/vm-tests-tf/src/dot/junit/verify/*/*.java',
     'third_party/examples/apk/*/*.apk',
     'third_party/ndk/sources/cxx-stl/stlport/libs/armeabi-v7a/libstlport_shared.so',  # NOQA
+    # These files are not installed, but are 'adb push'd for tests.
+    '{out}/target/{target}/intermediates/libarttest_so/libarttest.so',
+    '{out}/target/{target}/intermediates/libnativebridge_so/libnativebridge.so',
 ]
 _UNITTEST_GLOB_TEMPLATE_LIST = [
     # These two files are used by stlport_unittest
