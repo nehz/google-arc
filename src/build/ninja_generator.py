@@ -940,7 +940,7 @@ class CNinjaGenerator(NinjaGenerator):
   """
 
   def __init__(self, module_name, ninja_name=None, enable_logtag_emission=True,
-               gl_flags=False, force_compiler=None,
+               force_compiler=None,
                enable_cxx11=False, enable_libcxx=False,
                **kwargs):
     super(CNinjaGenerator, self).__init__(module_name, ninja_name, **kwargs)
@@ -974,8 +974,6 @@ class CNinjaGenerator(NinjaGenerator):
     if enable_libcxx:
       self.add_include_paths('android/external/libcxx/include')
       self.add_compiler_flags('-D_USING_LIBCXX')
-    if gl_flags:
-      self.emit_gl_common_flags()
 
     assert force_compiler in (None, 'gcc', 'clang')
     if force_compiler is None:

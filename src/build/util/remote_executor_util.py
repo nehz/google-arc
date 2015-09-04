@@ -71,6 +71,8 @@ _INTEGRATION_TEST_GLOB_TEMPLATE_LIST = [
     '{out}/staging/android/art/test/901-perf/test_cases',
     '{out}/target/{target}/integration_tests',
     '{out}/target/{target}/root/system/usr/icu/icudt48l.dat',
+    '{out}/target/{target}/intermediates/libarttest_so/libarttest.so',
+    '{out}/target/{target}/intermediates/libnativebridgetest_so/libnativebridgetest.so',  # NOQA
     '{out}/target/common/art_tests/*/expected.txt',
     '{out}/target/common/art_tests/*/*.jar',
     '{out}/target/common/integration_test/*',
