@@ -13,9 +13,10 @@
 // limitations under the License.
 
 #include <errno.h>
+#include <irt.h>
+#include "nacl_signals.h"
 
 extern "C" int kill(int pid, int sig) {
-  // TODO(crbug.com/496991): Implement.
-  errno = ENOSYS;
-  return -1;
+  // TODO(crbug.com/496991): Support process emulation.
+  return __nacl_signal_send(NACL_IRT_MAIN_THREAD_TID, sig);
 }

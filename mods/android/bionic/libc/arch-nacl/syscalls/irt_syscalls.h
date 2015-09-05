@@ -221,6 +221,14 @@ extern int (*__nacl_irt_futex_wait_abs) (volatile int *addr, int value,
                                          const struct nacl_abi_timespec *abstime);
 extern int (*__nacl_irt_futex_wake) (volatile int *addr, int nwake, int *count);
 // ARC MOD END
+// ARC MOD BEGIN nacl-async-signal
+struct NaClExceptionContext;
+typedef void (*NaClIrtAsyncSignalHandler)(struct NaClExceptionContext*);
+
+extern int (*__nacl_irt_async_signal_handler) (
+    NaClIrtAsyncSignalHandler handler);
+extern int (*__nacl_irt_async_signal_send_async_signal) (uintptr_t tid);
+// ARC MOD END
 // ARC MOD BEGIN
 // Add __nacl_irt_write_real. This function pointer will be the
 // original IRT write interface even after __nacl_irt_write will be

@@ -1262,17 +1262,7 @@ def _generate_bionic_tests():
       'unistd._Exit',
       'unistd._exit',
 
-      # ARC does not support signals.
-      # TODO(nativeclient:4065): We should be able to enable them once
-      # NaCl adds signal IRTs.
-      'pthread.pthread_kill__0',
-      'pthread.pthread_kill__in_signal_handler',
-      'pthread.pthread_kill__invalid_signal',
-      'pthread.pthread_kill__no_such_thread',
-      'pthread.pthread_sigmask',
-      'signal.raise_invalid',
-      'signal.sigaction',
-      'signal.sigsuspend_sigpending',
+      # ARC does not support alarms/timers.
       'signal.sigwait',
       'time.timer_create_EINVAL',
       'time.timer_create_NULL',
@@ -1403,6 +1393,16 @@ def _generate_bionic_tests():
       ])
   if OPTIONS.is_nacl_build():
     disabled_tests.extend([
+        # SFI NaCl does not support signals.
+        'pthread.pthread_kill__0',
+        'pthread.pthread_kill__in_signal_handler',
+        'pthread.pthread_kill__invalid_signal',
+        'pthread.pthread_kill__no_such_thread',
+        'pthread.pthread_sigmask',
+        'signal.raise_invalid',
+        'signal.sigaction',
+        'signal.sigsuspend_sigpending',
+
         # android_dlopen_ext() can not work as expected due to the gapped memory
         # layout of NaCl.
         'DlExtTest.Reserved',

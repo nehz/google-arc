@@ -25,7 +25,11 @@ extern "C" void __exit() {
   //
   // nacl-glibc/nptl/pthread_create.c also lets service runtime update
   // the thread ID.
+#if defined(BARE_METAL_BIONIC)
+  __nacl_irt_thread_exit_v0_2(&thread->tid);
+#else
   __nacl_irt_thread_exit(&thread->tid);
+#endif
 
   // This should not happen.
   static const int kStderrFd = 2;

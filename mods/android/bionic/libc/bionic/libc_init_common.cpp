@@ -49,6 +49,8 @@
 #include <irt.h>
 #include <irt_syscalls.h>
 #include <sys/endian.h>
+#include "nacl_signals.h"
+
 #endif
 // ARC MOD END
 
@@ -223,6 +225,12 @@ void __libc_init_common(KernelArgumentBlock& args) {
   _pthread_internal_add(main_thread);
 
   __system_properties_init(); // Requires 'environ'.
+  // ARC MOD BEGIN nacl-async-signal
+#if !defined(BUILDING_LINKER) && defined(BARE_METAL_BIONIC)
+  // Async-signal support is only available in non-SFI mode.
+  __nacl_signal_install_handler();
+#endif
+  // ARC MOD END
 
   __libc_init_vdso();
 }

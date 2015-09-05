@@ -206,7 +206,7 @@
    # in nonsfi_loader
    fun:linux_clone_wrapper
    fun:nacl_user_thread_create
-   fun:thread_create
+   fun:thread_create_nonsfi
    # in Bionic
    fun:__nacl_clone
    fun:pthread_create
@@ -220,7 +220,7 @@
    fun:malloc
    # in nonsfi_loader
    fun:nacl_user_thread_create
-   fun:thread_create
+   fun:thread_create_nonsfi
    # in Bionic
    fun:__nacl_clone
    fun:pthread_create
@@ -239,5 +239,14 @@
    # detail.
    # TODO(hamaji): Stop using assembly code for i686.
    obj:*/runnable-ld.so
+   ...
+}
+{
+   sigrestore_replacement
+   Memcheck:Addr4
+   # NaCl uses a sigrestore replacement to restore the running context to what
+   # it was before the signal was delivered. This confuses Valgrind.
+   fun:signal_catch
+   fun:nacl_async_signal_send_async_signal
    ...
 }
