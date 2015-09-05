@@ -37,13 +37,6 @@ extern "C" __LIBC_HIDDEN__ void __libc_android_abort()
 void abort()
 #endif
 {
-  // Don't block SIGABRT to give any signal handler a chance; we ignore
-  // any errors -- X311J doesn't allow abort to return anyway.
-  sigset_t mask;
-  sigfillset(&mask);
-  sigdelset(&mask, SIGABRT);
-  sigprocmask(SIG_SETMASK, &mask, NULL);
-
   /* ARC MOD BEGIN */
 #if defined(HAVE_ARC)
   // raise() is not supported on NaCl and Bare Metal, Call an
@@ -55,8 +48,15 @@ void abort()
 # else // defined(__arm__) && !defined(__native_client__)
   __builtin_trap();
 # endif // defined(__arm__) && !defined(__native_client__)
-#endif // defined(HAVE_ARC)
+#else // defined(HAVE_ARC)
   /* ARC MOD END */
+  // Don't block SIGABRT to give any signal handler a chance; we ignore
+  // any errors -- X311J doesn't allow abort to return anyway.
+  sigset_t mask;
+  sigfillset(&mask);
+  sigdelset(&mask, SIGABRT);
+  sigprocmask(SIG_SETMASK, &mask, NULL);
+
   raise(SIGABRT);
 
   // If SIGABRT ignored, or caught and the handler returns,
@@ -69,6 +69,9 @@ void abort()
   sigprocmask(SIG_SETMASK, &mask, NULL);
   raise(SIGABRT);
   _exit(1);
+  /* ARC MOD BEGIN */
+#endif
+  /* ARC MOD END */
 }
 /* ARC MOD BEGIN */
 // Implements abort in C instead of the assembly code used in bionic on ARM.

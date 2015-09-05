@@ -19,6 +19,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 
+#include "nacl_signals.h"
 #include "private/bionic_tls.h"
 #include <irt_syscalls.h>
 
@@ -38,7 +39,9 @@ static void run_thread() {
   __start_thread(fn, arg);
 }
 
+#if !defined(BARE_METAL_BIONIC)
 pid_t __allocate_tid();
+#endif
 
 extern "C" __LIBC_HIDDEN__ pid_t __nacl_clone(int (*fn)(void*),
                                               void* ignored_child_stack,
@@ -47,11 +50,14 @@ extern "C" __LIBC_HIDDEN__ pid_t __nacl_clone(int (*fn)(void*),
                                               int* parent_tid,
                                               void** tls,
                                               int* child_tid) {
-  int tid = __allocate_tid();
+  int tid;
+#if !defined(BARE_METAL_BIONIC)
+  tid = __allocate_tid();
   if (tid < 0) {
     errno = ENOMEM;
     return -1;
   }
+#endif
 
   // The stack will be put before TLS.
   // See the comment of pthread_create in
@@ -61,11 +67,25 @@ extern "C" __LIBC_HIDDEN__ pid_t __nacl_clone(int (*fn)(void*),
   // Pass |fn| and |arg| using TLS.
   tls[TLS_SLOT_THREAD_FUNC] = (void*)fn;
   tls[TLS_SLOT_THREAD_ARGS] = (void*)arg;
-  *parent_tid = tid;
+#if defined(BARE_METAL_BIONIC)
+  nacl_irt_tid_t assigned_tid;
+  int result = __nacl_irt_thread_create_v0_2(&run_thread, child_stack, tls,
+                                             &assigned_tid);
+  if (result == 0) {
+    // Set the child thread's signal mask. This should not be racy since
+    // pthread_create sets a mutex that blocks the child thread from continuing
+    // until it is fully initialized.
+    __nacl_signal_thread_init(assigned_tid);
+    tid = assigned_tid;
+  }
+#else
   int result = __nacl_irt_thread_create(&run_thread, child_stack, tls);
+#endif
   if (result != 0) {
     errno = result;
     return -1;
   }
+  if (flags & CLONE_PARENT_SETTID)
+    *parent_tid = tid;
   return tid;
 }

@@ -183,9 +183,13 @@ void pthread_exit(void* return_value) {
     // which calls pthread_join. If the thread is a detached one,
     // _pthread_internal_free_detached_threads will do that.
 #if defined(HAVE_ARC)
+
+#if !defined(BARE_METAL_BIONIC)
     // Deallocate the thread ID. We do this as late as possible to avoid other
     // threads getting this thread's tid before it has finished.
     __deallocate_tid(thread->tid);
+#endif
+
     __exit(0);
 #else
     // ARC MOD END

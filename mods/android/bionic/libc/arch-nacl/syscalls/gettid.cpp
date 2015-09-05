@@ -23,6 +23,10 @@ pthread_internal_t *__get_thread(void);
 
 #define MAX_THREAD_ID ((1 << 15) - 1)
 
+#if !defined(BARE_METAL_BIONIC)
+// In Non-SFI mode, we use real Linux tids, so we don't need to allocate them
+// ourselves.
+
 // 0 until the second thread other than the main thread is created.
 // 2 <= g_next_tid < 32768 after the second thread is created.
 // Note that bionic's mutex depends on 15 bit thread ID. See
@@ -32,6 +36,8 @@ static pid_t g_next_tid;
 static int8_t g_tid_map[MAX_THREAD_ID + 1];
 // Protects global variables above.
 static pthread_mutex_t g_mu = PTHREAD_MUTEX_INITIALIZER;
+
+#endif  // !defined(BARE_METAL_BIONIC)
 
 pid_t gettid() {
   // Defined in libc/stdlib/exit.c. Updated to 1 at the beginning of
@@ -57,6 +63,8 @@ pid_t gettid() {
   write(kStderrFd, kMsg, sizeof(kMsg) - 1);
   abort();
 }
+
+#if !defined(BARE_METAL_BIONIC)
 
 __LIBC_HIDDEN__
 pid_t __allocate_tid() {
@@ -102,3 +110,5 @@ void __deallocate_tid(pid_t tid) {
   g_tid_map[tid] = 0;
   pthread_mutex_unlock(&g_mu);
 }
+
+#endif  // !defined(BARE_METAL_BIONIC)

@@ -114,8 +114,14 @@ __LIBC_HIDDEN__ void pthread_key_clean_all(void);
 __LIBC_HIDDEN__ void _pthread_internal_remove_locked(pthread_internal_t* thread);
 // ARC MOD BEGIN
 #if defined(HAVE_ARC)
-// Declare three functions for NaCl and Bare Metal.
+
+// Declare these functions for ARC.
+#if !defined(BARE_METAL_BIONIC)
+// In Bare Metal Mode, this is not needed since each thread's tid is allocated
+// and deallocated by Linux.
 __LIBC_HIDDEN__ void __deallocate_tid(pid_t tid);
+#endif
+
 __LIBC_HIDDEN__ void
 _pthread_internal_free_detached_threads(
     pthread_internal_t** out_ready_to_free_list);
