@@ -19,9 +19,9 @@ import errno
 import subprocess
 import sys
 
-import toolchain
-from build_options import OPTIONS
-from util import file_util
+from src.build import toolchain
+from src.build.build_options import OPTIONS
+from src.build.util import file_util
 
 
 def make_table_of_contents(target, input_so_path):

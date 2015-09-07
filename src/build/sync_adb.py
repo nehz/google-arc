@@ -61,8 +61,8 @@ import urllib2
 import urlparse
 import zipfile
 
-import build_common
-from util import file_util
+from src.build import build_common
+from src.build.util import file_util
 
 ADB_OUTPUT_DIR = 'out/adb'
 

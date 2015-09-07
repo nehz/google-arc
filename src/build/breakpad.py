@@ -9,17 +9,17 @@ import hashlib
 import logging
 import multiprocessing
 import os
+import re
 import subprocess
 import sys
 
-import build_common
-import re
-import toolchain
-from build_options import OPTIONS
-from util import concurrent
-from util import concurrent_subprocess
-from util import file_util
-from util import logging_util
+from src.build import build_common
+from src.build import toolchain
+from src.build.build_options import OPTIONS
+from src.build.util import concurrent
+from src.build.util import concurrent_subprocess
+from src.build.util import file_util
+from src.build.util import logging_util
 
 
 _MINIDUMP_DUMP_TOOL = toolchain.get_nacl_tool('minidump_dump')

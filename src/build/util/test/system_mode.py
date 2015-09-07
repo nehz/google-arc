@@ -10,10 +10,10 @@ import re
 import threading
 import traceback
 
-import toolchain
-from util import concurrent_subprocess
-from util import output_handler
-from util.test import suite_runner
+from src.build import toolchain
+from src.build.util import concurrent_subprocess
+from src.build.util import output_handler
+from src.build.util.test import suite_runner
 
 _ADB_SERVICE_PATTERN = re.compile(
     'I/AdbService:\s+(?:(emulator\-\d+)|Failed to start)')

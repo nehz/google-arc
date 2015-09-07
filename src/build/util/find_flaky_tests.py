@@ -24,7 +24,7 @@ import re
 import subprocess
 import sys
 
-from build_options import OPTIONS
+from src.build.build_options import OPTIONS
 
 
 _BOTLOGS_DIR = 'botlogs'

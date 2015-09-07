@@ -14,7 +14,7 @@ import re
 import subprocess
 import sys
 
-import build_common
+from src.build import build_common
 
 _PPAPI_DIR = 'third_party/chromium-ppapi'
 _NACL_DIR = 'third_party/native_client'

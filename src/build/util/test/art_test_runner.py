@@ -9,16 +9,16 @@ import stat
 import subprocess
 import time
 
-import build_common
-from build_options import OPTIONS
-import prep_launch_chrome
-import staging
-import toolchain
-from util import file_util
-from util.test import scoreboard
-from util.test import suite_runner
-from util.test import system_mode
-from util.test import test_method_result
+from src.build import build_common
+from src.build import prep_launch_chrome
+from src.build import staging
+from src.build import toolchain
+from src.build.build_options import OPTIONS
+from src.build.util import file_util
+from src.build.util.test import scoreboard
+from src.build.util.test import suite_runner
+from src.build.util.test import system_mode
+from src.build.util.test import test_method_result
 
 
 _NACL_FILTER_PATTERN = re.compile('|'.join(

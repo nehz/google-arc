@@ -10,9 +10,9 @@ import re
 import subprocess
 import sys
 
-import toolchain
-import wrapped_functions
-from build_options import OPTIONS
+from src.build import toolchain
+from src.build import wrapped_functions
+from src.build.build_options import OPTIONS
 
 
 def _get_defined_functions(library):

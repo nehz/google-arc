@@ -17,16 +17,16 @@ import shutil
 import subprocess
 import tempfile
 
-import build_common
-import toolchain
-from build_options import OPTIONS
-from util import concurrent_subprocess
-from util import file_util
-from util import gdb_util
-from util import jdb_util
-from util import logging_util
-from util import minidump_filter
-from util.test import unittest_util
+from src.build import build_common
+from src.build import toolchain
+from src.build.build_options import OPTIONS
+from src.build.util import concurrent_subprocess
+from src.build.util import file_util
+from src.build.util import gdb_util
+from src.build.util import jdb_util
+from src.build.util import logging_util
+from src.build.util import minidump_filter
+from src.build.util.test import unittest_util
 
 RUN_UNITTEST = 'src/build/run_unittest.py'
 SYNC_ADB = 'src/build/sync_adb.py'
@@ -41,6 +41,7 @@ _TEST_SSH_KEY = (
 # to the remote host.
 _COMMON_GLOB_TEMPLATE_LIST = [
     '{out}/configure.options',
+    'src/__init__.py',
     'src/build',
     'third_party/tools/ninja/misc',
     _TEST_SSH_KEY,
@@ -103,9 +104,6 @@ _INTEGRATION_TEST_GLOB_TEMPLATE_LIST = [
     'third_party/android/cts/tools/vm-tests-tf/src/dot/junit/verify/*/*.java',
     'third_party/examples/apk/*/*.apk',
     'third_party/ndk/sources/cxx-stl/stlport/libs/armeabi-v7a/libstlport_shared.so',  # NOQA
-    # These files are not installed, but are 'adb push'd for tests.
-    '{out}/target/{target}/intermediates/libarttest_so/libarttest.so',
-    '{out}/target/{target}/intermediates/libnativebridge_so/libnativebridge.so',
 ]
 _UNITTEST_GLOB_TEMPLATE_LIST = [
     # These two files are used by stlport_unittest

@@ -9,9 +9,9 @@ import sys
 import threading
 import time
 
-from util import color
-from util import synchronized_interface
-from util.test import scoreboard_constants
+from src.build.util import color
+from src.build.util import synchronized_interface
+from src.build.util.test import scoreboard_constants
 
 # The different types of message outputs.
 _EXPECT_FAIL = 0

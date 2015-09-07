@@ -13,19 +13,19 @@ import shutil
 import subprocess
 import sys
 
-import build_common
-import config_runner
-import download_arc_welder_deps
-import download_cts_files
-import download_sdk_and_ndk
-import open_source
-import staging
-import sync_adb
-import sync_gdb_multiarch
-import sync_nacl_sdk
-import toolchain
-from build_options import OPTIONS
-from util import file_util
+from src.build import build_common
+from src.build import config_runner
+from src.build import download_arc_welder_deps
+from src.build import download_cts_files
+from src.build import download_sdk_and_ndk
+from src.build import open_source
+from src.build import staging
+from src.build import sync_adb
+from src.build import sync_gdb_multiarch
+from src.build import sync_nacl_sdk
+from src.build import toolchain
+from src.build.build_options import OPTIONS
+from src.build.util import file_util
 
 
 def _set_up_git_hooks():

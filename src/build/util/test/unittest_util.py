@@ -7,11 +7,11 @@ import os
 import re
 import subprocess
 
-import build_common
-import build_options
-import toolchain
-from util import file_util
-from util import gdb_util
+from src.build import build_common
+from src.build import build_options
+from src.build import toolchain
+from src.build.util import file_util
+from src.build.util import gdb_util
 
 
 def get_nacl_tools():

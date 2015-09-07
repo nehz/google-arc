@@ -16,13 +16,12 @@ import json
 import os
 import pipes
 
-import build_common
-import launch_chrome_options
-
-from apk_to_crx import apk_to_crx
-from build_options import OPTIONS
-from metadata import manager
-from util import file_util
+from src.build import build_common
+from src.build import launch_chrome_options
+from src.build.build_options import OPTIONS
+from src.build.metadata import manager
+from src.build.util import file_util
+from src.packaging.apk_to_crx import apk_to_crx
 
 _DOGFOOD_METADATA_PATH = 'third_party/examples/apk/dogfood.meta'
 

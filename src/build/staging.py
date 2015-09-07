@@ -18,9 +18,9 @@ import os
 import subprocess
 import sys
 
-import build_common
-import build_options
-from util import file_util
+from src.build import build_common
+from src.build import build_options
+from src.build.util import file_util
 
 _GIT_DIR = '.git'
 _SRC_DIR = 'src'

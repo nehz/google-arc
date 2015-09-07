@@ -10,7 +10,7 @@ import os
 import subprocess
 import sys
 
-from util import platform_util
+from src.build.util import platform_util
 
 
 _KILL_PROCESSES_LINUX = [

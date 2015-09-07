@@ -14,8 +14,8 @@ posix functions that are renamed to __wrap_FUNC by --wrap.
 
 import sys
 
-import wrapped_functions
-from build_options import OPTIONS
+from src.build import wrapped_functions
+from src.build.build_options import OPTIONS
 
 
 def main():

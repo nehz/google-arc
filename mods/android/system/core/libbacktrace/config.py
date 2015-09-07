@@ -2,8 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import make_to_ninja
-import open_source
+from src.build import make_to_ninja
+from src.build import open_source
 
 
 def generate_ninjas():

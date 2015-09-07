@@ -49,12 +49,12 @@ import subprocess
 import sys
 import string
 
-import build_common
-import build_options
-import toolchain
-from util import platform_util
-from util import remote_executor
-from util.test import unittest_util
+from src.build import build_common
+from src.build import build_options
+from src.build import toolchain
+from src.build.util import platform_util
+from src.build.util import remote_executor
+from src.build.util.test import unittest_util
 
 
 def _read_test_info(filename):

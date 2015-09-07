@@ -7,7 +7,7 @@
 import fnmatch
 import os
 
-from util import file_util
+from src.build.util import file_util
 
 METADATA_FILE = 'OPEN_SOURCE'
 

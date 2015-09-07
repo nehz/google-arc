@@ -9,9 +9,9 @@ import os.path
 import re
 import sys
 
-import build_common
-from build_options import OPTIONS
-from util.test import flags
+from src.build import build_common
+from src.build.build_options import OPTIONS
+from src.build.util.test import flags
 
 # For use in the suite configuration files, to identify a default configuration
 # to use for a list of related suites.

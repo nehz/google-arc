@@ -7,7 +7,7 @@
 import math
 import unittest
 
-from util import statistics
+from src.build.util import statistics
 
 
 class TestStatUtil(unittest.TestCase):

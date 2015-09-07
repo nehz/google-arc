@@ -7,7 +7,7 @@
 import os
 import unittest
 
-import notices
+from src.build import notices
 
 _PATH_PREFIX = 'src/build/tests/notices'
 

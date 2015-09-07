@@ -4,7 +4,7 @@
 
 import unittest
 
-from util import launch_chrome_util
+from src.build.util import launch_chrome_util
 
 
 class IsLaunchChromeCommandTest(unittest.TestCase):

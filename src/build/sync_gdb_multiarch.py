@@ -14,8 +14,8 @@ import subprocess
 import sys
 import urllib2
 
-import build_common
-from util import file_util
+from src.build import build_common
+from src.build.util import file_util
 
 
 _UBUNTU_BASE_URL = 'http://us.archive.ubuntu.com/ubuntu/pool'

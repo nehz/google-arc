@@ -13,8 +13,8 @@ It is linked to unit tests that call __real_FUNC but are not linked with
 
 import sys
 
-import wrapped_functions
-from build_options import OPTIONS
+from src.build import wrapped_functions
+from src.build.build_options import OPTIONS
 
 
 def main():

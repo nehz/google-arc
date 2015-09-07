@@ -10,8 +10,8 @@ import re
 import tempfile
 import unittest
 
-import file_list_cache
-from util import file_util
+from src.build import file_list_cache
+from src.build.util import file_util
 
 
 def _touch(path):

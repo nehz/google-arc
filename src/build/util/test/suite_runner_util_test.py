@@ -4,8 +4,8 @@
 
 import unittest
 
-from util.test import flags
-from util.test import suite_runner_util
+from src.build.util.test import flags
+from src.build.util.test import suite_runner_util
 
 
 class SuiteRunnerUtilTest(unittest.TestCase):

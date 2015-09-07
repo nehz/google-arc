@@ -14,8 +14,8 @@ import argparse
 import subprocess
 from xml.etree import cElementTree
 
-import build_options
-import toolchain
+from src.build import build_options
+from src.build import toolchain
 
 
 def _parse_apk(apk_path):

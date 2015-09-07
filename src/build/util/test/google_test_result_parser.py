@@ -4,7 +4,7 @@
 
 import re
 
-from util.test import test_method_result
+from src.build.util.test import test_method_result
 
 
 def _parse_duration(duration):

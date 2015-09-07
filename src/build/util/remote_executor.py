@@ -10,12 +10,12 @@ import argparse
 import os.path
 import sys
 
-import build_common
-from util import platform_util
-from util import remote_chromeos_executor
-from util import remote_executor_util
-from util import remote_mac_executor
-from util import remote_windows_executor
+from src.build import build_common
+from src.build.util import platform_util
+from src.build.util import remote_chromeos_executor
+from src.build.util import remote_executor_util
+from src.build.util import remote_mac_executor
+from src.build.util import remote_windows_executor
 
 
 def _get_win_chrome_exe_path():

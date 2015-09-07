@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from util import download_package_util
+from src.build.util import download_package_util
 
 
 def check_and_perform_updates(cache_base_path, cache_history_size):

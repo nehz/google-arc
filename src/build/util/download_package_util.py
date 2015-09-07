@@ -16,8 +16,8 @@ import tempfile
 import time
 import urllib
 
-import build_common
-import file_util
+from src.build import build_common
+from src.build.util import file_util
 
 
 _DEFAULT_CACHE_BASE_PATH = os.path.join(build_common.get_arc_root(), 'cache')

@@ -10,8 +10,8 @@ import os
 import subprocess
 import sys
 
-import build_common
-import staging
+from src.build import build_common
+from src.build import staging
 
 
 def main(args):

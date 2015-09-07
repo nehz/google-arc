@@ -10,7 +10,7 @@ import re
 import string
 import sys
 
-import analyze_diffs
+from src.build import analyze_diffs
 
 _MAXIMUM_COPYRIGHT_PATTERN_LINES = 7
 

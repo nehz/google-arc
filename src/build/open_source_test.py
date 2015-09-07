@@ -7,7 +7,7 @@
 import os
 import unittest
 
-import open_source
+from src.build import open_source
 
 _PATH_PREFIX = 'src/build/tests/open_source'
 

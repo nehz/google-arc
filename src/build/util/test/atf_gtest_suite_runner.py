@@ -4,12 +4,12 @@
 
 """Implements a suite runner for gtest based on ATF."""
 
-import prep_launch_chrome
-from util import platform_util
-from util.test import atf_suite_runner
-from util.test import google_test_result_parser as result_parser
-from util.test import scoreboard
-from util.test import suite_runner_util
+from src.build import prep_launch_chrome
+from src.build.util import platform_util
+from src.build.util.test import atf_suite_runner
+from src.build.util.test import google_test_result_parser as result_parser
+from src.build.util.test import scoreboard
+from src.build.util.test import suite_runner_util
 
 
 def _build_atf_launch_chrome_args(test_apk, test_list, test_methods_to_run,

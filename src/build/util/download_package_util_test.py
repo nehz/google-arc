@@ -10,7 +10,7 @@ import shutil
 import tempfile
 import unittest
 
-from util import download_package_util
+from src.build.util import download_package_util
 
 
 class NoVersionFileError(Exception):

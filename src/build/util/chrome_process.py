@@ -6,9 +6,9 @@ import time
 import os
 import subprocess
 
-from util import concurrent_subprocess
-from util import file_util
-from util import platform_util
+from src.build.util import concurrent_subprocess
+from src.build.util import file_util
+from src.build.util import platform_util
 
 
 class ChromeProcess(concurrent_subprocess.Popen):

@@ -17,11 +17,11 @@ import subprocess
 import sys
 import threading
 
-import build_common
-from build_options import OPTIONS
-from util import concurrent_subprocess
-from util import logging_util
-from util import statistics
+from src.build import build_common
+from src.build.build_options import OPTIONS
+from src.build.util import concurrent_subprocess
+from src.build.util import logging_util
+from src.build.util import statistics
 
 # Prefixes for stash directories.
 _STASH_DIR_PREFIX = '.stash'

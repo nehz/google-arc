@@ -4,9 +4,9 @@
 
 import time
 
-from util.test import flags
-from util.test import suite_results
-from util.test import scoreboard_constants
+from src.build.util.test import flags
+from src.build.util.test import suite_results
+from src.build.util.test import scoreboard_constants
 
 
 class Scoreboard:

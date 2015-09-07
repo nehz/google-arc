@@ -21,10 +21,8 @@ import sys
 
 
 _PYTHONPATH_LIST = [
-    # TODO(crbug.com/298621): Remove paths to src/.
-    'src/build',
-    'src/ndk_translation/android_api',  # For testing.
-    'src/packaging',  # For testing.
+    # Set ARC_ROOT to the PYTHONPATH.
+    '',
 
     # For create_nmf.
     'third_party/chromium-ppapi/native_client_sdk/src/tools',
@@ -46,8 +44,8 @@ _ARC_ROOT = os.path.normpath(os.path.join(
 def _setup_pythonpath(env):
   """Adds (or overwrites) PYTHONPATH in |env|."""
   # Set absolute paths for PYTHONPATH.
-  pythonpath_list = [
-      os.path.join(_ARC_ROOT, path) for path in _PYTHONPATH_LIST]
+  pythonpath_list = [os.path.normpath(os.path.join(_ARC_ROOT, path))
+                     for path in _PYTHONPATH_LIST]
   original_pythonpath = env.get('PYTHONPATH')
   if original_pythonpath:
     pythonpath_list.extend(original_pythonpath.split(os.pathsep))

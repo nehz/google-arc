@@ -9,7 +9,7 @@
 import re
 import sys
 
-import naclize_base
+from src.build import naclize_base
 
 
 class Rewriter(naclize_base.RewriterBase):

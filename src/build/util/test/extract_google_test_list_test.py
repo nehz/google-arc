@@ -5,7 +5,7 @@
 import StringIO
 import unittest
 
-from util.test import extract_google_test_list
+from src.build.util.test import extract_google_test_list
 
 
 class TestExtractGoogleTestList(unittest.TestCase):

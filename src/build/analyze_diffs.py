@@ -21,9 +21,9 @@ import re
 import subprocess
 import sys
 
-import notices
-import open_source
-import staging
+from src.build import notices
+from src.build import open_source
+from src.build import staging
 
 _args = None
 FILE_IGNORE_TAG = 'ARC MOD IGNORE'

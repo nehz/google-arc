@@ -5,10 +5,10 @@
 import os
 import pipes
 
-import build_common
-import ninja_generator
-import staging
-from build_options import OPTIONS
+from src.build import build_common
+from src.build import ninja_generator
+from src.build import staging
+from src.build.build_options import OPTIONS
 
 
 def _get_generated_sources_path():

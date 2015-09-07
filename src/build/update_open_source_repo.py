@@ -10,9 +10,9 @@ import os
 import subprocess
 import sys
 
-import open_source
-import prepare_open_source_commit
-from util import git
+from src.build import open_source
+from src.build import prepare_open_source_commit
+from src.build.util import git
 
 
 _OPEN_SOURCE_URL = 'https://chromium.googlesource.com/arc/arc'

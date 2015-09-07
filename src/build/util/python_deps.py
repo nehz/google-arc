@@ -8,8 +8,8 @@ import modulefinder
 import os
 import sys
 
-import build_common
-import dependency_inspection
+from src.build import build_common
+from src.build import dependency_inspection
 
 
 def find_deps(source_path, python_path=None):

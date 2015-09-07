@@ -4,8 +4,8 @@
 
 import unittest
 
-from util.test import flags
-from util.test import test_filter
+from src.build.util.test import flags
+from src.build.util.test import test_filter
 
 
 class TestListFilterTest(unittest.TestCase):

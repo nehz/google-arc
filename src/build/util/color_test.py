@@ -5,7 +5,7 @@
 import StringIO
 import unittest
 
-from util import color
+from src.build.util import color
 
 
 class MockStream(object):

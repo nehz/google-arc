@@ -5,10 +5,10 @@
 import collections
 import unittest
 
-from build_options import OPTIONS
-from util.test import flags
-from util.test import suite_runner
-from util.test import suite_runner_config
+from src.build.build_options import OPTIONS
+from src.build.util.test import flags
+from src.build.util.test import suite_runner
+from src.build.util.test import suite_runner_config
 
 
 def _evaluate(raw_config, defaults=None):

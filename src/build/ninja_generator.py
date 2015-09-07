@@ -20,18 +20,18 @@ import traceback
 
 import ninja_syntax
 
-import analyze_diffs
-import build_common
-import ninja_generator_runner
-import notices
-import open_source
-import staging
-import toolchain
-import wrapped_functions
-from build_options import OPTIONS
-from util import file_util
-from util import python_deps
-from util.test import unittest_util
+from src.build import analyze_diffs
+from src.build import build_common
+from src.build import ninja_generator_runner
+from src.build import notices
+from src.build import open_source
+from src.build import staging
+from src.build import toolchain
+from src.build import wrapped_functions
+from src.build.build_options import OPTIONS
+from src.build.util import file_util
+from src.build.util import python_deps
+from src.build.util.test import unittest_util
 
 # Extensions of primary source files.
 _PRIMARY_EXTENSIONS = ['.c', '.cpp', '.cc', '.java', '.S', '.s']
@@ -3692,13 +3692,13 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
   def emit_common_rules(n):
     dbg = '' if OPTIONS.disable_debug_code() else '--debug'
     n.rule('build_using_sdk',
-           ('python %s --build_path=$build_path --apk=$out %s ' +
+           ('src/build/run_python %s --build_path=$build_path --apk=$out %s ' +
             '--source_path=$source_path $args > $log 2>&1 || ' +
             '(cat $log; exit 1)') % ('src/build/build_using_sdk.py', dbg),
            description='build_using_sdk.py $out')
 
     n.rule('extract_google_test_list',
-           ('python %s --language=c++ $in > $out.tmp && '
+           ('src/build/run_python %s --language=c++ $in > $out.tmp && '
             'mv $out.tmp $out' %
             build_common.get_extract_google_test_list_path()),
            description='Extract googletest style test methods from $in')
@@ -4150,7 +4150,8 @@ class NaClizeNinjaGenerator(NinjaGenerator):
   def emit_common_rules(n):
     n.rule('naclize_i686',
            command=(
-               'python %s $in > $out' % NaClizeNinjaGenerator._SCRIPT_PATH),
+               'src/build/run_python %s $in > $out' %
+               NaClizeNinjaGenerator._SCRIPT_PATH),
            description='naclize_i686 $out')
 
 

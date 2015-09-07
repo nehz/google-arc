@@ -6,14 +6,14 @@
 
 import argparse
 import logging
-import open_source
 import os
 import shutil
 import subprocess
 import sys
 
-from util import file_util
-from util import git
+from src.build import open_source
+from src.build.util import file_util
+from src.build.util import git
 
 _gitignore_checker = git.GitIgnoreChecker()
 

@@ -5,7 +5,7 @@
 
 import unittest
 
-from util.test import flags
+from src.build.util.test import flags
 
 
 class FlagSetTest(unittest.TestCase):

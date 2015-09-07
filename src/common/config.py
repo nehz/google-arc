@@ -4,12 +4,12 @@
 
 import os
 
-import build_common
-import ninja_generator
-import ninja_generator_runner
-import staging
-from build_options import OPTIONS
-from util import python_deps
+from src.build import build_common
+from src.build import ninja_generator
+from src.build import ninja_generator_runner
+from src.build import staging
+from src.build.build_options import OPTIONS
+from src.build.util import python_deps
 
 
 def _add_compile_flags(ninja):

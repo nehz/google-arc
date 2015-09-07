@@ -11,7 +11,7 @@ import subprocess
 import sys
 import time
 
-from util import download_package_util_flags
+from src.build.util import download_package_util_flags
 
 # --target=
 _TARGET_NACL_I686 = 'nacl_i686'

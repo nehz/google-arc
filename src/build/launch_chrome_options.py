@@ -12,12 +12,12 @@ import os
 import re
 import sys
 
-import build_common
-import ninja_generator
-from build_options import OPTIONS
-from metadata import manager
-from util import launch_chrome_util
-from util import remote_executor
+from src.build import build_common
+from src.build import ninja_generator
+from src.build.build_options import OPTIONS
+from src.build.metadata import manager
+from src.build.util import launch_chrome_util
+from src.build.util import remote_executor
 
 _DEFAULT_TIMEOUT = 60
 

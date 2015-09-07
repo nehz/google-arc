@@ -3,8 +3,8 @@
 # found in the LICENSE file.
 
 
-import make_to_ninja
-import staging
+from src.build import make_to_ninja
+from src.build import staging
 
 
 def generate_ninjas():

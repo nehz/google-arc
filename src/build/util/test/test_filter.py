@@ -7,7 +7,7 @@
 import fnmatch
 import re
 
-from util.test import flags
+from src.build.util.test import flags
 
 
 def _build_re(pattern_list):

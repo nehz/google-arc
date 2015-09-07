@@ -4,7 +4,7 @@
 
 import collections
 
-from util import statistics
+from src.build.util import statistics
 
 _RAW_STAT_VARS = ['pre_plugin_time_ms',
                   'pre_embed_time_ms',

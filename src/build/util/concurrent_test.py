@@ -9,7 +9,7 @@ import time
 import traceback
 import unittest
 
-from util import concurrent
+from src.build.util import concurrent
 
 
 class TestCondition(unittest.TestCase):

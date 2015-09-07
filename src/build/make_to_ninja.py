@@ -15,13 +15,13 @@ import stat
 import subprocess
 import tarfile
 
-import build_common
-import dependency_inspection
-import ninja_generator
-import staging
-import toolchain
-from build_options import OPTIONS
-from util import file_util
+from src.build import build_common
+from src.build import dependency_inspection
+from src.build import ninja_generator
+from src.build import staging
+from src.build import toolchain
+from src.build.build_options import OPTIONS
+from src.build.util import file_util
 
 
 # The directory inside Android build/ where all shared scripts reside.

@@ -11,9 +11,9 @@ import subprocess
 import sys
 import tempfile
 
-import analyze_diffs
-from util import git
-from util.rebase import constants
+from src.build import analyze_diffs
+from src.build.util import git
+from src.build.util.rebase import constants
 
 
 def relpath(path, base_path):

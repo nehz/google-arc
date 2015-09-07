@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 
-import make_to_ninja
+from src.build import make_to_ninja
 
 
 def generate_ninjas():

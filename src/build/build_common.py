@@ -18,9 +18,9 @@ import sys
 import time
 import urllib2
 
-import dependency_inspection
-from build_options import OPTIONS
-from util import platform_util
+from src.build import dependency_inspection
+from src.build.build_options import OPTIONS
+from src.build.util import platform_util
 
 # Following paths are relative to ARC root directory.
 OUT_DIR = 'out'

@@ -7,12 +7,12 @@
 import os
 import pipes
 
-import build_common
-import build_options
-import ninja_generator
-import ninja_generator_runner
-import staging
-import toolchain
+from src.build import build_common
+from src.build import build_options
+from src.build import ninja_generator
+from src.build import ninja_generator_runner
+from src.build import staging
+from src.build import toolchain
 
 
 # TODO(kmixter): This function is borrowed from the chromium_org libbase

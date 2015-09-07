@@ -8,7 +8,7 @@
 
 import sys
 
-from util import concurrent_subprocess
+from src.build.util import concurrent_subprocess
 
 
 def main():

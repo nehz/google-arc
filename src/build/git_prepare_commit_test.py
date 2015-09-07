@@ -4,7 +4,7 @@
 
 import unittest
 
-import git_prepare_commit
+from src.build import git_prepare_commit
 
 
 class TestGitPrepareCommit(unittest.TestCase):

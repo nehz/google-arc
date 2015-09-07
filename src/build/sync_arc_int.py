@@ -11,8 +11,8 @@ import os
 import subprocess
 import sys
 
-from build_options import OPTIONS
-from util import git
+from src.build.build_options import OPTIONS
+from src.build.util import git
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _ARC_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))

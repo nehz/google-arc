@@ -6,7 +6,7 @@
 
 import unittest
 
-import make_to_ninja
+from src.build import make_to_ninja
 
 
 class MakeToNinjaUnittest(unittest.TestCase):

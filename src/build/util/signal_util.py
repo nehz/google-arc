@@ -9,8 +9,8 @@ import signal
 import subprocess
 import sys
 
-from util import debug
-from util import platform_util
+from src.build.util import debug
+from src.build.util import platform_util
 
 
 def _list_child_process(*target_pid):

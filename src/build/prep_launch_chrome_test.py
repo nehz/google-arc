@@ -6,9 +6,9 @@
 
 import unittest
 
-from build_options import OPTIONS
-import launch_chrome_options
-import prep_launch_chrome
+from src.build import launch_chrome_options
+from src.build import prep_launch_chrome
+from src.build.build_options import OPTIONS
 
 
 class PrepLaunchChromeTest(unittest.TestCase):

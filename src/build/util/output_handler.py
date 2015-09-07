@@ -12,11 +12,11 @@ import time
 import signal
 import sys
 
-import crash_analyzer
-from build_options import OPTIONS
-from util import concurrent_subprocess
-from util import platform_util
-from util.test import atf_instrumentation_result_parser as result_parser
+from src.build import crash_analyzer
+from src.build.build_options import OPTIONS
+from src.build.util import concurrent_subprocess
+from src.build.util import platform_util
+from src.build.util.test import atf_instrumentation_result_parser as result_parser  # NOQA
 
 
 # NaCl waits 7s before writing validation cache.

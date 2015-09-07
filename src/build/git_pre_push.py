@@ -12,13 +12,13 @@ import os.path
 import subprocess
 import sys
 
-import build_common
-import check_chrome_lkgr
-import convert_docs
-import lint_source
-import staging
-import suggest_reviewers
-from util import git
+from src.build import build_common
+from src.build import check_chrome_lkgr
+from src.build import convert_docs
+from src.build import lint_source
+from src.build import staging
+from src.build import suggest_reviewers
+from src.build.util import git
 
 
 def _is_patch_to_next_pastry():

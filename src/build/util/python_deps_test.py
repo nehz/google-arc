@@ -4,7 +4,7 @@
 
 import unittest
 
-from util import python_deps
+from src.build.util import python_deps
 
 
 class TestPythonDeps(unittest.TestCase):

@@ -4,10 +4,10 @@
 
 """Build libjnigraphics.so."""
 
-import make_to_ninja
-import ninja_generator
-import open_source
-import staging
+from src.build import make_to_ninja
+from src.build import ninja_generator
+from src.build import open_source
+from src.build import staging
 
 
 def generate_ninjas():

@@ -2,10 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import build_common
-import ninja_generator
-import open_source
-import staging
+from src.build import build_common
+from src.build import ninja_generator
+from src.build import open_source
+from src.build import staging
 
 
 def _add_compile_flags(n):

@@ -2,9 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import make_to_ninja
-import ninja_generator
-from build_options import OPTIONS
+from src.build import make_to_ninja
+from src.build import ninja_generator
+from src.build.build_options import OPTIONS
 
 
 def _filter_libunwind(vars):

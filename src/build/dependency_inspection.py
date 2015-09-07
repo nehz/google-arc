@@ -16,7 +16,7 @@ Intended usage in configuration scripts in src/build:
  4) Call stop_inspection() at the end of config.py invocation for clean-up.
 """
 
-import file_list_cache
+from src.build import file_list_cache
 
 
 # These are not None between start_inspection() and stop_inspection().

@@ -14,24 +14,24 @@ import sys
 import tempfile
 import time
 
-import build_common
-import launch_chrome_options
-import prep_launch_chrome
-import toolchain
-from build_options import OPTIONS
-from util import chrome_process
-from util import concurrent_subprocess
-from util import file_util
-from util import gdb_util
-from util import jdb_util
-from util import launch_chrome_util
-from util import logging_util
-from util import minidump_filter
-from util import output_handler
-from util import platform_util
-from util import remote_executor
-from util import signal_util
-from util import startup_stats
+from src.build import build_common
+from src.build import launch_chrome_options
+from src.build import prep_launch_chrome
+from src.build import toolchain
+from src.build.build_options import OPTIONS
+from src.build.util import chrome_process
+from src.build.util import concurrent_subprocess
+from src.build.util import file_util
+from src.build.util import gdb_util
+from src.build.util import jdb_util
+from src.build.util import launch_chrome_util
+from src.build.util import logging_util
+from src.build.util import minidump_filter
+from src.build.util import output_handler
+from src.build.util import platform_util
+from src.build.util import remote_executor
+from src.build.util import signal_util
+from src.build.util import startup_stats
 
 
 _ROOT_DIR = build_common.get_arc_root()

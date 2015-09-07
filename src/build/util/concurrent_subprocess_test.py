@@ -10,7 +10,7 @@ import signal
 import threading
 import unittest
 
-from util import concurrent_subprocess
+from src.build.util import concurrent_subprocess
 
 
 class SimpleOutputHandler(concurrent_subprocess.OutputHandler):

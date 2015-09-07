@@ -5,11 +5,11 @@
 import collections
 import unittest
 
-from util.test import flags
-from util.test import scoreboard
-from util.test import scoreboard_constants
-from util.test import suite_results
-from util.test import test_method_result
+from src.build.util.test import flags
+from src.build.util.test import scoreboard
+from src.build.util.test import scoreboard_constants
+from src.build.util.test import suite_results
+from src.build.util.test import test_method_result
 
 
 def _noop(*args):

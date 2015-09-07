@@ -10,8 +10,8 @@
 import string
 import sys
 
-import wrapped_functions
-from build_options import OPTIONS
+from src.build import wrapped_functions
+from src.build.build_options import OPTIONS
 
 
 _WRAPPED_FUNCTIONS_CC_TEMPLATE = string.Template("""

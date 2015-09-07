@@ -16,11 +16,11 @@ import os
 import re
 import zipfile
 
-import build_common
-import run_integration_tests
-import toolchain
-from build_options import OPTIONS
-from util import remote_executor_util
+from src.build import build_common
+from src.build import run_integration_tests
+from src.build import toolchain
+from src.build.build_options import OPTIONS
+from src.build.util import remote_executor_util
 
 
 def _collect_descendants(paths):

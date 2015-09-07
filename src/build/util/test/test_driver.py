@@ -8,7 +8,7 @@ import subprocess
 import sys
 import threading
 
-from util.test import suite_runner
+from src.build.util.test import suite_runner
 
 TEST_SUITE_MAX_RETRY_COUNT = 5
 

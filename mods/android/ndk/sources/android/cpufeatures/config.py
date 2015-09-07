@@ -4,8 +4,8 @@
 
 """Build libcpufeatures library."""
 
-import make_to_ninja
-from build_options import OPTIONS
+from src.build import make_to_ninja
+from src.build.build_options import OPTIONS
 
 
 def _generate_libcpufeatures_ninja():

@@ -17,8 +17,8 @@
 import subprocess
 import sys
 
-import open_source
-from build_options import OPTIONS
+from src.build import open_source
+from src.build.build_options import OPTIONS
 
 
 def main(args):

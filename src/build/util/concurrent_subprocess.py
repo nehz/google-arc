@@ -12,9 +12,9 @@ import sys
 import threading
 import time
 
-from util import logging_util
-from util import nonblocking_io
-from util import signal_util
+from src.build.util import logging_util
+from src.build.util import nonblocking_io
+from src.build.util import signal_util
 
 try:
   import psutil

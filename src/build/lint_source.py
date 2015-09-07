@@ -18,11 +18,11 @@ import subprocess
 import sys
 import tempfile
 
-import analyze_diffs
-import build_common
-import open_source
-from util import file_util
-from util import logging_util
+from src.build import analyze_diffs
+from src.build import build_common
+from src.build import open_source
+from src.build.util import file_util
+from src.build.util import logging_util
 
 _GROUP_ASM = 'Assembly'
 _GROUP_CPP = 'C/C++'

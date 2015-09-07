@@ -7,10 +7,10 @@
 import os
 import re
 
-import build_common
-import build_options
-import ninja_generator
-import ninja_generator_runner
+from src.build import build_common
+from src.build import build_options
+from src.build import ninja_generator
+from src.build import ninja_generator_runner
 
 
 def _add_chromium_base_compiler_flags(n):

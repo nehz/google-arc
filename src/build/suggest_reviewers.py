@@ -12,8 +12,8 @@ import os
 import subprocess
 import sys
 
-import owners
-from util import git
+from src.build import owners
+from src.build.util import git
 
 
 def get_owners_db():

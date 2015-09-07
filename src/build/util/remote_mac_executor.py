@@ -6,8 +6,8 @@
 
 import subprocess
 
-from util import launch_chrome_util
-from util import remote_executor_util
+from src.build.util import launch_chrome_util
+from src.build.util import remote_executor_util
 
 
 def launch_remote_chrome(parsed_args, argv):

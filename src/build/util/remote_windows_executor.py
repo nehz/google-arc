@@ -9,12 +9,12 @@ At the moment, we support running Chrome via cygwin's sshd.
 
 import os
 import subprocess
-
-import build_common
 import tempfile
-from build_options import OPTIONS
-from util import launch_chrome_util
-from util import remote_executor_util
+
+from src.build import build_common
+from src.build.build_options import OPTIONS
+from src.build.util import launch_chrome_util
+from src.build.util import remote_executor_util
 
 _DEFAULT_STDOUT_PREFIX = 'Chrome-NaCl-stdout'
 _DEFAULT_STDERR_PREFIX = 'Chrome-NaCl-stdout'

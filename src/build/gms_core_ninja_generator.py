@@ -2,11 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import build_common
-import ninja_generator
 import os
-import toolchain
-from build_options import OPTIONS
+
+from src.build import build_common
+from src.build import ninja_generator
+from src.build import toolchain
+from src.build.build_options import OPTIONS
 
 
 class GmsCoreNinjaGenerator(ninja_generator.ApkNinjaGenerator):

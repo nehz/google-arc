@@ -12,10 +12,10 @@ import os
 import sys
 import urllib
 
-import build_common
-from util import logging_util
-from util import download_package_util
-from util import download_package_util_flags
+from src.build import build_common
+from src.build.util import logging_util
+from src.build.util import download_package_util
+from src.build.util import download_package_util_flags
 
 
 _DEPS_FILE_PATH = 'src/build/DEPS.naclsdk'

@@ -7,9 +7,9 @@ import re
 import subprocess
 import sys
 
-import build_common
-from build_options import OPTIONS
-from util import platform_util
+from src.build import build_common
+from src.build.build_options import OPTIONS
+from src.build.util import platform_util
 
 # Paths for various tools, libs, and sdks.
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))

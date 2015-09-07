@@ -4,11 +4,11 @@
 
 import os
 
-import build_common
-import make_to_ninja
-import ninja_generator
-import ninja_generator_runner
-from build_options import OPTIONS
+from src.build import build_common
+from src.build import make_to_ninja
+from src.build import ninja_generator
+from src.build import ninja_generator_runner
+from src.build.build_options import OPTIONS
 
 
 def generate_ninjas():

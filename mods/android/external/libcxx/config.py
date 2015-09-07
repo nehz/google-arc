@@ -2,9 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import make_to_ninja
-import open_source
-from build_options import OPTIONS
+from src.build import make_to_ninja
+from src.build import open_source
+from src.build.build_options import OPTIONS
 
 _LIBCXX_PATH = 'android/external/libcxx'
 

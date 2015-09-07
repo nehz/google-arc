@@ -4,11 +4,11 @@
 
 import os
 
-import make_to_ninja
-import ninja_generator
-import staging
-import toolchain
-from build_options import OPTIONS
+from src.build import make_to_ninja
+from src.build import ninja_generator
+from src.build import staging
+from src.build import toolchain
+from src.build.build_options import OPTIONS
 
 
 _ADS2GAS = staging.as_staging(

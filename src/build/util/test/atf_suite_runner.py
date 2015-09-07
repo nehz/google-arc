@@ -7,14 +7,14 @@
 import os
 import subprocess
 
-import launch_chrome_options
-import prep_launch_chrome
-from util import platform_util
-from util.test import atf_instrumentation_result_parser as result_parser
-from util.test import atf_instrumentation_scoreboard_updater as scoreboard_updater  # NOQA
-from util.test import scoreboard
-from util.test import suite_runner
-from util.test import suite_runner_util
+from src.build import launch_chrome_options
+from src.build import prep_launch_chrome
+from src.build.util import platform_util
+from src.build.util.test import atf_instrumentation_result_parser as result_parser  # NOQA
+from src.build.util.test import atf_instrumentation_scoreboard_updater as scoreboard_updater  # NOQA
+from src.build.util.test import scoreboard
+from src.build.util.test import suite_runner
+from src.build.util.test import suite_runner_util
 
 
 def _build_atf_launch_chrome_args(test_apk, target_apk, app_namespace, runner,

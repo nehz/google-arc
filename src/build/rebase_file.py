@@ -9,8 +9,8 @@
 import argparse
 import sys
 
-from util.rebase import constants
-from util.rebase import mod as rebase_mod
+from src.build.util.rebase import constants
+from src.build.util.rebase import mod as rebase_mod
 
 _EPILOG = r"""
 This script performs the following operations:

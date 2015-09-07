@@ -13,7 +13,7 @@ import unittest
 # ARC MOD BEGIN
 # Add import path of third_party/tools/depot_tools which allows us to import
 # testing support.
-import owners
+from src.build import owners
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),                                                                               

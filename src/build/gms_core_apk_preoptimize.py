@@ -13,10 +13,10 @@ import subprocess
 import sys
 import tempfile
 
-import build_common
-from build_options import OPTIONS
-import toolchain
-from util import file_util
+from src.build import build_common
+from src.build import toolchain
+from src.build.build_options import OPTIONS
+from src.build.util import file_util
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _ARC_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))

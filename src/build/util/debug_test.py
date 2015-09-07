@@ -6,7 +6,7 @@ import cStringIO
 import re
 import unittest
 
-from util import debug
+from src.build.util import debug
 
 
 # Functions for testing stack frame output.

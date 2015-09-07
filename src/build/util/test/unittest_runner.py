@@ -4,8 +4,8 @@
 
 """Implements a suite runner that runs unittests."""
 
-from util.test import flags
-from util.test import suite_runner
+from src.build.util.test import flags
+from src.build.util.test import suite_runner
 
 
 class UnittestRunner(suite_runner.SuiteRunnerBase):

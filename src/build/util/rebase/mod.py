@@ -7,10 +7,10 @@
 import logging
 import os
 
-import staging
-from util import git
-from util.rebase import constants
-from util.rebase import internal
+from src.build import staging
+from src.build.util import git
+from src.build.util.rebase import constants
+from src.build.util.rebase import internal
 
 
 class _ModState(object):

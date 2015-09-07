@@ -11,8 +11,8 @@ import os
 import re
 import sys
 
-import build_common
-from build_options import OPTIONS
+from src.build import build_common
+from src.build.build_options import OPTIONS
 
 
 class LogTag(object):

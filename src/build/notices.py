@@ -5,8 +5,8 @@
 import glob
 import os
 
-import build_common
-import staging
+from src.build import build_common
+from src.build import staging
 
 
 class Notices(object):

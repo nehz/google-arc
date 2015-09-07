@@ -6,14 +6,14 @@ import os
 import re
 import string
 
-import build_common
-import make_to_ninja
-import ninja_generator
-import ninja_generator_runner
-import open_source
-import staging
-import toolchain
-from build_options import OPTIONS
+from src.build import build_common
+from src.build import make_to_ninja
+from src.build import ninja_generator
+from src.build import ninja_generator_runner
+from src.build import open_source
+from src.build import staging
+from src.build import toolchain
+from src.build.build_options import OPTIONS
 
 
 _LOADER_TEXT_SECTION_START_ADDRESS = '0x20000'

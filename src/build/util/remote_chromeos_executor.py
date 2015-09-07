@@ -12,12 +12,12 @@ import subprocess
 import sys
 import traceback
 
-import build_common
-import toolchain
-from build_options import OPTIONS
-from util import launch_chrome_util
-from util import remote_executor_util
-from util.test import unittest_util
+from src.build import build_common
+from src.build import toolchain
+from src.build.build_options import OPTIONS
+from src.build.util import launch_chrome_util
+from src.build.util import remote_executor_util
+from src.build.util.test import unittest_util
 
 # The fake login name used when running Chrome remotely on a Chrome OS device.
 _FAKE_TEST_USER = 'arc_fake_test_user@gmail.com'

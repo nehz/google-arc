@@ -8,7 +8,7 @@ import io
 import os
 import unittest
 
-from util import nonblocking_io
+from src.build.util import nonblocking_io
 
 
 def _pipe():

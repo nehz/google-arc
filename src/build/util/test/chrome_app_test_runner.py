@@ -6,12 +6,12 @@ import os
 import subprocess
 import shutil
 
-import build_common
-import prep_launch_chrome
-from util.test import google_test_result_parser as result_parser
-from util.test import scoreboard
-from util.test import suite_runner
-from util.test import suite_runner_util
+from src.build import build_common
+from src.build import prep_launch_chrome
+from src.build.util.test import google_test_result_parser as result_parser
+from src.build.util.test import scoreboard
+from src.build.util.test import suite_runner
+from src.build.util.test import suite_runner_util
 
 
 class ChromeAppTestRunner(suite_runner.SuiteRunnerBase):

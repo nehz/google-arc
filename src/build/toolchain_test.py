@@ -6,7 +6,7 @@
 
 import unittest
 
-import toolchain
+from src.build import toolchain
 
 _PLAIN_CLANG_VERSION_STRING = (
     'clang version 3.7.0\nTarget: x86_64-pc-linux-gnu\nThread model: posix')

@@ -8,8 +8,8 @@ import subprocess
 import time
 import unittest
 
-from util import file_util
-from util import chrome_process
+from src.build.util import file_util
+from src.build.util import chrome_process
 
 
 # Note that flush()es are needed, because these may point to the same fd.

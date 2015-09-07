@@ -11,10 +11,10 @@ import select
 import subprocess
 import sys
 
-import toolchain
-from util import download_package_util
-from util import download_package_util_flags
-from util import nonblocking_io
+from src.build import toolchain
+from src.build.util import download_package_util
+from src.build.util import download_package_util_flags
+from src.build.util import nonblocking_io
 
 
 # TODO(lpique): This code really needs to use or otherwise be unified with

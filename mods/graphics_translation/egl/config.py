@@ -3,8 +3,8 @@
 # found in the LICENSE file.
 import os
 
-import ninja_generator
-from build_options import OPTIONS
+from src.build import ninja_generator
+from src.build.build_options import OPTIONS
 
 
 def generate_ninjas():

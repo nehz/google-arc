@@ -10,16 +10,16 @@ import marshal
 import os
 import re
 
-import build_common
-import config_loader
-import dependency_inspection
-import file_list_cache
-import make_to_ninja
-import ninja_generator
-import ninja_generator_runner
-import open_source
-from build_options import OPTIONS
-from util import file_util
+from src.build import build_common
+from src.build import config_loader
+from src.build import dependency_inspection
+from src.build import file_list_cache
+from src.build import make_to_ninja
+from src.build import ninja_generator
+from src.build import ninja_generator_runner
+from src.build import open_source
+from src.build.build_options import OPTIONS
+from src.build.util import file_util
 
 
 _CONFIG_CACHE_VERSION = 1

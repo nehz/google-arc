@@ -4,7 +4,7 @@
 
 import unittest
 
-from util.test import google_test_result_parser as result_parser
+from src.build.util.test import google_test_result_parser as result_parser
 
 
 class MockCallback(object):

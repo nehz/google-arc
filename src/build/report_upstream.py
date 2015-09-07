@@ -18,7 +18,7 @@ import tempfile
 import urlparse
 from xml.sax import saxutils
 
-import analyze_diffs
+from src.build import analyze_diffs
 
 
 _GERRIT_SERVERS = ('android-review.googlesource.com')

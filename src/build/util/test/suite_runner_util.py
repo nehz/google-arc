@@ -4,7 +4,7 @@
 
 """Provides utilities to for suite runner implementation."""
 
-from util.test import flags
+from src.build.util.test import flags
 
 
 class _GlobalExpectationMatcher(object):

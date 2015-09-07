@@ -6,7 +6,7 @@
 
 import unittest
 
-from util import git
+from src.build.util import git
 
 
 # Without creating a fake git tree only used for testing, it is difficult

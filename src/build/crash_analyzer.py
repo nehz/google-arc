@@ -19,9 +19,9 @@ import re
 import subprocess
 import sys
 
-import build_common
-import toolchain
-from build_options import OPTIONS
+from src.build import build_common
+from src.build import toolchain
+from src.build.build_options import OPTIONS
 
 
 class CrashAnalyzer(object):

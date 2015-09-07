@@ -13,8 +13,8 @@ import sys
 import logging
 import xml.etree.cElementTree
 
-from util import git
-from util.rebase import state
+from src.build.util import git
+from src.build.util.rebase import state
 
 _EPILOG = """
     To view help information specific to each command, use:

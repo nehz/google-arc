@@ -25,23 +25,23 @@ import os
 import subprocess
 import sys
 
-import build_common
-import dashboard_submit
-from build_options import OPTIONS
-from cts import expected_driver_times
-from util import color
-from util import concurrent
-from util import debug
-from util import file_util
-from util import logging_util
-from util import platform_util
-from util import remote_executor
-from util.test import scoreboard
-from util.test import scoreboard_constants
-from util.test import suite_results
-from util.test import suite_runner_config
-from util.test import test_driver
-from util.test import test_filter
+from src.build import build_common
+from src.build import dashboard_submit
+from src.build.build_options import OPTIONS
+from src.build.cts import expected_driver_times
+from src.build.util import color
+from src.build.util import concurrent
+from src.build.util import debug
+from src.build.util import file_util
+from src.build.util import logging_util
+from src.build.util import platform_util
+from src.build.util import remote_executor
+from src.build.util.test import scoreboard
+from src.build.util.test import scoreboard_constants
+from src.build.util.test import suite_results
+from src.build.util.test import suite_runner_config
+from src.build.util.test import test_driver
+from src.build.util.test import test_filter
 
 _BOT_TEST_SUITE_MAX_RETRY_COUNT = 5
 _DEFINITIONS_ROOT = 'src/integration_tests/definitions'
@@ -58,7 +58,39 @@ _REPORT_COLOR_FOR_SUITE_EXPECTATION = {
 
 def get_all_suite_runners(on_bot, use_gpu, remote_host_type):
   """Gets all the suites defined in the various config.py files."""
-  sys.path.insert(0, 'src')
+  # Work around.
+  # Unfortunately, it is impossible to update main repository and internal
+  # atomically, it is necessary to make internal work both for old sys.path
+  # (i.e., importing relative to src/build etc.) and new sys.path (importing
+  # relative to ARC's root). Now it is written as something like;
+  #
+  # try:
+  #   import build_common
+  # except ImportError:
+  #   from src.build import build_common
+  #
+  # Python interpreter inserts the directory where the initially launched
+  # script is to the sys.path at the beginning, even with new sys.path
+  # "import build_common" succeeds unexceptedly. Practically, the biggest
+  # problem happens in internal/integration_tests/definitions/... loading.
+  # So, here, we remove the src/build from sys.path during the definition
+  # loading.
+  # Note that reversing the import order does not work. In ./configure,
+  # config_loader loads src/build/config.py as src.build.config module. In the
+  # loading, src.build is created properly, so "from src.build import
+  # build_common" succeeds unexpectedly, even with old sys.path.
+  # Note: updating PYTHONPATH may break also other stuff in internal/
+  # temporarily, but these will be fixed very quickly.
+  # TODO(hidehiko): Remove this once internal/ is fixed properly.
+  try:
+    src_build_path = os.path.normpath(
+        os.path.join(build_common.get_arc_root(), 'src', 'build'))
+    src_build_index = sys.path.index(src_build_path)
+    del sys.path[src_build_index]
+  except ValueError:
+    # Not found.
+    src_build_index = -1
+
   result = suite_runner_config.load_from_suite_definitions(
       _DEFINITIONS_ROOT, _EXPECTATIONS_ROOT, on_bot, use_gpu, remote_host_type)
 
@@ -66,6 +98,10 @@ def get_all_suite_runners(on_bot, use_gpu, remote_host_type):
       'out/internal-apks-integration-tests/definitions',
       'out/internal-apks-integration-tests/expectations',
       on_bot, use_gpu, remote_host_type)
+
+  # Restore the src/build path if necessary.
+  if src_build_index >= 0:
+    sys.path.insert(src_build_index, src_build_path)
 
   # Check name duplication.
   counter = collections.Counter(runner.name for runner in result)

@@ -26,17 +26,17 @@ import re
 import subprocess
 import sys
 
-import dashboard_submit
-import ninja_generator
-import run_integration_tests
-from build_options import OPTIONS
-from util import concurrent_subprocess
-from util import launch_chrome_util
-from util import logging_util
-from util import remote_executor
-from util.test import art_test_runner
-from util.test import flags
-from util.test import suite_runner
+from src.build import dashboard_submit
+from src.build import ninja_generator
+from src.build import run_integration_tests
+from src.build.build_options import OPTIONS
+from src.build.util import concurrent_subprocess
+from src.build.util import launch_chrome_util
+from src.build.util import logging_util
+from src.build.util import remote_executor
+from src.build.util.test import art_test_runner
+from src.build.util.test import flags
+from src.build.util.test import suite_runner
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _ARC_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))

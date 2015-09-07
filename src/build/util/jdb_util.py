@@ -6,12 +6,12 @@
 
 import os
 import re
-import staging
 import subprocess
 import sys
 
-import eclipse_connector
-from util import concurrent_subprocess
+from src.build import eclipse_connector
+from src.build import staging
+from src.build.util import concurrent_subprocess
 
 # The list of Java source file root paths.
 # TODO(crbug.com/470798): Find proper paths.

@@ -11,9 +11,9 @@ import os
 import re
 import sys
 
-import analyze_diffs
-import staging
-from util import color
+from src.build import analyze_diffs
+from src.build import staging
+from src.build.util import color
 
 _DEFAULT_PATHS_TO_SCAN = ['src/', 'mods/', 'canned/scripts/can_android.py',
                           'canned/scripts']

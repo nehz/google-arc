@@ -4,9 +4,9 @@
 
 """Build a fake libandroid.so for open source repo."""
 
-import ninja_generator
-import open_source
-import staging
+from src.build import ninja_generator
+from src.build import open_source
+from src.build import staging
 
 
 def generate_ninjas():

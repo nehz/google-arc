@@ -10,8 +10,8 @@ import re
 import subprocess
 import sys
 
-import toolchain
-from build_options import OPTIONS
+from src.build import toolchain
+from src.build.build_options import OPTIONS
 
 
 class AnalyzeApk:

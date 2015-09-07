@@ -12,14 +12,14 @@ import subprocess
 import threading
 import traceback
 
-import build_common
-from util import concurrent_subprocess
-from util import file_util
-from util import launch_chrome_util
-from util.test import scoreboard
-from util.test import suite_runner_config
-from util.test import suite_runner_util
-from util.test import test_method_result
+from src.build import build_common
+from src.build.util import concurrent_subprocess
+from src.build.util import file_util
+from src.build.util import launch_chrome_util
+from src.build.util.test import scoreboard
+from src.build.util.test import suite_runner_config
+from src.build.util.test import suite_runner_util
+from src.build.util.test import test_method_result
 
 
 # Number of times to retry because of Chrome startup flake.

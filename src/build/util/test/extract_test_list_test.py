@@ -5,7 +5,7 @@
 import unittest
 from xml.etree import cElementTree
 
-from util.test import extract_test_list
+from src.build.util.test import extract_test_list
 
 
 class ExtractTestListTest(unittest.TestCase):

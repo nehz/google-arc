@@ -4,12 +4,12 @@
 
 import os
 
-import build_common
-import make_to_ninja
-import ninja_generator
-import ninja_generator_runner
-import open_source
-import staging
+from src.build import build_common
+from src.build import make_to_ninja
+from src.build import ninja_generator
+from src.build import ninja_generator_runner
+from src.build import open_source
+from src.build import staging
 
 # A map which provides a relative path for a directory that contains template
 # file to generate Java source files for each chromium component.

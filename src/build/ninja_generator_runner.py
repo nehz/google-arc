@@ -7,7 +7,7 @@ import multiprocessing
 import time
 import traceback
 
-from util import concurrent
+from src.build.util import concurrent
 
 
 # Represents an individual task to run on |ninja_generator_runner|.

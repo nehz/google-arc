@@ -14,12 +14,12 @@ import sys
 import threading
 import time
 
-import build_common
-import toolchain
-from build_options import OPTIONS
-from util import concurrent_subprocess
-from util import file_util
-from util import platform_util
+from src.build import build_common
+from src.build import toolchain
+from src.build.build_options import OPTIONS
+from src.build.util import concurrent_subprocess
+from src.build.util import file_util
+from src.build.util import platform_util
 
 
 # Note: DISPLAY may be overwritten in the main() of launch_chrome.py.

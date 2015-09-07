@@ -4,9 +4,9 @@
 
 """Build libutils.so."""
 
-import build_options
-import make_to_ninja
-import ninja_generator
+from src.build import build_options
+from src.build import make_to_ninja
+from src.build import ninja_generator
 
 
 def _generate_libutils_arc_tests_ninja():

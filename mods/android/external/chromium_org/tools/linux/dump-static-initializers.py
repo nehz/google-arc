@@ -35,8 +35,8 @@ import sys
 # Use NaCl version of objdump since /usr/bin/objdump does not recognize
 # all plt entries in the binary and using /usr/bin/objdump ends up with
 # a corrupted result. Note this script is only for -t=nx.
-import build_options
-import toolchain
+from src.build import build_options
+from src.build import toolchain
 
 build_options.OPTIONS.parse_configure_file()
 _BINUTILS_PREFIX = '%s/x86_64-nacl-' % toolchain.get_nacl_toolchain_path()

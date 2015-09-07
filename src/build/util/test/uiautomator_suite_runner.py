@@ -13,11 +13,11 @@ uiautomator shell command.
 import os
 import tempfile
 
-import prep_launch_chrome
-from util.test import atf_instrumentation_result_parser as result_parser
-from util.test import atf_instrumentation_scoreboard_updater as scoreboard_updater  # NOQA
-from util.test import suite_runner
-from util.test import system_mode
+from src.build import prep_launch_chrome
+from src.build.util.test import atf_instrumentation_result_parser as result_parser  # NOQA
+from src.build.util.test import atf_instrumentation_scoreboard_updater as scoreboard_updater  # NOQA
+from src.build.util.test import suite_runner
+from src.build.util.test import system_mode
 
 
 # uiautomator expects jar files to be in /data/local/tmp by default.

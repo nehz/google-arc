@@ -32,8 +32,8 @@ import os
 import sys
 import urllib2
 
-from util import concurrent
-from util import file_util
+from src.build.util import concurrent
+from src.build.util import file_util
 
 
 _BUILDBOT_URL = 'https://chromegw.corp.google.com/i/client.arc'

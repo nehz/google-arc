@@ -6,7 +6,7 @@
 
 import os
 
-import build_common
+from src.build import build_common
 
 os.chdir(build_common.get_arc_root())
 if not os.path.exists(build_common.OUT_DIR):

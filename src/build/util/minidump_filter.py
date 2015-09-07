@@ -9,7 +9,7 @@ import os
 import re
 import subprocess
 
-from util import concurrent_subprocess
+from src.build.util import concurrent_subprocess
 
 
 class MinidumpFilter(concurrent_subprocess.DelegateOutputHandlerBase):

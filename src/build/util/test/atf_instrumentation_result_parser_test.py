@@ -4,7 +4,7 @@
 
 import unittest
 
-from util.test import atf_instrumentation_result_parser as result_parser
+from src.build.util.test import atf_instrumentation_result_parser as result_parser  # NOQA
 
 
 class InstrumentationStatusMessageFilterTests(unittest.TestCase):

@@ -12,9 +12,9 @@ import shutil
 import subprocess
 import sys
 
-import build_common
-import toolchain
-from util import file_util
+from src.build import build_common
+from src.build import toolchain
+from src.build.util import file_util
 
 
 _ARC_ROOT = build_common.get_arc_root()

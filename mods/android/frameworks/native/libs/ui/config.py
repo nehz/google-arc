@@ -2,9 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import ninja_generator
-import open_source
-import staging
+from src.build import ninja_generator
+from src.build import open_source
+from src.build import staging
 
 
 def generate_ninjas():

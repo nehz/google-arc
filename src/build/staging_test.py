@@ -6,7 +6,7 @@
 
 import unittest
 
-import staging
+from src.build import staging
 
 
 class StagingTest(unittest.TestCase):

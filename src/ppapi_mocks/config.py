@@ -5,9 +5,9 @@
 import os
 import pipes
 
-import build_common
-import ninja_generator
-import staging
+from src.build import build_common
+from src.build import ninja_generator
+from src.build import staging
 
 _CONTAINER_DIR = 'ppapi_mocks'
 _MY_DIR = 'src/ppapi_mocks'
