@@ -632,7 +632,7 @@ def get_test_output_handler(use_crash_analyzer=False):
   if use_crash_analyzer:
     # Note that crash_analyzer outputs nothing if it cannot find a
     # crash message.
-    analyzer = ' python src/build/crash_analyzer.py $out.tmp;'
+    analyzer = ' src/build/run_python src/build/crash_analyzer.py $out.tmp;'
   return _TEST_OUTPUT_HANDLER % analyzer
 
 
