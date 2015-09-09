@@ -42,18 +42,21 @@ def _generate_image_generator_ninja():
       base_path='mods/graphics_translation/tests')
   _add_compile_flags(n)
   n.add_defines('HAVE_PTHREADS')
-  n.add_include_paths(staging.as_staging('googletest/include'),
-                      staging.as_staging('googletest'))
+  n.add_include_paths(
+      staging.as_staging('android/external/chromium_org/testing/gtest/include'),
+      staging.as_staging('android/external/chromium_org/testing/gtest/'))
   sources = build_common.find_all_files(
       ['mods/graphics_translation/tests'],
       suffixes='.cpp',
       include_tests=True,
       use_staging=False)
-  sources.extend(['mods/graphics_translation/gles/debug.cpp',
-                  'mods/graphics_translation/gles/texture_codecs.cpp',
-                  'src/common/vector.cc',
-                  'src/common/matrix.cc',
-                  staging.as_staging('googletest/src/gtest-all.cc')])
+  sources.extend(
+      ['mods/graphics_translation/gles/debug.cpp',
+       'mods/graphics_translation/gles/texture_codecs.cpp',
+       'src/common/vector.cc',
+       'src/common/matrix.cc',
+       staging.as_staging(
+           'android/external/chromium_org/testing/gtest/src/gtest-all.cc')])
   sources = [x for x in sources if x.find('apk') < 0]
   n.build_default(sources, base_path=None)
   variables = {'my_static_libs': '-lX11 -lGL'}

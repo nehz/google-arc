@@ -326,8 +326,8 @@ class SuiteRunnerBase(object):
       logger.flush()
       self._logger = None
 
-  def restart(self, test_methods_to_run, args):
-    self._scoreboard.restart()
+  def restart(self, num_retried_tests, args):
+    self._scoreboard.restart(num_retried_tests)
 
   def abort(self, test_methods_to_run, args):
     self._scoreboard.abort()

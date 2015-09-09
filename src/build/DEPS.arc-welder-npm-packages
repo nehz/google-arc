@@ -1,0 +1,11 @@
+{
+  "name": "ARCWelderBuildDeps",
+  "version": "0.0.0",
+  "description": "Packages used to build ARC Welder",
+  "main": "",
+  "dependencies": {
+    "vulcanize": "~0.7.10"
+  },
+  "devDependencies": {
+  }
+}

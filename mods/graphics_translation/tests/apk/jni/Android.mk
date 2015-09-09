@@ -44,10 +44,11 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/../ \
                     $(ARC_ROOT)/out/staging/android_libcommon \
                     $(ARC_ROOT)/out/staging/android/system/core/include \
                     $(ARC_ROOT)/out/staging/android/external/chromium_org \
-                    $(ARC_ROOT)/out/staging/android/frameworks/native/opengl/include
+                    $(ARC_ROOT)/out/staging/android/frameworks/native/opengl/include \
+                    $(ARC_ROOT)/out/staging/android/external/chromium_org/testing/gtest/include
 LOCAL_LDLIBS     := -llog -landroid -lGLESv1_CM -lGLESv2 -lEGL
 LOCAL_STATIC_LIBRARIES += gtest integration_tests_common
 include $(BUILD_SHARED_LIBRARY)
 
-include $(ARC_ROOT)/mods/googletest/Android.mk
+include $(ARC_ROOT)/out/staging/android/external/chromium_org/testing/gtest/Android.mk
 include $(ARC_ROOT)/src/integration_tests/common/Android.mk

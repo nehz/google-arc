@@ -1275,6 +1275,7 @@ class CNinjaGenerator(NinjaGenerator):
         # implementation is not included in STLport.
         ' -DGTEST_HAS_TR1_TUPLE=1' +
         ' -DGTEST_USE_OWN_TR1_TUPLE=1')
+
     return archcflags
 
   @staticmethod
@@ -1381,7 +1382,8 @@ class CNinjaGenerator(NinjaGenerator):
                ' -I' + staging.as_staging('android_libcommon') +
                ' -I' + staging.as_staging('android') +
                # Allow gtest/gtest_prod.h to be included by anything.
-               ' -I' + staging.as_staging('googletest/include'))
+               ' -I' + staging.as_staging(
+                   'android/external/chromium_org/testing/gtest/include'))
 
     return cflags
 
@@ -1448,7 +1450,8 @@ class CNinjaGenerator(NinjaGenerator):
                   ' -I' + staging.as_staging('android_libcommon') +
                   ' -I' + staging.as_staging('android') +
                   # Allow gtest/gtest_prod.h to be included by anything.
-                  ' -I' + staging.as_staging('googletest/include'))
+                  ' -I' + staging.as_staging(
+                      'android/external/chromium_org/testing/gtest/include'))
     return hostcflags
 
   @staticmethod
@@ -3715,9 +3718,11 @@ class ApkFromSdkNinjaGenerator(NinjaGenerator):
 
     if self._use_gtest:
       # Add dependency to googletest library.
-      gtest_dependencies = ['googletest/Android.mk']
+      gtest_dependencies = [
+          'android/external/chromium_org/testing/gtest/Android.mk']
       gtest_dependencies.extend(build_common.find_all_files(
-          base_paths=['googletest/include', 'googletest/src'],
+          base_paths=['android/external/chromium_org/testing/gtest/include',
+                      'android/external/chromium_org/testing/gtest/src'],
           include_tests=True))
 
       # Add src/integration_tests/common, which include an adapter code to

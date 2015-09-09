@@ -322,7 +322,7 @@ class ScoreboardTests(unittest.TestCase):
     self._check_scoreboard(sb, results)
 
     # Restart the tests.
-    sb.restart()
+    sb.restart(len(tests))
     sb.start(tests)
 
     # Pass the test the second time.
@@ -393,7 +393,7 @@ class ScoreboardTests(unittest.TestCase):
     self._check_scoreboard(sb, results)
 
     # Restart the tests.
-    sb.restart()
+    sb.restart(len(tests))
     sb.start(tests)
 
     # Pass the test the second time.
@@ -449,7 +449,7 @@ class ScoreboardTests(unittest.TestCase):
     self._check_scoreboard(sb, results)
 
     # Restart.
-    sb.restart()
+    sb.restart(2)
     results = {
         'total': 3,
         'restarts': 1,
@@ -482,7 +482,7 @@ class ScoreboardTests(unittest.TestCase):
 
     # After this restart, 'gamma' will have been incomplete twice, so
     # it should get added to the blacklist.
-    sb.restart()
+    sb.restart(1)
     results = {
         'total': 3,
         'restarts': 2,

@@ -154,7 +154,7 @@ class TestDriver(object):
           if self._suite_runner.terminated:
             break
           if current_count < tests_remaining_history.pop(0):
-            self._suite_runner.restart(self._tests_to_run, args)
+            self._suite_runner.restart(len(self._tests_to_run), args)
           else:
             self._suite_runner.abort(self._tests_to_run, args)
             break

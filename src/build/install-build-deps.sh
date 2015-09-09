@@ -99,5 +99,3 @@ FORCE=
 fi
 sudo apt-get install --no-install-recommends $FORCE \
   ${arc_list} ${chrome32_list} ${nacl_list}
-
-sudo npm install -g vulcanize@0.7.10

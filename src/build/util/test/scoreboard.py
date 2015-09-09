@@ -124,7 +124,7 @@ class Scoreboard:
       assert name in self._expectations
       self._results[name] = scoreboard_constants.INCOMPLETE
 
-  def restart(self):
+  def restart(self, num_retried_tests):
     """
     Notifies the scoreboard that the tests are going to be restarted.
 
@@ -139,7 +139,7 @@ class Scoreboard:
         else:
           self._did_not_complete_once.add(name)
     self._restart_count += 1
-    suite_results.report_restart(self)
+    suite_results.report_restart(self, num_retried_tests)
 
   def abort(self):
     """Notifies the scoreboard that test runs are being ended prematurely."""

@@ -28,13 +28,14 @@ _ANDROID_SYSTEM_IMAGE_DIR = ('ndk/platforms/android-%d' %
 
 def _generate_gtest_ninja(name, instances=0, enable_libcxx=False, host=False):
   n = ninja_generator.ArchiveNinjaGenerator(
-      name, base_path='googletest/src',
+      name, base_path='android/external/chromium_org/testing/gtest/src',
       instances=instances,
       force_compiler='clang',
       enable_cxx11=True,
       enable_libcxx=enable_libcxx,
       host=host)
-  n.add_include_paths(staging.as_staging('googletest'))
+  n.add_include_paths(staging.as_staging(
+      'android/external/chromium_org/testing/gtest'))
   # To avoid "private field 'pretty_' is not used" on clang.
   n.add_compiler_flags('-Wno-unused-private-field')
   n.build_default(['gtest-all.cc']).archive()

@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 from src.build.util import download_package_util
+from src.build.util import npm_package_sync
 
 
 def check_and_perform_updates(cache_base_path, cache_history_size):
@@ -18,4 +19,9 @@ def check_and_perform_updates(cache_base_path, cache_history_size):
       'out/polymer-elements',
       cache_base_path=cache_base_path,
       cache_history_size=cache_history_size
+  ).check_and_perform_update()
+
+  npm_package_sync.NpmPackageSync(
+      'src/build/DEPS.arc-welder-npm-packages',
+      'out/arc-welder-npm-packages'
   ).check_and_perform_update()

@@ -25,12 +25,20 @@ import subprocess
 import sys
 
 from src.build.build_options import OPTIONS
+from src.build.util.test import scoreboard_constants
+from src.build.util.test import suite_results
 
 
 _BOTLOGS_DIR = 'botlogs'
+_SECTION_PATTERN = r'######## %s \(\d+\) ########'
 _UNEXPECTED_FAILURES_RE = re.compile(
-    r'######## Unexpected Failures \(\d+\) ########')
-_INCOMPLETE_RE = re.compile(r'######## Incomplete \(\d+\) ########')
+    _SECTION_PATTERN % (
+        suite_results.VERBOSE_STATUS_TEXT[
+            scoreboard_constants.UNEXPECT_FAIL]))
+_INCOMPLETE_RE = re.compile(
+    _SECTION_PATTERN % (
+        suite_results.VERBOSE_STATUS_TEXT[
+            scoreboard_constants.INCOMPLETE]))
 _EXPECTATIONS_RE = re.compile(r'\[(RUN|SKIP)\s+([A-Z_,]+)\s*\] (.*)')
 
 
