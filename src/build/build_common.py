@@ -957,3 +957,31 @@ def download_content(url):
     with contextlib.closing(urllib2.urlopen(url)) as stream:
       return stream.read()
   return internal()
+
+
+def remove_arc_pythonpath(env):
+  """Remove ARC related PYTHONPATH from the given environment.
+
+  Takes a dict representing an environ, and returns a new dict with updated
+  PYTHONPATH excluding ARC paths.
+
+  Args:
+      env: a dict of the environment. A shallow copy is always created
+          internally so the passed instance will not be affected.
+
+  Returns:
+      a new dict whose PYTHONPATH is updated.
+  """
+  env = env.copy()
+  pythonpath = env.get('PYTHONPATH')
+  if pythonpath is not None:
+    def _is_arc_path(path):
+      path = os.path.abspath(path)
+      return path == _ARC_ROOT or path.startswith(_ARC_ROOT + '/')
+
+    # At the moment, a path containing a path separator (e.g. ':') is not
+    # supported.
+    env['PYTHONPATH'] = os.pathsep.join(
+        path for path in pythonpath.split(os.pathsep)
+        if not _is_arc_path(path))
+  return env

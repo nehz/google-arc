@@ -10,10 +10,10 @@ import os
 import subprocess
 import sys
 
+from src.build import build_common
 from src.build import open_source
 from src.build import prepare_open_source_commit
 from src.build.util import git
-
 
 _OPEN_SOURCE_URL = 'https://chromium.googlesource.com/arc/arc'
 
@@ -59,8 +59,17 @@ def _check_out_matching_branch(dest, branch):
 def _test_changes(dest):
   logging.info('Testing changes in open source tree')
   configure_options_file = 'out/configure.options'
+
+  # This script should run under src/build/run_python, so PYTHONPATH should
+  # contain the paths to ARC repository. To avoid importing modules from
+  # the ARC repository (rather than the created testee open-source repository)
+  # accidentally, here remove ARC related paths from the PYTHONPATH.
+  # Note that the PYTHONPATH for open source repo is set in
+  # {dest}/src/build/run_python executed in the ./configure below.
+  env = build_common.remove_arc_pythonpath(os.environ)
   with open(configure_options_file) as f:
-    subprocess.check_call(['./configure'] + f.read().split(), cwd=dest)
+    configure_args = f.read().split()
+  subprocess.check_call(['./configure'] + configure_args, cwd=dest, env=env)
   subprocess.check_call(['ninja', 'all', '-j50'], cwd=dest)
 
 

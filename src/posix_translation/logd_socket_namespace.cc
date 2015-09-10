@@ -11,9 +11,15 @@ namespace posix_translation {
 namespace {
 
 bool IsNameAccepted(const std::string& name) {
+  // Note, we have to support original logd names and names used in
+  // posix_translation integration test because logd tests in posix_translation
+  // will fail when trying to use original names.
   return (name == "/dev/socket/logd" ||
           name == "/dev/socket/logdr" ||
-          name == "/dev/socket/logdw");
+          name == "/dev/socket/logdw" ||
+          name == "/dev/socket/testlogd" ||
+          name == "/dev/socket/testlogdr" ||
+          name == "/dev/socket/testlogdw");
 }
 
 }  // namespace

@@ -8,9 +8,30 @@
 
 #include <string>
 
+#include "log/log.h"
+#include "log/log_read.h"
+
 namespace arc {
 
 typedef void (*LogWriter)(const void* buf, size_t count);
+
+// Defines callback to dispatch log events to logd.
+class LogCallback {
+ public:
+  // Similar to LogBuffer::log from logd.
+  virtual void OnLogEvent(log_id_t log_id, log_time realtime,
+                          uid_t uid, pid_t pid, pid_t tid,
+                          const char* msg, uint16_t len) = 0;
+};
+
+// Initializes log system, hook log writing function.
+void InitLog();
+
+// Starts logd device.
+void StartLogd();
+
+// Notification from logd indicates that logd is ready to process log events.
+void NotifyLogHandlerReady(LogCallback* callback);
 
 // Sets a function which WriteLog() uses in order to write log messages.
 void SetLogWriter(LogWriter writer);
