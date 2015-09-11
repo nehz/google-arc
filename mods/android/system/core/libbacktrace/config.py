@@ -17,6 +17,7 @@ def generate_ninjas():
       return False
     vars.enable_clang()
     vars.enable_cxx11()
+    vars.get_shared_deps().append('liblog')
     return True
   make_to_ninja.MakefileNinjaTranslator(
       'android/system/core/libbacktrace').generate(_filter)

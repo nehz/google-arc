@@ -61,6 +61,9 @@ typedef pthread_mutex_t* MutexHandle;
 #if defined(OS_POSIX)
 #include "base/safe_strerror_posix.h"
 #endif
+/* ARC MOD BEGIN logging_cycle_dependence */
+#include "common/alog.h"
+/* ARC MOD END */
 
 #if defined(OS_ANDROID)
 #include <android/log.h>
@@ -581,9 +584,14 @@ LogMessage::~LogMessage() {
         priority = ANDROID_LOG_FATAL;
         break;
     }
+/* ARC MOD BEGIN logging_cycle_dependence */
+#if defined(HAVE_ARC)
+    arc::PrintLogBuf(ARC_LOG_ID_MAIN, priority, "chromium", "%s",
+                     str_newline.c_str());
+#else
     __android_log_write(priority, "chromium", str_newline.c_str());
 #endif
-    // ARC MOD BEGIN
+#endif
     // Remove the redundant fwrite. Since we always use OS_ANDROID, and on
     // ARC, the __android_log_write call above writes the log to stderr, the
     // fwrite/fflush calls below are completely unnecessary. Writing logs
@@ -593,7 +601,7 @@ LogMessage::~LogMessage() {
     // fwrite.
     // ignore_result(fwrite(str_newline.data(), str_newline.size(), 1, stderr));
     // fflush(stderr);
-    // ARC MOD END
+/* ARC MOD END */
   } else if (severity_ >= kAlwaysPrintErrorLevel) {
     // When we're only outputting to a log file, above a certain log level, we
     // should still output to stderr so that we can better detect and diagnose
