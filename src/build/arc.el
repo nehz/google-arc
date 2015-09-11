@@ -6,11 +6,15 @@
 
 (defun arc--topdir ()
   "Obtain the top directory of arc checkout."
-  (locate-dominating-file default-directory "launch_chrome"))
+  (expand-file-name (locate-dominating-file default-directory "launch_chrome")))
 
-(defun arc--get-third-party (filename)
+(defun arc--replace-in-string (from to string)
+  (replace-regexp-in-string (regexp-quote from) to string nil 'literal))
+
+(defun arc--get-third-party ()
   "Get third_party version if possible, or return original if failing that."
-  (let* ((arc-mod-track
+  (let* ((topdir (arc--topdir))
+         (arc-mod-track
           ;; Try to find the ARC MOD TRACK pattern.
           (save-excursion
             (beginning-of-buffer)
@@ -20,19 +24,24 @@
          (third-party (or arc-mod-track
                           ;; If ARC MOD TRACK didn't exist, just
                           ;; replace path.
-                          (replace-regexp-in-string
-                           "/mods/" "/third_party//" buffer-file-name))))
+                          (arc--replace-in-string
+                           (concat topdir "mods/")
+                           (concat topdir "third_party/")
+                           buffer-file-name))))
     third-party))
 
 (defun arc--get-mods (filename)
   "Get mods version if possible, or return original if failing that."
-  (replace-regexp-in-string
-   "/third_party/" "/mods/" filename))
+  (let ((topdir (arc--topdir)))
+    (arc--replace-in-string
+     (concat topdir "third_party/")
+     (concat topdir "mods/")
+     filename)))
 
 (defun arc-third-party ()
   "Go to third-party version."
   (interactive)
-  (find-file (arc--get-third-party buffer-file-name)))
+  (find-file (arc--get-third-party)))
 
 (defun arc-mods ()
   "Go to mods version."
@@ -42,7 +51,7 @@
 (defun arc-ediff ()
   "Run ediff between third_party/ and mods/."
   (interactive)
-  (let* ((third-party (arc--get-third-party buffer-file-name)))
+  (let* ((third-party (arc--get-third-party)))
     (ediff third-party
            (arc--get-mods buffer-file-name))))
 

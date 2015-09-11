@@ -356,6 +356,7 @@ def run_remote_unittest(parsed_args):
     verbose = ['--verbose'] if parsed_args.verbose else []
     command = ' '.join(
         [executor.get_remote_env(), 'python',
+         'src/build/run_python',
          remote_executor_util.RUN_UNITTEST] + verbose +
         parsed_args.tests)
     executor.run(command)

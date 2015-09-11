@@ -1243,7 +1243,9 @@ def _generate_bionic_tests():
                            'pthread_thread_stack.pthread_create_join',
                            'pthread_thread_stack.pthread_detach',
                            'string.strerror_concurrent',
-                           'string.strsignal_concurrent']
+                           'string.strsignal_concurrent',
+                           # Seems to crash under qemu but pass on real device.
+                           'SetjmpTest.ArmVfpRegisters']
     n.add_qemu_disabled_tests(*qemu_disabled_tests)
   disabled_tests = [
       # ARC does not support fork(), clone(), nor popen().
