@@ -11,11 +11,6 @@ def generate_ninjas():
       # Only build liblog
       return False
 
-    if vars.is_target() and vars.is_static():
-      # We have an ARC version logd_write.c in src/common
-      src = vars.get_sources()
-      src.remove('android/system/core/liblog/logd_write.c')
-
     # We cannot build both static and shared versions of a library with the
     # same name, so add the '_static' suffix to the static library.
     if vars.is_static():

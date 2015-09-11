@@ -1387,6 +1387,8 @@ class CNinjaGenerator(NinjaGenerator):
     cflags += (' -I' + staging.as_staging('src') +
                ' -I' + staging.as_staging('android_libcommon') +
                ' -I' + staging.as_staging('android') +
+               # Make <android/log.h> from alog.h visible.
+               ' -I' + staging.as_staging('android/system/core/include') +
                # Allow gtest/gtest_prod.h to be included by anything.
                ' -I' + staging.as_staging('googletest/include'))
 
@@ -2020,6 +2022,7 @@ class ArchiveNinjaGenerator(CNinjaGenerator):
         'libcompiler_rt',
         'libcutils',
         'libcutils_static',
+        'liblog_static',
         'libppapi_mocks',
         'libutils_static',
         'libz',
@@ -2481,6 +2484,7 @@ class TestNinjaGenerator(ExecNinjaGenerator):
         self.add_library_deps('libchromium_base.a',
                               'libcommon.a',
                               'libpluginhandle.a')
+      self.add_library_deps('liblog_static.a')
       if use_default_main:
         # Since there are no use cases, we do not build libc++ version of
         # libcommon_test_main.a.

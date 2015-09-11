@@ -69,10 +69,6 @@
   "mods/android/external/chromium_org/third_party/webrtc/modules/audio_processing/aecm/aecm_core_neon_offsets.h": ["copyright"],
   "mods/android/external/chromium_org/third_party/webrtc/modules/audio_processing/ns/nsx_core_neon_offsets.h": ["copyright"],
 
-  # TODO(crbug.com/430209): L-rebase: Rebase these files.
-  "mods/android_libcommon/common/alog.h": ["analyze_diffs"],
-  "mods/android_libcommon/common/logger.h": ["analyze_diffs"],
-
   # These two files confuse analyze_diffs.
   "mods/android/external/chromium_org/third_party/WebKit/Source/platform/heap/asm/SaveRegisters_x86_64.S": ["analyze_diffs"],
   "mods/android/external/chromium_org/third_party/WebKit/Source/platform/heap/asm/SaveRegisters_x86.S": ["analyze_diffs"],

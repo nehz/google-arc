@@ -1,6 +1,6 @@
 /* ARC MOD TRACK "third_party/android/system/core/include/log/log.h" */
 /*
- * Copyright (C) 2005 The Android Open Source Project
+ * Copyright (C) 2005-2014 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,14 @@
 //
 // C/C++ logging functions.  See the logging documentation for API details.
 //
+// We'd like these to be available from C code (in case we import some from
+// somewhere), so this has a C interface.
+//
+// The output will be correct when the log file is shared between multiple
+// threads and/or multiple processes so long as the operating system
+// supports O_APPEND.  These calls have mutex-protected data structures
+// and so are NOT reentrant.  Do not use LOG in a signal handler.
+//
 /* ARC MOD BEGIN */
 /* Use the same defines as the Android headers to give theirs
  * precedence if both files are used.
@@ -31,8 +39,10 @@
 
 extern "C" {
 
-// TODO(kmixter): Just include android/log.h here and use the ANDROID
-// values instead.
+// TODO(khmel): Ideally include android/log.h here and use the ANDROID
+// values instead. But recent private/libc_logging.h also defines ANDROID
+// values. This causes compilation problems for some files which include both
+// alog.h and libc_logging.h.
 // These must match android/log.h values.
 typedef enum arc_LogPriority {
   ARC_LOG_UNKNOWN = 0,
@@ -98,6 +108,7 @@ typedef enum {
   ARC_LOG_ID_RADIO = 1,
   ARC_LOG_ID_EVENTS = 2,
   ARC_LOG_ID_SYSTEM = 3,
+  ARC_LOG_ID_CRASH = 4,
 
   ARC_LOG_ID_MAX
 } arc_log_id_t;
@@ -168,10 +179,11 @@ inline void ignore_result(const T&) {}
  * Simplified macro to send a verbose log message using the current LOG_TAG.
  */
 #ifndef ALOGV
+#define __ALOGV(...) ((void)ALOG(LOG_VERBOSE, LOG_TAG, __VA_ARGS__))
 #if LOG_NDEBUG
-#define ALOGV(...)   ((void)0)
+#define ALOGV(...) do { if (0) { __ALOGV(__VA_ARGS__); } } while (0)
 #else
-#define ALOGV(...) ((void)ALOG(LOG_VERBOSE, LOG_TAG, __VA_ARGS__))
+#define ALOGV(...) __ALOGV(__VA_ARGS__)
 #endif
 #endif
 
@@ -304,7 +316,7 @@ inline void ignore_result(const T&) {}
 #if LOG_NDEBUG
 #define SLOGV(...)   ((void)0)
 #else
-#define SLOGV(...) ((void)SLOG(ARC_LOG_ID_SYSTEM, ARC_LOG_VERBOSE, LOG_TAG, __VA_ARGS__))
+#define SLOGV(...) ((void)SLOG(ARC_LOG_ID_SYSTEM, ANDROID_LOG_VERBOSE, LOG_TAG, __VA_ARGS__))
 #endif
 #endif
 
@@ -316,7 +328,7 @@ inline void ignore_result(const T&) {}
 #else
 #define SLOGV_IF(cond, ...) \
     ( (CONDITION(cond)) \
-    ? ((void)SLOG(ARC_LOG_ID_SYSTEM, ARC_LOG_VERBOSE, LOG_TAG, __VA_ARGS__)) \
+    ? ((void)SLOG(ARC_LOG_ID_SYSTEM, ANDROID_LOG_VERBOSE, LOG_TAG, __VA_ARGS__)) \
     : (void)0 )
 #endif
 #endif
@@ -325,13 +337,13 @@ inline void ignore_result(const T&) {}
  * Simplified macro to send a debug system log message using the current LOG_TAG.
  */
 #ifndef SLOGD
-#define SLOGD(...) ((void)SLOG(ARC_LOG_ID_SYSTEM, ARC_LOG_DEBUG, LOG_TAG, __VA_ARGS__))
+#define SLOGD(...) ((void)SLOG(ANDROID_LOG_ID_SYSTEM, ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__))
 #endif
 
 #ifndef SLOGD_IF
 #define SLOGD_IF(cond, ...) \
     ( (CONDITION(cond)) \
-    ? ((void)SLOG(ARC_LOG_ID_SYSTEM, ARC_LOG_DEBUG, LOG_TAG, __VA_ARGS__)) \
+    ? ((void)SLOG(ARC_LOG_ID_SYSTEM, ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)) \
     : (void)0 )
 #endif
 
@@ -339,13 +351,13 @@ inline void ignore_result(const T&) {}
  * Simplified macro to send an info system log message using the current LOG_TAG.
  */
 #ifndef SLOGI
-#define SLOGI(...) ((void)SLOG(ARC_LOG_ID_SYSTEM, ARC_LOG_INFO, LOG_TAG, __VA_ARGS__))
+#define SLOGI(...) ((void)SLOG(ARC_LOG_ID_SYSTEM, ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__))
 #endif
 
 #ifndef SLOGI_IF
 #define SLOGI_IF(cond, ...) \
     ( (CONDITION(cond)) \
-    ? ((void)SLOG(ARC_LOG_ID_SYSTEM, ARC_LOG_INFO, LOG_TAG, __VA_ARGS__)) \
+    ? ((void)SLOG(ARC_LOG_ID_SYSTEM, ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)) \
     : (void)0 )
 #endif
 
@@ -353,13 +365,13 @@ inline void ignore_result(const T&) {}
  * Simplified macro to send a warning system log message using the current LOG_TAG.
  */
 #ifndef SLOGW
-#define SLOGW(...) ((void)SLOG(ARC_LOG_ID_SYSTEM, ARC_LOG_WARN, LOG_TAG, __VA_ARGS__))
+#define SLOGW(...) ((void)SLOG(ARC_LOG_ID_SYSTEM, ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__))
 #endif
 
 #ifndef SLOGW_IF
 #define SLOGW_IF(cond, ...) \
     ( (CONDITION(cond)) \
-    ? ((void)SLOG(ARC_LOG_ID_SYSTEM, ARC_LOG_WARN, LOG_TAG, __VA_ARGS__)) \
+    ? ((void)SLOG(ARC_LOG_ID_SYSTEM, ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)) \
     : (void)0 )
 #endif
 
@@ -367,13 +379,13 @@ inline void ignore_result(const T&) {}
  * Simplified macro to send an error system log message using the current LOG_TAG.
  */
 #ifndef SLOGE
-#define SLOGE(...) ((void)SLOG(ARC_LOG_ID_SYSTEM, ARC_LOG_ERROR, LOG_TAG, __VA_ARGS__))
+#define SLOGE(...) ((void)SLOG(ARC_LOG_ID_SYSTEM, ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__))
 #endif
 
 #ifndef SLOGE_IF
 #define SLOGE_IF(cond, ...) \
     ( (CONDITION(cond)) \
-    ? ((void)SLOG(ARC_LOG_ID_SYSTEM, ARC_LOG_ERROR, LOG_TAG, __VA_ARGS__)) \
+    ? ((void)SLOG(ARC_LOG_ID_SYSTEM, ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)) \
     : (void)0 )
 #endif
 /* ARC MOD END FORK */

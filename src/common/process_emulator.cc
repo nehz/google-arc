@@ -516,9 +516,11 @@ static void* ThreadStartWrapper(void* arg) {
   ++estimated_threads;
   ARC_STRACE_REPORT("Approximately %d threads (new thread) func=%p arg=%p",
                     estimated_threads, original_start_routine, original_arg);
-  ALOGI("Approximately %d threads (new thread)", estimated_threads);
+  // Use verbose logging here because cts pthread_detach__leak is too sensitive
+  // and detects new log entries at logd as memory leak.
+  ALOGV("Approximately %d threads (new thread)", estimated_threads);
   void* result = original_start_routine(original_arg);
-  ALOGI("Approximately %d threads (thread done)", estimated_threads);
+  ALOGV("Approximately %d threads (thread done)", estimated_threads);
   ARC_STRACE_REPORT("Approximately %d threads (thread done) result=%p",
                     estimated_threads, result);
   --estimated_threads;
@@ -584,6 +586,5 @@ void ProcessEmulator::AddProcessForTest(pid_t pid, uid_t uid,
 void ProcessEmulator::SetFallbackUidForTest(uid_t uid) {
   s_fallback_uid = uid;
 }
-
 
 }  // namespace arc

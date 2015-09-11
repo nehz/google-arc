@@ -24,7 +24,7 @@ LocalSocket::LocalSocket(int oflag, int socket_type,
                          StreamDir stream_dir)
     : SocketStream(AF_UNIX, oflag), socket_type_(socket_type),
       connect_state_(SOCKET_NEW), stream_dir_(stream_dir),
-      connection_backlog_(0) {
+      connection_backlog_(0), pass_cred_(0) {
   if (socket_type == SOCK_STREAM && stream_dir != WRITE_ONLY)
     buffer_.set_capacity(kBufferSize);
   my_cred_.pid = arc::ProcessEmulator::GetPid();
@@ -52,9 +52,15 @@ void LocalSocket::OnLastFileRef() {
     // means the connection has been closed.
     VirtualFileSystem::GetVirtualFileSystem()->Broadcast();
   }
+
   if (!abstract_name_.empty()) {
     VirtualFileSystem::GetVirtualFileSystem()->
         GetAbstractSocketNamespace()->Bind(abstract_name_, NULL);
+  }
+
+  if (!logd_name_.empty()) {
+    VirtualFileSystem::GetVirtualFileSystem()->
+        GetLogdSocketNamespace()->Bind(logd_name_, NULL);
   }
 }
 
@@ -98,10 +104,13 @@ ssize_t LocalSocket::recvfrom(void* buf, size_t len, int flags, sockaddr* addr,
   return this->recvmsg(&msg, 0);
 }
 
-bool LocalSocket::ConvertSockaddrToAbstractName(const sockaddr* addr,
-                                                socklen_t addrlen,
-                                                std::string* out_name) {
-  const sockaddr_un* saddr_un = reinterpret_cast<const sockaddr_un*>(addr);
+bool LocalSocket::ValidateSockaddr(const sockaddr* addr, socklen_t addrlen) {
+  if (addr->sa_family != AF_UNIX) {
+    // Observed the error EINVAL when AF_UNIX is given to socket and
+    // AF_UNIX is given to connect or bind.
+    errno = EINVAL;
+    return false;
+  }
   const socklen_t kSunPathOffset =
       static_cast<socklen_t>(offsetof(struct sockaddr_un, sun_path));
   if (addrlen < kSunPathOffset + 1) {
@@ -111,11 +120,33 @@ bool LocalSocket::ConvertSockaddrToAbstractName(const sockaddr* addr,
     errno = EINVAL;
     return false;
   }
-  if (saddr_un->sun_path[0] != '\0') {
-    // We do not support sockets to VFS paths yet, sorry.
-    errno = ENOSYS;
+  return true;
+}
+
+bool LocalSocket::ConvertSockaddrToName(const sockaddr* addr,
+                                        socklen_t addrlen,
+                                        std::string* out_name) {
+  const sockaddr_un* saddr_un = reinterpret_cast<const sockaddr_un*>(addr);
+  const socklen_t kSunPathOffset =
+      static_cast<socklen_t>(offsetof(struct sockaddr_un, sun_path));
+  if (saddr_un->sun_path[0] == '\0')
     return false;
-  }
+
+  socklen_t sun_path_length = addrlen - kSunPathOffset;
+  const char* str = saddr_un->sun_path;
+  out_name->assign(str, strnlen(str, sun_path_length));
+  return true;
+}
+
+bool LocalSocket::ConvertSockaddrToAbstractName(const sockaddr* addr,
+                                                socklen_t addrlen,
+                                                std::string* out_name) {
+  const sockaddr_un* saddr_un = reinterpret_cast<const sockaddr_un*>(addr);
+  const socklen_t kSunPathOffset =
+      static_cast<socklen_t>(offsetof(struct sockaddr_un, sun_path));
+  if (saddr_un->sun_path[0] != '\0')
+    return false;
+
   socklen_t sun_path_length = addrlen - kSunPathOffset;
   out_name->assign(saddr_un->sun_path + 1, sun_path_length - 1);
   return true;
@@ -128,29 +159,38 @@ int LocalSocket::bind(const sockaddr* addr, socklen_t addrlen) {
   // also do not catch this case in recv/send/recvfrom/sendto/recvmsg/sendmsg,
   // all of which require a socket.
   // TODO(crbug.com/447833): Split out pipes.
-  if (addr->sa_family != AF_UNIX) {
-    // Observed the error EINVAL when AF_UNIX is given to socket and
-    // AF_UNIX is given to bind.
-    errno = EINVAL;
+  if (!ValidateSockaddr(addr, addrlen))
     return -1;
-  }
-  if (!abstract_name_.empty()) {
+  if (!abstract_name_.empty() || !logd_name_.empty()) {
     // Trying to bind a second name to a single socket fails.
     errno = EINVAL;
     return -1;
   }
-  std::string abstract_name;
-  if (!ConvertSockaddrToAbstractName(addr, addrlen, &abstract_name))
-    return -1;
-  int result = VirtualFileSystem::GetVirtualFileSystem()->
-      GetAbstractSocketNamespace()->Bind(abstract_name, this);
-  if (result == 0)
-    abstract_name_ = abstract_name;
-  return result;
+  std::string name;
+  if (ConvertSockaddrToName(addr, addrlen, &name)) {
+    int result = VirtualFileSystem::GetVirtualFileSystem()->
+        GetLogdSocketNamespace()->Bind(name, this);
+    if (result == 0)
+      logd_name_ = name;
+    return result;
+  }
+  if (ConvertSockaddrToAbstractName(addr, addrlen, &name)) {
+    int result = VirtualFileSystem::GetVirtualFileSystem()->
+        GetAbstractSocketNamespace()->Bind(name, this);
+    if (result == 0)
+      abstract_name_ = name;
+    return result;
+  }
+  errno = ENOSYS;
+  return -1;
 }
 
 int LocalSocket::listen(int backlog) {
-  if (abstract_name_.empty()) {
+  if (socket_type_ == SOCK_DGRAM) {
+    errno = EOPNOTSUPP;
+    return -1;
+  }
+  if (abstract_name_.empty() && logd_name_.empty()) {
     // Observed the error EINVAL when listen is called on an unbound
     // socket.
     errno = EINVAL;
@@ -162,41 +202,77 @@ int LocalSocket::listen(int backlog) {
 }
 
 int LocalSocket::getsockopt(int level, int optname, void* optval,
-                             socklen_t* optlen) {
+                            socklen_t* optlen) {
   if (level == SOL_SOCKET && optname == SO_PEERCRED) {
+    int error = internal::VerifyGetSocketOption(optval, optlen);
+    if (error) {
+      errno = error;
+      return -1;
+    }
     *optlen = std::min(*optlen, socklen_t(sizeof(peer_cred_)));
     memcpy(optval, &peer_cred_, *optlen);
+    return 0;
+  }
+  if (level == SOL_SOCKET && optname == SO_PASSCRED) {
+    int error = internal::VerifyGetSocketOption(optval, optlen);
+    if (error) {
+      errno = error;
+      return -1;
+    }
+    *optlen = std::min(*optlen, socklen_t(sizeof(pass_cred_)));
+    memcpy(optval, &pass_cred_, *optlen);
     return 0;
   }
   return SocketStream::getsockopt(level, optname, optval, optlen);
 }
 
-bool LocalSocket::HandleConnectLocked(LocalSocket* connecting) {
-  if (connect_state_ != SOCKET_LISTENING) {
-    ALOGW("LocalSocket::connect failed - receiving socket not listening");
-    return false;
+int LocalSocket::setsockopt(int level, int optname, const void* optval,
+                            socklen_t optlen) {
+  if (level == SOL_SOCKET && optname == SO_PASSCRED) {
+    int error =
+        internal::VerifySetSocketOption(optval, optlen, sizeof(pass_cred_));
+    if (error) {
+      errno = error;
+      return -1;
+    }
+    memcpy(&pass_cred_, optval, sizeof(pass_cred_));
+    return 0;
   }
-  if (connection_backlog_ == connection_queue_.size()) {
-    ALOGW("LocalSocket::connect failed - queue for %s full",
-          abstract_name_.c_str());
-    return false;
+  return SocketStream::setsockopt(level, optname, optval, optlen);
+}
+
+bool LocalSocket::HandleConnectLocked(LocalSocket* bound_socket) {
+  if (socket_type_ == SOCK_STREAM || socket_type_ == SOCK_SEQPACKET) {
+    if (connect_state_ != SOCKET_LISTENING) {
+      ALOGW("LocalSocket::connect failed - receiving socket not listening");
+      return false;
+    }
+    if (connection_backlog_ == connection_queue_.size()) {
+      ALOGW("LocalSocket::connect failed - queue for %s full",
+            abstract_name_.empty() ?
+            logd_name_.c_str() : abstract_name_.c_str());
+      return false;
+    }
+    connection_queue_.push_back(bound_socket);
+    if (connection_queue_.size() == 1) {
+      // In case we are already blocking on an accept, wake it up now...
+      VirtualFileSystem::GetVirtualFileSystem()->Broadcast();
+      // and also notify any polls/selects listening to it.
+      NotifyListeners();
+    }
   }
-  connection_queue_.push_back(connecting);
-  if (connection_queue_.size() == 1) {
-    // In case we are already blocking on an accept, wake it up now...
-    VirtualFileSystem::GetVirtualFileSystem()->Broadcast();
-    // and also notify any polls/selects listening to it.
-    NotifyListeners();
-  }
+
   return true;
 }
 
 void LocalSocket::WaitForLocalSocketConnect() {
-  // The accept() call will set the peer and tell us when to proceed.
-  VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
-  connect_state_ = SOCKET_CONNECTING;
-  while (connect_state_ == SOCKET_CONNECTING) {
-    sys->Wait();
+  if (socket_type_ == SOCK_STREAM || socket_type_ == SOCK_SEQPACKET) {
+    // The accept() call will set the peer and tell us when to proceed.
+    VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
+    connect_state_ = SOCKET_CONNECTING;
+    while (connect_state_ == SOCKET_CONNECTING) {
+      sys->Wait();
+    }
   }
 }
 
@@ -206,32 +282,44 @@ int LocalSocket::connect(const sockaddr* addr, socklen_t addrlen) {
     errno = EISCONN;
     return -1;
   }
-  if (addr->sa_family != AF_UNIX) {
-    // Observed the error EINVAL when AF_UNIX is given to socket and
-    // AF_UNIX is given to connect.
-    errno = EINVAL;
-    return -1;
-  }
-  if (!is_block()) {
-    ALOGE("Non-blocking local socket connect not supported.\n");
+  if (socket_type_ != SOCK_DGRAM && !is_block()) {
+    ALOGE("Non-blocking local socket stream connect not supported.\n");
     errno = ENOSYS;
     return -1;
   }
+
   std::string abstract_name;
-  if (!ConvertSockaddrToAbstractName(addr, addrlen, &abstract_name))
+  std::string logd_name;
+  scoped_refptr<LocalSocket> bound_socket;
+  if (!ValidateSockaddr(addr, addrlen))
     return -1;
-  VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
-  scoped_refptr<LocalSocket> listening_socket =
-      sys->GetAbstractSocketNamespace()->GetByName(abstract_name);
-  if (listening_socket == NULL) {
+  if (ConvertSockaddrToName(addr, addrlen, &logd_name)) {
+    bound_socket = VirtualFileSystem::GetVirtualFileSystem()->
+        GetLogdSocketNamespace()->GetByName(logd_name);
+  } else if (ConvertSockaddrToAbstractName(addr, addrlen, &abstract_name)) {
+    bound_socket = VirtualFileSystem::GetVirtualFileSystem()->
+        GetAbstractSocketNamespace()->GetByName(abstract_name);
+  } else {
+    errno = ENOSYS;
+    return -1;
+  }
+
+  if (bound_socket == NULL) {
     // Connection to unbound abstract name returns ECONNREFUSED.
     errno = ECONNREFUSED;
     return -1;
   }
-  if (!listening_socket->HandleConnectLocked(this)) {
+  if (bound_socket->socket_type_ != socket_type_) {
     errno = ECONNREFUSED;
     return -1;
   }
+
+  if (!bound_socket->HandleConnectLocked(this)) {
+    errno = ECONNREFUSED;
+    return -1;
+  }
+  logd_target_name_ = logd_name;
+
   WaitForLocalSocketConnect();
   return 0;
 }
@@ -253,6 +341,10 @@ void LocalSocket::WaitForOpenedConnectToAccept() {
 }
 
 int LocalSocket::accept(sockaddr* addr, socklen_t* addrlen) {
+  if (socket_type_ == SOCK_DGRAM) {
+    errno = EOPNOTSUPP;
+    return -1;
+  }
   if (addr) {
     int error = internal::VerifyOutputSocketAddress(addr, addrlen);
     if (error) {
@@ -284,7 +376,7 @@ int LocalSocket::accept(sockaddr* addr, socklen_t* addrlen) {
   // Create a peer server socket for the client socket at the head of the
   // connection queue.
   scoped_refptr<LocalSocket> server_socket =
-      new LocalSocket(oflag(), SOCK_STREAM, READ_WRITE);
+      new LocalSocket(oflag(), socket_type_, READ_WRITE);
   VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
   int accept_fd = sys->AddFileStreamLocked(server_socket);
   if (accept_fd < 0) {
@@ -314,7 +406,7 @@ int LocalSocket::recvmsg(struct msghdr* msg, int flags) {
     return -1;
   }
 
-  if (connect_state_ != SOCKET_CONNECTED) {
+  if (socket_type_ != SOCK_DGRAM && connect_state_ != SOCKET_CONNECTED) {
     errno = EINVAL;
     return -1;
   }
@@ -328,7 +420,9 @@ int LocalSocket::recvmsg(struct msghdr* msg, int flags) {
 
   msg->msg_flags = 0;
   ssize_t bytes_read = 0;
+  ucred cred;
   if (socket_type_ == SOCK_STREAM) {
+    cred = peer_cred_;
     if (buffer_.size() > 0) {
       for (size_t i = 0; i < msg->msg_iovlen && buffer_.size() > 0; ++i) {
         bytes_read += buffer_.read(static_cast<char*>(msg->msg_iov[i].iov_base),
@@ -337,53 +431,76 @@ int LocalSocket::recvmsg(struct msghdr* msg, int flags) {
     }
   } else {
     if (!queue_.empty()) {
-      const std::vector<char>& dgram = queue_.front();
-      std::vector<char>::const_iterator iter = dgram.begin();
-      size_t left = dgram.size();
-      for (size_t i = 0; i < msg->msg_iovlen && left > 0; ++i) {
-        size_t len = std::min(msg->msg_iov[i].iov_len, left);
+      const Datagram& datagram = queue_.front();
+      cred = datagram.cred_;
+      std::vector<char>::const_iterator iter = datagram.content_.begin();
+      size_t remaining = datagram.content_.size();
+      for (size_t i = 0; i < msg->msg_iovlen && remaining > 0; ++i) {
+        size_t len = std::min(msg->msg_iov[i].iov_len, remaining);
         std::copy(iter, iter + len,
                   static_cast<char*>(msg->msg_iov[i].iov_base));
-        left -= len;
+        remaining -= len;
         iter += len;
       }
-      if (left > 0)
+      if (remaining > 0)
         msg->msg_flags |= MSG_TRUNC;
-      bytes_read = dgram.size() - left;
+      bytes_read = datagram.content_.size() - remaining;
       queue_.pop_front();
     }
   }
 
   // If no bytes are read in recvmsg, control messages are not returned either.
-  if (bytes_read <= 0 || cmsg_fd_queue_.empty()) {
+  if (bytes_read <= 0) {
     // Set this output parameter to indicate there are no control messages.
     msg->msg_controllen = 0;
   } else {
-    std::vector<int>& fds = cmsg_fd_queue_.front();
+    size_t msg_controllen = 0;
+    struct cmsghdr* cmsg_last = NULL;
 
-    socklen_t cmsg_len = CMSG_LEN(fds.size() * sizeof(int));  // NOLINT
-    while (CMSG_SPACE(cmsg_len) > msg->msg_controllen && !fds.empty()) {
-      // Cleanup file descriptors that are not passed back to the client so we
-      // do not leak them.  Close the last ones first so it acts like a FIFO.
-      // This is not part of any spec, but just makes the most intuitive sense.
-      int fd = fds.back();
-      sys->CloseLocked(fd);
-      fds.pop_back();
-      cmsg_len = CMSG_LEN(fds.size() * sizeof(int));  // NOLINT
-      msg->msg_flags |= MSG_CTRUNC;
+    if (!cmsg_fd_queue_.empty()) {
+      std::vector<int>& fds = cmsg_fd_queue_.front();
+
+      socklen_t cmsg_len = CMSG_LEN(fds.size() * sizeof(int));  // NOLINT
+      while (CMSG_SPACE(cmsg_len) > msg->msg_controllen && !fds.empty()) {
+        // Cleanup file descriptors that are not passed back to the client so we
+        // do not leak them.  Close the last ones first so it acts like a FIFO.
+        // This is not part of any spec, but just makes the most intuitive
+        // sense.
+        int fd = fds.back();
+        sys->CloseLocked(fd);
+        fds.pop_back();
+        cmsg_len = CMSG_LEN(fds.size() * sizeof(int));  // NOLINT
+        msg->msg_flags |= MSG_CTRUNC;
+      }
+
+      if (CMSG_SPACE(cmsg_len) > msg->msg_controllen) {
+        msg_controllen = 0;
+      } else {
+        struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+        cmsg->cmsg_len = cmsg_len;
+        memcpy(CMSG_DATA(cmsg), &fds[0], fds.size() * sizeof(int));  // NOLINT
+        msg_controllen = CMSG_SPACE(cmsg_len);
+        cmsg_last = cmsg;
+      }
+
+      cmsg_fd_queue_.pop_front();
     }
 
-    if (CMSG_SPACE(cmsg_len) > msg->msg_controllen) {
-      msg->msg_controllen = 0;
-    } else {
-      struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg);
-      cmsg->cmsg_level = SOL_SOCKET;
-      cmsg->cmsg_type = SCM_RIGHTS;
-      cmsg->cmsg_len = cmsg_len;
-      memcpy(CMSG_DATA(cmsg), &fds[0], fds.size() * sizeof(int));  // NOLINT
-      msg->msg_controllen = CMSG_SPACE(cmsg_len);
+    if (pass_cred_) {
+      if (CMSG_SPACE(sizeof(ucred)) + msg_controllen <= msg->msg_controllen) {
+        struct cmsghdr* cmsg = cmsg_last == NULL ?
+            CMSG_FIRSTHDR(msg) : CMSG_NXTHDR(msg, cmsg_last);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_CREDENTIALS;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(ucred));
+        memcpy(CMSG_DATA(cmsg), &cred, sizeof(ucred));
+        msg_controllen += cmsg->cmsg_len;
+      }
     }
-    cmsg_fd_queue_.pop_front();
+
+    msg->msg_controllen = msg_controllen;
   }
 
   if (bytes_read > 0) {
@@ -393,7 +510,7 @@ int LocalSocket::recvmsg(struct msghdr* msg, int flags) {
     return bytes_read;
   }
 
-  if (!peer_) {
+  if (!peer_ && socket_type_ != SOCK_DGRAM) {
     // The other end of the socketpair has been closed, returns EOF(0).
     return 0;
   }
@@ -434,13 +551,26 @@ int LocalSocket::sendmsg(const struct msghdr* msg, int flags) {
     return -1;
   }
 
-  if (connect_state_ != SOCKET_CONNECTED) {
+  if (socket_type_ != SOCK_DGRAM && connect_state_ != SOCKET_CONNECTED) {
     errno = EINVAL;
     return -1;
   }
 
   if (peer_)
-    return peer_->HandleSendmsgLocked(msg);
+    return peer_->HandleSendmsgLocked(msg, my_cred_);
+
+  if (socket_type_== SOCK_DGRAM) {
+    if (!logd_target_name_.empty()) {
+      scoped_refptr<LocalSocket> bound_socket;
+      bound_socket = VirtualFileSystem::GetVirtualFileSystem()->
+          GetLogdSocketNamespace()->GetByName(logd_target_name_);
+      if (bound_socket)
+        return bound_socket->HandleSendmsgLocked(msg, my_cred_);
+    }
+    errno = ECONNREFUSED;
+    return -1;
+  }
+
   errno = ECONNRESET;
   return -1;
 }
@@ -456,7 +586,7 @@ int LocalSocket::ioctl(int request, va_list ap) {
       *out = buffer_.size();
     } else {
       if (!queue_.empty())
-        *out = queue_.front().size();
+        *out = queue_.front().content_.size();
       else
         *out = 0;
     }
@@ -479,7 +609,8 @@ bool LocalSocket::IsSelectExceptionReady() const {
 }
 
 int16_t LocalSocket::GetPollEvents() const {
-  // Note: Today we support socket_type_ != SOCK_STREAM only for socketpair.
+  // Note: Today we support socket_type_ != SOCK_STREAM only for socketpair plus
+  // sockets required for logd device.
   // Thus, socket_type_ != SOCK_STREAM implies
   // connect_state_ == SOCKET_CONNECTED.
   switch (connect_state_) {
@@ -513,8 +644,7 @@ int16_t LocalSocket::GetPollEvents() const {
         if (CanWrite()) {
           events |= POLLOUT;
         }
-        if ((socket_type_ == SOCK_STREAM || socket_type_ == SOCK_SEQPACKET) &&
-            peer_ == NULL) {
+        if (socket_type_ != SOCK_DGRAM && peer_ == NULL) {
           events |= POLLHUP;
         }
         // TODO(crbug.com/359400): Set POLLERR under some conditions. On Linux,
@@ -536,8 +666,7 @@ bool LocalSocket::CanRead() const {
   ALOG_ASSERT(stream_dir_ == READ_WRITE);
   // If the peer has been closed, whether the socket is readable depends on
   // socket type.
-  if ((socket_type_ == SOCK_STREAM || socket_type_ == SOCK_SEQPACKET) &&
-      peer_ == NULL) {
+  if (socket_type_ != SOCK_DGRAM && peer_ == NULL) {
     return true;
   }
   if (socket_type_ == SOCK_STREAM) {
@@ -559,7 +688,8 @@ bool LocalSocket::CanWrite() const {
   return true;
 }
 
-int LocalSocket::HandleSendmsgLocked(const struct msghdr* msg) {
+int LocalSocket::HandleSendmsgLocked(const struct msghdr* msg,
+                                     const ucred& peer_cred) {
   VirtualFileSystem* sys = VirtualFileSystem::GetVirtualFileSystem();
   sys->mutex().AssertAcquired();
 
@@ -570,17 +700,20 @@ int LocalSocket::HandleSendmsgLocked(const struct msghdr* msg) {
   size_t bytes_attempted = 0;
   if (len > 0) {
     if (socket_type_ == SOCK_STREAM) {
+      ALOG_ASSERT(memcmp(&peer_cred, &peer_cred_, sizeof(peer_cred)) == 0);
       for (size_t i = 0; i < len; ++i) {
         bytes_attempted += buf[i].iov_len;
         bytes_sent += buffer_.write(static_cast<const char*>(buf[i].iov_base),
                                     buf[i].iov_len);
       }
     } else {
-      queue_.resize(queue_.size() + 1);
+      queue_.push_back(Datagram());
+      Datagram& datagram = queue_.back();
+      datagram.cred_ = peer_cred;
       for (size_t i = 0; i < len; ++i) {
         const char* begin = static_cast<const char*>(buf[i].iov_base);
         const char* end = begin + buf[i].iov_len;
-        queue_.back().insert(queue_.back().end(), begin, end);
+        datagram.content_.insert(datagram.content_.end(), begin, end);
         bytes_attempted += buf[i].iov_len;
         bytes_sent += buf[i].iov_len;
       }
