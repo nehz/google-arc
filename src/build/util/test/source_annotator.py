@@ -58,7 +58,13 @@ class _SourceMapDecoder(object):
         column = index + 1
 
     if column is not None:
-      token = self._sourcemap_index.lookup(line - 1, column - 1)
+      # Note: sourcemap library has a problem when looking up a source position
+      # for a position across line boundary in the generated code.
+      # In such cases, fallback to the below logic as a work around.
+      try:
+        token = self._sourcemap_index.lookup(line - 1, column - 1)
+      except IndexError:
+        token = None
       if token:
         return '%s:%s:%s' % (token.src, token.src_line + 1, token.src_col + 1)
 
