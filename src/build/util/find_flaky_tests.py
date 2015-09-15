@@ -34,7 +34,7 @@ _SECTION_PATTERN = r'######## %s \(\d+\) ########'
 _UNEXPECTED_FAILURES_RE = re.compile(
     _SECTION_PATTERN % (
         suite_results.VERBOSE_STATUS_TEXT[
-            scoreboard_constants.UNEXPECT_FAIL]))
+            scoreboard_constants.UNEXPECTED_FAIL]))
 _INCOMPLETE_RE = re.compile(
     _SECTION_PATTERN % (
         suite_results.VERBOSE_STATUS_TEXT[

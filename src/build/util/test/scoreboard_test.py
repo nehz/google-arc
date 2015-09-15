@@ -45,8 +45,8 @@ class ScoreboardTests(unittest.TestCase):
 
     def _report_update_test(score_board, name, status, duration=0):
       self._test_counter[status] += 1
-      # FLAKE causes one more run, so update the expected count.
-      if status == scoreboard_constants.FLAKE:
+      # EXPECTED_FLAKE causes one more run, so update the expected count.
+      if status == scoreboard_constants.EXPECTED_FLAKE:
         self._expected_test_count += 1
 
     def _report_results(score_board):
@@ -88,7 +88,7 @@ class ScoreboardTests(unittest.TestCase):
     # The 'default' results for a scoreboard.  Specific results are then
     # overridden by the 'results' parameter.
     results_with_defaults = {
-        'overall_status': scoreboard_constants.EXPECT_PASS,
+        'overall_status': scoreboard_constants.EXPECTED_PASS,
         'total': 0,
         'completed': 0,
         'incompleted': 0,
@@ -151,7 +151,7 @@ class ScoreboardTests(unittest.TestCase):
         'passed': 1,
         'expected_passed': 1,
         'get_expected_passing_tests': ['test'],
-        'overall_status': scoreboard_constants.EXPECT_PASS,
+        'overall_status': scoreboard_constants.EXPECTED_PASS,
     }
     self._run('suite', tests, results)
 
@@ -167,7 +167,7 @@ class ScoreboardTests(unittest.TestCase):
         'passed': 1,
         'unexpected_passed': 1,
         'get_unexpected_passing_tests': ['test'],
-        'overall_status': scoreboard_constants.UNEXPECT_PASS,
+        'overall_status': scoreboard_constants.UNEXPECTED_PASS,
     }
     self._run('suite', tests, results)
 
@@ -183,7 +183,7 @@ class ScoreboardTests(unittest.TestCase):
         'failed': 1,
         'expected_failed': 1,
         'get_expected_failing_tests': ['test'],
-        'overall_status': scoreboard_constants.EXPECT_FAIL,
+        'overall_status': scoreboard_constants.EXPECTED_FAIL,
     }
     self._run('suite', tests, results)
 
@@ -199,7 +199,7 @@ class ScoreboardTests(unittest.TestCase):
         'failed': 1,
         'unexpected_failed': 1,
         'get_unexpected_failing_tests': ['test'],
-        'overall_status': scoreboard_constants.UNEXPECT_FAIL,
+        'overall_status': scoreboard_constants.UNEXPECTED_FAIL,
     }
     self._run('suite', tests, results)
 
@@ -265,7 +265,7 @@ class ScoreboardTests(unittest.TestCase):
         'get_expected_failing_tests': ['expected_failed'],
         'get_unexpected_failing_tests': ['fail'],
         'get_skipped_tests': ['skipped'],
-        'overall_status': scoreboard_constants.UNEXPECT_FAIL,
+        'overall_status': scoreboard_constants.UNEXPECTED_FAIL,
     }
     self._run('suite', tests, results)
 
@@ -281,7 +281,7 @@ class ScoreboardTests(unittest.TestCase):
         'passed': 1,
         'expected_passed': 1,
         'get_expected_passing_tests': ['flake'],
-        'overall_status': scoreboard_constants.EXPECT_PASS,
+        'overall_status': scoreboard_constants.EXPECTED_PASS,
     }
     self._run('suite', tests, results)
 
@@ -297,7 +297,7 @@ class ScoreboardTests(unittest.TestCase):
         'failed': 1,
         'unexpected_failed': 1,
         'get_unexpected_failing_tests': ['flake'],
-        'overall_status': scoreboard_constants.UNEXPECT_FAIL,
+        'overall_status': scoreboard_constants.UNEXPECTED_FAIL,
     }
     self._run('suite', tests, results)
 
@@ -317,7 +317,7 @@ class ScoreboardTests(unittest.TestCase):
         'total': 1,
         'completed': 1,
         'get_flaky_tests': ['flake'],
-        'overall_status': scoreboard_constants.EXPECT_PASS,
+        'overall_status': scoreboard_constants.EXPECTED_PASS,
     }
     self._check_scoreboard(sb, results)
 
@@ -335,7 +335,7 @@ class ScoreboardTests(unittest.TestCase):
         'passed': 1,
         'expected_passed': 1,
         'get_expected_passing_tests': ['flake'],
-        'overall_status': scoreboard_constants.EXPECT_PASS,
+        'overall_status': scoreboard_constants.EXPECTED_PASS,
     }
     self._check_scoreboard(sb, results)
 
@@ -348,7 +348,7 @@ class ScoreboardTests(unittest.TestCase):
         'passed': 1,
         'expected_passed': 1,
         'get_expected_passing_tests': ['flake'],
-        'overall_status': scoreboard_constants.EXPECT_PASS,
+        'overall_status': scoreboard_constants.EXPECTED_PASS,
     }
     self._check_scoreboard(sb, results)
 
@@ -388,7 +388,7 @@ class ScoreboardTests(unittest.TestCase):
         'total': 1,
         'completed': 1,
         'get_flaky_tests': ['flake'],
-        'overall_status': scoreboard_constants.EXPECT_PASS,
+        'overall_status': scoreboard_constants.EXPECTED_PASS,
     }
     self._check_scoreboard(sb, results)
 
@@ -404,7 +404,7 @@ class ScoreboardTests(unittest.TestCase):
         'restarts': 1,
         'completed': 2,
         'get_flaky_tests': ['flake'],
-        'overall_status': scoreboard_constants.EXPECT_PASS,
+        'overall_status': scoreboard_constants.EXPECTED_PASS,
     }
     self._check_scoreboard(sb, results)
 
@@ -417,7 +417,7 @@ class ScoreboardTests(unittest.TestCase):
         'restarts': 1,
         'unexpected_failed': 1,
         'get_unexpected_failing_tests': ['flake'],
-        'overall_status': scoreboard_constants.UNEXPECT_FAIL,
+        'overall_status': scoreboard_constants.UNEXPECTED_FAIL,
     }
     self._check_scoreboard(sb, results)
 
@@ -509,7 +509,7 @@ class ScoreboardTests(unittest.TestCase):
         'expected_passed': 3,
         'restarts': 2,
         'get_expected_passing_tests': ['alpha', 'beta', 'gamma'],
-        'overall_status': scoreboard_constants.EXPECT_PASS,
+        'overall_status': scoreboard_constants.EXPECTED_PASS,
     }
     self._check_scoreboard(sb, results)
 
@@ -522,7 +522,7 @@ class ScoreboardTests(unittest.TestCase):
         'expected_passed': 3,
         'restarts': 2,
         'get_expected_passing_tests': ['alpha', 'beta', 'gamma'],
-        'overall_status': scoreboard_constants.EXPECT_PASS,
+        'overall_status': scoreboard_constants.EXPECTED_PASS,
     }
     self._check_scoreboard(sb, results)
 
@@ -539,12 +539,13 @@ class ScoreboardTests(unittest.TestCase):
 
     self.assertEquals(4, len(expectations))
     self.assertEquals(
-        scoreboard_constants.EXPECT_PASS, expectations['testPasses'])
+        scoreboard_constants.EXPECTED_PASS, expectations['testPasses'])
     self.assertEquals(
-        scoreboard_constants.EXPECT_FAIL, expectations['testFails'])
+        scoreboard_constants.EXPECTED_FAIL, expectations['testFails'])
     self.assertEquals(
         scoreboard_constants.SKIPPED, expectations['testTimesOut'])
-    self.assertEquals(scoreboard_constants.FLAKE, expectations['testFlaky'])
+    self.assertEquals(
+        scoreboard_constants.EXPECTED_FLAKE, expectations['testFlaky'])
 
   def test_get_expectations_works_with_dummy_placeholder(self):
     sb = scoreboard.Scoreboard(
@@ -555,7 +556,7 @@ class ScoreboardTests(unittest.TestCase):
     expectations = sb.get_expectations()
 
     self.assertEquals(1, len(expectations))
-    self.assertEquals(scoreboard_constants.EXPECT_FAIL,
+    self.assertEquals(scoreboard_constants.EXPECTED_FAIL,
                       expectations[sb.ALL_TESTS_DUMMY_NAME])
 
 

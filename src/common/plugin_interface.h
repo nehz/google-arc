@@ -485,6 +485,13 @@ class ChildPluginSpawnerInterface {
                          const char* preopened_fd_names[]) = 0;
 };
 
+class NetworkManagerInterface {
+ public:
+  virtual ~NetworkManagerInterface() {}
+
+  virtual std::string GetProxyForUrl(const std::string& url) = 0;
+};
+
 class PluginInterface {
  public:
   virtual RendererInterface* GetRenderer() = 0;
@@ -494,6 +501,7 @@ class PluginInterface {
   virtual VideoDecoderInterface* GetVideoDecoder() = 0;
   virtual PluginUtilInterface* GetPluginUtil() = 0;
   virtual ChildPluginSpawnerInterface* GetChildPluginSpawner() = 0;
+  virtual NetworkManagerInterface* GetNetworkManager() = 0;
 
  protected:
   PluginInterface();

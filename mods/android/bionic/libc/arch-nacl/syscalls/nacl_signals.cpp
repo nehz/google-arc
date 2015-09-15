@@ -190,6 +190,47 @@ static_assert(g_signal_mapping[NACL_SIGSTOP] == SIGSTOP,
 // that it is equal to the Linux tid of the thread.
 #define MAX_THREAD_ID ((1 << 16) - 1)
 
+// Global live thread map.
+template<size_t length>
+class AtomicBitset {
+ public:
+  AtomicBitset() {
+    // Thread 1 is always considered to be alive.
+    set(1, true);
+  }
+
+  bool get(size_t index) const {
+    size_t mask = get_mask(index);
+    index = get_index(index);
+    uint32_t value = __atomic_load_n(&data_[index], __ATOMIC_ACQUIRE);
+    return (value & mask) != 0;
+  }
+
+  void set(size_t index, bool value) {
+    size_t mask = get_mask(index);
+    index = get_index(index);
+    if (value)
+      __atomic_or_fetch(&data_[index], mask, __ATOMIC_ACQ_REL);
+    else
+      __atomic_and_fetch(&data_[index], ~mask, __ATOMIC_ACQ_REL);
+  }
+
+ private:
+  size_t get_mask(size_t index) const {
+    return 1U << (index & 0x3F);
+  }
+
+  size_t get_index(size_t index) const {
+    return index >> 5;
+  }
+
+  // Round the number of uint32_t up.
+  static constexpr uint32_t size_ = (length + (length % 4)) >> 5;
+  volatile uint32_t data_[size_];
+};
+
+AtomicBitset<MAX_THREAD_ID + 1> g_live_threads;
+
 // Global per-thread signal state.
 signal_state_t g_threads[MAX_THREAD_ID + 1] = {};
 
@@ -389,6 +430,13 @@ int __nacl_signal_thread_init(pid_t tid) {
   int ptid = gettid();
   g_threads[tid].state = g_threads[ptid].state;
   g_threads[tid].pending_mask = 0;
+  g_live_threads.set(tid, true);
+  return 0;
+}
+
+// Mark the thread identified by |tid| as not being alive anymore.
+int __nacl_signal_thread_deinit(pid_t tid) {
+  g_live_threads.set(tid, false);
   return 0;
 }
 
@@ -429,9 +477,16 @@ int __nacl_signal_action(int bionic_signum,
 }
 
 int __nacl_signal_send(int tid, int bionic_signum) {
+  if (tid < 0 || tid > MAX_THREAD_ID) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (!g_live_threads.get(tid)) {
+    errno = ESRCH;
+    return -1;
+  }
   if (bionic_signum == 0) {
     // Signal 0 is a special case: It only checks if the thread exists.
-    // TODO(crbug.com/496991): Actually check if the thread is live.
     return 0;
   }
   int nacl_signum = bionic_signum_to_nacl(bionic_signum);

@@ -14,19 +14,19 @@ INCOMPLETE = 0
 SKIPPED = 1
 
 # The test/suite passed as expected.
-EXPECT_PASS = 2
-
-# The test/suite failed as expected.
-EXPECT_FAIL = 3
+EXPECTED_PASS = 2
 
 # The test/suite marked for failure passed unexpectedly.
-UNEXPECT_PASS = 4
+UNEXPECTED_PASS = 3
 
-# The test/suite marked for pass failed unexpectedly.
-UNEXPECT_FAIL = 5
-
-# The test is expected to be flaky.  Any flaky tests that fail will not be
+# The test/suite is expected to be flaky.  Any flaky tests that fail will not be
 # considered as failing until the Scoreboard is finalized. This gives the
 # SuiteRunner a chance to rerun the flaky tests. Passing tests will be marked
-# as EXPECT_PASS as soon as they pass.
-FLAKE = 6
+# as EXPECTED_PASS as soon as they pass.
+EXPECTED_FLAKE = 4
+
+# The test/suite failed as expected.
+EXPECTED_FAIL = 5
+
+# The test/suite marked for pass failed unexpectedly.
+UNEXPECTED_FAIL = 6

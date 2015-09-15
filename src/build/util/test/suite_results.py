@@ -14,33 +14,33 @@ from src.build.util.test import scoreboard_constants
 
 # Note: The order of this list is the order displayed in the output.
 STATUS_ORDER = (
-    scoreboard_constants.EXPECT_PASS,
-    scoreboard_constants.UNEXPECT_PASS,
-    scoreboard_constants.EXPECT_FAIL,
-    scoreboard_constants.UNEXPECT_FAIL,
+    scoreboard_constants.EXPECTED_PASS,
+    scoreboard_constants.UNEXPECTED_PASS,
+    scoreboard_constants.EXPECTED_FAIL,
+    scoreboard_constants.UNEXPECTED_FAIL,
     scoreboard_constants.INCOMPLETE,
     scoreboard_constants.SKIPPED,
 )
 
 # The text displayed for each status
 TERSE_STATUS_TEXT = {
-    scoreboard_constants.EXPECT_FAIL: 'XF',
-    scoreboard_constants.EXPECT_PASS: 'P',
-    scoreboard_constants.FLAKE: 'FK',
+    scoreboard_constants.EXPECTED_FAIL: 'XF',
+    scoreboard_constants.EXPECTED_FLAKE: 'FK',
+    scoreboard_constants.EXPECTED_PASS: 'P',
     scoreboard_constants.INCOMPLETE: 'I',
     scoreboard_constants.SKIPPED: 'S',
-    scoreboard_constants.UNEXPECT_FAIL: 'F',
-    scoreboard_constants.UNEXPECT_PASS: 'UP',
+    scoreboard_constants.UNEXPECTED_FAIL: 'F',
+    scoreboard_constants.UNEXPECTED_PASS: 'UP',
 }
 
 VERBOSE_STATUS_TEXT = {
-    scoreboard_constants.EXPECT_FAIL: 'Expected Failures',
-    scoreboard_constants.EXPECT_PASS: 'Passed',
-    scoreboard_constants.FLAKE: 'Flaky',
+    scoreboard_constants.EXPECTED_FAIL: 'Expected Failures',
+    scoreboard_constants.EXPECTED_FLAKE: 'Flaky',
+    scoreboard_constants.EXPECTED_PASS: 'Passed',
     scoreboard_constants.INCOMPLETE: 'Incomplete',
     scoreboard_constants.SKIPPED: 'Skipped',
-    scoreboard_constants.UNEXPECT_FAIL: 'Failed',
-    scoreboard_constants.UNEXPECT_PASS: 'Unexpectedly Passed',
+    scoreboard_constants.UNEXPECTED_FAIL: 'Failed',
+    scoreboard_constants.UNEXPECTED_PASS: 'Unexpectedly Passed',
 }
 
 # This indicates that the overall result of the test run is good.
@@ -59,68 +59,68 @@ _RUN_RESULT_BAD = 2
 _SUITE_STATE_COLUMN_WIDTH = 51
 
 _ATTEMPTED_STATUS = (
-    scoreboard_constants.EXPECT_FAIL,
-    scoreboard_constants.EXPECT_PASS,
-    scoreboard_constants.FLAKE,
+    scoreboard_constants.EXPECTED_FAIL,
+    scoreboard_constants.EXPECTED_FLAKE,
+    scoreboard_constants.EXPECTED_PASS,
     scoreboard_constants.INCOMPLETE,
     scoreboard_constants.SKIPPED,
-    scoreboard_constants.UNEXPECT_FAIL,
-    scoreboard_constants.UNEXPECT_PASS,
+    scoreboard_constants.UNEXPECTED_FAIL,
+    scoreboard_constants.UNEXPECTED_PASS,
 )
 
 _BAD_STATUS = (
     scoreboard_constants.INCOMPLETE,
-    scoreboard_constants.UNEXPECT_FAIL,
+    scoreboard_constants.UNEXPECTED_FAIL,
 )
 
 # Note: The order of the values in this list needs to be from best result to
 # worst result.
 _EXPECTATION_BY_PRIORITY = (
-    scoreboard_constants.EXPECT_PASS,
-    scoreboard_constants.FLAKE,
-    scoreboard_constants.EXPECT_FAIL,
+    scoreboard_constants.EXPECTED_PASS,
+    scoreboard_constants.EXPECTED_FLAKE,
+    scoreboard_constants.EXPECTED_FAIL,
     scoreboard_constants.SKIPPED,
 )
 
 _EXPECTED_STATUS_STRING = {
-    scoreboard_constants.EXPECT_FAIL: 'are expected to fail',
-    scoreboard_constants.EXPECT_PASS: 'are expected to pass',
+    scoreboard_constants.EXPECTED_FAIL: 'are expected to fail',
+    scoreboard_constants.EXPECTED_PASS: 'are expected to pass',
     scoreboard_constants.SKIPPED: 'will be skipped',
 }
 
 _GOOD_STATUS = (
-    scoreboard_constants.EXPECT_FAIL,
-    scoreboard_constants.EXPECT_PASS,
+    scoreboard_constants.EXPECTED_FAIL,
+    scoreboard_constants.EXPECTED_PASS,
     scoreboard_constants.SKIPPED,
-    scoreboard_constants.UNEXPECT_PASS,
+    scoreboard_constants.UNEXPECTED_PASS,
 )
 
 _PASS_STATUS = (
-    scoreboard_constants.EXPECT_PASS,
-    scoreboard_constants.UNEXPECT_PASS,
+    scoreboard_constants.EXPECTED_PASS,
+    scoreboard_constants.UNEXPECTED_PASS,
 )
 
 # Note: The order of this list is the order displayed in the output.
 _TO_LIST_STATUS = (
-    scoreboard_constants.FLAKE,
-    scoreboard_constants.EXPECT_FAIL,
-    scoreboard_constants.UNEXPECT_PASS,
-    scoreboard_constants.UNEXPECT_FAIL,
+    scoreboard_constants.EXPECTED_FLAKE,
+    scoreboard_constants.EXPECTED_FAIL,
+    scoreboard_constants.UNEXPECTED_PASS,
+    scoreboard_constants.UNEXPECTED_FAIL,
     scoreboard_constants.INCOMPLETE,
 )
 
 # If a suite contains any tests with this status, its output is included in the
 # test log.
 _TO_LOG_OUTPUT_STATUS = (
-    scoreboard_constants.EXPECT_FAIL,
+    scoreboard_constants.EXPECTED_FAIL,
     scoreboard_constants.INCOMPLETE,
-    scoreboard_constants.UNEXPECT_FAIL,
+    scoreboard_constants.UNEXPECTED_FAIL,
 )
 
 # If a suite contains any tests with this status, a warning annotation is
 # emitted for the build step.
 _TO_WARN_STATUS = (
-    scoreboard_constants.UNEXPECT_PASS,
+    scoreboard_constants.UNEXPECTED_PASS,
 )
 
 # The single instance of the SuiteResultsBase used for displaying results.
@@ -133,12 +133,13 @@ def _compute_count_by_expectation(scoreboard):
   # Convert these results into a count by each result
   counts = collections.Counter(expectations.itervalues())
   # Count flaky tests as passing tests.
-  counts[scoreboard_constants.EXPECT_PASS] += counts[scoreboard_constants.FLAKE]
+  counts[scoreboard_constants.EXPECTED_PASS] += (
+      counts[scoreboard_constants.EXPECTED_FLAKE])
   return counts
 
 
 def _determine_overall_status_from_counts(counts):
-  status = scoreboard_constants.EXPECT_PASS
+  status = scoreboard_constants.EXPECTED_PASS
   for expectation in _EXPECTATION_BY_PRIORITY:
     if counts[expectation]:
       status = expectation

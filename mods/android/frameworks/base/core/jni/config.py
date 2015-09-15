@@ -48,7 +48,9 @@ def generate_ninjas():
                               'android_opengl_GLES31Ext.cpp')
     # Add ARC specific JNIs.
     vars.get_sources().extend([
-        'android/frameworks/base/core/jni/org_chromium_arc_internal_Tracing.cpp'])  # noqa
+        'android/frameworks/base/core/jni/org_chromium_arc_internal_Tracing.cpp',  # NOQA
+        'android/frameworks/base/core/jni/org_chromium_arc_ArcProxySelector.cpp',  # NOQA
+    ])
 
     if OPTIONS.disable_hwui():
       # Defining this enables support for hardware accelerated rendering in the

@@ -50,58 +50,21 @@ _TEST_METHOD_MAX_RETRY_COUNT = 5
 
 _REPORT_COLOR_FOR_SUITE_EXPECTATION = {
     scoreboard_constants.SKIPPED: color.MAGENTA,
-    scoreboard_constants.EXPECT_FAIL: color.RED,
-    scoreboard_constants.FLAKE: color.CYAN,
-    scoreboard_constants.EXPECT_PASS: color.GREEN,
+    scoreboard_constants.EXPECTED_FAIL: color.RED,
+    scoreboard_constants.EXPECTED_FLAKE: color.CYAN,
+    scoreboard_constants.EXPECTED_PASS: color.GREEN,
 }
 
 
 def get_all_suite_runners(on_bot, use_gpu, remote_host_type):
   """Gets all the suites defined in the various config.py files."""
-  # Work around.
-  # Unfortunately, it is impossible to update main repository and internal
-  # atomically, it is necessary to make internal work both for old sys.path
-  # (i.e., importing relative to src/build etc.) and new sys.path (importing
-  # relative to ARC's root). Now it is written as something like;
-  #
-  # try:
-  #   import build_common
-  # except ImportError:
-  #   from src.build import build_common
-  #
-  # Python interpreter inserts the directory where the initially launched
-  # script is to the sys.path at the beginning, even with new sys.path
-  # "import build_common" succeeds unexceptedly. Practically, the biggest
-  # problem happens in internal/integration_tests/definitions/... loading.
-  # So, here, we remove the src/build from sys.path during the definition
-  # loading.
-  # Note that reversing the import order does not work. In ./configure,
-  # config_loader loads src/build/config.py as src.build.config module. In the
-  # loading, src.build is created properly, so "from src.build import
-  # build_common" succeeds unexpectedly, even with old sys.path.
-  # Note: updating PYTHONPATH may break also other stuff in internal/
-  # temporarily, but these will be fixed very quickly.
-  # TODO(hidehiko): Remove this once internal/ is fixed properly.
-  try:
-    src_build_path = os.path.normpath(
-        os.path.join(build_common.get_arc_root(), 'src', 'build'))
-    src_build_index = sys.path.index(src_build_path)
-    del sys.path[src_build_index]
-  except ValueError:
-    # Not found.
-    src_build_index = -1
-
   result = suite_runner_config.load_from_suite_definitions(
       _DEFINITIONS_ROOT, _EXPECTATIONS_ROOT, on_bot, use_gpu, remote_host_type)
 
   result += suite_runner_config.load_from_suite_definitions(
-      'out/internal-apks-integration-tests/definitions',
+      'src/integration_tests/definitions/internal',
       'out/internal-apks-integration-tests/expectations',
       on_bot, use_gpu, remote_host_type)
-
-  # Restore the src/build path if necessary.
-  if src_build_index >= 0:
-    sys.path.insert(src_build_index, src_build_path)
 
   # Check name duplication.
   counter = collections.Counter(runner.name for runner in result)

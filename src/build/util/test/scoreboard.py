@@ -30,10 +30,10 @@ class Scoreboard:
   _MAYBE_FLAKY = 3
 
   _MAP_EXPECTATIONS_TO_RESULT = {
-      _SHOULD_FAIL: scoreboard_constants.EXPECT_FAIL,
-      _MAYBE_FLAKY: scoreboard_constants.FLAKE,
+      _SHOULD_FAIL: scoreboard_constants.EXPECTED_FAIL,
+      _MAYBE_FLAKY: scoreboard_constants.EXPECTED_FLAKE,
       _SHOULD_SKIP: scoreboard_constants.SKIPPED,
-      _SHOULD_PASS: scoreboard_constants.EXPECT_PASS,
+      _SHOULD_PASS: scoreboard_constants.EXPECTED_PASS,
   }
 
   def __init__(self, name, expectations):
@@ -160,9 +160,9 @@ class Scoreboard:
         self._register_test(test.name)
         expect = self._expectations[test.name]
       if test and test.passed:
-        result = scoreboard_constants.EXPECT_PASS
+        result = scoreboard_constants.EXPECTED_PASS
       else:
-        result = scoreboard_constants.EXPECT_FAIL
+        result = scoreboard_constants.EXPECTED_FAIL
       actual = self._determine_actual_status(result, expect)
       self._set_result(test.name, actual)
       self._complete_count += 1
@@ -174,7 +174,7 @@ class Scoreboard:
 
     It is expected that the suite will not be run again.  Any tests that did
     not run will be marked as SKIPPED and any flaky tests will be marked as
-    UNEXPECT_FAIL.
+    UNEXPECTED_FAIL.
     """
     if not self._expectations and not self._results:
       # Expectations were likely not set because the test does not specify
@@ -231,19 +231,19 @@ class Scoreboard:
 
   @property
   def expected_passed(self):
-    return self._get_count(scoreboard_constants.EXPECT_PASS)
+    return self._get_count(scoreboard_constants.EXPECTED_PASS)
 
   @property
   def unexpected_passed(self):
-    return self._get_count(scoreboard_constants.UNEXPECT_PASS)
+    return self._get_count(scoreboard_constants.UNEXPECTED_PASS)
 
   @property
   def expected_failed(self):
-    return self._get_count(scoreboard_constants.EXPECT_FAIL)
+    return self._get_count(scoreboard_constants.EXPECTED_FAIL)
 
   @property
   def unexpected_failed(self):
-    return self._get_count(scoreboard_constants.UNEXPECT_FAIL)
+    return self._get_count(scoreboard_constants.UNEXPECTED_FAIL)
 
   @property
   def skipped(self):
@@ -254,7 +254,7 @@ class Scoreboard:
     return self._restart_count
 
   def get_flaky_tests(self):
-    return self._get_list(scoreboard_constants.FLAKE)
+    return self._get_list(scoreboard_constants.EXPECTED_FLAKE)
 
   def get_skipped_tests(self):
     return self._get_list(scoreboard_constants.SKIPPED)
@@ -263,16 +263,16 @@ class Scoreboard:
     return self._get_list(scoreboard_constants.INCOMPLETE)
 
   def get_expected_passing_tests(self):
-    return self._get_list(scoreboard_constants.EXPECT_PASS)
+    return self._get_list(scoreboard_constants.EXPECTED_PASS)
 
   def get_unexpected_passing_tests(self):
-    return self._get_list(scoreboard_constants.UNEXPECT_PASS)
+    return self._get_list(scoreboard_constants.UNEXPECTED_PASS)
 
   def get_expected_failing_tests(self):
-    return self._get_list(scoreboard_constants.EXPECT_FAIL)
+    return self._get_list(scoreboard_constants.EXPECTED_FAIL)
 
   def get_unexpected_failing_tests(self):
-    return self._get_list(scoreboard_constants.UNEXPECT_FAIL)
+    return self._get_list(scoreboard_constants.UNEXPECTED_FAIL)
 
   def _get_list(self, result):
     return [key for key, value in self._results.iteritems() if value == result]
@@ -288,15 +288,15 @@ class Scoreboard:
     if self.incompleted:
       return scoreboard_constants.INCOMPLETE
     elif self.unexpected_failed:
-      return scoreboard_constants.UNEXPECT_FAIL
+      return scoreboard_constants.UNEXPECTED_FAIL
     elif self.unexpected_passed:
-      return scoreboard_constants.UNEXPECT_PASS
+      return scoreboard_constants.UNEXPECTED_PASS
     elif self.expected_failed:
-      return scoreboard_constants.EXPECT_FAIL
+      return scoreboard_constants.EXPECTED_FAIL
     elif self.skipped and not self.passed:
       return scoreboard_constants.SKIPPED
     else:
-      return scoreboard_constants.EXPECT_PASS
+      return scoreboard_constants.EXPECTED_PASS
 
   def _register_test(self, name):
     if name not in self._expectations:
@@ -336,10 +336,10 @@ class Scoreboard:
     # This flaky test never successfully passed, so record and report it as
     # a failure.
     elif (expect == self._MAYBE_FLAKY and
-          self._results.get(name) == scoreboard_constants.FLAKE):
-      self._set_result(name, scoreboard_constants.UNEXPECT_FAIL)
+          self._results.get(name) == scoreboard_constants.EXPECTED_FLAKE):
+      self._set_result(name, scoreboard_constants.UNEXPECTED_FAIL)
       suite_results.report_update_test(
-          self, name, scoreboard_constants.UNEXPECT_FAIL)
+          self, name, scoreboard_constants.UNEXPECTED_FAIL)
     elif (expect == self._MAYBE_FLAKY and
           self._results.get(name) == scoreboard_constants.INCOMPLETE):
       self._set_result(name, scoreboard_constants.INCOMPLETE)
@@ -348,22 +348,22 @@ class Scoreboard:
 
   @classmethod
   def _determine_actual_status(cls, status, expect):
-    assert status in [scoreboard_constants.EXPECT_PASS,
-                      scoreboard_constants.EXPECT_FAIL]
+    assert status in [scoreboard_constants.EXPECTED_PASS,
+                      scoreboard_constants.EXPECTED_FAIL]
     assert cls._is_valid_expectation(expect)
 
-    if status == scoreboard_constants.EXPECT_PASS:
+    if status == scoreboard_constants.EXPECTED_PASS:
       if expect in [cls._SHOULD_PASS, cls._MAYBE_FLAKY]:
-        return scoreboard_constants.EXPECT_PASS
+        return scoreboard_constants.EXPECTED_PASS
       elif expect in [cls._SHOULD_FAIL, cls._SHOULD_SKIP]:
-        return scoreboard_constants.UNEXPECT_PASS
-    elif status == scoreboard_constants.EXPECT_FAIL:
+        return scoreboard_constants.UNEXPECTED_PASS
+    elif status == scoreboard_constants.EXPECTED_FAIL:
       if expect in [cls._SHOULD_PASS, cls._SHOULD_SKIP]:
-        return scoreboard_constants.UNEXPECT_FAIL
+        return scoreboard_constants.UNEXPECTED_FAIL
       elif expect in [cls._SHOULD_FAIL]:
-        return scoreboard_constants.EXPECT_FAIL
+        return scoreboard_constants.EXPECTED_FAIL
       elif expect in [cls._MAYBE_FLAKY]:
-        return scoreboard_constants.FLAKE
+        return scoreboard_constants.EXPECTED_FLAKE
     return status
 
   @classmethod

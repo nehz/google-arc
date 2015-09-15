@@ -27,6 +27,8 @@ __LIBC_HIDDEN__ int __nacl_signal_send(int tid, int bionic_signum);
 
 __LIBC_HIDDEN__ int __nacl_signal_thread_init(pid_t tid);
 
+__LIBC_HIDDEN__ int __nacl_signal_thread_deinit(pid_t tid);
+
 }  // extern "C"
 
 #endif  /* _NACL_SIGNALS_H */

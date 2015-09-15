@@ -16,6 +16,11 @@
 
 #include <bionic/pthread_internal.h>
 #include <irt_syscalls.h>
+#include <sys/types.h>
+
+#if defined(BARE_METAL_BIONIC)
+#include "nacl_signals.h"
+#endif
 
 extern "C" void __exit() {
   pthread_internal_t* thread = __get_thread();
@@ -26,6 +31,7 @@ extern "C" void __exit() {
   // nacl-glibc/nptl/pthread_create.c also lets service runtime update
   // the thread ID.
 #if defined(BARE_METAL_BIONIC)
+  __nacl_signal_thread_deinit(thread->tid);
   __nacl_irt_thread_exit_v0_2(&thread->tid);
 #else
   __nacl_irt_thread_exit(&thread->tid);

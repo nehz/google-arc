@@ -122,24 +122,24 @@ class FormatStatusCountsTests(unittest.TestCase):
   def test_verbose(self):
     _format = suite_results._format_verbose_status_counts
     counts = collections.Counter({
-        scoreboard_constants.UNEXPECT_FAIL: 1,
-        scoreboard_constants.EXPECT_PASS: 99})
+        scoreboard_constants.UNEXPECTED_FAIL: 1,
+        scoreboard_constants.EXPECTED_PASS: 99})
     self.assertEqual('99 Passed  1 Failed',
                      _format(counts))
 
   def test_terse(self):
     _format = suite_results._format_terse_status_counts
     counts = collections.Counter({
-        scoreboard_constants.UNEXPECT_FAIL: 1,
-        scoreboard_constants.EXPECT_PASS: 99})
+        scoreboard_constants.UNEXPECTED_FAIL: 1,
+        scoreboard_constants.EXPECTED_PASS: 99})
     self.assertEqual('   99P      0UP      0XF      1F      0I      0S',
                      _format(counts))
 
   def test_expected(self):
     _format = suite_results._format_expected_status_counts
     counts = collections.Counter({
-        scoreboard_constants.UNEXPECT_FAIL: 1,
-        scoreboard_constants.EXPECT_PASS: 99})
+        scoreboard_constants.UNEXPECTED_FAIL: 1,
+        scoreboard_constants.EXPECTED_PASS: 99})
     self.assertEqual('    0S     99P      0XF',
                      _format(counts))
 

@@ -74,6 +74,9 @@ class AtfSuiteRunnerBase(suite_runner.SuiteRunnerBase):
     self._first_run = False
     self._name_override = None
 
+  def set_extra_args(self, extra_args):
+    self._extra_args = extra_args
+
   def handle_output(self, line):
     self._result_parser.process_line(line)
     self._scoreboard_updater.update(self._result_parser)
