@@ -15,13 +15,13 @@ import atexit
 import json
 import os
 import pipes
+import subprocess
 
 from src.build import build_common
 from src.build import launch_chrome_options
 from src.build.build_options import OPTIONS
 from src.build.metadata import manager
 from src.build.util import file_util
-from src.packaging.apk_to_crx import apk_to_crx
 
 _DOGFOOD_METADATA_PATH = 'third_party/examples/apk/dogfood.meta'
 
@@ -145,18 +145,21 @@ def _generate_apk_to_crx_args(parsed_args, metadata=None,
 def _build_crx(parsed_args):
   external_metadata = _convert_launch_chrome_options_to_external_metadata(
       parsed_args)
-  if not parsed_args.dogfood_metadata:
-    apk_to_crx_args = _generate_apk_to_crx_args(
-        parsed_args,
-        metadata=external_metadata)
-  else:
-    apk_to_crx_args = _generate_apk_to_crx_args(
-        parsed_args,
-        metadata=external_metadata,
-        combined_metadata_file=_DOGFOOD_METADATA_PATH)
-  if not apk_to_crx.build_crx(apk_to_crx_args):
-    return False
-  return True
+  apk_to_crx_args = _generate_apk_to_crx_args(
+      parsed_args,
+      metadata=external_metadata,
+      combined_metadata_file=(
+          _DOGFOOD_METADATA_PATH if parsed_args.dogfood_metadata else None))
+  env = build_common.remove_arc_pythonpath(os.environ)
+  env['ANDROID_HOME'] = 'third_party/android-sdk'
+
+  # Return True on success, otherwise False.
+  result = subprocess.call(
+      ['python',
+       os.path.join(build_common.get_tools_dir(), 'apk_to_crx.zip')] +
+      apk_to_crx_args,
+      env=env)
+  return result == 0
 
 
 def prepare_crx(parsed_args):
@@ -192,7 +195,8 @@ def update_arc_metadata(additional_metadata, args):
   arc_metadata = manifest['arc_metadata']
   arc_metadata.update(additional_metadata)
   with open(manifest_path, 'w') as f:
-    f.write(apk_to_crx.get_metadata_as_json(manifest))
+    json.dump(manifest, f,
+              sort_keys=True, indent=2, separators=(',', ': '))
 
 
 def remove_crx_at_exit_if_needed(parsed_args):

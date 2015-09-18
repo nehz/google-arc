@@ -23,8 +23,12 @@ _ARC_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))
 
 _SUBAPK_PATH = 'assets/chimera-modules'
 _SUBAPK_PATTERN = os.path.join(_SUBAPK_PATH, '*.apk')
-_INSTALL_LOCATION_PATTERN = os.path.join('/data/data/com.google.android.gms',
-                                         'files/chimera-modules/module-%s/%s')
+
+
+def _get_apk_install_location(sha1sum, filename):
+  pattern = ('/data/data/com.google.android.gms/app_chimera/' +
+             'chimera-module-root/module-%s/%s')
+  return pattern % (sha1sum, filename)
 
 
 def _calc_sha1(path):
@@ -54,7 +58,7 @@ def _preoptimize_subapk(src_apk, dest_apk, work_dir):
     odex_path_in_apk = os.path.join(_SUBAPK_PATH, odex_name)
     odex_path = os.path.join(work_dir, odex_path_in_apk)
     odex_files.append(odex_path_in_apk)
-    install_path = _INSTALL_LOCATION_PATTERN % (_calc_sha1(apk_path), apk_name)
+    install_path = _get_apk_install_location(_calc_sha1(apk_path), apk_name)
 
     dex2oat_cmd = [
         'src/build/filter_dex2oat_warnings.py',

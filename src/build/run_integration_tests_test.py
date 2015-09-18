@@ -211,6 +211,11 @@ def _make_fake_atf_test_process(fake_subprocess_generator):
                     _subprocess_creator)
 
 
+def _stub_return_zero(*args, **kwargs):
+  """Just returns the 0 for any call."""
+  return 0
+
+
 def _stub_return_empty_string(*args, **kwargs):
   """Just returns the empty string for any call."""
   return ''
@@ -380,6 +385,8 @@ class _RunIntegrationTestsTestBase(unittest.TestCase):
 @mock.patch('src.build.util.concurrent_subprocess.Popen',
             _stub_unexpected_popen)
 @mock.patch('subprocess.Popen', _stub_unexpected_popen)
+# Any call to subprocess.call will just return None.
+@mock.patch('subprocess.call', _stub_return_zero)
 # Any call to subprocess.check_call will just return None.
 @mock.patch('subprocess.check_call', _stub_return_none)
 # Any call to subprocess.check_output will just return an empty string.
@@ -389,9 +396,6 @@ class _RunIntegrationTestsTestBase(unittest.TestCase):
 # We make dashboard_submit.queue_data no-op to avoid sending test data to the
 # real dashboard server.
 @mock.patch('src.build.dashboard_submit.queue_data', _stub_return_none)
-# We stub out build_crx and update_shell_command to do nothing.
-# TODO(lpique): Look into making them work without stubbing them out.
-@mock.patch('src.packaging.apk_to_crx.apk_to_crx.build_crx', _stub_return_none)
 @mock.patch('src.build.prep_launch_chrome.update_shell_command',
             _stub_return_none)
 @mock.patch('src.build.build_options._real_options.parse_configure_file',
@@ -446,6 +450,8 @@ class RunIntegrationTestsSlowTest(_RunIntegrationTestsTestBase):
 @mock.patch('src.build.util.concurrent_subprocess.Popen',
             _stub_unexpected_popen)
 @mock.patch('subprocess.Popen', _stub_unexpected_popen)
+# Any call to subprocess.call will just return None.
+@mock.patch('subprocess.call', _stub_return_zero)
 # Any call to subprocess.check_call will just return None.
 @mock.patch('subprocess.check_call', _stub_return_none)
 # Any call to subprocess.check_output will just return an empty string.
@@ -455,9 +461,6 @@ class RunIntegrationTestsSlowTest(_RunIntegrationTestsTestBase):
 # We make dashboard_submit.queue_data no-op to avoid sending test data to the
 # real dashboard server.
 @mock.patch('src.build.dashboard_submit.queue_data', _stub_return_none)
-# We stub out build_crx and update_shell_command to do nothing.
-# TODO(lpique): Look into making them work without stubbing them out.
-@mock.patch('src.packaging.apk_to_crx.apk_to_crx.build_crx', _stub_return_none)
 @mock.patch('src.build.prep_launch_chrome.update_shell_command',
             _stub_return_none)
 @mock.patch('src.build.build_options._real_options.parse_configure_file',

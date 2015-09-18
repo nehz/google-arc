@@ -793,6 +793,8 @@ class NinjaGenerator(ninja_syntax.Writer):
         # Files in src are not overlaid by any files, so it is OK for the files
         # to be implicit.
         'src/*',
+        # Python files in third_party directory can be referred directly.
+        'third_party/*.py',
     )
     for dep in implicit:
       if os.path.isabs(dep):
@@ -4046,6 +4048,68 @@ class AaptNinjaGenerator(NinjaGenerator):
       relpath = os.path.join(self._install_path, basename_apk)
       self.install_to_root_dir(relpath, apk_path)
     return apk_path
+
+
+class PythonNinjaGenerator(NinjaGenerator):
+  """Implements a NinjaGenerator to run a Python script."""
+  def __init__(self, *args, **kwargs):
+    super(PythonNinjaGenerator, self).__init__(*args, **kwargs)
+
+    # Map from rule name defined by python_rule() to its main script path.
+    self._script_map = {}
+
+  def emit_python_rule(
+      self, name, script, args=None, extra_command=None, **kwargs):
+    """Emits a rule to run a Python script.
+    Args:
+        name: The name of the rule.
+        script: The path to the Python script.
+        args: (Optional) A list of string, which are arguments for the
+            command line.
+        extra_command: (Optional) In some cases, we want to run more
+            command line after the script is finished (sometimes on success,
+            or on fail, or regardless of the status). If set, this will be
+            appended to the script command line. To handle status code,
+            extra_command should starts with "&&" for on success, "||" for
+            on fail, or ";" for both.
+        **kwargs: Passed through to the ninja rule.
+    """
+    # Remember the script path. This will be added to |implicit| in the build
+    # dependency.
+    self._script_map[name] = script
+    command = (
+        'LOGFILE=`mktemp`; '  # Create a temporary log file.
+        'trap \'rm -f $$LOGFILE\' EXIT; '  # Remove the log file at last.
+        'python src/build/run_python %(script)s %(args)s >$$LOGFILE 2>&1 || '
+        '(cat $$LOGFILE; exit 1)'  # Output the log on failure.
+    ) % {
+        'script': pipes.quote(script),
+        'args': ' '.join(map(pipes.quote, args or [])),
+    }
+    if extra_command:
+      command = '(%s) %s' % (command, extra_command)
+
+    # Set the description if missing.
+    kwargs.setdefault('description', 'Run python %s' % pipes.quote(script))
+    self.rule(name, command, **kwargs)
+
+  def run_python(
+      self, outputs, rule, inputs=None, implicit=None, variables=None):
+    """Runs the command line defined by python_rule()."""
+    script = self._script_map.get(rule)
+    assert script, ('PythonNinjaGenerator.run can only run rules defined via '
+                    'python_rule(): %s' % rule)
+
+    # Get the list of Python files that are imported, excluding files from
+    # outside the ARC directories.
+    python_dependencies = python_deps.find_deps(script)
+
+    # Add the discovered python dependencies to the list of dependencies.
+    implicit = (build_common.as_list(implicit) + python_dependencies +
+                ['src/build/run_python'])
+
+    return self.build(outputs, rule, inputs=inputs, implicit=implicit,
+                      variables=variables, use_staging=False)
 
 
 class PythonTestNinjaGenerator(NinjaGenerator):

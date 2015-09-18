@@ -21,11 +21,11 @@
 
 pthread_internal_t *__get_thread(void);
 
-#define MAX_THREAD_ID ((1 << 15) - 1)
-
 #if !defined(BARE_METAL_BIONIC)
 // In Non-SFI mode, we use real Linux tids, so we don't need to allocate them
 // ourselves.
+
+#define MAX_THREAD_ID ((1 << 15) - 1)
 
 // 0 until the second thread other than the main thread is created.
 // 2 <= g_next_tid < 32768 after the second thread is created.
