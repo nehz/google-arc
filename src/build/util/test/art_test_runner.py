@@ -15,7 +15,6 @@ from src.build import staging
 from src.build import toolchain
 from src.build.build_options import OPTIONS
 from src.build.util import file_util
-from src.build.util.test import scoreboard
 from src.build.util.test import suite_runner
 from src.build.util.test import system_mode
 from src.build.util.test import test_method_result
@@ -159,13 +158,7 @@ class ArtTestRunner(suite_runner.SuiteRunnerBase):
     args = self.get_system_mode_launch_chrome_command(self._name)
     prep_launch_chrome.prepare_crx_with_raw_args(args)
 
-  def run(self, test_methods_to_run):
-    # When this test runs through run_integraion_tests.py, ALL_TESTS_DUMMY_NAME
-    # is passed as test_methods_to_run. Otherwise, e.g., perf_test.py,
-    # specify a proper test name list.
-    if test_methods_to_run == [scoreboard.Scoreboard.ALL_TESTS_DUMMY_NAME]:
-      test_methods_to_run = sorted(self._case_args_map)
-
+  def run(self, test_methods_to_run, scoreboard):
     for case_name in test_methods_to_run:
       output = None
       with system_mode.SystemMode(self) as arc:
@@ -191,7 +184,7 @@ class ArtTestRunner(suite_runner.SuiteRunnerBase):
       else:
         result = self._check_output(case_name, output)
 
-      self.get_scoreboard().update([result])
+      scoreboard.update([result])
 
   def _push_test_files(self, arc):
     """Pushes test files via ADB.

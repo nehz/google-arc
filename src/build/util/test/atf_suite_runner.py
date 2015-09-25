@@ -12,7 +12,6 @@ from src.build import prep_launch_chrome
 from src.build.util import platform_util
 from src.build.util.test import atf_instrumentation_result_parser as result_parser  # NOQA
 from src.build.util.test import atf_instrumentation_scoreboard_updater as scoreboard_updater  # NOQA
-from src.build.util.test import scoreboard
 from src.build.util.test import suite_runner
 from src.build.util.test import suite_runner_util
 
@@ -79,15 +78,15 @@ class AtfSuiteRunnerBase(suite_runner.SuiteRunnerBase):
 
   def handle_output(self, line):
     self._result_parser.process_line(line)
-    self._scoreboard_updater.update(self._result_parser)
+    # We need to check if _scoreboard_updater exists as CtsMediaStressTestCases
+    # in particular calls this function during its prepare(), before the updater
+    # has been set to a usable value.
+    # TODO(lpique): Clean up the prepare for CtsMediaStressTestCases to not
+    # process the output of the processes it runs as test output.
+    if self._scoreboard_updater:
+      self._scoreboard_updater.update(self._result_parser)
 
   def _build_launch_chrome_command(self, test_methods_to_run):
-    # Handle a special case where there is no explicit listing of tests in this
-    # CTS suite, and so the framework automatically adds a dummy 'test' to run
-    # to represent the entire suite.
-    if test_methods_to_run == [scoreboard.Scoreboard.ALL_TESTS_DUMMY_NAME]:
-      test_methods_to_run = None
-
     return self.get_launch_chrome_command(
         _build_atf_launch_chrome_args(
             self._test_apk, self._target_apk, self._app_namespace, self._runner,
@@ -110,12 +109,12 @@ class AtfSuiteRunnerBase(suite_runner.SuiteRunnerBase):
       prep_launch_chrome.update_shell_command(
           self._build_launch_chrome_command(test_methods_to_run))
     self._result_parser = result_parser.AtfInstrumentationResultParser()
-    self._scoreboard_updater = (
-        scoreboard_updater.AtfInstrumentationScoreboardUpdater(
-            self.get_scoreboard()))
     self._first_run = False
 
-  def run(self, test_methods_to_run):
+  def run(self, test_methods_to_run, scoreboard):
+    self._scoreboard_updater = (
+        scoreboard_updater.AtfInstrumentationScoreboardUpdater(scoreboard))
+
     try:
       args = self._build_launch_chrome_command(test_methods_to_run)
       # The CRX is built in prepare, so it is unnecessary build here.

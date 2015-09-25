@@ -16,7 +16,6 @@ from src.build import build_common
 from src.build.util import concurrent_subprocess
 from src.build.util import file_util
 from src.build.util import launch_chrome_util
-from src.build.util.test import scoreboard
 from src.build.util.test import suite_runner_config
 from src.build.util.test import suite_runner_util
 from src.build.util.test import test_method_result
@@ -201,7 +200,6 @@ class SuiteRunnerBase(object):
 
     expectation_map = suite_runner_util.merge_expectation_map(
         base_expectation_map, override_expectation_map, default_expectation)
-    self._scoreboard = scoreboard.Scoreboard(name, expectation_map)
     self._expectation_map = expectation_map
 
     # These will be set up later, in prepare_to_run(), and run_subprocess().
@@ -237,9 +235,6 @@ class SuiteRunnerBase(object):
   def user_data_dir(self):
     return self._user_data_dir
 
-  def get_scoreboard(self):
-    return self._scoreboard
-
   @property
   def bug(self):
     """Returns the bug url(s) associated with this suite."""
@@ -267,18 +262,15 @@ class SuiteRunnerBase(object):
     """Overridden in actual implementations to do post-test cleanup."""
     pass
 
-  def run(self, test_methods_to_run):
+  def run(self, test_methods_to_run, scoreboard):
     """Invoked by the framework to run one or more test methods.
 
     The names in test_methods_to_run will be some subset of the names returned
     by the suite_test_expectations property.
 
-    Note that a special test method name of ALL_TESTS_DUMMY_NAME is used if the
-    test runner implementation does not seem to provide any
-    suite_test_expectations, and this may need to be ignored.
-
     This should be overridden in actual implementations as necessary to run the
     tests.
+
     This is invoked on Chrome OS when --remote option specified for
     run_integration_tests, so the tools that are not available on Chrome OS
     should not be used in this function (e.g. ninja, javac, dx etc.).
@@ -310,14 +302,15 @@ class SuiteRunnerBase(object):
     finally:
       self._logger = None
 
-  def run_with_setup(self, test_methods_to_run, args, logger):
+  # TODO(lpique): Move to test_driver, as that logically should be controlling
+  # test execution.
+  def run_with_setup(self, test_methods_to_run, args, logger, scoreboard):
     self._args = args
     self._logger = logger
     try:
       try:
-        self._scoreboard.start(test_methods_to_run)
         self.setUp(test_methods_to_run)
-        self.run(test_methods_to_run)
+        self.run(test_methods_to_run, scoreboard)
       finally:
         self.tearDown(test_methods_to_run)
     except Exception:
@@ -326,16 +319,9 @@ class SuiteRunnerBase(object):
       logger.flush()
       self._logger = None
 
-  def restart(self, num_retried_tests, args):
-    self._scoreboard.restart(num_retried_tests)
-
-  def abort(self, test_methods_to_run, args):
-    self._scoreboard.abort()
-
   def finalize_after_run(self, test_methods_to_run, args):
     self._args = args
     self.finalize(test_methods_to_run)
-    self._scoreboard.finalize()
 
   def apply_test_ordering(self, test_methods_to_run):
     def key_fn(name):
@@ -500,7 +486,7 @@ class SuiteRunnerBase(object):
       raise subprocess.CalledProcessError(returncode, args, output)
     return output
 
-  def run_subprocess_test(self, test_name, command, env=None):
+  def run_subprocess_test(self, scoreboard, test_name, command, env=None):
     """Runs a test which runs subprocess and sets status appropriately.
 
     - test_name: The name of this test. This should be
@@ -512,11 +498,11 @@ class SuiteRunnerBase(object):
         'For testing with ./launch_chrome, you should use run_subprocess() '
         'method instead.: %s' % str(command))
 
-    self._scoreboard.start_test(test_name)
+    scoreboard.start_test(test_name)
     try:
       self.run_subprocess(command, env=env)
       status = test_method_result.TestMethodResult.PASS
     except subprocess.CalledProcessError:
       status = test_method_result.TestMethodResult.FAIL
     result = test_method_result.TestMethodResult(test_name, status)
-    self._scoreboard.update([result])
+    scoreboard.update([result])

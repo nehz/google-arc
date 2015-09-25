@@ -8,6 +8,7 @@ import subprocess
 import sys
 import threading
 
+from src.build.util.test import scoreboard
 from src.build.util.test import suite_runner
 
 TEST_SUITE_MAX_RETRY_COUNT = 5
@@ -41,8 +42,11 @@ class TestDriver(object):
     self._run_remaining_count = try_count if tests_to_run else 0
     self._stop_on_unexpected_failures = stop_on_unexpected_failures
 
+    self._scoreboard = scoreboard.Scoreboard(
+        suite_runner.name, suite_runner.expectation_map)
+
     # Mark planned tests INCOMPLETE to distinguish them from skipped tests.
-    self.scoreboard.reset_results(self._tests_to_run)
+    self._scoreboard.reset_results(self._tests_to_run)
 
     # Whether or not this test has been finalized.
     # finalize() can be called on testing thread (in common case) or the main
@@ -69,7 +73,7 @@ class TestDriver(object):
 
   @property
   def scoreboard(self):
-    return self._suite_runner.get_scoreboard()
+    return self._scoreboard
 
   def terminate(self):
     self._suite_runner.terminate()
@@ -94,12 +98,12 @@ class TestDriver(object):
 
     # If we encountered tests that failed unexpectedly, that is enough to report
     # a result.
-    if self.scoreboard.unexpected_failed and self._stop_on_unexpected_failures:
+    if self._scoreboard.unexpected_failed and self._stop_on_unexpected_failures:
       self._run_remaining_count = 0
 
-    flakes = self.scoreboard.get_flaky_tests()
-    blacklist = self.scoreboard.get_incomplete_blacklist()
-    did_not_run = [name for name in self.scoreboard.get_incomplete_tests()
+    flakes = self._scoreboard.get_flaky_tests()
+    blacklist = self._scoreboard.get_incomplete_blacklist()
+    did_not_run = [name for name in self._scoreboard.get_incomplete_tests()
                    if name not in blacklist]
 
     # TODO(lpique): We need to figure out and fix what is going on that we are
@@ -128,7 +132,7 @@ class TestDriver(object):
 
   def run(self, args):
     tests_remaining_history = [sys.maxint] * TEST_SUITE_MAX_RETRY_COUNT
-    self.scoreboard.register_tests(self._tests_to_run)
+    self._scoreboard.register_tests(self._tests_to_run)
 
     with contextlib.closing(suite_runner.SuiteRunnerLogger(
         self._suite_runner.name,
@@ -140,7 +144,10 @@ class TestDriver(object):
           logger.write(
               '==================== Retry: %d ====================\n' % trial)
         trial += 1
-        self._suite_runner.run_with_setup(self._tests_to_run, args, logger)
+        self._scoreboard.start(self._tests_to_run)
+        self._suite_runner.run_with_setup(
+            self._tests_to_run, args, logger, self._scoreboard)
+        self._scoreboard.stop(self._tests_to_run)
 
         self._update_run_count()
 
@@ -154,11 +161,10 @@ class TestDriver(object):
           if self._suite_runner.terminated:
             break
           if current_count < tests_remaining_history.pop(0):
-            self._suite_runner.restart(len(self._tests_to_run), args)
+            self._scoreboard.restart(len(self._tests_to_run))
           else:
-            self._suite_runner.abort(self._tests_to_run, args)
+            self._scoreboard.abort()
             break
-
 
   def finalize(self, args):
     with self._finalized_lock:
@@ -166,3 +172,4 @@ class TestDriver(object):
         return
       self._finalized = True
     self._suite_runner.finalize_after_run(self._tests_to_run, args)
+    self._scoreboard.finalize()

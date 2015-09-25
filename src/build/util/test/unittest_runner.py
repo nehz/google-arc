@@ -33,10 +33,11 @@ class UnittestRunner(suite_runner.SuiteRunnerBase):
         {UnittestRunner._TEST_NAME: flags.FlagSet(flags.PASS)},
         **kwargs)
 
-  def run(self, test_methods_to_run):
+  def run(self, test_methods_to_run, scoreboard):
     assert test_methods_to_run == [UnittestRunner._TEST_NAME]
     unittest_name = self._name.replace('unittests.', '', 1)
 
     self.run_subprocess_test(
+        scoreboard,
         UnittestRunner._TEST_NAME,
         ['python', 'src/build/run_unittest.py', unittest_name])

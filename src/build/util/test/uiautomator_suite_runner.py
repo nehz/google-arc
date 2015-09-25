@@ -50,9 +50,8 @@ class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
   def _get_uiautomator_args(self, test_methods_to_run):
     jar_name = os.path.basename(self._jar_path)
     args = ['uiautomator', 'runtest', jar_name]
-    if len(test_methods_to_run) != 1 or test_methods_to_run[0] != '*':
-      for test_method in test_methods_to_run:
-        args.extend(['-c', test_method])
+    for test_method in test_methods_to_run:
+      args.extend(['-c', test_method])
     return args
 
   def handle_output(self, line):
@@ -65,9 +64,6 @@ class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
 
   def setUp(self, test_methods_to_run):
     self._result_parser = result_parser.AtfInstrumentationResultParser()
-    self._scoreboard_updater = (
-        scoreboard_updater.AtfInstrumentationScoreboardUpdater(
-            self.get_scoreboard()))
 
   def prepare(self, test_methods_to_run):
     args = self.get_system_mode_launch_chrome_command(
@@ -102,7 +98,10 @@ class UiAutomatorSuiteRunner(suite_runner.SuiteRunnerBase):
     args = ['shell', 'sh', file_path]
     return arc.run_adb(args)
 
-  def run(self, test_methods_to_run):
+  def run(self, test_methods_to_run, scoreboard):
+    self._scoreboard_updater = (
+        scoreboard_updater.AtfInstrumentationScoreboardUpdater(scoreboard))
+
     self._logger.write('Running %d uiautomator tests of suite %s\n' %
                        (len(test_methods_to_run), self._name))
 

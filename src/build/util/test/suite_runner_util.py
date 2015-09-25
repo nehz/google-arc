@@ -92,16 +92,6 @@ def _merge(base_expectation, override_expectation, default_expectation):
 
 def merge_expectation_map(
     base_expectation_map, override_expectation_map, default_expectation):
-  # In test cases, |base_expectation_map| is stubbed out as
-  # {'*': expectation.PASS}. cf) src/build/run_integration_tests_test.py.
-  # We cannot easily avoid this situation, because the real files are
-  # generated at build time, so the unittests do not know about them.
-  # To avoid test failure, we temporarily handle it here, too.
-  # TODO(crbug.com/432507): Once the '*' expansion work is done, we can
-  # get rid of '*'. We should revisit here then.
-  if base_expectation_map == {'*': flags.FlagSet(flags.PASS)}:
-    return base_expectation_map
-
   if '*' in override_expectation_map:
     overrides = _GlobalExpectationMatcher(override_expectation_map)
   else:

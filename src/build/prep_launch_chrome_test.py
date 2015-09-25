@@ -20,7 +20,6 @@ class PrepLaunchChromeTest(unittest.TestCase):
     args = launch_chrome_options.parse_args(command.split(' '))
     metadata = (prep_launch_chrome.
                 _convert_launch_chrome_options_to_external_metadata(args))
-    del metadata['targetOverride']
     del metadata['isDebugCodeEnabled']
     return metadata
 

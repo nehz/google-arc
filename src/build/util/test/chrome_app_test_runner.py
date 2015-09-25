@@ -9,7 +9,6 @@ import shutil
 from src.build import build_common
 from src.build import prep_launch_chrome
 from src.build.util.test import google_test_result_parser as result_parser
-from src.build.util.test import scoreboard
 from src.build.util.test import suite_runner
 from src.build.util.test import suite_runner_util
 
@@ -44,8 +43,6 @@ class ChromeAppTestRunner(suite_runner.SuiteRunnerBase):
     return args
 
   def _get_additional_metadata(self, test_methods_to_run):
-    if test_methods_to_run == [scoreboard.Scoreboard.ALL_TESTS_DUMMY_NAME]:
-      test_methods_to_run = None
     if not test_methods_to_run:
       return None
 
@@ -67,15 +64,15 @@ class ChromeAppTestRunner(suite_runner.SuiteRunnerBase):
 
   def setUp(self, test_methods_to_run):
     super(ChromeAppTestRunner, self).setUp(test_methods_to_run)
-    self._result_parser = result_parser.JavaScriptTestResultParser(
-        self.get_scoreboard())
     additional_metadata = self._get_additional_metadata(test_methods_to_run)
     args = self.get_launch_chrome_command(
         self._get_launch_chrome_options(),
         additional_metadata=additional_metadata)
     prep_launch_chrome.update_arc_metadata(additional_metadata, args)
 
-  def run(self, test_methods_to_run):
+  def run(self, test_methods_to_run, scoreboard):
+    self._result_parser = result_parser.JavaScriptTestResultParser(scoreboard)
+
     args = self.get_launch_chrome_command(
         self._get_launch_chrome_options(),
         additional_metadata=self._get_additional_metadata(test_methods_to_run))

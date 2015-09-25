@@ -8,7 +8,6 @@ from src.build import prep_launch_chrome
 from src.build.util import platform_util
 from src.build.util.test import atf_suite_runner
 from src.build.util.test import google_test_result_parser as result_parser
-from src.build.util.test import scoreboard
 from src.build.util.test import suite_runner_util
 
 
@@ -40,12 +39,6 @@ class AtfGTestSuiteRunner(atf_suite_runner.AtfSuiteRunnerBase):
       self._result_parser.process_line(line)
 
   def _build_launch_chrome_command(self, test_methods_to_run):
-    # Handle a special case where there is no explicit listing of tests in this
-    # CTS suite, and so the framework automatically adds a dummy 'test' to run
-    # to represent the entire suite.
-    if test_methods_to_run == [scoreboard.Scoreboard.ALL_TESTS_DUMMY_NAME]:
-      test_methods_to_run = None
-
     return self.get_launch_chrome_command(
         _build_atf_launch_chrome_args(
             self._test_apk,
@@ -65,9 +58,13 @@ class AtfGTestSuiteRunner(atf_suite_runner.AtfSuiteRunnerBase):
           self._build_launch_chrome_command(test_methods_to_run))
 
     # Use GoogleTestResultParser instead of AtfInstrumentationTestParser.
-    self._result_parser = (
-        result_parser.GoogleTestResultParser(self.get_scoreboard()))
     self._first_run = False
+
+  def run(self, test_methods_to_run, scoreboard):
+    self._result_parser = (
+        result_parser.GoogleTestResultParser(scoreboard))
+
+    super(AtfGTestSuiteRunner, self).run(test_methods_to_run, scoreboard)
 
   def tearDown(self, test_methods_to_run):
     self._result_parser = None

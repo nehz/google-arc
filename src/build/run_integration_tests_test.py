@@ -19,6 +19,7 @@ output from rarely used command line options. It is not meant to comprehensively
 cover all the logic in the integration test infrastructure.
 """
 
+import cStringIO
 import re
 import unittest
 
@@ -84,33 +85,6 @@ class _FakePopen(object):
     for line in self._output_generator:
       handler.handle_stdout(line + '\n')
     return self._exit_code
-
-
-class _FakeStream(object):
-  """A fake replacement for a stream such as sys.stdout
-
-  Buffers all writes so that they can be examined by calling
-  get_output_lines().
-  """
-  def __init__(self):
-    super(_FakeStream, self).__init__()
-    self._output = []
-
-  def write(self, text):
-    self._output.append(text)
-
-  def fileno(self):
-    # We are not a real file, so make any attempt to be treated as one fail.
-    return None
-
-  def isatty(self):
-    # Returning false here means run_integration_tests will not use ANSI escape
-    # codes to colorize the output.
-    return False
-
-  def get_output_lines(self):
-    # Join and resplit the output into lines.
-    return ''.join(self._output).splitlines()
 
 
 def _make_all_tests_flaky():
@@ -240,10 +214,6 @@ def _stub_parse_configure_file():
   OPTIONS.parse([])
 
 
-def _stub_read_test_list(path):
-  return {'*': flags.FlagSet(flags.PASS)}
-
-
 def _stub_expectation_loader_get(*args):
   return suite_runner_config.default_run_configuration()
 
@@ -259,9 +229,10 @@ class _RunIntegrationTestsTestBase(unittest.TestCase):
   EXAMPLE_TEST_NAME2 = 'libcore.java.lang.StringTest#test_compareTo'
 
   def _run_integration_tests(self, args):
-    with mock.patch('sys.stdout', _FakeStream()) as stdout:
+    with mock.patch('sys.stdout', cStringIO.StringIO()) as stdout:
       self._last_exit_code = run_integration_tests.main(args + ['--noninja'])
-      self._last_output = stdout.get_output_lines()
+      self._last_output_raw = stdout.getvalue()
+      self._last_output = self._last_output_raw.splitlines()
 
   @classmethod
   def _fake_atf_subprocess_generator(cls, result_codes):
@@ -392,7 +363,7 @@ class _RunIntegrationTestsTestBase(unittest.TestCase):
 # Any call to subprocess.check_output will just return an empty string.
 @mock.patch('subprocess.check_output', _stub_return_empty_string)
 # We patch sys.stdout.write to hide all output.
-@mock.patch('sys.stdout', _FakeStream())
+@mock.patch('sys.stdout', cStringIO.StringIO())
 # We make dashboard_submit.queue_data no-op to avoid sending test data to the
 # real dashboard server.
 @mock.patch('src.build.dashboard_submit.queue_data', _stub_return_none)
@@ -457,7 +428,7 @@ class RunIntegrationTestsSlowTest(_RunIntegrationTestsTestBase):
 # Any call to subprocess.check_output will just return an empty string.
 @mock.patch('subprocess.check_output', _stub_return_empty_string)
 # We patch sys.stdout.write to hide all output.
-@mock.patch('sys.stdout', _FakeStream())
+@mock.patch('sys.stdout', cStringIO.StringIO())
 # We make dashboard_submit.queue_data no-op to avoid sending test data to the
 # real dashboard server.
 @mock.patch('src.build.dashboard_submit.queue_data', _stub_return_none)
@@ -467,9 +438,6 @@ class RunIntegrationTestsSlowTest(_RunIntegrationTestsTestBase):
             _stub_parse_configure_file)
 # The unittest files may not be created yet.
 @mock.patch('src.build.util.test.unittest_util.get_all_tests', lambda: [])
-# These tests run faster by limiting the number of tests constructed at startup
-@mock.patch('src.build.util.test.suite_runner_util.read_test_list',
-            _stub_read_test_list)
 @mock.patch(
     'src.build.util.test.suite_runner_config.SuiteExpectationsLoader.get',
     _stub_expectation_loader_get)
@@ -577,13 +545,29 @@ class RunIntegrationTestsFastTest(_RunIntegrationTestsTestBase):
     self.assertOutputDoesNotContainBuildbotFailureAnnotaion()
     self.assertOutputContainsBuildbotWarningAnnotation()
 
+  def assertOutputListDoesListTest(self, expectations, suite_name, test_name):
+    full_name = '%s:%s' % (suite_name, test_name)
+    self.assertRegexpMatches(
+        self._last_output_raw,
+        r'(?m)^\[%s\s*\] %s$' % (
+            r'\s+'.join(expectations), re.escape(full_name)),
+        msg='\'[%s] %s\' was not found in \'%s\'' % (
+            ' '.join(expectations), full_name, self._last_output_raw))
+
+  def assertOutputListDoesNotListTest(self, suite_name, test_name):
+    full_name = '%s:%s' % (suite_name, test_name)
+    self.assertNotRegexpMatches(
+        self._last_output_raw,
+        r'(?m)^\[.*\] %s$' % re.escape(full_name),
+        msg='\'%s\' was unexpectedly found in \'%s\'' % (
+            full_name, self._last_output_raw))
+
   def test_list_can_be_generated_for_all_suites(self):
     """Check that --list can be used to list all tests."""
     self._run_integration_tests(['-t', '*', '--list'])
     self.assertExitCodeIndicatedSuccess()
-    self.assertIn('[RUN  PASS] %s:%s' %
-                  (self.EXAMPLE_SUITE_NAME, self.EXAMPLE_TEST_NAME),
-                  self._last_output)
+    self.assertOutputListDoesListTest(
+        ['RUN', 'PASS'], self.EXAMPLE_SUITE_NAME, self.EXAMPLE_TEST_NAME)
 
   def test_list_is_blank_if_no_tests_selected(self):
     """Check that --list works with no tests selected."""
@@ -595,12 +579,10 @@ class RunIntegrationTestsFastTest(_RunIntegrationTestsTestBase):
     """Check that --list works when selecting all tests in a suite."""
     self._run_integration_tests(['-t', self.EXAMPLE_SUITE_NAME, '--list'])
     self.assertExitCodeIndicatedSuccess()
-    self.assertIn('[RUN  PASS] %s:%s' %
-                  (self.EXAMPLE_SUITE_NAME, self.EXAMPLE_TEST_NAME),
-                  self._last_output)
-    self.assertIn('[RUN  PASS] %s:%s' %
-                  (self.EXAMPLE_SUITE_NAME, self.EXAMPLE_TEST_NAME2),
-                  self._last_output)
+    self.assertOutputListDoesListTest(
+        ['RUN', 'PASS'], self.EXAMPLE_SUITE_NAME, self.EXAMPLE_TEST_NAME)
+    self.assertOutputListDoesListTest(
+        ['RUN', 'PASS'], self.EXAMPLE_SUITE_NAME, self.EXAMPLE_TEST_NAME2)
 
   def test_simple_select_of_one_test_in_suite(self):
     """Check that --list works when selecting a single test in a suite."""
@@ -608,12 +590,10 @@ class RunIntegrationTestsFastTest(_RunIntegrationTestsTestBase):
         '-t', self.EXAMPLE_SUITE_NAME + ':' + self.EXAMPLE_TEST_NAME,
         '--list'])
     self.assertExitCodeIndicatedSuccess()
-    self.assertIn('[RUN  PASS] %s:%s' %
-                  (self.EXAMPLE_SUITE_NAME, self.EXAMPLE_TEST_NAME),
-                  self._last_output)
-    self.assertNotIn('[RUN  PASS] %s:%s' %
-                     (self.EXAMPLE_SUITE_NAME, self.EXAMPLE_TEST_NAME2),
-                     self._last_output)
+    self.assertOutputListDoesListTest(
+        ['RUN', 'PASS'], self.EXAMPLE_SUITE_NAME, self.EXAMPLE_TEST_NAME)
+    self.assertOutputListDoesNotListTest(
+        self.EXAMPLE_SUITE_NAME, self.EXAMPLE_TEST_NAME2)
 
 if __name__ == '__main__':
   unittest.main()

@@ -121,6 +121,11 @@ def _select_tests_to_run(all_suite_runners, args):
     tests_to_run = []
     updated_suite_test_expectations = {}
     is_runnable = runner.is_runnable()
+    assert runner.expectation_map, (
+        'Suite runner %s does not list any tests.' % runner.name)
+    assert '*' not in runner.expectation_map, (
+        'Suite runner %s lists the deprecated placeholder \'*\' as a test.' % (
+            runner.name))
     for test_name, test_expectation in (
         runner.expectation_map.iteritems()):
       # Check if the test is selected.

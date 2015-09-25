@@ -154,12 +154,6 @@ def _validate_flakiness_retry(parser, args):
     parser.error('--chrome-flakiness-retry must be non-negative value.')
 
 
-def _validate_arcwelder(parser, args):
-  if args.mode == 'arcwelder':
-    # TODO(crbug.com/508021): bare_metal_i686 is broken.
-    assert not OPTIONS.is_bare_metal_i686()
-
-
 def _setup_filterspec_from_args(args):
   if args.silent:
     args.stderr_log = 'S'
@@ -553,7 +547,6 @@ Native Client Debugging
   _validate_timeout(parser, args)
   _validate_valgrind(parser, args)
   _validate_flakiness_retry(parser, args)
-  _validate_arcwelder(parser, args)
 
   _resolve_perf_test_mode(args)
   _setup_filterspec_from_args(args)

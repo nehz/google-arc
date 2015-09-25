@@ -182,7 +182,7 @@ class SystemMode(object):
     class MyTestRunner(SuiteRunnerBase):
       ...
 
-      def run(self, unused_test_methods_to_run):
+      def run(self, unused_test_methods_to_run, scoreboard):
         with SystemMode(self) as arc:
           print arc.run_adb(['shell', 'echo', 'hello'])
         if arc.has_error():

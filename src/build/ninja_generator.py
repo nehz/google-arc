@@ -2868,6 +2868,7 @@ class JavaNinjaGenerator(NinjaGenerator):
 
     self._aapt_flags = aapt_flags
     self._use_multi_dex = use_multi_dex
+    self._preserve_dex = False
 
   @staticmethod
   def emit_common_rules(n):
@@ -3372,11 +3373,14 @@ class JavaNinjaGenerator(NinjaGenerator):
                {'dex2oatflags': dex2oatflags}, implicit=implicit)
 
     remove_dexes_rule = 'aapt_remove_dexes'
-    if not OPTIONS.enable_art_aot():
+    if not OPTIONS.enable_art_aot() or self._preserve_dex:
       # When running in fully interpreted, non-boot image mode, ART needs all
       # the .jar and .apk files to still have the .dex file inside them. If that
       # is the case, just copy the intermediate files to their final destination
       # unchanged.
+      # Some .jars (like uiautomator and its dependencies) are loaded through an
+      # alternate class loader, which does not use .odex files. For those .jars,
+      # we need to also preserve the .dex files within the .jar.
       remove_dexes_rule = 'cp'
     self.build(apk_path_out, remove_dexes_rule, apk_path_in,
                implicit=staging.third_party_to_staging(
@@ -3425,7 +3429,7 @@ class JarNinjaGenerator(JavaNinjaGenerator):
                canned_jar_dir=None, core_library=False, java_resource_dirs=None,
                java_resource_files=None, static_library=False,
                jar_packages=None, jarjar_rules=None, dx_flags=None,
-               built_from_android_mk=False, **kwargs):
+               built_from_android_mk=False, preserve_dex=False, **kwargs):
     # TODO(crbug.com/393099): Once all rules are generated via make_to_ninja,
     # |core_library| can be removed because |dx_flags| translated from
     # LOCAL_DX_FLAGS in Android.mk is automatically set to the right flag.
@@ -3448,6 +3452,7 @@ class JarNinjaGenerator(JavaNinjaGenerator):
     if OPTIONS.enable_art_aot() and dex_preopt:
       assert install_path, 'Dex-preopt only makes sense for installed jar'
       self._dex_preopt = True
+      self._preserve_dex = preserve_dex
       self._output_odex_file = self._get_build_path(
           is_target=True,
           subpath='javalib.odex')

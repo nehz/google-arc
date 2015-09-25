@@ -97,7 +97,6 @@ def _convert_launch_chrome_options_to_external_metadata(parsed_args):
   if command:
     metadata['shell'] = command
 
-  metadata['targetOverride'] = OPTIONS.target()
   metadata['isDebugCodeEnabled'] = OPTIONS.is_debug_code_enabled()
 
   return metadata

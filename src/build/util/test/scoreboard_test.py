@@ -222,12 +222,11 @@ class ScoreboardTests(unittest.TestCase):
   # reported.
   def test_no_test_reported(self):
     results = {
-        'total': 1,
-        'incompleted': 1,
-        'overall_status': scoreboard_constants.INCOMPLETE,
-        'get_incomplete_tests': ['*'],
+        'total': 0,
+        'incompleted': 0,
+        'overall_status': scoreboard_constants.EXPECTED_PASS,
     }
-    self._expected_test_count = 1
+    self._expected_test_count = 0
 
     expectations = {}
     start_tests = []
@@ -546,18 +545,6 @@ class ScoreboardTests(unittest.TestCase):
         scoreboard_constants.SKIPPED, expectations['testTimesOut'])
     self.assertEquals(
         scoreboard_constants.EXPECTED_FLAKE, expectations['testFlaky'])
-
-  def test_get_expectations_works_with_dummy_placeholder(self):
-    sb = scoreboard.Scoreboard(
-        'suite',
-        {scoreboard.Scoreboard.ALL_TESTS_DUMMY_NAME:
-         flags.FlagSet(flags.FAIL)})
-
-    expectations = sb.get_expectations()
-
-    self.assertEquals(1, len(expectations))
-    self.assertEquals(scoreboard_constants.EXPECTED_FAIL,
-                      expectations[sb.ALL_TESTS_DUMMY_NAME])
 
 
 if __name__ == '__main__':

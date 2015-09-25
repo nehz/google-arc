@@ -12,17 +12,6 @@ from src.build.util.test import scoreboard_constants
 class Scoreboard:
   """A class used to track test results and overall status of a SuiteRunner."""
 
-  # This special name is used to denote all tests that are a part of a suite.
-  # This allows exceptions to be placed on all tests, rather than having
-  # to specify them individually.
-  # TODO(haroonq): All sorts of weird problems occur if we have a test named
-  # '*'.  Unfortunately, for several tests (like the dalvik tests), we do not
-  # actually have test names, so ALL_TESTS_DUMMY_NAME is being used instead.
-  # Ideally, this class should not really have any 'special' test name and
-  # treat all test names the same.  Instead, the expectations should be
-  # expanded out by the owning class before it reaches here.
-  ALL_TESTS_DUMMY_NAME = '*'
-
   # The (internal) expectations for individual tests.
   _SHOULD_PASS = 0
   _SHOULD_FAIL = 1
@@ -51,13 +40,11 @@ class Scoreboard:
     self._did_not_complete_blacklist = []
 
     # Update the internal expectations for the tests.
-    self._default_expectation = self._SHOULD_PASS
     self.set_expectations(expectations)
 
   def reset_results(self, tests):
     for test in tests:
-      if test != self.ALL_TESTS_DUMMY_NAME:
-        self._results[test] = scoreboard_constants.INCOMPLETE
+      self._results[test] = scoreboard_constants.INCOMPLETE
 
   @staticmethod
   def map_expectation_flag_to_result(ex):
@@ -94,10 +81,7 @@ class Scoreboard:
       return
     for name, ex in expectations.iteritems():
       expectation = self.map_expectation_flag_to_scoreboard_expectation(ex)
-      if name == self.ALL_TESTS_DUMMY_NAME:
-        self._default_expectation = expectation
-      else:
-        self._expectations[name] = expectation
+      self._expectations[name] = expectation
 
   def register_tests(self, tests_to_run):
     """
@@ -107,8 +91,6 @@ class Scoreboard:
     self._start_time = time.time()
     suite_results.report_start(self)
     for name in tests_to_run:
-      if self.ALL_TESTS_DUMMY_NAME in name:
-        continue
       self._register_test(name)
 
   def start(self, tests_to_run):
@@ -119,10 +101,13 @@ class Scoreboard:
     rerunning flaky tests.
     """
     for name in tests_to_run:
-      if self.ALL_TESTS_DUMMY_NAME in name:
-        continue
       assert name in self._expectations
       self._results[name] = scoreboard_constants.INCOMPLETE
+
+  def stop(self, tests_to_run):
+    # TODO(lpique): This is just a no-op implementation to ease a near-future
+    # merge with the other changes in this patch.
+    pass
 
   def restart(self, num_retried_tests):
     """
@@ -152,13 +137,8 @@ class Scoreboard:
   def update(self, tests):
     """Updates the scoreboard with a list of TestMethodResults."""
     for test in tests:
-      expect = self._default_expectation
-      if self.ALL_TESTS_DUMMY_NAME in test.name:
-        if len(self._expectations) != 0:
-          continue
-      else:
-        self._register_test(test.name)
-        expect = self._expectations[test.name]
+      self._register_test(test.name)
+      expect = self._expectations[test.name]
       if test and test.passed:
         result = scoreboard_constants.EXPECTED_PASS
       else:
@@ -176,19 +156,8 @@ class Scoreboard:
     not run will be marked as SKIPPED and any flaky tests will be marked as
     UNEXPECTED_FAIL.
     """
-    if not self._expectations and not self._results:
-      # Expectations were likely not set because the test does not specify
-      # expectations so ALL_TESTS_DUMMY_NAME was used. Results should not be
-      # empty. Any valid test should report at least one test result so we will
-      # mark the entire suite as INCOMPLETE.
-      self._set_result(
-          self.ALL_TESTS_DUMMY_NAME, scoreboard_constants.INCOMPLETE)
-      suite_results.report_update_test(self,
-                                       self.ALL_TESTS_DUMMY_NAME,
-                                       scoreboard_constants.INCOMPLETE)
-    else:
-      for name, ex in self._expectations.iteritems():
-        self._finalize_test(name, ex)
+    for name, ex in self._expectations.iteritems():
+      self._finalize_test(name, ex)
     self._end_time = time.time()
     suite_results.report_results(self)
 
@@ -208,10 +177,7 @@ class Scoreboard:
   # completed/incompleted properties.
   @property
   def total(self):
-    # If a test suite has a scoreboard, we have to assume that at least one
-    # test will be run.  len(self._expectations) can be zero if only a '*'
-    # expectation was specified.
-    return max(self._complete_count, len(self._expectations), 1)
+    return max(self._complete_count, len(self._expectations))
 
   @property
   def completed(self):
@@ -375,7 +341,4 @@ class Scoreboard:
     expectations = {}
     for name, test_expectation in self._expectations.iteritems():
       expectations[name] = self._MAP_EXPECTATIONS_TO_RESULT[test_expectation]
-    if len(self._expectations) == 0:
-      expectations[self.ALL_TESTS_DUMMY_NAME] = (
-          self._MAP_EXPECTATIONS_TO_RESULT[self._default_expectation])
     return expectations

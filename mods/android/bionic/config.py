@@ -1239,6 +1239,7 @@ def _generate_bionic_tests():
                            'pthread.pthread_join__race',
                            'pthread.pthread_no_join_after_detach',
                            'pthread.pthread_no_op_detach_after_join',
+                           'pthread.pthread_sigmask',
                            'pthread_thread_stack.pthread_create_detached',
                            'pthread_thread_stack.pthread_create_join',
                            'pthread_thread_stack.pthread_detach',
