@@ -350,7 +350,7 @@ class VMPerfDriver(BaseDriver):
         runner.name,
         os.path.join(args.output_dir, runner.name),
         False)) as logger:
-      runner.run_with_setup([benchmark], args, logger)
+      runner.run_with_setup([benchmark], args, logger, None)
     with open(logger.path) as f:
       for line in f:
         # Result line format is 'Benchmark <name>: <result> ms'.
