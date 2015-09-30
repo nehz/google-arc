@@ -105,9 +105,9 @@ class _ModState(object):
 
     self._verified = True
 
-  def rebase(self, old_revision):
+  def rebase(self, old_revision, force_new_mod_path=None):
     if not self._verified:
-      self.verify(old_revision)
+      self.verify(old_revision, force_new_mod_path)
 
     if self._status is not None:
       return
@@ -119,7 +119,7 @@ class _ModState(object):
         old_revision, self._android_path,
         self._android_module_path) as tmp_android_path:
       # Attempt an automatic three-way merge using the mod, the old source code
-      # and # the new source code.
+      # and the new source code.
       if not internal.merge3(
           self._new_mod_path, tmp_android_path, self._new_android_path):
         self._status = constants.RESULT_NO_CLEAN_MERGE
