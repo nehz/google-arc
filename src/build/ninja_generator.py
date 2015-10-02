@@ -4129,12 +4129,12 @@ class PythonTestNinjaGenerator(NinjaGenerator):
     # imports. If we ran it with "python $in", the path to the file would be
     # automatically added to sys.path, when normally that path may not be in it.
     n.rule('run_python_test',
-           ('src/build/run_python -m unittest discover'
-            ' --verbose $test_path $test_name $base_run_path ' +
+           ('$pythonpath python src/build/run_python -m unittest '
+            'discover --verbose $test_path $test_name $base_run_path ' +
             build_common.get_test_output_handler()),
            description='run_python_test $in')
 
-  def run(self, python_test, implicit=None):
+  def run(self, python_test, implicit=None, extra_pythonpath=None):
     """Runs a single Python test.
 
     The Python module dependencies of the test are discovered automatically (at
@@ -4145,11 +4145,13 @@ class PythonTestNinjaGenerator(NinjaGenerator):
             'src/build/util/some_util_test.py'.
         implicit: An additional list of implicit dependencies for this test, so
             that it is run if any of them are changed.
+        extra_python_path: PYTHONPATHs to be prepended for running the test.
     """
 
     # Get the list of Python files that are imported, excluding files from
     # outside the ARC directories.
-    python_dependencies = python_deps.find_deps(python_test)
+    python_dependencies = python_deps.find_deps(
+        python_test, python_path=extra_pythonpath)
 
     # The Python test file is included in the returned list. Remove it since we
     # are interested in the implicit dependencies, and the test is an
@@ -4176,9 +4178,15 @@ class PythonTestNinjaGenerator(NinjaGenerator):
     else:
       base_run_path = os.path.dirname(python_test)
 
+    if extra_pythonpath:
+      pythonpath = (
+          'PYTHONPATH=%s$${PYTHONPATH:+:$$PYTHONPATH}' % extra_pythonpath)
+    else:
+      pythonpath = ''
+
     test_path, test_name = os.path.split(python_test)
     variables = {'base_run_path': base_run_path, 'test_name': test_name,
-                 'test_path': test_path}
+                 'test_path': test_path, 'pythonpath': pythonpath}
 
     # Write out the build rule.
     return self.build(
@@ -4256,13 +4264,14 @@ class JavaScriptNinjaGenerator(NinjaGenerator):
                variables={'out_min_js': out_min_js, 'out_map': out_map})
 
 
-def _generate_python_test_ninja_for_test(python_test, implicit_map):
+def _generate_python_test_ninja_for_test(
+    python_test, implicit, extra_pythonpath):
   PythonTestNinjaGenerator(python_test).run(
-      python_test, implicit_map.get(python_test, []))
+      python_test, implicit, extra_pythonpath)
 
 
-def generate_python_test_ninjas_for_path(base_path, exclude=None,
-                                         implicit_map=None):
+def generate_python_test_ninjas_for_path(
+    base_path, exclude=None, implicit_map=None, extra_pythonpath_map=None):
   """Generates ninja files for all Python tests found under the indicated path.
 
   The Python module dependencies of each test are discovered automatically (at
@@ -4273,14 +4282,18 @@ def generate_python_test_ninjas_for_path(base_path, exclude=None,
       exclude: (Optional) A list of files to exclude.
       implicit_map: (Optional) A mapping of test paths to extra dependencies for
           that test.
+      extra_pythonpath_map: (Optional) A mapping of test paths to extra
+          PYTHONPATHs for that test.
   """
-  implicit_map = build_common.as_dict(implicit_map)
+  implicit_map = implicit_map or {}
+  extra_pythonpath_map = extra_pythonpath_map or {}
   python_tests = build_common.find_all_files(
       base_path, suffixes='_test.py', include_tests=True, exclude=exclude,
       use_staging=False)
   ninja_generator_runner.request_run_in_parallel(
-      *[(_generate_python_test_ninja_for_test, python_test, implicit_map)
-        for python_test in python_tests])
+      *((_generate_python_test_ninja_for_test, python_test,
+         implicit_map.get(python_test), extra_pythonpath_map.get(python_test))
+        for python_test in python_tests))
 
 
 class JavaScriptTestNinjaGenerator(JavaScriptNinjaGenerator):
