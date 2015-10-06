@@ -117,6 +117,7 @@ class GraphicsObserver {
 
   virtual void OnGraphicsContextsLost() {}
   virtual void OnGraphicsContextsRestored() {}
+  virtual void OnDisplaySleep(bool sleep) {}
 };
 
 class RendererInterface {
