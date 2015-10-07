@@ -385,36 +385,36 @@
       "archives": [
         {
           "checksum": {
-            "sha1": "badb0ffb79d087e20f8b362fbf832d5539ace219"
+            "sha1": "b3208413a249f48a32298e86e6a3dacdb36cf830"
           },
           "host_os": "linux",
-          "size": 454787511,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.351453/naclsdk_linux.tar.bz2"
+          "size": 454785019,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.352270/naclsdk_linux.tar.bz2"
         },
         {
           "checksum": {
-            "sha1": "10060b4a52187ecf04a51bafcca185c9f65d7bc0"
+            "sha1": "2e7ecbcc3c24148c7acd95c4dedb5bd9f333d8f3"
           },
           "host_os": "mac",
-          "size": 442363014,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.351453/naclsdk_mac.tar.bz2"
+          "size": 442366121,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.352270/naclsdk_mac.tar.bz2"
         },
         {
           "checksum": {
-            "sha1": "ddda632f3a44961aeba1e0ae2122d681a15c70d5"
+            "sha1": "77d801839199d218afb23b5e65a340afc3c64fa0"
           },
           "host_os": "win",
-          "size": 441520642,
-          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.351453/naclsdk_win.tar.bz2"
+          "size": 441511740,
+          "url": "https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.352270/naclsdk_win.tar.bz2"
         }
       ],
-      "description": "Chrome 47 bundle. Chrome revision: 351453. NaCl revision: 719fce7fa0c1f11cf05d5c20cdfa6648e8a35611",
+      "description": "Chrome 48 bundle. Chrome revision: 352270. NaCl revision: 719fce7fa0c1f11cf05d5c20cdfa6648e8a35611",
       "name": "pepper_canary",
       "recommended": "no",
-      "repath": "pepper_47",
-      "revision": 351453,
+      "repath": "pepper_48",
+      "revision": 352270,
       "stability": "canary",
-      "version": 47
+      "version": 48
     },
     {
       "archives": [
