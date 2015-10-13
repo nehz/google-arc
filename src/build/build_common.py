@@ -444,7 +444,7 @@ def get_chrome_prebuilt_path():
   # Use 32-bit version of Chrome on Windows regardless of the target bit size.
   if platform_util.is_running_on_cygwin():
     return os.path.join('out', 'chrome32')
-  if OPTIONS.is_x86_64():
+  if OPTIONS.is_x86_64() or OPTIONS.is_bare_metal_i686():
     return os.path.join('out', 'chrome64')
   else:
     return os.path.join('out', 'chrome32')
