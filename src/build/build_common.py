@@ -440,14 +440,18 @@ def get_chrome_exe_path_on_local_host():
     return os.path.join(get_chrome_prebuilt_path(), 'chrome')
 
 
-def get_chrome_prebuilt_path():
+def get_chrome_prebuilt_arch_bits():
   # Use 32-bit version of Chrome on Windows regardless of the target bit size.
   if platform_util.is_running_on_cygwin():
-    return os.path.join('out', 'chrome32')
-  if OPTIONS.is_x86_64() or OPTIONS.is_bare_metal_i686():
-    return os.path.join('out', 'chrome64')
+    return '32'
+  elif OPTIONS.is_x86_64() or OPTIONS.is_bare_metal_i686():
+    return '64'
   else:
-    return os.path.join('out', 'chrome32')
+    return '32'
+
+
+def get_chrome_prebuilt_path():
+  return os.path.join('out', 'chrome' + get_chrome_prebuilt_arch_bits())
 
 
 def get_chrome_prebuilt_stamp_file():
