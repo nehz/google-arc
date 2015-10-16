@@ -285,9 +285,9 @@ def get_ref_hash(ref, cwd=None):
   return output.strip()
 
 
-def add_to_staging(path):
+def add_to_staging(path, cwd=None):
   """Issue a "git add" command to add |path| to staging."""
-  _subprocess_check_output(['git', 'add', path])
+  _subprocess_check_output(['git', 'add', path], cwd=cwd)
 
 
 def add_submodule(url, path):

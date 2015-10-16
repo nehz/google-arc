@@ -169,12 +169,13 @@ def write_old_file_content(revision, path, module_path, write_path):
 @contextlib.contextmanager
 def old_file_content(revision, path, module_path):
   os_handle, tmp_path = tempfile.mkstemp()
-  write_old_file_content(revision, path, module_path, tmp_path)
 
-  yield tmp_path
-
-  os.close(os_handle)
-  os.remove(tmp_path)
+  try:
+    write_old_file_content(revision, path, module_path, tmp_path)
+    yield tmp_path
+  finally:
+    os.close(os_handle)
+    os.remove(tmp_path)
 
 
 # TODO(lpique) This and util.git._subprocess_check_output are the same thing.
