@@ -1,4 +1,4 @@
-// ARC MOD TRACK "third_party/nacl_sdk/pepper_canary/toolchain/linux_x86_newlib/x86_64-nacl/include/sys/nacl_nice.h"
+// ARC MOD TRACK "third_party/native_client/src/trusted/service_runtime/include/sys/nacl_nice.h"
 /*
  * Copyright 2009 The Native Client Authors. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
@@ -9,8 +9,8 @@
  * Constants for nacl_thread_nice system call and friends.
  */
 
-#ifndef EXPORT_SRC_TRUSTED_SERVICE_RUNTIME_INCLUDE_SYS_NACL_NICE_H__
-#define EXPORT_SRC_TRUSTED_SERVICE_RUNTIME_INCLUDE_SYS_NACL_NICE_H__
+#ifndef NATIVE_CLIENT_SRC_TRUSTED_SERVICE_RUNTIME_INCLUDE_SYS_NACL_NICE_H__
+#define NATIVE_CLIENT_SRC_TRUSTED_SERVICE_RUNTIME_INCLUDE_SYS_NACL_NICE_H__
 
 #define NICE_REALTIME   -5
 #define NICE_NORMAL     0

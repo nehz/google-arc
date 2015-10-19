@@ -431,6 +431,19 @@ class NinjaGenerator(ninja_syntax.Writer):
                     NinjaGenerator._GENERATE_FILE_FROM_TEMPLATE_PATH),
            description='generate_from_template $out')
 
+    if OPTIONS.is_nacl_build():
+      # Native Client validation test
+      n.rule(
+          'run_ncval_test',
+          'python ' +
+          staging.as_staging(
+              'native_client/src/trusted/validator/driver/ncval_annotate.py') +
+          ' --addr2line=' + toolchain.get_tool(OPTIONS.target(), 'addr2line') +
+          ' --objdump=' + toolchain.get_tool(OPTIONS.target(), 'objdump') +
+          ' --ncval=' + toolchain.get_tool(OPTIONS.target(), 'ncval') +
+          ' $in ' + build_common.get_test_output_handler(),
+          description='NaCl validate $in')
+
   @staticmethod
   def _canonicalize_set(target_groups):
     canon = set(build_common.as_list(target_groups))
@@ -932,6 +945,16 @@ class NinjaGenerator(ninja_syntax.Writer):
     self.build([build_common.get_all_unittest_info_path()],
                'make_list',
                unittest_info_list)
+
+  def get_ncval_test_output(self, binfile):
+    return binfile + '.ncval'
+
+  def ncval_test(self, binfiles):
+    for binfile in build_common.as_list(binfiles):
+      self.build(
+          self.get_ncval_test_output(binfile), 'run_ncval_test', binfile,
+          implicit=staging.as_staging(
+              'native_client/src/trusted/validator/driver/ncval_annotate.py'))
 
 
 class CNinjaGenerator(NinjaGenerator):
@@ -1679,13 +1702,6 @@ class CNinjaGenerator(NinjaGenerator):
     CNinjaGenerator.emit_target_rules_(n)
     CNinjaGenerator.emit_host_rules_(n)
 
-    if OPTIONS.is_nacl_build():
-      # Native Client validation test
-      n.rule('run_ncval_test',
-             (toolchain.get_tool(OPTIONS.target(), 'ncval') +
-              ' $in ' + build_common.get_test_output_handler()),
-             description='NaCl validate $in')
-
   def _get_rule_name(self, rule_prefix):
     if self._notices_only:
       return 'phony'
@@ -1720,13 +1736,6 @@ class CNinjaGenerator(NinjaGenerator):
     return self.build(
         self.get_build_path(self.get_object_path(name)),
         self._get_rule_name('asm_with_preprocessing'), name, **kwargs)
-
-  def get_ncval_test_output(self, binfile):
-    return binfile + '.ncval'
-
-  def ncval_test(self, binfiles):
-    for binfile in build_common.as_list(binfiles):
-      self.build(self.get_ncval_test_output(binfile), 'run_ncval_test', binfile)
 
   def add_libchromium_base_compile_flags(self):
     self.add_include_paths('android/external/chromium_org')
@@ -3386,8 +3395,7 @@ class JavaNinjaGenerator(NinjaGenerator):
                implicit=staging.third_party_to_staging(
                    toolchain.get_tool('java', 'aapt')))
     if OPTIONS.is_nacl_build():
-      self.build(self._output_odex_file + '.ncval', 'run_ncval_test',
-                 self._output_odex_file)
+      self.ncval_test(self._output_odex_file)
 
   def _install_odex_to_android_root(self, odex_path, archive_in_fs):
     """Installs the odex to the related path of corresponding jar or apk.
