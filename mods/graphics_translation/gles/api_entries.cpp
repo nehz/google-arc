@@ -4462,7 +4462,8 @@ GLES_APIENTRY(void, TexParameterxv, GLenum target, GLenum pname,
   GLfloat tmp[kMaxParamElementSize];
   Convert(tmp, ParamSize(pname), params);
   if (pname == GL_TEXTURE_WRAP_S || pname == GL_TEXTURE_WRAP_T ||
-      pname == GL_TEXTURE_CROP_RECT_OES) {
+      pname == GL_TEXTURE_CROP_RECT_OES || pname == GL_TEXTURE_MIN_FILTER ||
+      pname == GL_TEXTURE_MAG_FILTER) {
     glTexParameteriv(target, pname, reinterpret_cast<const GLint*>(params));
   } else {
     glTexParameterfv(target, pname, tmp);
