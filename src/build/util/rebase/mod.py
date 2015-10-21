@@ -15,7 +15,7 @@ from src.build.util.rebase import internal
 
 class _ModState(object):
   def __init__(self, mod_path, android_path, android_module_path,
-               uses_mod_track):
+               uses_mod_track, arc_git_root=None):
     self._mod_path = mod_path
     self._android_path = android_path
     self._android_module_path = android_module_path
@@ -24,6 +24,7 @@ class _ModState(object):
     self._status = None
     self._new_mod_path = mod_path
     self._new_android_path = android_path
+    self._arc_git_root = arc_git_root
 
   @property
   def android_path(self):
@@ -53,7 +54,7 @@ class _ModState(object):
       self._new_android_path = self._android_path
     elif android_sources:
       if self._uses_mod_track:
-        self._status = constants.RESULT_NO_UPSTREAM
+        self._status = constants.RESULT_REBASE_RESULT_NO_UPSTREAM
         return
 
       # TODO(crbug.com/464948): While this basic search might work most of the
@@ -62,14 +63,14 @@ class _ModState(object):
       new_android_path = internal.find_new_android_path(
           android_sources, self._android_path)
       if not new_android_path:
-        self._status = constants.RESULT_NO_UPSTREAM
+        self._status = constants.RESULT_REBASE_RESULT_NO_UPSTREAM
         return
 
       self._new_mod_path = internal.get_mod_path_for_android_path(
           new_android_path)
       self._new_android_path = new_android_path
     else:
-      self._status = constants.RESULT_NO_UPSTREAM
+      self._status = constants.RESULT_REBASE_RESULT_NO_UPSTREAM
 
   def verify(self, old_revision, force_new_mod_path=None,
              android_source_list=None):
@@ -130,7 +131,7 @@ class _ModState(object):
       self._status = constants.RESULT_NO_CLEAN_MERGE
       return
 
-    git.add_to_staging(self._new_mod_path)
+    git.add_to_staging(self._new_mod_path, cwd=self._arc_git_root)
     self._status = constants.RESULT_OK
 
 
@@ -148,6 +149,11 @@ def get_arc_android_mod(mod_path, submodules=None):
   uses_mod_track = android_path != staging.get_default_tracking_path(mod_path)
 
   return _ModState(mod_path, android_path, android_module_path, uses_mod_track)
+
+
+def get_arc_internal_mod(mod_path, src_path, module_path):
+  return _ModState(mod_path, src_path, module_path, uses_mod_track=False,
+                   arc_git_root='internal')
 
 
 def get_all_arc_android_mods(submodules=None):
