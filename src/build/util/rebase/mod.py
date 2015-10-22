@@ -38,11 +38,8 @@ class _ModState(object):
   def status(self):
     return self._status
 
-  def validate(self):
-    if not internal.validate_android_mod(self._mod_path, self._android_path):
-      self._status = constants.RESULT_MOD_INCORRECT_FOR_OLD_VERSION
-      return False
-    return True
+  def is_rebased(self):
+    return internal.validate_android_mod(self._mod_path, self._android_path)
 
   def _find_new_mod_path(self, force_new_mod_path, android_sources):
     if force_new_mod_path:
