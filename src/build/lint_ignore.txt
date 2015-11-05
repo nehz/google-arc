@@ -40,9 +40,6 @@
   "src/common/chromium_build_config.h": ["cpplint"],
   "src/common/trace_event_internal.h": ["cpplint"],
 
-  # These files should be fixed:
-  "src/ndk_translation/trampolines.cc": ["cpplint"],
-
   # That file contains large intrinsics table with it's own style.
   "src/ndk_translation/backend/x86_64/intrinsics.cc": ["cpplint"],
 
