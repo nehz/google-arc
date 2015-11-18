@@ -1840,10 +1840,14 @@ class RegenDependencyComputer(object):
     self._output = None
 
   def _compute(self):
+    src_dirs = ['src', 'mods']
+    if OPTIONS.internal_apks_source_is_internal():
+      src_dirs += ['internal/mods', 'internal/release']
+
     # Any change to one of these files requires rerunning
     # configure.
     self._input = build_common.find_all_files(
-        ['src', 'mods'], filenames='config.py',
+        src_dirs, filenames='config.py',
         use_staging=False, include_tests=True)
 
     self._input += get_configuration_dependencies()
