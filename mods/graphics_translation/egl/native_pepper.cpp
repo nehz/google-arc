@@ -100,6 +100,8 @@ int GetDeviceAttribute(DeviceAttrib attrib) {
   arc::RendererInterface::RenderParams params;
   renderer->GetRenderParams(&params);
 
+  const int64_t kNanosecondsPerSecond = 1000000000ll;
+
   switch (attrib) {
     case kDeviceWidth:
       return params.width;
@@ -108,7 +110,7 @@ int GetDeviceAttribute(DeviceAttrib attrib) {
     case kDeviceDpi:
       return params.display_density;
     case kDeviceFps:
-      return params.vsync_period;
+      return kNanosecondsPerSecond / params.vsync_period;
   }
   LOG_ALWAYS_FATAL("Unknown attrib: %d", attrib);
   return 0;
