@@ -1034,6 +1034,10 @@ ssize_t VirtualFileSystem::readlink(const std::string& pathname, char* buf,
   uid_t dummy = 0;
   FileSystemHandler* handler = mount_points_->GetFileSystemHandler(normalized,
                                                                    &dummy);
+  if (!handler) {
+    errno = ENOENT;
+    return -1;
+  }
   // TODO(crbug.com/335418): The resolved path is always an absolute
   // path. That means symlinks of relative paths are not handled correctly.
   std::string resolved;
