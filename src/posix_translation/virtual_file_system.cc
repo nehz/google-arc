@@ -2233,6 +2233,7 @@ void* VirtualFileSystem::PreopenThreadMain(void* arg) {
 
 void VirtualFileSystem::PerformPreopens() {
   base::AutoLock lock(mutex_);
+  ARC_STRACE_ENTER("PerformPreopens", "");
   TRACE_EVENT0(ARC_TRACE_CATEGORY, "VirtualFileSystem::PerformPreopens");
   for (const std::string& resolved : scheduled_preopens_) {
     PreopenedFdMultimap::iterator it = preopened_fds_.lower_bound(resolved);
@@ -2248,6 +2249,7 @@ void VirtualFileSystem::PerformPreopens() {
       Broadcast();
     }
   }
+  ARC_STRACE_RETURN_VOID();
 }
 
 void VirtualFileSystem::ClosePreopenedFilesWithResolvedPathLocked(
